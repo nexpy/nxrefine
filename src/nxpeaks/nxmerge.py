@@ -132,14 +132,14 @@ def epoch(iso_time):
     return time.mktime(d.timetuple()) + (d.microsecond / 1e6)
 
 
-def initialize_nexus_file(directory, prefix, filenames, omega, step):
+def initialize_nexus_file(directory, prefix, filenames, z_start, step):
     z_size = get_index(filenames[-1]) - get_index(filenames[0]) + 1
     v0 = read_image(filenames[0])
     x = NXfield(range(v0.shape[1]), dtype=np.uint16, name='x_pixel')
     y = NXfield(range(v0.shape[0]), dtype=np.uint16, name='y_pixel')
     if z_size > 1:
-        z = omega+step*np.arange(z_size)
-        z = NXfield(z, dtype=np.float32, name='rotation_angle', units='degree')
+        z = z_start+step*np.arange(z_size)
+        z = NXfield(z, dtype=np.float32, name='z')
         v = NXfield(name='v',shape=(z_size, v0.shape[0], v0.shape[1]),
                     dtype=np.float32, maxshape=(5000, v0.shape[0], v0.shape[1]))
         data = NXdata(v, (z,y,x))
@@ -224,12 +224,12 @@ def natural_sort(key):
 
 def main():
     help_text = ("nxmerge -d <directory> -e <extension> -p <prefix> -b <background>"+
-                 "-c <command> -o <omega> -s <step> -r -f <first> -l <last>")
+                 "-z <z-axis> -s <step> -r -f <first> -l <last>")
     try:
-        opts, args = getopt.getopt(sys.argv[1:],"hd:e:p:b:c:o:s:rf:l:",
+        opts, args = getopt.getopt(sys.argv[1:],"hd:e:p:b:z:s:rf:l:",
                         ["directory=", "ext=", "prefix=", 
                          "background=", "command=",
-                         "omega=", "step=", "reversed", "first=", "last="])
+                         "zaxis=", "step=", "reversed", "first=", "last="])
     except getopt.GetoptError:
         print help_text
         sys.exit(2)
@@ -255,8 +255,8 @@ def main():
             background = arg
         elif opt in ('-c', '--command'):
             command = arg
-        elif opt in ('-o', '--omega'):
-            omega = np.float(arg)
+        elif opt in ('-z', '--zaxis'):
+            z = np.float(arg)
         elif opt in ('-s', '--step'):
             step = np.float(arg)
         elif opt in ('-r', '--reversed'):
@@ -276,7 +276,7 @@ def main():
     for prefix in prefixes:
         tic = timeit.default_timer()
         data_files = get_files(directory, prefix, extension, reverse, first, last)
-        root = initialize_nexus_file(directory, prefix, data_files, omega, step)       
+        root = initialize_nexus_file(directory, prefix, data_files, z, step)       
         if prefix == background:
             write_data(root, data_files)
             bkgd_root = root
