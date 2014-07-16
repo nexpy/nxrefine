@@ -45,7 +45,8 @@ def get_prefixes(directory):
     return list(set(prefixes))
 
 
-def get_files(directory, prefix, extension, reverse=False, first=None, last=None):
+def get_files(directory, prefix, extension, first=None, last=None,
+              reverse=False):
     if not extension.startswith('.'):
         extension = '.'+extension
     filenames = sorted(glob.glob(os.path.join(directory, prefix+'*'+extension)), 
@@ -59,7 +60,8 @@ def get_files(directory, prefix, extension, reverse=False, first=None, last=None
         max_index = last
     else:
         max_index = get_index(filenames[-1])
-    return [filename for filename in filenames if min_index <= get_index(filename) <= max_index]
+    return [filename for filename in filenames if 
+                min_index <= get_index(filename) <= max_index]
 
 
 def get_index(filename):
@@ -74,7 +76,8 @@ def read_image(filename):
         cbf.select_category(0)
         cbf.select_column(2)
         imsize = cbf.get_image_size(0)
-        return np.fromstring(cbf.get_integerarray_as_string(), np.int32).reshape(imsize)
+        return np.fromstring(cbf.get_integerarray_as_string(), 
+                             np.int32).reshape(imsize)
     else:
         return TIFF.imread(filename)
 
@@ -87,16 +90,12 @@ def read_images(filenames, shape):
         v = np.empty([len(filenames), v0.shape[0], v0.shape[1]], dtype=np.float32)
     else:
         v = np.empty([len(filenames), shape[0], shape[1]], dtype=np.float32)
+    v.fill(np.nan)
     i = 0
     for filename in filenames:
         if filename:
             v[i] = read_image(filename)
-        else:
-            v[i] = np.nan
         i += 1
-    global maximum
-    if v.max() > maximum:
-        maximum = v.max()
     return v
 
 
@@ -132,14 +131,14 @@ def epoch(iso_time):
     return time.mktime(d.timetuple()) + (d.microsecond / 1e6)
 
 
-def initialize_nexus_file(directory, prefix, filenames, z_start, step):
+def initialize_nexus_file(directory, prefix, output, filenames, z_start, step):
     z_size = get_index(filenames[-1]) - get_index(filenames[0]) + 1
     v0 = read_image(filenames[0])
     x = NXfield(range(v0.shape[1]), dtype=np.uint16, name='x_pixel')
     y = NXfield(range(v0.shape[0]), dtype=np.uint16, name='y_pixel')
     if z_size > 1:
-        z = z_start+step*np.arange(z_size)
-        z = NXfield(z, dtype=np.float32, name='z')
+        z = z_start + step * np.arange(z_size)
+        z = NXfield(z, dtype=np.uint16, name='z_pixel', maxshape=(5000,))
         v = NXfield(name='v',shape=(z_size, v0.shape[0], v0.shape[1]),
                     dtype=np.float32, maxshape=(5000, v0.shape[0], v0.shape[1]))
         data = NXdata(v, (z,y,x))
@@ -150,7 +149,10 @@ def initialize_nexus_file(directory, prefix, filenames, z_start, step):
     root.entry.instrument.detector.frame_start = \
         NXfield(shape=(z_size,), maxshape=(5000,), units='s',
                 dtype=np.float64)
-    root.save(os.path.join(directory, prefix+'.nxs'), 'w')
+    if output is None:
+        root.save(os.path.join(directory, prefix)+'.nxs', 'w')
+    else:
+        root.save(os.path.join(directory, output), 'w')
     return root
 
 
@@ -174,7 +176,7 @@ def write_data(root, filenames, bkgd_root=None):
         chunk_size = root.nxfile['/entry/data/v'].chunks[0]
         min_index = get_index(filenames[0])
         max_index = get_index(filenames[-1])
-        k = min_index
+        k = 0
         for i in range(min_index, min_index+z_size, chunk_size):
             try:
                 files = []
@@ -188,11 +190,11 @@ def write_data(root, filenames, bkgd_root=None):
                         except Exception as error:
                             print filenames[k], error
                         k += 1
-                    elif k <= max_index:
+                    elif k < len(filenames):
                         files.append(None)
                     else:
                         break
-                root.entry.data.v[i:i+chunk_size,:,:] = (
+                root.entry.data.v[i-min_index:i+chunk_size-min_index,:,:] = (
                     read_images(files, image_shape) - bkgd)
             except IndexError:
                 pass
@@ -223,48 +225,54 @@ def natural_sort(key):
 
 
 def main():
-    help_text = ("nxmerge -d <directory> -e <extension> -p <prefix> -b <background>"+
-                 "-z <z-axis> -s <step> -r -f <first> -l <last>")
+    help_text = ("nxmerge -d <directory> -p <prefix> -e <extension> "+
+                 "-o <output> -b <background> -f <first> -l <last>"+
+                 "-z <zstart> -s <step> -r")
     try:
-        opts, args = getopt.getopt(sys.argv[1:],"hd:e:p:b:z:s:rf:l:",
-                        ["directory=", "ext=", "prefix=", 
-                         "background=", "command=",
-                         "zaxis=", "step=", "reversed", "first=", "last="])
+        opts, args = getopt.getopt(sys.argv[1:],"hd:p:e:o:b:f:l:z:s:r",
+                        ["directory=", "prefix=", "extension=", "output=",
+                         "background=", "first=", "last=",
+                         "zstart=", "step=", "reversed"])
     except getopt.GetoptError:
         print help_text
         sys.exit(2)
     directory = './'
     extension = 'tif'
     prefix = None
+    output = None
     background = None
-    omega = 0.0
-    step = 0.1
-    reverse = False
     first = last = None
+    zstart = 0
+    step = 1
+    reverse = False
     for opt, arg in opts:
         if opt == '-h':
             print help_text
             sys.exit()
         elif opt in ('-d', '--directory'):
             directory = arg
-        elif opt in ('-e', '--extension'):
-            extension = arg
         elif opt in ('-p', '--prefix'):
             prefix = arg
+        elif opt in ('-e', '--extension'):
+            extension = arg
+            if not extension.startswith('.'):
+                extension = '.' + extension
+        elif opt in ('-o', '--output'):
+            output = arg
+            if os.path.splitext(output)[1] == '':
+                output = output + '.nxs'
         elif opt in ('-b', '--background'):
             background = arg
-        elif opt in ('-c', '--command'):
-            command = arg
-        elif opt in ('-z', '--zaxis'):
-            z = np.float(arg)
-        elif opt in ('-s', '--step'):
-            step = np.float(arg)
-        elif opt in ('-r', '--reversed'):
-            reverse = True
         elif opt in ('-f', '--first'):
             first = np.int(arg)
         elif opt in ('-l', '--last'):
             last = np.int(arg)
+        elif opt in ('-z', '--zstart'):
+            zstart = np.float(arg)
+        elif opt in ('-s', '--step'):
+            step = np.float(arg)
+        elif opt in ('-r', '--reversed'):
+            reverse = True
     if prefix:
         prefixes = [prefix]
     else:
@@ -275,8 +283,10 @@ def main():
         bkgd_root = nxload(os.path.join(directory, background+'.nxs'))
     for prefix in prefixes:
         tic = timeit.default_timer()
-        data_files = get_files(directory, prefix, extension, reverse, first, last)
-        root = initialize_nexus_file(directory, prefix, data_files, z, step)       
+        data_files = get_files(directory, prefix, extension, first, last,
+                               reverse)
+        root = initialize_nexus_file(directory, prefix, output, data_files, 
+                                     zstart, step)       
         if prefix == background:
             write_data(root, data_files)
             bkgd_root = root
