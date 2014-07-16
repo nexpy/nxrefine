@@ -9,7 +9,7 @@ def refine_peaks(filtered_peaks, parameter_file, output_prefix):
     mytransformer.loadfileparameters(parameter_file)
     mytransformer.compute_tth_eta( )
     mytransformer.addcellpeaks( )
-    mytransformer.fit( 3.0 , 8.0 )
+    mytransformer.fit( 0.5, 4.0 )
     mytransformer.saveparameters(output_prefix+'.pars')
     mytransformer.computegv( )
     mytransformer.savegv(output_prefix+'.gve')
