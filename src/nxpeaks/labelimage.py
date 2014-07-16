@@ -160,6 +160,42 @@ class labelimage:
             # What to do?
             self.res = None
 
+    def mergelast(self):
+        """
+        Merge the last two images searches
+        """
+        if self.lastnp == "FIRST":
+            # No previous image available, this was the first
+            # Swap the blob images
+            self.lastbl, self.blim = self.blim, self.lastbl
+            self.lastnp = self.npk
+            self.lastres = self.res
+            return            
+        if self.npk > 0 and self.lastnp > 0:
+            # Thanks to Stine West for finding a bug here
+            # 
+            self.npk = connectedpixels.bloboverlaps(self.lastbl,
+                                                    self.lastnp,
+                                                    self.lastres,
+                                                    self.blim,
+                                                    self.npk,
+                                                    self.res,
+                                                    self.verbose)
+        if self.lastnp > 0:
+            # Fill out the moments of the "closed" peaks
+            # print "calling blobmoments with",self.lastres
+            ret = connectedpixels.blob_moments(self.lastres[:self.lastnp])
+            # Write them to file
+            self.outputpeaks(self.lastres[:self.lastnp])
+        # lastres is now moved forward into res
+        self.lastnp = self.npk   # This is array dim
+        if self.npk > 0:
+            self.lastres = self.res[:self.npk]  # free old lastres I hope
+        else:
+            self.lastres = None
+        # Also swap the blob images
+        self.lastbl, self.blim = self.blim, self.lastbl
+
     def output2dpeaks(self, file_obj):
         """
         Write something compatible with the old ImageD11 format
@@ -180,3 +216,49 @@ class labelimage:
                                  i[s_cen], i[f_cen],
                                  i[m_ss], i[m_ff], i[m_sf], i[mx_I]))
         file_obj.write("\n")
+
+    def outputpeaks(self, peaks):
+        """
+        Peaks are in Numeric arrays nowadays
+        """
+        for i in peaks:
+            if i[s_1] < 0.1:
+                # Merged with another
+                continue
+
+            # Spline correction
+            i[s_cen], i[f_cen] = self.corrector.correct(i[s_raw], i[f_raw])
+            i[dety], i[detz] = self.fs2yz(i[f_raw], i[s_raw])
+            self.outfile.write(self.format % (
+                    i[s_cen], i[f_cen], i[o_raw], 
+                    i[s_1], i[avg_i],
+                    i[s_raw], i[f_raw],
+                    i[m_ss], i[m_ff], i[m_sf],
+                    i[m_oo], i[m_so], i[m_fo],
+                    i[s_I],i[s_I2],  
+                    i[mx_I],i[mx_I_s],i[mx_I_f],i[mx_I_o], 
+                    i[bb_mn_s],i[bb_mx_s],i[bb_mn_f],i[bb_mx_f],
+                    i[bb_mn_o],i[bb_mx_o],
+                    i[dety], i[detz],
+                    self.onfirst, self.onlast, self.spot3d_id ))
+            self.spot3d_id += 1
+        if self.onfirst > 0:
+            self.onfirst = 0
+            
+            
+            
+            
+    def finalise(self):
+        """
+        Write out the last frame
+        """
+        self.onlast = 1
+        if self.lastres is not None:
+            ret = connectedpixels.blob_moments(self.lastres)
+            self.outputpeaks(self.lastres)
+        #if hasattr(self.sptfile, "close"):
+        #    self.sptfile.close()
+        #     wonder what that does to stdout  
+
+
+
