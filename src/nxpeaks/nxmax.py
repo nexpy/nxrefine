@@ -11,33 +11,35 @@ import os, getopt, sys, timeit
 import numpy as np
 from nexpy.api.nexus import *
 
-def write_maximum(root):
+def find_maximum(node):
     maximum = 0.0
-    if len(root.entry.data.v.shape) == 2:
-        v = root.entry.data.v[:,:]
-        maximum = v.max()
+    if len(node.shape) == 2:
+        maximum = node[:,:].max()
     else:
-        chunk_size = root.nxfile['/entry/data/v'].chunks[0]
-        for i in range(0, root.entry.data.v.shape[0], chunk_size):
+        chunk_size = node.nxfile[node.nxpath].chunks[0]
+        for i in range(0, node.shape[0], chunk_size):
             try:
                 print 'Processing', i
-                v = root.entry.data.v[i:i+chunk_size,:,:]
+                v = node[i:i+chunk_size,:,:]
             except IndexError as error:
                 pass
             if maximum < v.max():
                 maximum = v.max()
-    root.entry.data.v.maximum = maximum
-    print 'Maximum counts are ', maximum
+    return maximum
+
+def save_maximum(node, maximum):
+    node.maximum = maximum
 
 def main():
-    help = "nxmax -d <directory> -f <filename>"
+    help = "nxmax -d <directory> -f <filename> -p <path>"
     try:
-        opts, args = getopt.getopt(sys.argv[1:],"hd:f:",["directory=","filename="])
+        opts, args = getopt.getopt(sys.argv[1:],"hd:f:p:",["directory=","filename=","path="])
     except getopt.GetoptError:
         print help
         sys.exit(2)
     directory = './'
     filename = None
+    path = '/entry/data/v'
     for opt, arg in opts:
         if opt == '-h':
             print help
@@ -46,12 +48,16 @@ def main():
             filename = arg
         elif opt in ('-d', '--directory'):
             directory = arg
+        elif opt in ('-p', '--path'):
+            path = arg
     if filename is None:
         print help
         sys.exit(2)
     tic=timeit.default_timer()
     root = nxload(os.path.join(directory, filename), 'rw')
-    write_maximum(root)
+    maximum = find_maximum(root[path])
+    print 'Maximum counts are ', maximum
+    save_maximum(root[path], maximum)
     toc=timeit.default_timer()
     print toc-tic, 'seconds for', filename
 
