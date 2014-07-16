@@ -104,6 +104,8 @@ def findpeaks(options, args):
             threshold = int(nexus_file.entry.data.v.maximum / 20)
         else:
             raise ValueError("No threshold supplied [-t 1234]")
+    else:
+        threshold = np.float32(options.threshold)
 
     print "Avoiding spatial correction"
     corrfunc = blobcorrector.perfect()
