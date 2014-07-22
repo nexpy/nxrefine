@@ -66,8 +66,9 @@ class NXRefine(object):
         self.x = None
         self.y = None
         self.z = None
-        self.polar_angles = None
-        self.azimuthal_angles = None
+        self.polar_angle = None
+        self.azimuthal_angle = None
+        self.rotation_angle = None
         self.polar_max = None
         self.UBmat = None
         self._unitcell = None
@@ -115,6 +116,8 @@ class NXRefine(object):
         self.azimuthal_angle = self.read_parameter('entry/sample/peaks/azimuthal_angle')
         self.pixel_size = self.read_parameter('entry/instrument/detector/pixel_size')
         self.polar_angle = self.read_parameter('entry/sample/peaks/polar_angle')
+        self.rotation_angle = self.read_parameter('entry/sample/peaks/rotation_angle')
+        self.UBmat = np.matrix(self.read_parameter('entry/sample/orientation_matrix'))
         if isinstance(self.polar_angle, np.ndarray):
             self.polar_max = self.polar_angle.max()
 
@@ -151,6 +154,10 @@ class NXRefine(object):
         self.write_parameter('entry/sample/unit_cell_group', self.symmetry)
         self.write_parameter('entry/sample/lattice_centring', self.centring)
         self.write_parameter('entry/instrument/detector/pixel_size', self.pixel_size)
+        self.write_parameter('entry/sample/orientation_matrix', np.array(self.UBmat))
+        if self.omega_start is not None and self.omega_step is not None:
+            if isinstance(self.z, np.ndarray):
+                self.rotation_angle = self.z * self.omega_step + self.omega_start
 
     def write_angles(self, polar_angles, azimuthal_angles):
         if 'sample' not in self.root.entry.entries:
@@ -223,14 +230,12 @@ class NXRefine(object):
 
     @property
     def unitcell(self):
-        if self._unitcell is not None and \
-           np.allclose(self._unitcell.lattice_parameters,
-                       np.array(self.lattice_parameters)):
-           return self._unitcell
-        cell = unitcell(self.lattice_parameters, self.centring)
-        cell.makerings(self.ds_max)
-        self._unitcell = cell
-        return cell
+        if self._unitcell is None or \
+           not np.allclose(self._unitcell.lattice_parameters,
+                           np.array(self.lattice_parameters)):
+           self._unitcell = unitcell(self.lattice_parameters, self.centring)
+        self._unitcell.makerings(self.ds_max)
+        return self._unitcell
 
     @property
     def rings(self):
@@ -412,7 +417,7 @@ class NXRefine(object):
         ring2 = np.abs(self.polar_angle[j] - self.rings).argmin()
         g2 = np.array(self.Gvec(self.xp[j], self.yp[j], self.zp[j]).T)[0]
         self.unitcell.orient(ring1, g1, ring2, g2, verbose=1)
-        return np.matrix(self.unitcell.UB), np.matrix(self.unitcell.UBI)
+        return np.matrix(self.unitcell.UB)
 
     def get_hkl(self, x, y, z):
         omega = self.omega_start + self.omega_step * z
@@ -421,6 +426,12 @@ class NXRefine(object):
             v6 = np.linalg.inv(self.Umat) * v5
             v7 = np.linalg.inv(self.Bmat) * v6
             return list(np.array(v7.T)[0])
+
+    def get_hkls(self):
+        dss = sorted([ringds for ringds in self.unitcell.ringds 
+                      if ringds < self.ds_max])
+        hkls=[self.unitcell.ringhkls[ds][0] for ds in dss]
+        return [(abs(hkl[0]),abs(hkl[1]),abs(hkl[2])) for hkl in hkls]
 
     def find_ring(self, h, k, l):
         hkl_list = self.unitcell.gethkls(self.ds_max)
