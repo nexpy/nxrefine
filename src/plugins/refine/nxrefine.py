@@ -69,6 +69,7 @@ class NXRefine(object):
         self.polar_angle = None
         self.azimuthal_angle = None
         self.rotation_angle = None
+        self.intensity = None
         self.polar_max = None
         self.UBmat = None
         self._unitcell = None
@@ -114,6 +115,7 @@ class NXRefine(object):
         self.zp = self.read_parameter('entry/sample/peaks/z')
         self.polar_angle = self.read_parameter('entry/sample/peaks/polar_angle')
         self.azimuthal_angle = self.read_parameter('entry/sample/peaks/azimuthal_angle')
+        self.intensity = self.read_parameter('entry/sample/peaks/intensity')
         self.pixel_size = self.read_parameter('entry/instrument/detector/pixel_size')
         self.polar_angle = self.read_parameter('entry/sample/peaks/polar_angle')
         self.rotation_angle = self.read_parameter('entry/sample/peaks/rotation_angle')
@@ -443,7 +445,7 @@ class NXRefine(object):
         more = list(np.where(self.polar_angle<self.rings[ring]+self.polar_tol)[0])
         return [idx for idx in less if idx in more]
 
-    def hkli(self, i):
+    def hkl(self, i):
         return self.get_hkl(self.xp[i], self.yp[i], self.zp[i])
 
     def Gvs(self, polar_max=None):

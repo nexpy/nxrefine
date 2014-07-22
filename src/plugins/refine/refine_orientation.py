@@ -133,8 +133,6 @@ class OrientationDialog(BaseDialog):
     def set_omega(self):
         self.refine.omega_start, self.refine.omega_step = self.get_omega() 
 
-        return np.float32(self.polar_box.text())
-
     def get_polar_max(self):
         return np.float32(self.polar_box.text())
 
@@ -150,25 +148,27 @@ class OrientationDialog(BaseDialog):
 
     def list_orientations(self):
         message_box = BaseDialog(self)
-        message_box.setMinimumWidth(600)
+        message_box.setMinimumWidth(800)
         text_box = QtGui.QTextEdit()
         text_box.setTabStopWidth(40)
         lines = []
         for i in self.refine.idx:
            x, y, z = self.refine.xp[i], self.refine.yp[i], self.refine.zp[i]
-           h, k, l = self.refine.hkli(i)
-           lines.append('Peak %s:\tx, y, z =\t%s\t%s\t%s\t\th,k,l =\t%s\t%s\t%s' % 
+           h, k, l = self.refine.hkl(i)
+           intensity = self.refine.intensity[i]
+           lines.append('Peak %s:\tx, y, z =\t%s\t%s\t%s\t\th,k,l =\t%s\t%s\t%s\t\tIntensity =\t%s' % 
                          (i, 
                          np.int32(np.round(x,0)), 
                          np.int32(np.round(y,0)),
                          np.int32(np.round(z,0)),
                          np.round(h,2), 
                          np.round(k,2), 
-                         np.round(l,2)))
+                         np.round(l,2),
+                         np.round(intensity,0)))
         text_box.setText('\n'.join(lines))
         layout = QtGui.QVBoxLayout()
         layout.addWidget(text_box)
-        layout.addWidget(self.buttonbox()) 
+        layout.addWidget(message_box.buttonbox()) 
         message_box.setLayout(layout)
         message_box.show()
 
