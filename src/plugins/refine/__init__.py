@@ -1,5 +1,5 @@
 from PySide import QtGui
-import find_maximum, find_peaks, calculate_angles, define_lattice
+import find_maximum, find_peaks, calculate_angles, define_lattice, refine_lattice
 
 def plugin_menu(parent):
     menu = QtGui.QMenu('Refine')

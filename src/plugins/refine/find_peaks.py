@@ -10,22 +10,10 @@ import nxpeaks.peakmerge as peakmerge
 def show_dialog(parent=None):
     try:
         dialog = FindDialog(parent)
-        dialog.exec_()
+        dialog.show()
     except NeXusError as error:
         report_error("Finding Peaks", error)
 
-def get_new_name(entry):
-    ind = []
-    for key in entry.entries:
-        try:
-            if key.startswith('peaks_'): 
-                ind.append(int(key[6:]))
-        except ValueError:
-            pass
-    if ind == []: 
-        ind = [0]
-    return 'peaks_'+str(sorted(ind)[-1]+1)
-        
 
 class FindDialog(BaseDialog):
 
@@ -105,7 +93,6 @@ class FindDialog(BaseDialog):
                                 omega = np.float32(i+j)
                                 lio.peaksearch(v[j], self.threshold, omega)
                                 if lio.res is not None:
-                                    connectedpixels.blob_moments(lio.res)
                                     lio.mergelast()
                                     for i in range(lio.res.shape[0]):
                                         peak = lio.res[i]

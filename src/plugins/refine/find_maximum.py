@@ -8,7 +8,7 @@ from nexpy.api.nexus import NeXusError, NXfield
 def show_dialog(parent=None):
     try:
         dialog = MaximumDialog(parent)
-        dialog.exec_()
+        dialog.show()
     except NeXusError as error:
         report_error("Finding Maximum", error)
         
