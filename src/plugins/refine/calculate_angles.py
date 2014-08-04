@@ -2,8 +2,6 @@ from PySide import QtGui
 import numpy as np
 from nexpy.gui.datadialogs import BaseDialog
 from nexpy.gui.mainwindow import report_error
-from nexpy.api.nexus import NeXusError, NXfield, NXdata
-from nexpy.api.nexus import NXdetector, NXinstrument, NXmonochromator
 from nxrefine import NXRefine
 
 

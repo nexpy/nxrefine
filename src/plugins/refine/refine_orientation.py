@@ -2,10 +2,7 @@ from PySide import QtGui
 import numpy as np
 from nexpy.gui.datadialogs import BaseDialog
 from nexpy.gui.mainwindow import report_error
-from nexpy.gui.plotview import plotview
-from nexpy.api.nexus import NeXusError, NXfield
-from nexpy.api.nexus import NXdetector, NXinstrument, NXsample
-from nxpeaks.unitcell import unitcell, radians, degrees
+from nexpy.api.nexus import NeXusError
 from nxrefine import NXRefine
 
 
@@ -148,7 +145,7 @@ class OrientationDialog(BaseDialog):
 
     def list_orientations(self):
         message_box = BaseDialog(self)
-        message_box.setMinimumWidth(800)
+        message_box.setMinimumWidth(700)
         text_box = QtGui.QTextEdit()
         text_box.setTabStopWidth(40)
         lines = []
@@ -156,7 +153,7 @@ class OrientationDialog(BaseDialog):
            x, y, z = self.refine.xp[i], self.refine.yp[i], self.refine.zp[i]
            h, k, l = self.refine.hkl(i)
            intensity = self.refine.intensity[i]
-           lines.append('Peak %s:\tx, y, z =\t%s\t%s\t%s\t\th,k,l =\t%s\t%s\t%s\t\tIntensity =\t%s' % 
+           lines.append('Peak %s:\tx, y, z =\t%s\t%s\t%s\th,k,l =\t%s\t%s\t%s\tIntensity =\t%s' %
                          (i, 
                          np.int32(np.round(x,0)), 
                          np.int32(np.round(y,0)),

@@ -2,8 +2,8 @@ import numpy as np
 from scipy.optimize import minimize
 from nexpy.gui.mainwindow import report_error
 from nexpy.gui.plotview import plotview
-from nexpy.api.nexus import NeXusError, NXfield
-from nexpy.api.nexus import NXdata, NXdetector, NXinstrument, NXsample
+from nexpy.api.nexus import NeXusError, NXfield, NXroot, NXentry, NXdata
+from nexpy.api.nexus import NXdetector, NXinstrument, NXmonochromator, NXsample
 from nxpeaks.unitcell import unitcell
 from nxpeaks import closest
 
@@ -54,6 +54,10 @@ class NXRefine(object):
         self.yaw = yaw
         self.pitch = pitch
         self.roll = roll
+        self.gonpitch = 0.0
+        self.twotheta = 0.0
+        self.phi = 0.0
+        self.chi = 0.0
         self.xc = xc
         self.yc = yc
         self.symmetry = symmetry
@@ -74,6 +78,10 @@ class NXRefine(object):
         self.UBmat = None
         self._unitcell = None
         self.polar_tol = 0.005
+        self.data_path = 'entry/data/v'
+        self.data_file = None
+        self.data_shape = None
+        self.output_chunks = None
         
         self.symmetries = ['cubic', 'tetragonal', 'orthorhombic', 'hexagonal', 
                            'monoclinic', 'triclinic']
@@ -126,7 +134,10 @@ class NXRefine(object):
     def write_parameter(self, path, value):
         if value is not None:
             if isinstance(value, basestring):
-                del self.root[path]
+                try:
+                    del self.root[path]
+                except NeXusError:
+                    pass
             self.root[path] = value
 
     def write_parameters(self, root=None):
@@ -161,6 +172,52 @@ class NXRefine(object):
             if isinstance(self.z, np.ndarray):
                 self.rotation_angle = self.z * self.omega_step + self.omega_start
 
+    def write_settings(self, settings_file, root=None):
+        lines = []
+        lines.append('parameters.pixelSize = %s;' % self.pixel_size)
+        lines.append('parameters.wavelength = %s;'% self.wavelength)
+        lines.append('parameters.distance = %s;' % self.distance)
+        lines.append('parameters.unitCell = %s;' % list(self.lattice_settings))
+        lines.append('parameters.ubMat = %s;' % str(self.UBmat.tolist()))
+        lines.append('parameters.oMat = %s;' % str(self.Omat.tolist()))
+        lines.append('parameters.oVec = [0,0,0];')
+        lines.append('parameters.det0x = %s;' % self.xc)
+        lines.append('parameters.det0y = %s;' % self.yc)
+        lines.append('parameters.xTrans = [0,0,0];')
+        lines.append('parameters.orientErrorDetPitch = %s;' % self.pitch)
+        lines.append('parameters.orientErrorDetRoll = %s;' % self.roll)
+        lines.append('parameters.orientErrorDetYaw = %s;' % self.yaw)
+        lines.append('parameters.orientErrorGonPitch = %s;' % self.gonpitch)
+        lines.append('parameters.twoThetaCorrection = 0;')
+        lines.append('parameters.twoThetaNom = %s;' % self.twotheta)
+        lines.append('parameters.omegaCorrection = 0;')
+        lines.append('parameters.omegaStep = %s;' % self.omega_step)
+        lines.append('parameters.chiCorrection = 0;')
+        lines.append('parameters.chiNom = %s;' % self.chi)
+        lines.append('parameters.phiCorrection = 0;')
+        lines.append('parameters.phiNom = %s;' % self.phi)
+        lines.append('parameters.gridOrigin = %s;' % self.grid_origin)
+        lines.append('parameters.gridBasis = %s;' % [[0,0,1],[0,1,0],[1,0,0]])
+        lines.append('parameters.gridDim = %s;' % self.grid_step)
+        lines.append('parameters.gridOffset =  [0,0,0];')
+        lines.append('parameters.extraFlip =  false;')
+        lines.append('inputData.dataFileName =  "%s";' % self.data_file)
+        lines.append('inputData.dataSetName = "/%s";' % self.data_path)
+        lines.append('inputData.chunkSize =  [32,32,32];')
+        lines.append('outputData.dataFileName =  "%s";' % self.output_file)
+        lines.append('outputData.dataSetName = "/%s";' % self.data_path)
+        lines.append('outputData.dimensions = %s;' % list(self.grid_shape))
+        lines.append('outputData.chunkSize =  [32,32,32];')
+        lines.append('outputData.compression = %s;' % 0)
+        lines.append('outputData.hdfChunkSize = %s;' % list(self.output_chunks))
+        lines.append('transformer.transformOptions =  0;')
+        lines.append('transformer.oversampleX = 1;')
+        lines.append('transformer.oversampleY =  1;')
+        lines.append('transformer.oversampleZ =  4;')
+        f = open(settings_file, 'w')
+        f.write('\n'.join(lines))
+        f.close()
+
     def write_angles(self, polar_angles, azimuthal_angles):
         if 'sample' not in self.root.entry.entries:
             self.root.entry.sample = NXsample()
@@ -174,6 +231,49 @@ class NXRefine(object):
         self.write_parameter('entry/sample/peaks/azimuthal_angle', azimuthal_angles)
         self.root.entry.sample.peaks.nxsignal = self.root.entry.sample.peaks.azimuthal_angle
         self.root.entry.sample.peaks.nxaxes = self.root.entry.sample.peaks.polar_angle
+
+    def initialize_grid(self):
+        self.h_stop = np.round(self.ds_max * self.a)
+        h_range = np.round(2*self.h_stop)
+        self.h_start = -self.h_stop
+        self.h_step = np.round(h_range/1000, 2)
+        self.k_stop = np.round(self.ds_max * self.b)
+        k_range = np.round(2*self.k_stop)
+        self.k_start = -self.k_stop
+        self.k_step = np.round(k_range/1000, 2)
+        self.l_stop = np.round(self.ds_max * self.c)
+        l_range = np.round(2*self.l_stop)
+        self.l_start = -self.l_stop
+        self.l_step = np.round(l_range/1000, 2)
+        self.define_grid()
+
+    def define_grid(self):
+        self.h_shape = np.int32(np.round((self.h_stop - self.h_start) / 
+                                          self.h_step, 2)) + 1
+        self.k_shape = np.int32(np.round((self.k_stop - self.k_start) / 
+                                          self.k_step, 2)) + 1
+        self.l_shape = np.int32(np.round((self.l_stop - self.l_start) / 
+                                          self.l_step, 2)) + 1
+        self.grid_origin = [self.l_start, self.k_start, self.h_start]
+        self.grid_step = [np.int32(1.0/self.l_step)+1,    
+                          np.int32(1.0/self.k_step)+1,
+                          np.int32(1.0/self.h_step)+1]
+        self.grid_shape = [self.l_shape, self.k_shape, self.h_shape]
+
+    def initialize_output(self, output_file):
+        self.output_file = output_file
+        root = NXroot(NXentry(NXdata()))
+        root.entry.data.h = np.linspace(self.h_start, self.h_stop, self.h_shape) 
+        root.entry.data.k = np.linspace(self.k_start, self.k_stop, self.k_shape) 
+        root.entry.data.l = np.linspace(self.l_start, self.l_stop, self.l_shape) 
+        root.entry.data.v = NXfield(shape=self.grid_shape, dtype=np.float32)
+        root.entry.data.v[0,0,0] = 0.0
+        self.output_chunks = root.entry.data.v._memfile['data'].chunks
+        root.entry.data.nxsignal = root.entry.data.v
+        root.entry.data.nxaxes = [root.entry.data.l, 
+                                  root.entry.data.k,
+                                  root.entry.data.h]
+        root.save(self.output_file)       
 
     def set_symmetry(self):
         if self.symmetry == 'cubic':
@@ -213,6 +313,11 @@ class NXRefine(object):
     @property
     def lattice_parameters(self):
         return self.a, self.b, self.c, self.alpha, self.beta, self.gamma
+
+    @property
+    def lattice_settings(self):
+        return (self.a, self.b, self.c, 
+                self.alpha*radians, self.beta*radians, self.gamma*radians)
 
     @property
     def tilts(self):
@@ -283,24 +388,19 @@ class NXRefine(object):
         It also transforms detector coords into lab coords.
         Operation order:    yaw -> pitch -> roll -> twotheta -> gonpitch
         """
-        twotheta = 0.0
-        gonpitch = 0.0
         return np.linalg.inv(rotmat(3, self.yaw) *
                              rotmat(2, self.pitch) *
                              rotmat(1, self.roll) *
-                             rotmat(3,twotheta) *
-                             rotmat(2,gonpitch))
+                             rotmat(3, self.twotheta) *
+                             rotmat(2, self.gonpitch))
 
     def Gmat(self, omega):
         """Define the matrix that physically orients the goniometer head into place
     
         Its inverse transforms lab coords into head coords.
         """
-        phi = 0.0
-        chi = 0.0
-        gonpitch = 0.0
-        return (rotmat(3, phi) * rotmat(1, chi) * rotmat(3, omega) * 
-                rotmat(2,gonpitch))
+        return (rotmat(3, self.phi) * rotmat(1, self.chi) * rotmat(3, omega) * 
+                rotmat(2,self.gonpitch))
 
     @property
     def Cvec(self):
@@ -308,10 +408,8 @@ class NXRefine(object):
 
     def Dvec(self, omega):
         Svec = vec(0.0)
-        gonpitch = 0.0
-        twotheta = 0.0
         return (self.Gmat(omega) * Svec - 
-            (rotmat(2,gonpitch) * rotmat(3,twotheta) * vec(self.distance)))
+            (rotmat(2,self.gonpitch) * rotmat(3,self.twotheta) * vec(self.distance)))
 
     @property
     def Evec(self):
@@ -445,6 +543,9 @@ class NXRefine(object):
         more = list(np.where(self.polar_angle<self.rings[ring]+self.polar_tol)[0])
         return [idx for idx in less if idx in more]
 
+    def xyz(self, i):
+        return self.xp[i], self.yp[i], self.zp[i]
+
     def hkl(self, i):
         return self.get_hkl(self.xp[i], self.yp[i], self.zp[i])
 
@@ -456,20 +557,24 @@ class NXRefine(object):
         result.shape = (len(self.idx),3)
         return result
 
-    def score(self, polar_max=None, tol=0.05):
+    def score(self, polar_max=None, tol=0.1):
         if polar_max is not None:
             self.polar_max = polar_max
         cell = self.unitcell
         npks = []
         npk_max = 0
+        i_max = 0
+        j_max = 0
+        UBmat_max = None
         for i in self.idx:
             for j in self.idx:
                 if i != j:
-                    UBmat, UBimat = self.orient(i, j)
-                    npk = closest.score(np.array(UBimat), self.Gvs(), tol)
+                    UBmat = self.orient(i, j)
+                    npk = closest.score(np.array(np.linalg.inv(UBmat)), self.Gvs(), tol)
                     if npk > npk_max:
                         npk_max = npk
-                        self.UBmat = UBmat
-                        self.UBimat = UBimat
+                        i_max = i
+                        j_max = j
+                        UBmat_max = UBmat
                     npks.append(npk)
-        self.npks = npks
+        return npk, i_max, j_max

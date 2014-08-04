@@ -3,9 +3,7 @@ import numpy as np
 from nexpy.gui.datadialogs import BaseDialog
 from nexpy.gui.mainwindow import report_error
 from nexpy.gui.plotview import plotview
-from nexpy.api.nexus import NeXusError, NXfield
-from nexpy.api.nexus import NXdetector, NXinstrument, NXsample
-from nxpeaks.unitcell import unitcell, radians, degrees
+from nexpy.api.nexus import NeXusError
 from nxrefine import NXRefine
 
 

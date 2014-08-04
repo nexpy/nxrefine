@@ -22,8 +22,8 @@ class FindDialog(BaseDialog):
         self.node = self.get_node()
         if self.node.nxfilemode == 'r':
             raise NeXusError('NeXus file opened as readonly')
-        elif not isinstance(self.node, NXfield):
-            raise NeXusError('Node must be an NXfield')
+        self.root = self.node.nxroot
+        self.node = self.root['entry/data/v']
         self.layout = QtGui.QVBoxLayout()
         threshold_layout = QtGui.QHBoxLayout()
         threshold_label = QtGui.QLabel('Threshold:')
@@ -93,15 +93,17 @@ class FindDialog(BaseDialog):
                                 omega = np.float32(i+j)
                                 lio.peaksearch(v[j], self.threshold, omega)
                                 if lio.res is not None:
+                                    connectedpixels.blob_moments(lio.res)
                                     lio.mergelast()
-                                    for i in range(lio.res.shape[0]):
-                                        peak = lio.res[i]
+                                    for k in range(lio.res.shape[0]):
+                                        peak = lio.res[k]
                                         allpeaks.append(NXpeak(peak[0], peak[22], 
                                             peak[23], peak[24], omega, 
                                             peak[27], peak[26], peak[29], 
                                             self.threshold))
                 except IndexError as error:
                     pass
+            self.progress_bar.setVisible(False)
         
         if not allpeaks:
             self.reject()
@@ -115,28 +117,26 @@ class FindDialog(BaseDialog):
         try:
             root = self.node.nxroot
             if 'peaks' in root.entry.sample.entries:
-                peaks = get_new_name(root.entry.sample)
-            else:
-                peaks = 'peaks'
-            root.entry.sample[peaks] = NXdata()
+                del root.entry.sample['peaks']
+            root.entry.sample.peaks = NXdata()
             shape = (len(self.peaks),)
-            root.entry.sample[peaks].npixels = NXfield(
+            root.entry.sample.peaks.npixels = NXfield(
                 [peak.np for peak in self.peaks], dtype=np.float32)
-            root.entry.sample[peaks].intensity = NXfield(
+            root.entry.sample.peaks.intensity = NXfield(
                 [peak.avg for peak in self.peaks], dtype=np.float32)
-            root.entry.sample[peaks].x = NXfield(
+            root.entry.sample.peaks.x = NXfield(
                 [peak.x for peak in self.peaks], dtype=np.float32)
-            root.entry.sample[peaks].x = NXfield(
+            root.entry.sample.peaks.x = NXfield(
                 [peak.x for peak in self.peaks], dtype=np.float32)
-            root.entry.sample[peaks].y = NXfield(
+            root.entry.sample.peaks.y = NXfield(
                 [peak.y for peak in self.peaks], dtype=np.float32)
-            root.entry.sample[peaks].z = NXfield(
+            root.entry.sample.peaks.z = NXfield(
                 [peak.omega for peak in self.peaks], dtype=np.float32)
-            root.entry.sample[peaks].sigx = NXfield(
+            root.entry.sample.peaks.sigx = NXfield(
                 [peak.sigx for peak in self.peaks], dtype=np.float32)
-            root.entry.sample[peaks].sigy = NXfield(
+            root.entry.sample.peaks.sigy = NXfield(
                 [peak.sigy for peak in self.peaks], dtype=np.float32)
-            root.entry.sample[peaks].covxy = NXfield(
+            root.entry.sample.peaks.covxy = NXfield(
                 [peak.covxy for peak in self.peaks], dtype=np.float32)
             super(FindDialog, self).accept()
         except NeXusError as error:

@@ -1,5 +1,6 @@
 from PySide import QtGui
-import find_maximum, find_peaks, calculate_angles, define_lattice, refine_lattice
+import find_maximum, find_peaks, calculate_angles
+import define_lattice, refine_lattice, refine_orientation, transform_data
 
 def plugin_menu(parent):
     menu = QtGui.QMenu('Refine')
@@ -13,4 +14,8 @@ def plugin_menu(parent):
                    triggered=define_lattice.show_dialog))
     menu.addAction(QtGui.QAction('Refine Lattice', parent, 
                    triggered=refine_lattice.show_dialog))
+    menu.addAction(QtGui.QAction('Refine Orientation', parent, 
+                   triggered=refine_orientation.show_dialog))
+    menu.addAction(QtGui.QAction('Transform Data', parent, 
+                   triggered=transform_data.show_dialog))
     return menu

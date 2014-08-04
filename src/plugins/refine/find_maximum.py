@@ -18,6 +18,7 @@ class MaximumDialog(BaseDialog):
     def __init__(self, parent=None):
         super(MaximumDialog, self).__init__(parent)
         self.node = self.get_node()
+        self.root = self.node.nxroot
         if self.node.nxfilemode == 'r':
             raise NeXusError('NeXus file opened as readonly')
         elif not isinstance(self.node, NXfield):
@@ -38,6 +39,12 @@ class MaximumDialog(BaseDialog):
 
     def find_maximum(self):
         maximum = 0.0
+        try:
+            mask = self.root['entry/instrument/detector/pixel_mask'].nxdata
+            if len(mask.shape) > 2:
+                mask = mask[0]
+        except Exception:
+            mask = None
         if len(self.node.shape) == 2:
             maximum = self.node[:,:].max()
         else:
@@ -47,11 +54,15 @@ class MaximumDialog(BaseDialog):
                 try:
                     self.progress_bar.setValue(i)
                     self.update_progress()
-                    v = self.node[i:i+chunk_size,:,:]
+                    v = self.node[i:i+chunk_size,:,:].nxdata
                 except IndexError as error:
                     pass
+                if mask is not None:
+                    v = np.ma.masked_array(v)
+                    v.mask = mask
                 if maximum < v.max():
                     maximum = v.max()
+        self.progress_bar.setVisible(False)
         return maximum
 
     def accept(self):
