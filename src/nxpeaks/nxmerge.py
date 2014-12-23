@@ -51,6 +51,9 @@ def get_files(directory, prefix, extension, first=None, last=None,
         extension = '.'+extension
     filenames = sorted(glob.glob(os.path.join(directory, prefix+'*'+extension)), 
                        key=natural_sort, reverse=reverse)
+    if len(filenames) == 0:
+        print "No filenames matched!"
+        exit(0)
     max_index = get_index(filenames[-1])
     if first:
         min_index = first
