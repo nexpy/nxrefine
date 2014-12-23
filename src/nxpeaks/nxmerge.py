@@ -20,8 +20,8 @@ from datetime import datetime
 import numpy as np
 import pycbf
 
-from nexpy.readers.tifffile import tifffile as TIFF
-from nexpy.api.nexus import *
+from nxpeaks import tifffile as TIFF
+from nexusformat.nexus import *
 
 
 prefix_pattern = re.compile('^([^.]+)(?:(?<!\d)|(?=_))')
@@ -131,6 +131,13 @@ def epoch(iso_time):
     return time.mktime(d.timetuple()) + (d.microsecond / 1e6)
 
 
+def get_background(filename):
+    scan_time, exposure, summed_exposures = read_metadata(filename)
+    frame_time = summed_exposures * exposure
+    bkgd = read_image(filename).astype(np.float32)
+    return bkgd, frame_time
+
+
 def initialize_nexus_file(directory, prefix, output, filenames, z_start, step):
     z_size = get_index(filenames[-1]) - get_index(filenames[0]) + 1
     v0 = read_image(filenames[0])
@@ -138,7 +145,7 @@ def initialize_nexus_file(directory, prefix, output, filenames, z_start, step):
     y = NXfield(range(v0.shape[0]), dtype=np.uint16, name='y_pixel')
     if z_size > 1:
         z = z_start + step * np.arange(z_size)
-        z = NXfield(z, dtype=np.uint16, name='z_pixel', maxshape=(5000,))
+        z = NXfield(z, dtype=np.uint16, name='frame_number', maxshape=(5000,))
         v = NXfield(name='v',shape=(z_size, v0.shape[0], v0.shape[1]),
                     dtype=np.float32, maxshape=(5000, v0.shape[0], v0.shape[1]))
         data = NXdata(v, (z,y,x))
@@ -148,24 +155,24 @@ def initialize_nexus_file(directory, prefix, output, filenames, z_start, step):
     root = NXroot(NXentry(data, NXsample(), NXinstrument(NXdetector())))
     root.entry.instrument.detector.frame_start = \
         NXfield(shape=(z_size,), maxshape=(5000,), units='s',
-                dtype=np.float64)
+                dtype=np.float32)
     if output is None:
-        root.save(os.path.join(directory, prefix)+'.nxs', 'w')
+        root.save(prefix+'.nxs', 'w')
     else:
-        root.save(os.path.join(directory, output), 'w')
+        root.save(output, 'w')
     return root
 
 
-def write_data(root, filenames, bkgd_root=None):
+def write_data(root, filenames, bkgd_file=None):
     scan_time, exposure, summed_exposures = read_metadata(filenames[0])
     root.entry.start_time = isotime(scan_time)
     root.entry.instrument.detector.frame_time = summed_exposures * exposure
-    if bkgd_root:
-        with bkgd_root.nxfile as f:
-            f.copy('/entry',root.nxfile['/'], name='background')
-        frame_ratio = (bkgd_root.entry.instrument.detector.frame_time /
+    if bkgd_file:
+        bkgd_data, bkgd_frame_time = get_background(bkgd_file)
+        frame_ratio = (bkgd_frame_time /
                        root.entry.instrument.detector.frame_time)
-        bkgd = bkgd_root.entry.data.v.nxdata.astype(np.float64) / frame_ratio
+        bkgd = bkgd_data / frame_ratio
+        root.entry.instrument.detector.flatfield = bkgd
     else:
         bkgd = 0.0
     if len(root.entry.data.v.shape) == 2:
@@ -226,7 +233,7 @@ def natural_sort(key):
 
 def main():
     help_text = ("nxmerge -d <directory> -p <prefix> -e <extension> "+
-                 "-o <output> -b <background> -f <first> -l <last>"+
+                 "-o <output> -b <background> -f <first> -l <last> "+
                  "-z <zstart> -s <step> -r")
     try:
         opts, args = getopt.getopt(sys.argv[1:],"hd:p:e:o:b:f:l:z:s:r",
@@ -279,8 +286,6 @@ def main():
         prefixes = get_prefixes(directory)
     if background in prefixes:
         prefixes.insert(0,prefixes.pop(prefixes.index(background)))
-    elif background:
-        bkgd_root = nxload(os.path.join(directory, background+'.nxs'))
     for prefix in prefixes:
         tic = timeit.default_timer()
         data_files = get_files(directory, prefix, extension, first, last,
@@ -291,7 +296,7 @@ def main():
             write_data(root, data_files)
             bkgd_root = root
         elif background:
-            write_data(root, data_files, bkgd_root)
+            write_data(root, data_files, background)
         else:
             write_data(root, data_files)
         write_metadata(root, directory, prefix)
