@@ -36,8 +36,8 @@ setup (name = nxpeaks.__package_name__,        # nxpeaks
                     Extension("nxpeaks.closest", 
                         ['src/nxpeaks/closest.c'], 
                         include_dirs=[numpy.get_include()]),
-                    Extension(name='nxpeaks._tifffile', 
-                     sources=['src/nxpeaks/tifffile.c'], 
+                    Extension('nxpeaks._tifffile', 
+                        ['src/nxpeaks/tifffile.c'], 
                         include_dirs=[numpy.get_include()])],
        entry_points={
             # create & install scripts in <python>/bin
