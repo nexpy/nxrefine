@@ -27,8 +27,6 @@ from nexusformat.nexus import *
 prefix_pattern = re.compile('^([^.]+)(?:(?<!\d)|(?=_))')
 index_pattern = re.compile('^(.*?)([0-9]*)[.](.*)$')
 
-maximum = 0.0
-
 
 def natural_sort(key):
     import re
@@ -141,7 +139,7 @@ def get_background(filename):
     return bkgd, frame_time
 
 
-def initialize_nexus_file(directory, prefix, output, filenames, z_start, step):
+def initialize_nexus_file(directory, output, filenames, z_start, step):
     z_size = get_index(filenames[-1]) - get_index(filenames[0]) + 1
     v0 = read_image(filenames[0])
     x = NXfield(range(v0.shape[1]), dtype=np.uint16, name='x_pixel')
@@ -159,10 +157,7 @@ def initialize_nexus_file(directory, prefix, output, filenames, z_start, step):
     root.entry.instrument.detector.frame_start = \
         NXfield(shape=(z_size,), maxshape=(5000,), units='s',
                 dtype=np.float32)
-    if output is None:
-        root.save(prefix+'.nxs', 'w')
-    else:
-        root.save(output, 'w')
+    root.save(output, 'w')
     return root
 
 
@@ -208,8 +203,6 @@ def write_data(root, filenames, bkgd_file=None):
                     read_images(files, image_shape) - bkgd)
             except IndexError:
                 pass
-    global maximum
-    root.entry.data.v.maximum = maximum
 
 def write_metadata(root, directory, prefix):
     if 'dark' in prefix:
@@ -285,16 +278,18 @@ def main():
             reverse = True
     if prefix:
         prefixes = [prefix]
+        if output is None:
+            output = prefix + '.nxs' 
     else:
         prefixes = get_prefixes(directory)
+        if len(prefixes) > 1 and output is not None:
+            raise getopt.GetoptError("Only one prefix allowed if the output file is specified")
     if background in prefixes:
-        prefixes.insert(0,prefixes.pop(prefixes.index(background)))
+        prefixes.insert(0, prefixes.pop(prefixes.index(background)))
     for prefix in prefixes:
         tic = timeit.default_timer()
-        data_files = get_files(directory, prefix, extension, first, last,
-                               reverse)
-        root = initialize_nexus_file(directory, prefix, output, data_files, 
-                                     zstart, step)       
+        data_files = get_files(directory, prefix, extension, first, last, reverse)
+        root = initialize_nexus_file(directory, output, data_files, zstart, step)       
         if prefix == background:
             write_data(root, data_files)
             bkgd_root = root
