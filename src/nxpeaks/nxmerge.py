@@ -135,8 +135,8 @@ def epoch(iso_time):
 def get_background(filename):
     scan_time, exposure, summed_exposures = read_metadata(filename)
     frame_time = summed_exposures * exposure
-    bkgd = read_image(filename).astype(np.float32)
-    return bkgd, frame_time
+    data = read_image(filename).astype(np.float32)
+    return data, frame_time
 
 
 def initialize_nexus_file(directory, output, filenames, z_start, step):
@@ -161,18 +161,19 @@ def initialize_nexus_file(directory, output, filenames, z_start, step):
     return root
 
 
-def write_data(root, filenames, bkgd_file=None):
+def write_data(root, filenames, background_file=None):
     scan_time, exposure, summed_exposures = read_metadata(filenames[0])
     root.entry.start_time = isotime(scan_time)
     root.entry.instrument.detector.frame_time = summed_exposures * exposure
-    if bkgd_file:
-        bkgd_data, bkgd_frame_time = get_background(bkgd_file)
-        frame_ratio = (bkgd_frame_time /
+    if background_file:
+        background_data, background_frame_time = get_background(background_file)
+        frame_ratio = (background_frame_time /
                        root.entry.instrument.detector.frame_time)
-        bkgd = bkgd_data / frame_ratio
-        root.entry.instrument.detector.flatfield = bkgd
+        background = background_data / frame_ratio
+        root.entry.instrument.detector.flatfield = background
+        root.entry.instrument.detector.flatfield_applied = True
     else:
-        bkgd = 0.0
+        background = 0.0
     if len(root.entry.data.v.shape) == 2:
         root.entry.data.v[:,:] = read_image(filenames[0])
     else:
@@ -200,7 +201,7 @@ def write_data(root, filenames, bkgd_file=None):
                     else:
                         break
                 root.entry.data.v[i-min_index:i+chunk_size-min_index,:,:] = (
-                    read_images(files, image_shape) - bkgd)
+                    read_images(files, image_shape) - background)
             except IndexError:
                 pass
 
@@ -239,7 +240,7 @@ def main():
     except getopt.GetoptError:
         print help_text
         sys.exit(2)
-    directory = './'
+    directory = os.getcwd()
     extension = 'tif'
     prefix = None
     output = None
@@ -276,6 +277,10 @@ def main():
             step = np.float(arg)
         elif opt in ('-r', '--reversed'):
             reverse = True
+    if background:
+        background_file = glob.glob(background+'*'+extension)
+    else:
+        background_file = None
     if prefix:
         prefixes = [prefix]
         if output is None:
@@ -284,19 +289,11 @@ def main():
         prefixes = get_prefixes(directory)
         if len(prefixes) > 1 and output is not None:
             raise getopt.GetoptError("Only one prefix allowed if the output file is specified")
-    if background in prefixes:
-        prefixes.insert(0, prefixes.pop(prefixes.index(background)))
     for prefix in prefixes:
         tic = timeit.default_timer()
         data_files = get_files(directory, prefix, extension, first, last, reverse)
         root = initialize_nexus_file(directory, output, data_files, zstart, step)       
-        if prefix == background:
-            write_data(root, data_files)
-            bkgd_root = root
-        elif background:
-            write_data(root, data_files, background)
-        else:
-            write_data(root, data_files)
+        write_data(root, data_files, background_file)
         write_metadata(root, directory, prefix)
         toc = timeit.default_timer()
         print toc-tic, 'seconds for', '%s.nxs' % prefix
