@@ -34,7 +34,7 @@ def main():
     directory = './'
     filename = None
     entry = None
-    mask = 'pilatus_mask.nxs'
+    maskfile = 'pilatus_mask.nxs'
     path = 'entry/mask'
     for opt, arg in opts:
         if opt == '-h':
