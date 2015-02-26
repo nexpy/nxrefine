@@ -15,11 +15,11 @@ def apply_mask(root, entry, mask):
     if entry is None:
         entries = root.NXentry
     else:
-        entries = [entry]
+        entries = [root[entry]]
     for entry in entries:
-        if 'instrument/detector' in root[entry]:
-            root[entry]['instrument/detector/pixel_mask'] = mask
-            root[entry]['instrument/detector/pixel_mask_applied'] = False
+        if 'instrument/detector' in entry:
+            entry['instrument/detector/pixel_mask'] = mask
+            entry['instrument/detector/pixel_mask_applied'] = False
             print 'Mask applied to %s' % entry
 
 def main():
