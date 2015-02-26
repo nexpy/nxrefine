@@ -18,9 +18,7 @@ from ConfigParser import ConfigParser
 from datetime import datetime
 
 import numpy as np
-import pycbf
 
-from nxpeaks import tifffile as TIFF
 from nexusformat.nexus import *
 
 
@@ -47,7 +45,7 @@ def get_files(directory, prefix, extension, first=None, last=None,
               reverse=False):
     if not extension.startswith('.'):
         extension = '.'+extension
-    filenames = sorted(glob.glob(os.path.join(directory, prefix+'*'+extension)), 
+    filenames = sorted(glob.glob(os.path.join(directory, prefix+'*'+extension)),
                        key=natural_sort, reverse=reverse)
     if len(filenames) == 0:
         print "No filenames matched!"
@@ -71,6 +69,10 @@ def get_index(filename):
 
 def read_image(filename):
     if os.path.splitext(filename)[1] == '.cbf':
+        try:
+            import pycbf
+        except ImportError:
+            raise NeXusError('Reading CBF files requires the pycbf module')
         cbf = pycbf.cbf_handle_struct()
         cbf.read_file(filename, pycbf.MSG_DIGEST)
         cbf.select_datablock(0)
@@ -80,7 +82,16 @@ def read_image(filename):
         return np.fromstring(cbf.get_integerarray_as_string(), 
                              np.int32).reshape(imsize)
     else:
-        return TIFF.imread(filename)
+        try:
+            from nexpy.readers.tifffile import tifffile as TIFF
+        except ImportError:
+            raise NeXusError('Reading TIFF files requires the TIFF reader installed with NeXpy')
+        if filename.endswith('.bz2'):
+            import bz2
+            tiff_file = TIFF.TiffFile(bz2.BZ2File(filename))
+        else:
+            tiff_file = TIFF.TiffFile(filename)
+        return tiff_file.asarray()
 
 
 def read_images(filenames, shape):
@@ -101,9 +112,17 @@ def read_images(filenames, shape):
 
 
 def read_metadata(filename):
-    if os.path.splitext(filename)[1] == '.cbf':
+    if filename.endswith('bz2'):
+        fname = os.path.splitext(filename)[0]
+    else:
+        fname = filename
+    if os.path.splitext(fname)[1] == '.cbf':
+        try:
+            import pycbf
+        except ImportError:
+            raise NeXusError('Reading CBF files requires the pycbf module')
         cbf = pycbf.cbf_handle_struct()
-        cbf.read_file(filename, pycbf.MSG_DIGEST)
+        cbf.read_file(fname, pycbf.MSG_DIGEST)
         cbf.select_datablock(0)
         cbf.select_category(0)
         cbf.select_column(1)
@@ -113,9 +132,9 @@ def read_metadata(filename):
         exposure = float(meta_text[5].split()[2])
         summed_exposures = 1
         return time_stamp, exposure, summed_exposures
-    elif os.path.exists(filename+'.metadata'):
+    elif os.path.exists(fname+'.metadata'):
         parser = ConfigParser()
-        parser.read(filename+'.metadata')
+        parser.read(fname+'.metadata')
         return (parser.getfloat('metadata', 'timeStamp'),
                 parser.getfloat('metadata', 'exposureTime'),
                 parser.getint('metadata', 'summedExposures'))
@@ -139,7 +158,7 @@ def get_background(filename):
     return data, frame_time
 
 
-def initialize_nexus_file(directory, output, filenames, z_start, step):
+def initialize_nexus_file(directory, output_file, filenames, z_start, step):
     z_size = get_index(filenames[-1]) - get_index(filenames[0]) + 1
     v0 = read_image(filenames[0])
     x = NXfield(range(v0.shape[1]), dtype=np.uint16, name='x_pixel')
@@ -157,7 +176,7 @@ def initialize_nexus_file(directory, output, filenames, z_start, step):
     root.entry.instrument.detector.frame_start = \
         NXfield(shape=(z_size,), maxshape=(5000,), units='s',
                 dtype=np.float32)
-    root.save(output, 'w')
+    root.save(output_file, 'w')
     return root
 
 
@@ -278,13 +297,15 @@ def main():
         elif opt in ('-r', '--reversed'):
             reverse = True
     if background:
-        background_file = glob.glob(background+'*'+extension)
+        try:
+            background_file = glob.glob(background+'*'+extension)[-1]
+        except IndexError:
+            if extension.endswith('bz2'):
+                background_file = glob.glob(background+'*'+extension[:-4])[-1]
     else:
         background_file = None
     if prefix:
         prefixes = [prefix]
-        if output is None:
-            output = prefix + '.nxs' 
     else:
         prefixes = get_prefixes(directory)
         if len(prefixes) > 1 and output is not None:
@@ -292,7 +313,11 @@ def main():
     for prefix in prefixes:
         tic = timeit.default_timer()
         data_files = get_files(directory, prefix, extension, first, last, reverse)
-        root = initialize_nexus_file(directory, output, data_files, zstart, step)       
+        if output is None:
+            output_file = prefix + '.nxs'
+        else:
+            output_file = output
+        root = initialize_nexus_file(directory, output_file, data_files, zstart, step)
         write_data(root, data_files, background_file)
         write_metadata(root, directory, prefix)
         toc = timeit.default_timer()

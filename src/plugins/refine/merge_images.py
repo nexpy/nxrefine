@@ -14,9 +14,9 @@ import pycbf
 
 from nexpy.gui.importdialog import BaseImportDialog
 from nexpy.gui.mainwindow import report_error
-from nexpy.api.nexus import NeXusError
 from nexpy.readers.tifffile import tifffile as TIFF
-from nexpy.api.nexus import *
+from nexusformat.nexus import NeXusError
+from nexusformat.nexus import *
 from nxrefine import NXRefine
 
 

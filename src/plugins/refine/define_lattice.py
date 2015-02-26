@@ -3,7 +3,7 @@ import numpy as np
 from nexpy.gui.datadialogs import BaseDialog
 from nexpy.gui.mainwindow import report_error
 from nexpy.gui.plotview import plotview
-from nexpy.api.nexus import NeXusError
+from nexusformat.nexus import NeXusError
 from nxrefine import NXRefine
 
 

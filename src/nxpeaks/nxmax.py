@@ -9,7 +9,7 @@
 
 import os, getopt, sys, timeit
 import numpy as np
-from nexpy.api.nexus import *
+from nexusformat.nexus import *
 
 def find_maximum(node):
     maximum = 0.0
@@ -28,7 +28,7 @@ def find_maximum(node):
     return maximum
 
 def save_maximum(node, maximum):
-    node.maximum = maximum
+    node.nxgroup.attrs['maximum'] = maximum
 
 def main():
     help = "nxmax -d <directory> -f <filename> -p <path>"

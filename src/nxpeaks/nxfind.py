@@ -12,7 +12,7 @@ import sys, glob, os, time
 
 import numpy as np
 
-from nexpy.api.nexus import nxload
+from nexusformat.nexus import nxload
 
 from nxpeaks import blobcorrector
 from nxpeaks.labelimage import labelimage
