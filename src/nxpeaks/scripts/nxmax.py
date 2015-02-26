@@ -14,8 +14,8 @@ from nexusformat.nexus import *
 def find_maximum(node):
     maximum = 0.0
     try:
-        mask = node.nxentry['instrument/detector/pixel_mask']
-    if len(mask.shape) > 2:
+        mask = node.nxentry['instrument/detector/pixel_mask'].nxdata
+        if len(mask.shape) > 2:
             mask = mask[0]
     except Exception:
         mask = None
