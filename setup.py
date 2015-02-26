@@ -18,7 +18,7 @@ import nxpeaks
 
 verbose=1
 
-setup (name = nxpeaks.__package_name__,        # nxpeaks
+setup (name = nxpeaks.__package_name__, 
        version = nxpeaks.__version__,
        license = nxpeaks.__license__,
        description = nxpeaks.__description__,
@@ -41,10 +41,10 @@ setup (name = nxpeaks.__package_name__,        # nxpeaks
                         include_dirs=[numpy.get_include()])],
        entry_points={
             # create & install scripts in <python>/bin
-            'console_scripts': ['nxmerge=nxpeaks.nxmerge:main',
-                                'nxfind=nxpeaks.nxfind:main',
-                                'nxrefine=nxpeaks.nxrefine:main',
-                                'nxmax=nxpeaks.nxmax:main'],
+            'console_scripts': ['nxfind=nxpeaks.scripts.nxfind:main',
+                                'nxrefine=nxpeaks.scripts.nxrefine:main',
+                                'nxmax=nxpeaks.scripts.nxmax:main',
+                                'nxmask=nxpeaks.scripts.nxmask:main'],
        },
        classifiers= ['Development Status :: 4 - Beta',
                      'Intended Audience :: Science/Research',
