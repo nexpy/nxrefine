@@ -13,6 +13,12 @@ from nexusformat.nexus import *
 
 def find_maximum(node):
     maximum = 0.0
+    try:
+        mask = node.nxentry['instrument/detector/pixel_mask']
+    if len(mask.shape) > 2:
+            mask = mask[0]
+    except Exception:
+        mask = None
     if len(node.shape) == 2:
         maximum = node[:,:].max()
     else:
@@ -23,6 +29,9 @@ def find_maximum(node):
                 v = node[i:i+chunk_size,:,:]
             except IndexError as error:
                 pass
+            if mask is not None:
+                v = np.ma.masked_array(v)
+                v.mask = mask
             if maximum < v.max():
                 maximum = v.max()
     return maximum

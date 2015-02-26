@@ -46,6 +46,7 @@ def make_entry(scan_file):
     entry.instrument = root.entry.instrument
     if pixel_mask:
         entry.instrument.detector.pixel_mask = pixel_mask
+        entry.instrument.detector.pixel_mask_applied = False
     entry.data.x_pixel = root.entry.data.x_pixel
     entry.data.y_pixel = root.entry.data.y_pixel
     entry.data.frame_number = root.entry.data.frame_number
