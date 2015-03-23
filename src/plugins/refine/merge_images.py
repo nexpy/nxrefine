@@ -10,12 +10,10 @@ from ConfigParser import ConfigParser
 
 from PySide import QtCore, QtGui
 import numpy as np
-import pycbf
 
 from nexpy.gui.importdialog import BaseImportDialog
 from nexpy.gui.mainwindow import report_error
 from nexpy.readers.tifffile import tifffile as TIFF
-from nexusformat.nexus import NeXusError
 from nexusformat.nexus import *
 from nxrefine import NXRefine
 
@@ -71,6 +69,8 @@ class MergeDialog(BaseImportDialog):
 
         self.setLayout(self.layout)
   
+        self.suffix = ''
+
         self.setWindowTitle("Merge Images")
 
     def make_filter_box(self):
@@ -83,10 +83,15 @@ class MergeDialog(BaseImportDialog):
         extension_label = QtGui.QLabel('File Extension')
         self.extension_box = QtGui.QLineEdit()
         self.extension_box.editingFinished.connect(self.set_extension)
+        suffix_label = QtGui.QLabel('File Suffix')
+        self.suffix_box = QtGui.QLineEdit('')
+        self.suffix_box.editingFinished.connect(self.get_prefixes)
         layout.addWidget(prefix_label, 0, 0)
         layout.addWidget(self.prefix_box, 0, 1)
         layout.addWidget(extension_label, 0, 2)
         layout.addWidget(self.extension_box, 0, 3)
+        layout.addWidget(suffix_label, 0, 4)
+        layout.addWidget(self.suffix_box, 0, 5)
         self.prefix_combo = QtGui.QComboBox()
         self.prefix_combo.setSizeAdjustPolicy(QtGui.QComboBox.AdjustToContents)
         self.prefix_combo.activated.connect(self.choose_prefix)
@@ -99,6 +104,10 @@ class MergeDialog(BaseImportDialog):
         filter_box.setLayout(layout)
         filter_box.setVisible(False)
         return filter_box
+
+    @property
+    def suffix(self):
+        return self.suffix_box.text()
 
     def make_range_box(self):
         range_box = QtGui.QWidget()
@@ -238,7 +247,8 @@ class MergeDialog(BaseImportDialog):
             return 'TIFF'
 
     def get_index(self, file):
-        return int(re.match('^(.*?)([0-9]*)[.](.*)$',file).groups()[1])
+        return int(re.match('^(.*?)([0-9]*)%s[.](.*)$' % self.suffix, 
+                               file).groups()[1])
 
     def get_indices(self):
         try:

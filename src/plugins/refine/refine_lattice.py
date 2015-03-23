@@ -20,10 +20,11 @@ class RefineLatticeDialog(BaseDialog):
 
     def __init__(self, parent=None):
         super(RefineLatticeDialog, self).__init__(parent)
-        node = self.get_node()
-        self.root = node.nxroot
-        if self.root.nxfilemode == 'r':
-            raise NeXusError('NeXus file opened as readonly')
+        try:
+            node = self.get_node()
+            self.entry = node.nxentry
+        except:
+            raise NeXusError('Check node selection')
         layout = QtGui.QVBoxLayout()
         grid = QtGui.QGridLayout()
         grid.setSpacing(10)
@@ -44,6 +45,7 @@ class RefineLatticeDialog(BaseDialog):
         self.yc_box = QtGui.QLineEdit()
         self.polar_box = QtGui.QLineEdit()
         self.polar_box.editingFinished.connect(self.set_polar_max)
+        self.tolerance_box = QtGui.QLineEdit('0.1')
         self.unitcell_a_checkbox = QtGui.QCheckBox()
         self.unitcell_b_checkbox = QtGui.QCheckBox()
         self.unitcell_c_checkbox = QtGui.QCheckBox()
@@ -79,7 +81,8 @@ class RefineLatticeDialog(BaseDialog):
         grid.addWidget(QtGui.QLabel('Roll (deg):'), 11, 0)
         grid.addWidget(QtGui.QLabel('Beam Center - x:'), 12, 0)
         grid.addWidget(QtGui.QLabel('Beam Center - y:'), 13, 0)
-        grid.addWidget(QtGui.QLabel('Max. Polar Angle:'), 14, 0)
+        grid.addWidget(QtGui.QLabel('Max. Polar Angle (deg):'), 14, 0)
+        grid.addWidget(QtGui.QLabel('Polar Angle Tolerance:'), 15, 0)
         grid.addWidget(self.symmetry_box, 0, 1)
         grid.addWidget(self.unitcell_a_box, 1, 1)
         grid.addWidget(self.unitcell_b_box, 2, 1)
@@ -95,6 +98,7 @@ class RefineLatticeDialog(BaseDialog):
         grid.addWidget(self.xc_box, 12, 1)
         grid.addWidget(self.yc_box, 13, 1)
         grid.addWidget(self.polar_box, 14, 1)
+        grid.addWidget(self.tolerance_box, 15, 1)
         fit_label = QtGui.QLabel('Fit?')
         header_font = QtGui.QFont()
         header_font.setBold(True)
@@ -129,7 +133,7 @@ class RefineLatticeDialog(BaseDialog):
         self.setLayout(layout)
         self.setWindowTitle('Refining Lattice')
 
-        self.refine = NXRefine(self.root)
+        self.refine = NXRefine(self.entry)
         self.refine.read_parameters()
         self.update_parameters()
         for symmetry in self.refine.symmetries:
@@ -140,7 +144,10 @@ class RefineLatticeDialog(BaseDialog):
             self.symmetry_box.setCurrentIndex(self.symmetry_box.findText(self.guess_symmetry()))
         self.set_symmetry()
         self.symmetry_box.currentIndexChanged.connect(self.set_symmetry)
-        polar_min, polar_max = plotview.plot.xaxis.get_limits()
+        polar_min, polar_max = plotview.xaxis.get_limits()
+        if (polar_max < self.refine.polar_angle.min() or 
+            polar_max > 1.5*self.refine.polar_angle.max()):
+            polar_max = self.refine.polar_angle.max()
         self.polar_box.setText(str(polar_max))
         self.refine.set_polar_max(polar_max)
 
@@ -162,6 +169,16 @@ class RefineLatticeDialog(BaseDialog):
         self.update_parameter(self.roll_box, self.refine.roll)
         self.update_parameter(self.xc_box, self.refine.xc)
         self.update_parameter(self.yc_box, self.refine.yc)
+
+    def transfer_parameters(self):
+        self.refine.a, self.refine.b, self.refine.c, \
+            self.refine.alpha, self.refine.beta, self.refine.gamma = self.get_lattice_parameters()
+        self.refine.wavelength = self.get_wavelength()
+        self.refine.distance = self.get_distance()
+        self.refine.yaw, self.refine.pitch, self.refine.roll = self.get_tilts()
+        self.refine.xc, self.refine.yc = self.get_centers()
+        self.refine.polar_max = self.get_polar_max()
+        self.refine.polar_tol = self.get_tolerance()
 
     def get_symmetry(self):
         return self.symmetry_box.currentText()
@@ -227,6 +244,9 @@ class RefineLatticeDialog(BaseDialog):
     def set_polar_max(self):
         self.refine.set_polar_max(self.get_polar_max())
 
+    def get_tolerance(self):
+        return np.float32(self.tolerance_box.text())
+
     def initialize_fit(self):
         self.refine.parameters = []
         if self.unitcell_a_checkbox.isChecked():
@@ -257,6 +277,7 @@ class RefineLatticeDialog(BaseDialog):
             self.refine.parameters.append({'yc':self.refine.yc})
 
     def plot_peaks(self):
+        self.transfer_parameters()
         self.refine.polar_max = self.get_polar_max()
         self.refine.plot_peaks(self.refine.x, self.refine.y)
         self.refine.plot_rings()

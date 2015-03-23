@@ -1,9 +1,13 @@
 from PySide import QtGui
-import find_maximum, find_peaks, calculate_angles
+import merge_images, apply_mask, find_maximum, find_peaks, calculate_angles
 import define_lattice, refine_lattice, refine_orientation, transform_data
 
 def plugin_menu(parent):
     menu = QtGui.QMenu('Refine')
+    menu.addAction(QtGui.QAction('Merge Images', parent, 
+                   triggered=merge_images.show_dialog))
+    menu.addAction(QtGui.QAction('Apply Mask', parent, 
+                   triggered=apply_mask.show_dialog))
     menu.addAction(QtGui.QAction('Find Maximum', parent, 
                    triggered=find_maximum.show_dialog))
     menu.addAction(QtGui.QAction('Find Peaks', parent, 

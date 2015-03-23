@@ -20,8 +20,8 @@ class TransformDialog(BaseDialog):
     def __init__(self, parent=None):
         super(TransformDialog, self).__init__(parent)
         node = self.get_node()
-        self.root = node.nxroot
-        self.data = self.root['entry/data/v']
+        self.entry = node.nxentry
+        self.data = self.entry['data/v']
 
         layout = QtGui.QVBoxLayout()
         layout.addLayout(self.settings_box())
@@ -65,7 +65,7 @@ class TransformDialog(BaseDialog):
         self.setLayout(layout)
         self.setWindowTitle('Transforming Data')
 
-        self.refine = NXRefine(self.root)
+        self.refine = NXRefine(self.entry)
         self.refine.read_parameters()
         self.initialize_grid()
 
@@ -154,12 +154,12 @@ class TransformDialog(BaseDialog):
     def write_parameters(self):
         self.refine.settings_file = self.get_settings_file()
         self.refine.output_file = self.get_output_file()
-        self.refine.data_shape = self.root[self.refine.data_path].shape
+        self.refine.data_shape = self.entry[self.refine.data_path].shape
         self.refine.h_start, self.refine.h_step, self.refine.h_stop = self.get_h_grid()
         self.refine.k_start, self.refine.k_step, self.refine.k_stop = self.get_k_grid()
         self.refine.l_start, self.refine.l_step, self.refine.l_stop = self.get_l_grid()
         self.refine.define_grid()
-        self.refine.data_file = self.root.nxfilename
+        self.refine.data_file = self.entry.nxfilename
 
     def accept(self):
         try:

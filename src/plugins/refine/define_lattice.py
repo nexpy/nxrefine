@@ -20,9 +20,7 @@ class LatticeDialog(BaseDialog):
     def __init__(self, parent=None):
         super(LatticeDialog, self).__init__(parent)
         node = self.get_node()
-        self.root = node.nxroot
-        if self.root.nxfilemode == 'r':
-            raise NeXusError('NeXus file opened as readonly')
+        self.entry = node.nxentry
 
         layout = QtGui.QVBoxLayout()
         grid = QtGui.QGridLayout()
@@ -61,7 +59,7 @@ class LatticeDialog(BaseDialog):
         self.setLayout(layout)
         self.setWindowTitle('Defining Lattice')
 
-        self.refine = NXRefine(self.root)
+        self.refine = NXRefine(self.entry)
         self.refine.read_parameters()
         self.update_parameters()
 
@@ -101,7 +99,7 @@ class LatticeDialog(BaseDialog):
         try:
             self.get_parameters()
             self.refine.plot_peaks(self.refine.xp, self.refine.yp)
-            polar_min, polar_max = plotview.plot.xaxis.get_limits()
+            polar_min, polar_max = plotview.xaxis.get_limits()
             self.refine.plot_rings(polar_max)
         except NeXusError as error:
             report_error('Plotting Lattice', error)

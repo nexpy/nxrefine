@@ -1,5 +1,6 @@
 from PySide import QtGui
 import numpy as np
+from nexusformat.nexus import NeXusError
 from nexpy.gui.datadialogs import BaseDialog
 from nexpy.gui.mainwindow import report_error
 from nxrefine import NXRefine
@@ -18,9 +19,7 @@ class CalculateDialog(BaseDialog):
     def __init__(self, parent=None):
         super(CalculateDialog, self).__init__(parent)
         node = self.get_node()
-        self.root = node.nxroot
-        if self.root.nxfilemode == 'r':
-            raise NeXusError('NeXus file opened as readonly')
+        self.entry = node.nxentry
         layout = QtGui.QVBoxLayout()
         grid = QtGui.QGridLayout()
         grid.setSpacing(10)
@@ -52,7 +51,7 @@ class CalculateDialog(BaseDialog):
         self.setLayout(layout)
         self.setWindowTitle('Calculate Angles')
 
-        self.refine = NXRefine(self.root)
+        self.refine = NXRefine(self.entry)
         self.refine.read_parameters()
         self.update_parameters()
 

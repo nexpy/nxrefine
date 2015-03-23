@@ -547,6 +547,9 @@ class NXRefine(object):
     def plot_peaks(self, x, y):
         try:
             polar_angles, azimuthal_angles = self.calculate_angles(x, y)
+            if polar_angles[0] > polar_angles[-1]:
+                polar_angles = polar_angles[::-1]
+                azimuthal_angles = azimuthal_angles[::-1]
             azimuthal_field = NXfield(azimuthal_angles, name='azimuthal_angle')
             azimuthal_field.long_name = 'Azimuthal Angle'
             polar_field = NXfield(polar_angles, name='polar_angle')

@@ -27,7 +27,7 @@ class FindDialog(BaseDialog):
         except NeXusError:
             self.mask = None
         self.layout = QtGui.QVBoxLayout()
-        self.threshold_box = QtGui.QLineEdit('0.0')
+        self.threshold_box = QtGui.QLineEdit(str(self.entry['data'].attrs['maximum']/20.0))
         self.min_box = QtGui.QLineEdit('0')
         self.max_box = QtGui.QLineEdit(str(self.node.shape[0]))
         self.pixel_tolerance_box = QtGui.QLineEdit('10')
