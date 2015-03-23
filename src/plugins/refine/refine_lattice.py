@@ -5,7 +5,7 @@ from nexpy.gui.datadialogs import BaseDialog
 from nexpy.gui.mainwindow import report_error
 from nexpy.gui.plotview import plotview
 from nexusformat.nexus import NeXusError
-from nxrefine import NXRefine
+from nxpeaks.nxrefine import NXRefine
 
 
 def show_dialog(parent=None):

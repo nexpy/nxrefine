@@ -15,7 +15,6 @@ from nexpy.gui.importdialog import BaseImportDialog
 from nexpy.gui.mainwindow import report_error
 from nexpy.readers.tifffile import tifffile as TIFF
 from nexusformat.nexus import *
-from nxrefine import NXRefine
 
 
 prefix_pattern = re.compile('^([^.]+)(?:(?<!\d)|(?=_))')
