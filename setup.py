@@ -42,9 +42,9 @@ setup (name = nxpeaks.__package_name__,
        entry_points={
             # create & install scripts in <python>/bin
             'console_scripts': ['nxfind=nxpeaks.scripts.nxfind:main',
-                                'nxrefine=nxpeaks.scripts.nxrefine:main',
-                                'nxmax=nxpeaks.scripts.nxmax:main',
+                                'nxmake=nxpeaks.scripts.nxmake:main'],
                                 'nxmask=nxpeaks.scripts.nxmask:main'],
+                                'nxmax=nxpeaks.scripts.nxmax:main',
        },
        classifiers= ['Development Status :: 4 - Beta',
                      'Intended Audience :: Science/Research',
