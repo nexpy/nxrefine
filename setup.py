@@ -36,9 +36,6 @@ setup (name = nxpeaks.__package_name__,
                     Extension("nxpeaks.closest", 
                         ['src/nxpeaks/closest.c'], 
                         include_dirs=[numpy.get_include()]),
-                    Extension('nxpeaks._tifffile', 
-                        ['src/nxpeaks/tifffile.c'], 
-                        include_dirs=[numpy.get_include()])],
        entry_points={
             # create & install scripts in <python>/bin
             'console_scripts': ['nxfind=nxpeaks.scripts.nxfind:main',
