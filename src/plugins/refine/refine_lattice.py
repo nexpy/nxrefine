@@ -5,7 +5,7 @@ from nexpy.gui.datadialogs import BaseDialog
 from nexpy.gui.mainwindow import report_error
 from nexpy.gui.plotview import plotview
 from nexusformat.nexus import NeXusError
-from nxpeaks.nxrefine import NXRefine
+from nxpeaks.nxrefine import NXRefine, find_nearest
 
 
 def show_dialog(parent=None):
@@ -180,6 +180,15 @@ class RefineLatticeDialog(BaseDialog):
         self.refine.polar_max = self.get_polar_max()
         self.refine.polar_tol = self.get_tolerance()
 
+    def write_parameters(self):
+        try:
+            polar_angles, azimuthal_angles = self.refine.calculate_angles(
+                                                 self.refine.xp, self.refine.yp)
+            self.refine.write_angles(polar_angles, azimuthal_angles)
+            self.refine.write_parameters()
+        except NeXusError as error:
+            report_error('Refining Lattice', error)
+
     def get_symmetry(self):
         return self.symmetry_box.currentText()
 
@@ -247,35 +256,6 @@ class RefineLatticeDialog(BaseDialog):
     def get_tolerance(self):
         return np.float32(self.tolerance_box.text())
 
-    def initialize_fit(self):
-        self.refine.parameters = []
-        if self.unitcell_a_checkbox.isChecked():
-            self.refine.parameters.append({'a':self.refine.a})
-        if self.unitcell_b_checkbox.isChecked():
-            self.refine.parameters.append({'b':self.refine.b})
-        if self.unitcell_c_checkbox.isChecked():
-            self.refine.parameters.append({'c':self.refine.c})
-        if self.unitcell_alpha_checkbox.isChecked():
-            self.refine.parameters.append({'alpha':self.refine.alpha})
-        if self.unitcell_beta_checkbox.isChecked():
-            self.refine.parameters.append({'beta':self.refine.beta})
-        if self.unitcell_gamma_checkbox.isChecked():
-            self.refine.parameters.append({'gamma':self.refine.gamma})
-        if self.wavelength_checkbox.isChecked():
-            self.refine.parameters.append({'wavelength':self.refine.wavelength})
-        if self.distance_checkbox.isChecked():
-            self.refine.parameters.append({'distance':self.refine.distance})
-        if self.yaw_checkbox.isChecked():
-            self.refine.parameters.append({'yaw':self.refine.yaw})
-        if self.pitch_checkbox.isChecked():
-            self.refine.parameters.append({'pitch':self.refine.pitch})
-        if self.roll_checkbox.isChecked():
-            self.refine.parameters.append({'roll':self.refine.roll})
-        if self.xc_checkbox.isChecked():
-            self.refine.parameters.append({'xc':self.refine.xc})
-        if self.yc_checkbox.isChecked():
-            self.refine.parameters.append({'yc':self.refine.yc})
-
     def plot_peaks(self):
         self.transfer_parameters()
         self.refine.polar_max = self.get_polar_max()
@@ -284,14 +264,59 @@ class RefineLatticeDialog(BaseDialog):
 
     def refine_parameters(self):
         self.initialize_fit()
-        self.refine.refine_parameters()
+        p0 = np.array([p.values()[0] for p in self.parameters])
+        result = minimize(self.residuals, p0, method='nelder-mead',
+                              options={'xtol': 1e-6, 'disp': True})
+        self.get_parameters(result.x)
+        self.refine.set_symmetry()
         self.update_parameters()
 
-    def write_parameters(self):
-        try:
-            polar_angles, azimuthal_angles = self.refine.calculate_angles(
-                                                 self.refine.xp, self.refine.yp)
-            self.refine.write_angles(polar_angles, azimuthal_angles)
-            self.refine.write_parameters()
-        except NeXusError as error:
-            report_error('Refining Lattice', error)
+    def initialize_fit(self):
+        self.parameters = []
+        if self.unitcell_a_checkbox.isChecked():
+            self.parameters.append({'a':self.refine.a})
+        if self.unitcell_b_checkbox.isChecked():
+            self.parameters.append({'b':self.refine.b})
+        if self.unitcell_c_checkbox.isChecked():
+            self.parameters.append({'c':self.refine.c})
+        if self.unitcell_alpha_checkbox.isChecked():
+            self.parameters.append({'alpha':self.refine.alpha})
+        if self.unitcell_beta_checkbox.isChecked():
+            self.parameters.append({'beta':self.refine.beta})
+        if self.unitcell_gamma_checkbox.isChecked():
+            self.parameters.append({'gamma':self.refine.gamma})
+        if self.wavelength_checkbox.isChecked():
+            self.parameters.append({'wavelength':self.refine.wavelength})
+        if self.distance_checkbox.isChecked():
+            self.parameters.append({'distance':self.refine.distance})
+        if self.yaw_checkbox.isChecked():
+            self.parameters.append({'yaw':self.refine.yaw})
+        if self.pitch_checkbox.isChecked():
+            self.parameters.append({'pitch':self.refine.pitch})
+        if self.roll_checkbox.isChecked():
+            self.parameters.append({'roll':self.refine.roll})
+        if self.xc_checkbox.isChecked():
+            self.parameters.append({'xc':self.refine.xc})
+        if self.yc_checkbox.isChecked():
+            self.parameters.append({'yc':self.refine.yc})
+        return self.parameters
+
+    def get_parameters(self, p):
+        i = 0
+        for key in [x.keys()[0] for x in self.parameters]:
+            self.refine.__dict__[key] = p[i]
+            i += 1
+        self.refine.set_symmetry()
+
+    def residuals(self, p):
+        self.get_parameters(p)
+        polar_angles, _ = self.refine.calculate_angles(self.refine.x, self.refine.y)
+        rings = self.refine.calculate_rings()
+        residuals = np.array([find_nearest(rings, polar_angle) - polar_angle 
+                              for polar_angle in polar_angles])
+        return np.sum(residuals**2)
+
+
+
+
+

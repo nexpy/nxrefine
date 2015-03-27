@@ -215,11 +215,7 @@ class NXRefine(object):
         lines.append('parameters.gridDim = %s;' % self.grid_step)
         lines.append('parameters.gridOffset =  [0,0,0];')
         lines.append('parameters.extraFlip =  false;')
-        lines.append('inputData.dataFileName =  "%s";' % self.data_file)
-        lines.append('inputData.dataSetName = "/%s";' % self.data_path)
         lines.append('inputData.chunkSize =  [32,32,32];')
-        lines.append('outputData.dataFileName =  "%s";' % self.output_file)
-        lines.append('outputData.dataSetName = "/%s";' % self.data_path)
         lines.append('outputData.dimensions = %s;' % list(self.grid_shape))
         lines.append('outputData.chunkSize =  [32,32,32];')
         lines.append('outputData.compression = %s;' % 0)
@@ -582,34 +578,6 @@ class NXRefine(object):
         pvx.plot(data[xslab], log=True)
         pvx.crosshairs(y, z)
 
-    def refine_parameters(self):    
-        p0 = self.initialize_fit()
-        result = minimize(self.residuals, p0, method='nelder-mead',
-                              options={'xtol': 1e-6, 'disp': True})
-        self.finalize_fit(result.x)
-
-    def get_parameters(self, p):
-        i = 0
-        for key in [x.keys()[0] for x in self.parameters]:
-            self.__dict__[key] = p[i]
-            i += 1
-        self.set_symmetry()
-
-    def residuals(self, p):
-        self.get_parameters(p)
-        polar_angles, _ = self.calculate_angles(self.x, self.y)
-        rings = self.calculate_rings()
-        residuals = np.array([find_nearest(rings, polar_angle) - polar_angle 
-                              for polar_angle in polar_angles])
-        return np.sum(residuals**2)
-
-    def initialize_fit(self):
-        return np.array([p.values()[0] for p in self.parameters])
-
-    def finalize_fit(self, p):
-        self.get_parameters(p)
-        self.set_symmetry()
-
     def get_UBmat(self, i, j):
         ring1 = np.abs(self.polar_angle[i] - self.rings).argmin()
         g1 = np.array(self.Gvec(self.xp[i], self.yp[i], self.zp[i]).T)[0]
@@ -707,21 +675,6 @@ class NXRefine(object):
         diffs = np.array(peak_list[10])
         weights = np.array(peak_list[6])
         return np.sum(weights * diffs) / np.sum(weights)
-
-    def refine_orientation(self):    
-        p0 = np.ravel(self.UBmat)
-        self.fit_intensity = np.array([self.intensity[i] for i in range(self.npks) if self.polar_angle[i] < self.polar_max])
-        result = minimize(self.score_orientation, p0, method='Powell')
-        return np.matrix(result.x).reshape(3,3)
-
-    def score_orientation(self, p):
-        self.UBmat = np.matrix(p).reshape(3,3)
-        diffs = self.fit_diffs()
-        return np.sum(diffs * self.fit_intensity)
-
-    def fit_diffs(self):
-        return [self.diff(i) for i in range(self.npks) if self.polar_angle[i] < self.polar_max]
-
 
 
 class NXpeak(object):

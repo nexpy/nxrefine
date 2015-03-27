@@ -84,11 +84,12 @@ class OrientationDialog(BaseDialog):
     def set_omega(self):
         self.refine.omega_start, self.refine.omega_step = self.get_omega() 
 
-    def get_polar_max(self):
+    @property
+    def polar_max(self):
         return np.float32(self.polar_box.text())
 
     def set_polar_max(self):
-        self.refine.set_polar_max(self.get_polar_max())
+        self.refine.set_polar_max(self.polar_max)
 
     def get_polar_tolerance(self):
         return np.float32(self.polar_tolerance_box.text())
@@ -133,10 +134,6 @@ class OrientationDialog(BaseDialog):
         self.list_orientations(grain)
 
     def refine_orientation(self):
-        self.refine.omega_start, self.refine.omega_step = self.get_omega()
-        grain = self.refine.grains[self.get_grain()]
-        self.refine.orient(grain)
-        self.refine.UBmat = grain.UBmat
         self.refine.UBmat = grain.UBmat = self.refine.refine_orientation()
         self.list_orientations(grain)
 
@@ -159,7 +156,7 @@ class OrientationDialog(BaseDialog):
         layout = QtGui.QVBoxLayout()
         layout.addWidget(self.table_view)
         close_layout = QtGui.QHBoxLayout()
-        status_text = QtGui.QLabel('Score: %.4f' % self.refine.score(grain, self.get_polar_max()))
+        status_text = QtGui.QLabel('Score: %.4f' % self.refine.score(grain, self.polar_max))
         close_button = QtGui.QPushButton('Close Window')
         close_button.clicked.connect(self.accept)
         close_layout.addWidget(status_text)
@@ -190,6 +187,30 @@ class OrientationDialog(BaseDialog):
             self.plotview = NXPlotView('X-Y Projection')
         self.plotview.plot(data[zslab], log=True)
         self.plotview.crosshairs(x, y)
+
+    def refine_parameters(self):
+        self.initialize_fit()
+        p0 = np.array([p.values()[0] for p in self.parameters])
+        result = minimize(self.residuals, p0, method='nelder-mead',
+                              options={'xtol': 1e-6, 'disp': True})
+        self.get_parameters(result.x)
+        self.refine.set_symmetry()
+        self.update_parameters()
+
+    def refine_orientation(self):    
+        p0 = np.ravel(self.refine.UBmat)
+        self.fit_intensity = np.array(
+            [self.refine.intensity[i] for i in range(self.refine.npks) 
+             if self.refine.polar_angle[i] < self.polar_max])
+        result = minimize(self.score_orientation, p0, method='nelder-mead',
+                              options={'xtol': 1e-6, 'disp': True})
+        return np.matrix(result.x).reshape(3,3)
+
+    def score_orientation(self, p):
+        self.UBmat = np.matrix(p).reshape(3,3)
+        diffs = [self.refine.diff(i) for i in range(self.refine.npks) if 
+                 self.refine.polar_angle[i] < self.polar_max]
+        return np.sum(diffs * self.fit_intensity)
 
     def accept(self):
         self.write_parameters()
