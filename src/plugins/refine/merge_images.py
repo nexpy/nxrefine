@@ -324,7 +324,7 @@ class MergeDialog(BaseImportDialog):
         y = NXfield(range(v0.shape[0]), dtype=np.uint16, name='y')
         z = NXfield(range(1,len(filenames)+1), dtype=np.uint16, name='z')
         v = NXfield(shape=(len(filenames),v0.shape[0],v0.shape[1]),
-                    dtype=v0.dtype, name='v')
+                    dtype=v0.dtype, name='data')
         v[0] = v0
         if v._memfile:
             chunk_size = v._memfile['data'].chunks[0]
