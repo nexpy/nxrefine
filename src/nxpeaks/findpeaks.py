@@ -8,7 +8,7 @@ Defines one function (peaksearch) which might be reused
 """
 
 from math import sqrt
-import sys, glob, os, time
+import argparse, glob, os, sys, time
 
 import numpy as np
 
