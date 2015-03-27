@@ -7,58 +7,36 @@
 # The full license is in the file COPYING, distributed with this software.
 #-----------------------------------------------------------------------------
 
-import os, getopt, sys, timeit
+import argparse, os, sys, timeit
 import numpy as np
 from nexusformat.nexus import *
 
-def apply_mask(root, entry, mask):
-    if entry is None:
-        entries = root.NXentry
-    else:
-        entries = [root[entry]]
+def apply_mask(root, entries, mask):
     for entry in entries:
-        if 'instrument/detector' in entry:
+        if 'instrument/detector' in root[entry]:
             entry['instrument/detector/pixel_mask'] = mask
             entry['instrument/detector/pixel_mask_applied'] = False
             print 'Mask applied to %s' % entry
 
 def main():
-    help = "nxmask -d <directory> -f <filename> -e <entry> -m <maskfile> -p <path>"
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "hd:f:e:m:p:",
-                                   ["directory=", "filename=", "entry=", 
-                                    "mask=", "path="])
-    except getopt.GetoptError:
-        print help
-        sys.exit(2)
-    directory = './'
-    filename = None
-    entry = None
-    maskfile = 'pilatus_mask.nxs'
-    path = 'entry/mask'
-    for opt, arg in opts:
-        if opt == '-h':
-            print help
-            sys.exit()
-        elif opt in ('-f', '--filename'):
-            filename = arg
-        elif opt in ('-d', '--directory'):
-            directory = arg
-        elif opt in ('-e', '--entry'):
-            entry= arg
-        elif opt in ('-m', '--mask'):
-            maskfile= arg
-        elif opt in ('-p', '--path'):
-            path= arg
-    if filename is None:
-        print help
-        sys.exit(2)
-    tic=timeit.default_timer()
-    root = nxload(os.path.join(directory, filename), 'rw')
-    mask = nxload(maskfile)[path]
-    apply_mask(root, entry, mask)
-    toc=timeit.default_timer()
-    print toc-tic, 'seconds for', filename
+
+    parser = argparse.ArgumentParser(
+        description="Add mask to the specified NeXus file")
+    parser.add_argument('-d', '--directory', default='./')
+    parser.add_argument('-f', '--filename', required=True)
+    parser.add_argument('-e', '--entry', nargs='+')
+    parser.add_argument('-m', '--maskfile', default='pilatus_mask.nxs')
+    parser.add_argument('-p', '--path', default='/entry/mask')
+
+    args = parser.parse_args()
+
+    root = nxload(os.path.join(args.directory, args.filename), 'rw')
+    if arg.entry is not None:
+        entries = [root[entry] for entry in arg.entry]
+    else:
+        entries = root.NXentry
+    mask = nxload(args.maskfile)[args.path]
+    apply_mask(root, entries, mask)
 
 
 if __name__=="__main__":
