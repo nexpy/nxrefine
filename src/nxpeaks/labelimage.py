@@ -33,7 +33,7 @@ from math import sqrt
 
 import sys
 
-import numpy.oldnumeric as n
+import numpy as np
 
 
 # These should match the definitions in 
@@ -64,9 +64,6 @@ def flip8(x, y):
     return -y, -x
 
 
-
-
-
 class labelimage:
     """
     For labelling spots in diffraction images
@@ -86,13 +83,13 @@ class labelimage:
 
         self.onfirst = 1    # Flag for first image in series
         self.onlast = 0     # Flag for last image in series
-        self.blim = n.zeros(shape, n.Int)  # 'current' blob image 
+        self.blim = np.zeros(shape, np.int32)  # 'current' blob image 
         self.npk = 0        #  Number of peaks on current
         self.res = None     #  properties of current
         
         self.threshold = None # cache for writing files
 
-        self.lastbl = n.zeros(shape, n.Int)# 'previous' blob image
+        self.lastbl = np.zeros(shape, np.int32)# 'previous' blob image
         self.lastres = None
         self.lastnp = "FIRST" # Flags initial state
 
