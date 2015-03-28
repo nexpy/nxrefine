@@ -8,19 +8,21 @@ Defines one function (peaksearch) which might be reused
 """
 
 from math import sqrt
-import argparse, glob, os, sys, time
+import argparse, glob, os, socket, sys, timeit
 
 import numpy as np
 
-from nexusformat.nexus import nxload
+from nexusformat.nexus import *
 
-from nxpeaks import blobcorrector
-from nxpeaks.labelimage import labelimage
+from nxpeaks import blobcorrector, __version__
+from nxpeaks.connectedpixels import blob_moments
+from nxpeaks.labelimage import labelimage, flip1
 from nxpeaks.peakmerge import peakmerger
 
 
-def find_peaks(field, threshold=None, z_min=None, z_max=None):
+def find_peaks(group, threshold=None, z_min=None, z_max=None):
 
+    field = group.nxsignal
     try:
         mask = field.nxentry['instrument/detector/pixel_mask'].nxdata
         if len(mask.shape) > 2:
@@ -41,13 +43,14 @@ def find_peaks(field, threshold=None, z_min=None, z_max=None):
     if z_max == None:
         z_max = field.shape[0]
        
-    lio = labelimage.labelimage(field.shape[-2:], flipper=labelimage.flip1)
+    lio = labelimage(field.shape[-2:], flipper=flip1)
     allpeaks = []
     if len(field.shape) == 2:
         res = None
     else:
         chunk_size = field.nxfile[field.nxpath].chunks[0]
-        pixel_tolerance = frame_tolerance = 10
+        pixel_tolerance = 50
+        frame_tolerance = 10
         for i in range(0, field.shape[0], chunk_size):
             try:
                 if i + chunk_size > z_min and i < z_max:
@@ -58,7 +61,7 @@ def find_peaks(field, threshold=None, z_min=None, z_max=None):
                             omega = np.float32(i+j)
                             lio.peaksearch(v[j], threshold, omega)
                             if lio.res is not None:
-                                connectedpixels.blob_moments(lio.res)
+                                blob_moments(lio.res)
                                 for k in range(lio.res.shape[0]):
                                     res = lio.res[k]
                                     peak = NXpeak(res[0], res[22],
@@ -85,9 +88,11 @@ def find_peaks(field, threshold=None, z_min=None, z_max=None):
             for peak1 in frame:
                 combined = False
                 for peak2 in last_frame:
-                    idx = merged_peaks.index(peak2)
                     if peak1 == peak2:
-                        peak1.combine(peak2)
+                        for idx in range(len(merged_peaks)):
+                            if peak1 == merged_peaks[idx]:
+                                break
+                        peak1.combine(merged_peaks[idx])
                         merged_peaks[idx] = peak1
                         combined = True
                         break
@@ -95,7 +100,10 @@ def find_peaks(field, threshold=None, z_min=None, z_max=None):
                     for peak2 in reversed(merged_peaks):
                         idx = merged_peaks.index(peak2)
                         if peak1 == peak2:
-                            peak1.combine(peak2)
+                            for idx in range(len(merged_peaks)):
+                                if peak1 == merged_peaks[idx]:
+                                    break
+                            peak1.combine(merged_peaks[idx])
                             merged_peaks[idx] = peak1
                             combined = True
                             break
@@ -150,7 +158,7 @@ class NXpeak(object):
         self.covxy = covxy
         self.threshold = threshold
         self.peaks = [self]
-        self.pixel_tolerance = pixel_tolerance
+        self.pixel_tolerance = pixel_tolerance**2
         self.frame_tolerance = frame_tolerance
         self.combined = False
 
@@ -207,7 +215,7 @@ class NXpeak(object):
     def isvalid(self, mask):
         if mask is not None:
             clip = mask[int(self.y),int(self.x)]
-            if clip.nxdata:
+            if clip:
                 return False
         if np.isclose(self.average, 0.0) or np.isnan(self.average) or self.np < 5:
             return False
@@ -219,18 +227,32 @@ def main():
 
     parser = argparse.ArgumentParser(
         description="Find peaks within the NeXus data")
-    parser.add_argument('-d', '--directory', default='./')
-    parser.add_argument('-f', '--filename', required=True)
-    parser.add_argument('-p', '--path', default='/entry/data/data')
-    parser.add_argument('-t', '--threshold', type=float)
-    parser.add_argument('-s', '--start', type=int)
-    parser.add_argument('-e', '--end', type=int)
+    parser.add_argument('-d', '--directory', default='./',
+                        help='directory containing the NeXus file')
+    parser.add_argument('-f', '--filename', required=True,
+                        help='NeXus file name')
+    parser.add_argument('-p', '--path', default='/entry/data',
+                        help='path of the NXdata group within the NeXus file')
+    parser.add_argument('-t', '--threshold', type=float,
+                        help='peak threshold - defaults to maximum counts/20')
+    parser.add_argument('-s', '--start', type=int, help='starting frame')
+    parser.add_argument('-e', '--end', type=int, help='ending frame')
 
     args = parser.parse_args()
 
     tic=timeit.default_timer()
     root = nxload(os.path.join(args.directory, args.filename), 'rw')
-    findpeaks(root[args.path], args.threshold, args.start, args.end)
+    entry = root[args.path].nxentry
+    find_peaks(root[args.path], args.threshold, args.start, args.end)
+    note = NXnote('nxfind '+' '.join(sys.argv[1:]), 
+                  ('Current machine: %s\n'
+                   'Current working directory: %s\n')
+                    % (socket.gethostname(), os.getcwd()))
+    root.entry['nxfind'] = NXprocess(program='nxfind', 
+                                     sequence_index=len(entry.NXprocess)+1, 
+                                     version=__version__, 
+                                     note=note)
+
     toc=timeit.default_timer()
     print toc-tic, 'seconds for', args.filename
 
