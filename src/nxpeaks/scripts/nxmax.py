@@ -11,22 +11,23 @@ import argparse, os, sys, timeit
 import numpy as np
 from nexusformat.nexus import *
 
-def find_maximum(node):
+
+def find_maximum(field):
     maximum = 0.0
     try:
-        mask = node.nxentry['instrument/detector/pixel_mask'].nxdata
+        mask = field.nxentry['instrument/detector/pixel_mask'].nxdata
         if len(mask.shape) > 2:
             mask = mask[0]
     except Exception:
         mask = None
-    if len(node.shape) == 2:
-        maximum = node[:,:].max()
+    if len(field.shape) == 2:
+        maximum = field[:,:].max()
     else:
-        chunk_size = node.nxfile[node.nxpath].chunks[0]
-        for i in range(0, node.shape[0], chunk_size):
+        chunk_size = field.nxfile[field.nxpath].chunks[0]
+        for i in range(0, field.shape[0], chunk_size):
             try:
                 print 'Processing', i
-                v = node[i:i+chunk_size,:,:]
+                v = field[i:i+chunk_size,:,:]
             except IndexError as error:
                 pass
             if mask is not None:
@@ -37,21 +38,24 @@ def find_maximum(node):
     return maximum
 
 
-def save_maximum(node, maximum):
-    node.nxgroup.attrs['maximum'] = maximum
+def save_maximum(field, maximum):
+    field.nxgroup.attrs['maximum'] = maximum
 
 
 def main():
 
     parser = argparse.ArgumentParser(
-        description="Find maximum counts in the specified path")
-    parser.add_argument('-d', '--directory', default='./')
-    parser.add_argument('-f', '--filename', required=True)
-    parser.add_argument('-p', '--path', default='/entry/data/data')
+        description="Find maximum counts of the signal in the specified path")
+    parser.add_argument('-d', '--directory', default='./',
+                        help='directory containing the NeXus file')
+    parser.add_argument('-f', '--filename', required=True,
+                         help='NeXus file name')
+    parser.add_argument('-p', '--path', default='/entry/data',
+                        help='path of the NXdata group within the NeXus file')
     args = parser.parse_args()
     tic=timeit.default_timer()
     root = nxload(os.path.join(args.directory, args.filename), 'rw')
-    maximum = find_maximum(root[args.path])
+    maximum = find_maximum(root[args.path].nxsignal)
     print 'Maximum counts are ', maximum
     save_maximum(root[args.path], maximum)
     toc=timeit.default_timer()
