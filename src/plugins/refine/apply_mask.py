@@ -35,7 +35,7 @@ class MaskDialog(BaseDialog):
         self.setLayout(layout)
         self.setWindowTitle('Mask Data')
         
-        self.mask_box.setText(self.entry.nxpath+'/data/v_mask')
+        self.mask_box.setText('pilatus_mask/entry/mask')
 
     def get_mask_path(self):
         return self.mask_box.text()

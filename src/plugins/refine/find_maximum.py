@@ -21,19 +21,18 @@ class MaximumDialog(BaseDialog):
         self.entry = self.node.nxentry
         if not isinstance(self.node, NXfield):
             raise NeXusError('Node must be an NXfield')
-        layout = QtGui.QVBoxLayout()
         self.output = QtGui.QLabel('Maximum Value:')
         self.find_button = QtGui.QPushButton('Find Maximum')
         layout.addWidget(self.output)
         layout.addWidget(self.find_button)
         self.find_button.clicked.connect(self.find_maximum)
         if len(self.node.shape) == 2:
-            layout.addWidget(self.buttonbox(save=True))
+            layout.addWidget(self.close_buttons(save=True))
         elif len(self.node.shape) > 2:
             layout.addLayout(self.progress_layout(save=True))
             self.progress_bar.setVisible(False)
-        self.setLayout(layout)
-        self.setWindowTitle('Find Maximum Value')
+        self.set_layout(layout)
+        self.set_title('Find Maximum Value')
 
     def find_maximum(self):
         self.maximum = 0.0

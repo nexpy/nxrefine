@@ -25,10 +25,10 @@ maximum = 0.0
 
 def show_dialog(parent=None):
     try:
-        dialog = MergeDialog(parent)
+        dialog = StackDialog(parent)
         dialog.show()
     except NeXusError as error:
-        report_error("Mergine Images", error)
+        report_error("Stacking Images", error)
 
 def isotime(time_stamp):
     return datetime.fromtimestamp(time_stamp).isoformat()
@@ -38,39 +38,30 @@ def epoch(iso_time):
     return time.mktime(d.timetuple()) + (d.microsecond / 1e6)
 
 
-class MergeDialog(BaseImportDialog):
+class StackDialog(BaseImportDialog):
     """Dialog to import an image stack (TIFF or CBF)"""
  
     def __init__(self, parent=None):
 
-        super(MergeDialog, self).__init__(parent)
+        super(StackDialog, self).__init__(parent)
         
-        self.layout = QtGui.QVBoxLayout()
-
-        self.layout.addLayout(self.directorybox())
-
-        self.filter_box = self.make_filter_box()
-        self.layout.addWidget(self.filter_box)
-        
-        self.range_box = self.make_range_box()
-        self.layout.addWidget(self.range_box)
-        
-        self.output_box = self.make_output_box()
-        self.layout.addWidget(self.output_box)
-
         status_layout = QtGui.QHBoxLayout()
         self.progress_bar = QtGui.QProgressBar()
         status_layout.addWidget(self.progress_bar)
         self.progress_bar.setVisible(False)
         status_layout.addStretch()
         status_layout.addWidget(self.buttonbox(save=True))
-        self.layout.addLayout(status_layout)
+
+        self.set_layout(self.directorybox(), 
+                        self.make_filter_box(),
+                        self.make_range_box(),
+                        self.make_output_box(),
+                        status_layout)
 
         self.setLayout(self.layout)
+        self.set_title('Stack Images')
   
         self.suffix = ''
-
-        self.setWindowTitle("Merge Images")
 
     def make_filter_box(self):
         filter_box = QtGui.QWidget()
@@ -148,7 +139,7 @@ class MergeDialog(BaseImportDialog):
         return output_box
  
     def choose_directory(self):
-        super(MergeDialog, self).choose_directory()
+        super(StackDialog, self).choose_directory()
         files = self.get_filesindirectory()
         self.get_extensions()
         self.get_prefixes()
@@ -324,7 +315,7 @@ class MergeDialog(BaseImportDialog):
         y = NXfield(range(v0.shape[0]), dtype=np.uint16, name='y')
         z = NXfield(range(1,len(filenames)+1), dtype=np.uint16, name='z')
         v = NXfield(shape=(len(filenames),v0.shape[0],v0.shape[1]),
-                    dtype=v0.dtype, name='data')
+                    dtype=v0.dtype, name='v')
         v[0] = v0
         if v._memfile:
             chunk_size = v._memfile['data'].chunks[0]
@@ -355,6 +346,6 @@ class MergeDialog(BaseImportDialog):
             except Exception:
                 workspace = self.treeview.tree.get_new_name()
             self.treeview.tree[workspace] = self.user_ns[workspace] = self.get_data()
-            super(MergeDialog, self).accept()
+            super(StackDialog, self).accept()
         except NeXusError as error:
-            report_error("Merging Images", error)
+            report_error("Stacking Images", error)

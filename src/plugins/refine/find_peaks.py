@@ -21,7 +21,7 @@ class FindDialog(BaseDialog):
         super(FindDialog, self).__init__(parent)
         self.node = self.get_node()
         self.entry = self.node.nxentry
-        self.node = self.entry['data/v']
+        self.node = self.entry['data'].nxsignal
         try:
             self.mask = self.entry['instrument/detector/pixel_mask']
         except NeXusError:
@@ -145,9 +145,11 @@ class FindDialog(BaseDialog):
                 for peak1 in frame:
                     combined = False
                     for peak2 in last_frame:
-                        idx = merged_peaks.index(peak2)
                         if peak1 == peak2:
-                            peak1.combine(peak2)
+                            for idx in range(len(merged_peaks)):
+                                if peak1 == merged_peaks[idx]:
+                                    break
+                            peak1.combine(merged_peaks[idx])
                             merged_peaks[idx] = peak1
                             combined = True
                             break
@@ -155,7 +157,10 @@ class FindDialog(BaseDialog):
                         for peak2 in reversed(merged_peaks):
                             idx = merged_peaks.index(peak2)
                             if peak1 == peak2:
-                                peak1.combine(peak2)
+                                for idx in range(len(merged_peaks)):
+                                    if peak1 == merged_peaks[idx]:
+                                        break
+                                peak1.combine(merged_peaks[idx])
                                 merged_peaks[idx] = peak1
                                 combined = True
                                 break

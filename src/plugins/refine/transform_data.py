@@ -19,13 +19,11 @@ class TransformDialog(BaseDialog):
 
     def __init__(self, parent=None):
         super(TransformDialog, self).__init__(parent)
-        node = self.get_node()
-        self.entry = node.nxentry
-        self.data = self.entry['data/v']
+        
+        self.select_entry(self.initialize_grid)
+        self.refine = NXRefine(self.entry)
+        self.refine.read_parameters()
 
-        layout = QtGui.QVBoxLayout()
-        layout.addLayout(self.settings_box())
-        layout.addLayout(self.output_box())
         grid = QtGui.QGridLayout()
         grid.setSpacing(10)
         header_font = QtGui.QFont()
@@ -60,41 +58,14 @@ class TransformDialog(BaseDialog):
         grid.addWidget(self.start_l_box, 3, 1)
         grid.addWidget(self.step_l_box, 3, 2)
         grid.addWidget(self.stop_l_box, 3, 3)
-        layout.addLayout(grid)
-        layout.addWidget(self.buttonbox(save=True))
-        self.setLayout(layout)
+        self.set_layout(self.entry_layout, self.settings_box(), self.output_box(),
+                        grid, self.close_buttons(save=True))
         self.setWindowTitle('Transforming Data')
+        try:
+            self.initialize_grid()
+        except Exception:
+            pass
 
-        self.refine = NXRefine(self.entry)
-        self.refine.read_parameters()
-        self.initialize_grid()
-
-    def settings_box(self):
-        """
-        Creates a text box and button for selecting the settings file file.
-        """
-        file_button =  QtGui.QPushButton("Choose Settings File")
-        file_button.clicked.connect(self.choose_settings_file)
-        self.settings_file = QtGui.QLineEdit(self)
-        self.settings_file.setMinimumWidth(300)
-        file_box = QtGui.QHBoxLayout()
-        file_box.addWidget(file_button)
-        file_box.addWidget(self.settings_file)
-        return file_box
- 
-    def output_box(self):
-        """
-        Creates a text box and button for selecting the output file.
-        """
-        file_button =  QtGui.QPushButton("Choose Output File")
-        file_button.clicked.connect(self.choose_output_file)
-        self.output_file = QtGui.QLineEdit(self)
-        self.output_file.setMinimumWidth(300)
-        file_box = QtGui.QHBoxLayout()
-        file_box.addWidget(file_button)
-        file_box.addWidget(self.output_file)
-        return file_box
- 
     def choose_settings_file(self):
         """
         Opens a file dialog and sets the settings file text box to the chosen path.
@@ -119,10 +90,10 @@ class TransformDialog(BaseDialog):
             self.set_default_directory(dirname)
 
     def get_settings_file(self):
-        return self.settings_file.text()
+        return self.entry.nxname+'_transform.pars'
 
     def get_output_file(self):
-        return self.output_file.text()
+        return self.entry.nxname+'_transform.pars'
 
     def get_h_grid(self):
         return (np.float32(self.start_h_box.text()),

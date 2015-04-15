@@ -1,6 +1,5 @@
-from PySide import QtGui
 import numpy as np
-from nexpy.gui.datadialogs import BaseDialog
+from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.mainwindow import report_error
 from nexpy.gui.plotview import plotview
 from nexusformat.nexus import NeXusError
@@ -19,76 +18,50 @@ class LatticeDialog(BaseDialog):
 
     def __init__(self, parent=None):
         super(LatticeDialog, self).__init__(parent)
-        node = self.get_node()
-        self.entry = node.nxentry
 
-        layout = QtGui.QVBoxLayout()
-        grid = QtGui.QGridLayout()
-        grid.setSpacing(10)
-        self.centring_box = QtGui.QComboBox()
-        self.unitcell_a_box = QtGui.QLineEdit()
-        self.unitcell_b_box = QtGui.QLineEdit()
-        self.unitcell_c_box = QtGui.QLineEdit()
-        self.unitcell_alpha_box = QtGui.QLineEdit()
-        self.unitcell_beta_box = QtGui.QLineEdit()
-        self.unitcell_gamma_box = QtGui.QLineEdit()
-        grid.addWidget(QtGui.QLabel('Cell Centring: '), 0, 0)
-        grid.addWidget(QtGui.QLabel('Unit Cell - a (Ang):'), 1, 0)
-        grid.addWidget(QtGui.QLabel('Unit Cell - b (Ang):'), 2, 0)
-        grid.addWidget(QtGui.QLabel('Unit Cell - c (Ang):'), 3, 0)
-        grid.addWidget(QtGui.QLabel('Unit Cell - alpha (deg):'), 4, 0)
-        grid.addWidget(QtGui.QLabel('Unit Cell - beta (deg):'), 5, 0)
-        grid.addWidget(QtGui.QLabel('Unit Cell - gamma (deg):'), 6, 0)
-        grid.addWidget(self.centring_box, 0, 1)
-        grid.addWidget(self.unitcell_a_box, 1, 1)
-        grid.addWidget(self.unitcell_b_box, 2, 1)
-        grid.addWidget(self.unitcell_c_box, 3, 1)
-        grid.addWidget(self.unitcell_alpha_box, 4, 1)
-        grid.addWidget(self.unitcell_beta_box, 5, 1)
-        grid.addWidget(self.unitcell_gamma_box, 6, 1)
-        layout.addLayout(grid)
-        button_layout = QtGui.QHBoxLayout()
-        self.plot_button = QtGui.QPushButton('Plot')
-        self.plot_button.clicked.connect(self.plot_peaks)
-        self.save_button = QtGui.QPushButton('Save')
-        self.save_button.clicked.connect(self.write_parameters)
-        button_layout.addWidget(self.plot_button)
-        button_layout.addWidget(self.save_button)
-        layout.addLayout(button_layout)
-        layout.addWidget(self.buttonbox())
-        self.setLayout(layout)
-        self.setWindowTitle('Defining Lattice')
+        self.select_entry(self.choose_entry)
 
         self.refine = NXRefine(self.entry)
         self.refine.read_parameters()
+
+        self.parameters = GridParameters()
+        self.parameters.add('centring', self.refine.centrings, 'Cell Centring')
+        self.parameters['centring'].value = self.refine.centring
+        self.parameters.add('a', self.refine.a, 'Unit Cell - a (Ang)')
+        self.parameters.add('b', self.refine.b, 'Unit Cell - b (Ang)')
+        self.parameters.add('c', self.refine.c, 'Unit Cell - c (Ang)')
+        self.parameters.add('alpha', self.refine.alpha, 'Unit Cell - alpha (deg)')
+        self.parameters.add('beta', self.refine.beta, 'Unit Cell - beta (deg)')
+        self.parameters.add('gamma', self.refine.gamma, 'Unit Cell - gamma (deg)')
+        action_buttons = self.action_buttons(('Plot', self.plot_peaks),
+                                             ('Save', self.write_parameters))
+        self.set_layout(self.entry_layout, self.parameters.grid(), 
+                        action_buttons, self.close_buttons())
+        self.set_title('Defining Lattice')
+
+    def choose_entry(self):
+        self.refine = NXRefine(self.entry)
         self.update_parameters()
 
-    def update_parameter(self, box, value):
-        if value is not None:
-            box.setText(str(value))
-
     def update_parameters(self):
-        self.update_parameter(self.unitcell_a_box, self.refine.a)
-        self.update_parameter(self.unitcell_b_box, self.refine.b)
-        self.update_parameter(self.unitcell_c_box, self.refine.c)
-        self.update_parameter(self.unitcell_alpha_box, self.refine.alpha)
-        self.update_parameter(self.unitcell_beta_box, self.refine.beta)
-        self.update_parameter(self.unitcell_gamma_box, self.refine.gamma)
-        for centring in self.refine.centrings:
-            self.centring_box.addItem(centring)
-        if self.refine.centring:
-            self.centring_box.setCurrentIndex(self.centring_box.findText(self.refine.centring))
+        self.parameters['centring'].value = self.refine.centring
+        self.parameters['a'].value = self.refine.a
+        self.parameters['b'].value = self.refine.b
+        self.parameters['c'].value = self.refine.c
+        self.parameters['alpha'].value = self.refine.alpha
+        self.parameters['beta'].value = self.refine.beta
+        self.parameters['gamma'].value = self.refine.gamma
 
     def get_centring(self):
-        return self.centring_box.currentText()
+        return self.parameters['centring'].value
 
     def get_lattice_parameters(self):
-        return (np.float32(self.unitcell_a_box.text()),
-                np.float32(self.unitcell_b_box.text()),
-                np.float32(self.unitcell_c_box.text()),
-                np.float32(self.unitcell_alpha_box.text()),
-                np.float32(self.unitcell_beta_box.text()),
-                np.float32(self.unitcell_gamma_box.text())) 
+        return (self.parameters['a'].value,
+                self.parameters['b'].value,
+                self.parameters['c'].value,
+                self.parameters['alpha'].value,
+                self.parameters['beta'].value,
+                self.parameters['gamma'].value)
 
     def get_parameters(self):
         self.refine.a, self.refine.b, self.refine.c, \
