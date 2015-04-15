@@ -38,7 +38,8 @@ setup (name = nxpeaks.__package_name__,
                         include_dirs=[numpy.get_include()])],
        entry_points={
             # create & install scripts in <python>/bin
-            'console_scripts': ['nxcopy=nxpeaks.scripts.nxcopy:main',
+            'console_scripts': ['nxsetup=nxpeaks.scripts.nxsetup:main',
+                                'nxcopy=nxpeaks.scripts.nxcopy:main',
                                 'nxfind=nxpeaks.scripts.nxfind:main',
                                 'nxmake=nxpeaks.scripts.nxmake:main',
                                 'nxmask=nxpeaks.scripts.nxmask:main',

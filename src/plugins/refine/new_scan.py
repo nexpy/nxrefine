@@ -25,10 +25,10 @@ class ScanDialog(BaseDialog):
         self.setup_sample()
         self.setup_instrument()
 
-        self.set_layout(self.directorybox('Choose Home Directory'), 
+        self.set_layout(self.directorybox('Choose Data Directory'), 
                         self.sample.grid(header=False), 
                         self.instrument.grid(header=False))
-        self.set_title('Setup Scan')
+        self.set_title('New Scan')
 
     def setup_sample(self):
         self.scan_file['entry/sample'] = NXsample()
@@ -61,7 +61,7 @@ class ScanDialog(BaseDialog):
         self.instrument['positions'].value = '0'
 
     def setup_entry(self, position):
-        entry = self.scan_file['s%s' % position] = NXentry()
+        entry = self.scan_file['f%s' % position] = NXentry()
         entry.instrument = NXinstrument()
         entry.instrument.detector = NXdetector()
         entry.instrument.monochromator = NXmonochromator()
@@ -90,7 +90,7 @@ class ScanDialog(BaseDialog):
         entry['instrument/detector/distance'] = self.instrument['distance'].value
         entry['instrument/detector/pixel_size'] = self.instrument['pixel'].value
         for position in range(1, self.positions+1):
-            entry = self.scan_file['s%s' % position]
+            entry = self.scan_file['f%s' % position]
             entry['instrument/monochromator/wavelength'] = self.instrument['wavelength'].value
             entry['instrument/detector/distance'] = self.instrument['distance'].value
             entry['instrument/detector/pixel_size'] = self.instrument['pixel'].value
@@ -101,12 +101,14 @@ class ScanDialog(BaseDialog):
     def accept(self):
         home_directory = self.get_directory()
         sample_directory = os.path.join(home_directory, self.sample['sample'].value)
-        label_directory = os.path.join(sample_directory, self.sample['label'].value)
+        label_directory = os.path.join(home_directory, self.sample['sample'].value, self.sample['label'].value)
         scan_directory = os.path.join(label_directory, self.sample['scan'].value)
         scan_name = self.sample['sample'].value+'_'+self.sample['scan'].value
         try: 
             os.makedirs(scan_directory)
-        except OSError:
+            for position in range(1, self.positions+1):
+                os.mkdir(os.path.join(scan_directory, 'f%s' % position))
+        except Exception:
             pass
         self.get_parameters()
         self.scan_file.save(os.path.join(label_directory, scan_name+'.nxs'))
