@@ -1,13 +1,13 @@
 from PySide import QtGui
-import setup_scan, stack_images, apply_mask, find_maximum, find_peaks
+import new_scan, stack_images, apply_mask, find_maximum, find_peaks
 import calculate_angles, copy_parameters
 import define_lattice, refine_lattice
 import define_orientation, refine_orientation, transform_data
 
 def plugin_menu(parent):
     menu = QtGui.QMenu('Refine')
-    menu.addAction(QtGui.QAction('Setup Scan', parent, 
-                   triggered=setup_scan.show_dialog))
+    menu.addAction(QtGui.QAction('New Scan', parent, 
+                   triggered=new_scan.show_dialog))
     menu.addAction(QtGui.QAction('Stack Images', parent, 
                    triggered=stack_images.show_dialog))
     menu.addAction(QtGui.QAction('Apply Mask', parent, 
