@@ -84,7 +84,7 @@ class FindDialog(BaseDialog):
         self.layout.removeWidget(self.find_button)
         self.find_button.setVisible(False)
         if len(self.node.shape) == 2:
-            self.layout.addWidget(self.buttonbox(save=True))
+            self.layout.addWidget(self.close_buttons(save=True))
         elif len(self.node.shape) > 2:
             self.layout.addLayout(self.progress_layout(save=True))
 

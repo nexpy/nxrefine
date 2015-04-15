@@ -50,7 +50,7 @@ class StackDialog(BaseImportDialog):
         status_layout.addWidget(self.progress_bar)
         self.progress_bar.setVisible(False)
         status_layout.addStretch()
-        status_layout.addWidget(self.buttonbox(save=True))
+        status_layout.addWidget(self.close_buttons(save=True))
 
         self.set_layout(self.directorybox(), 
                         self.make_filter_box(),

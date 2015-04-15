@@ -31,7 +31,7 @@ class MaskDialog(BaseDialog):
         save_button = QtGui.QPushButton('Save Mask')
         save_button.clicked.connect(self.save_mask)
         layout.addWidget(save_button)
-        layout.addWidget(self.buttonbox())
+        layout.addWidget(self.close_buttons())
         self.setLayout(layout)
         self.setWindowTitle('Mask Data')
         
