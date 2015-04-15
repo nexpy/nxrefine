@@ -1,3 +1,12 @@
+#!/usr/bin/env python
+#-----------------------------------------------------------------------------
+# Copyright (c) 2015, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+#-----------------------------------------------------------------------------
+
 import argparse
 import os
 import re
@@ -61,13 +70,13 @@ def main():
     parser.add_argument('-l', '--label', default='', help='sample label')
     parser.add_argument('-d', '--directory', default='', help='scan directory')
     parser.add_argument('-r', '--regular', default='(.*)[kK]',
-        help=('regular expression pattern for extracting the parameter value'
+        help=('regular expression pattern for extracting the parameter value '
               'from the scan directory'))
     parser.add_argument('-p', '--parameter',
         help='name of the varying parameter (assumed to be a sample parameter)')
     parser.add_argument('-u', '--unit', default='K', help='parameter units')
     parser.add_argument('-f', '--filenames', default=['f1', 'f2'], nargs='+',
-        help='names of merged NeXus files to be linked to this file')
+        help='names of NeXus files to be linked to this file')
     parser.add_argument('-m', '--maskfile', default='pilatus_mask.nxs',
         help='name of the pixel mask file')
 

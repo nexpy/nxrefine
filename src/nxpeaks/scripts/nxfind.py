@@ -246,12 +246,12 @@ def main():
     find_peaks(root[args.path], args.threshold, args.start, args.end)
     note = NXnote('nxfind '+' '.join(sys.argv[1:]), 
                   ('Current machine: %s\n'
-                   'Current working directory: %s\n')
+                   'Current working directory: %s')
                     % (socket.gethostname(), os.getcwd()))
-    root.entry['nxfind'] = NXprocess(program='nxfind', 
-                                     sequence_index=len(entry.NXprocess)+1, 
-                                     version=__version__, 
-                                     note=note)
+    entry['nxfind'] = NXprocess(program='nxfind', 
+                                sequence_index=len(entry.NXprocess)+1, 
+                                version=__version__, 
+                                note=note)
 
     toc=timeit.default_timer()
     print toc-tic, 'seconds for', args.filename

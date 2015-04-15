@@ -35,11 +35,12 @@ def find_maximum(field):
                 v.mask = mask
             if maximum < v.max():
                 maximum = v.max()
+            del v
     return maximum
 
 
-def save_maximum(field, maximum):
-    field.nxgroup.attrs['maximum'] = maximum
+def save_maximum(group, maximum):
+    group.attrs['maximum'] = maximum
 
 
 def main():
@@ -54,6 +55,9 @@ def main():
                         help='path of the NXdata group within the NeXus file')
     args = parser.parse_args()
     tic=timeit.default_timer()
+    name, ext = os.path.splitext(args.filename)
+    if ext == '':
+        args.filename = args.filename + '.nxs'
     root = nxload(os.path.join(args.directory, args.filename), 'rw')
     maximum = find_maximum(root[args.path].nxsignal)
     print 'Maximum counts are ', maximum
