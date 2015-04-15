@@ -36,27 +36,11 @@ class ScanDialog(BaseDialog):
         self.scan_file['entry/sample/label'] = 'label'
         self.scan_file['entry/sample/temperature'] = NXfield(300.0, dtype=np.float32)
         self.scan_file['entry/sample/temperature'].attrs['units'] = 'K'
-        self.scan_file['entry/sample/lattice_centring'] = NXRefine.centrings[0]
-        self.scan_file['entry/sample/unit_cell_group'] = NXRefine.symmetries[0]
-        self.scan_file['entry/sample/unitcell_a'] = NXfield(3.0, dtype=np.float32)
-        self.scan_file['entry/sample/unitcell_b'] = NXfield(3.0, dtype=np.float32)
-        self.scan_file['entry/sample/unitcell_c'] = NXfield(3.0, dtype=np.float32)
-        self.scan_file['entry/sample/unitcell_alpha'] = NXfield(90.0, dtype=np.float32)
-        self.scan_file['entry/sample/unitcell_beta'] = NXfield(90.0, dtype=np.float32)
-        self.scan_file['entry/sample/unitcell_gamma'] = NXfield(90.0, dtype=np.float32)
         self.sample = GridParameters()
         self.sample.add('sample', self.scan_file['entry/sample/name'], 'Sample Name')
         self.sample.add('label', self.scan_file['entry/sample/label'], 'Sample Label')
         self.sample.add('scan', 'scan', 'Scan Label')
         self.sample.add('temperature', self.scan_file['entry/sample/temperature'], 'Temperature (K)')
-        self.sample.add('centring', NXRefine.centrings, 'Cell Centring')
-        self.sample.add('symmetry', NXRefine.symmetries, 'Symmetry')
-        self.sample.add('a', self.scan_file['entry/sample/unitcell_a'], 'Unit Cell - a (Ang)')
-        self.sample.add('b', self.scan_file['entry/sample/unitcell_b'], 'Unit Cell - b (Ang)')
-        self.sample.add('c', self.scan_file['entry/sample/unitcell_c'], 'Unit Cell - c (Ang)')
-        self.sample.add('alpha', self.scan_file['entry/sample/unitcell_alpha'], 'Unit Cell - alpha (deg)')
-        self.sample.add('beta', self.scan_file['entry/sample/unitcell_beta'], 'Unit Cell - beta (deg)')
-        self.sample.add('gamma', self.scan_file['entry/sample/unitcell_gamma'], 'Unit Cell - gamma (deg)')
 
     def setup_instrument(self):
         entry = self.scan_file['entry']
@@ -77,7 +61,7 @@ class ScanDialog(BaseDialog):
         self.instrument['positions'].value = '0'
 
     def setup_entry(self, position):
-        entry = self.scan_file['s%s' % (position+1)] = NXentry()
+        entry = self.scan_file['s%s' % position] = NXentry()
         entry.instrument = NXinstrument()
         entry.instrument.detector = NXdetector()
         entry.instrument.monochromator = NXmonochromator()
@@ -102,19 +86,11 @@ class ScanDialog(BaseDialog):
         entry['sample/name'] = self.sample['sample'].value
         entry['sample/label'] = self.sample['label'].value
         entry['sample/temperature'] = self.sample['temperature'].value
-        entry['sample/lattice_centring'] = self.sample['centring'].value
-        entry['sample/unit_cell_group'] = self.sample['symmetry'].value
-        entry['sample/unitcell_a'] = self.sample['a'].value
-        entry['sample/unitcell_b'] = self.sample['b'].value
-        entry['sample/unitcell_c'] = self.sample['c'].value
-        entry['sample/unitcell_alpha'] = self.sample['alpha'].value
-        entry['sample/unitcell_beta'] = self.sample['beta'].value
-        entry['sample/unitcell_gamma'] = self.sample['gamma'].value
         entry['instrument/monochromator/wavelength'] = self.instrument['wavelength'].value
         entry['instrument/detector/distance'] = self.instrument['distance'].value
         entry['instrument/detector/pixel_size'] = self.instrument['pixel'].value
-        for position in range(self.positions):
-            entry = self.scan_file['s%s' % (position+1)]
+        for position in range(1, self.positions+1):
+            entry = self.scan_file['s%s' % position]
             entry['instrument/monochromator/wavelength'] = self.instrument['wavelength'].value
             entry['instrument/detector/distance'] = self.instrument['distance'].value
             entry['instrument/detector/pixel_size'] = self.instrument['pixel'].value
@@ -124,19 +100,15 @@ class ScanDialog(BaseDialog):
 
     def accept(self):
         home_directory = self.get_directory()
-        sample_directory = os.path.join(home_directory, self.sample['name'].value)
+        sample_directory = os.path.join(home_directory, self.sample['sample'].value)
         label_directory = os.path.join(sample_directory, self.sample['label'].value)
         scan_directory = os.path.join(label_directory, self.sample['scan'].value)
-        scan_name = self.sample['name']+self.sample['scan']+'.nxs'
-        if not os.path.exists(sample_directory):
-            os.mkdir(sample_directory)
-        if not os.path.exists(label_directory):
-            os.mkdir(label_directory)        
-        if not os.path.exists(scan_directory):
-            os.mkdir(scan_directory)
-        self.scan_file.save(os.path.join(label_directory, scan_name))
-        
-        
-        
-        
-        
+        scan_name = self.sample['sample'].value+'_'+self.sample['scan'].value
+        try: 
+            os.makedirs(scan_directory)
+        except OSError:
+            pass
+        self.get_parameters()
+        self.scan_file.save(os.path.join(label_directory, scan_name+'.nxs'))
+        self.treeview.tree.load(self.scan_file.nxfilename, 'rw')
+        super(ScanDialog, self).accept()
