@@ -94,7 +94,7 @@ class NXRefine(object):
         self.polar_tolerance = 0.1
         self.peak_tolerance = 5.0
         self.hkl_tolerance = 0.05
-        self.data_path = 'entry/data/data'
+        self.data_path = 'data/v'
         self.data_file = None
         self.data_shape = None
         self.output_chunks = None
@@ -193,7 +193,8 @@ class NXRefine(object):
         self.write_parameter('instrument/detector/pixel_size', self.pixel_size)
         self.write_parameter('instrument/detector/pixel_mask', self.pixel_mask)
         self.write_parameter('instrument/detector/pixel_mask_applied', self.pixel_mask_applied)
-        self.write_parameter('instrument/detector/orientation_matrix', np.array(self.Umat))
+        if self.Umat:
+            self.write_parameter('instrument/detector/orientation_matrix', np.array(self.Umat))
         self.write_parameter('peaks/primary_reflection', self.primary)
         self.write_parameter('peaks/secondary_reflection', self.secondary)        
         if self.omega_start is not None and self.omega_step is not None:
@@ -229,7 +230,8 @@ class NXRefine(object):
             other.write_parameter('instrument/detector/pixel_size', self.pixel_size)
             other.write_parameter('instrument/detector/pixel_mask', self.pixel_mask)
             other.write_parameter('instrument/detector/pixel_mask_applied', self.pixel_mask_applied)
-            other.write_parameter('instrument/detector/orientation_matrix', np.array(self.Umat))
+            if self.Umat:
+                other.write_parameter('instrument/detector/orientation_matrix', np.array(self.Umat))
 
     def link_sample(self, other):
         if 'sample' in self.entry:
@@ -298,6 +300,10 @@ class NXRefine(object):
         self.peak = dict(zip(range(len(peaks)),[NXpeak(*args) for args in peaks]))
 
     def initialize_grid(self):
+        try:
+            self.set_polar_max(self.polar_angle.max())
+        except:
+            pass
         self.h_stop = np.round(self.ds_max * self.a)
         h_range = np.round(2*self.h_stop)
         self.h_start = -self.h_stop
