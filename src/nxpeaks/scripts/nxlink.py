@@ -18,11 +18,10 @@ from nexusformat.nexus import *
 def link_files(nexus_file, scan_dir, filenames, mask=None):    
     for f in filenames:
         if f+'.nxs' in os.listdir(scan_dir):
-            if f not in root:
-                root[f] = NXentry()
+            if f not in nexus_file:
+                nexus_file[f] = NXentry()
             scan_file = os.path.join(scan_dir, f+'.nxs')
-            make_data(root[f], scan_file, mask)
-    return root
+            make_data(nexus_file[f], scan_file, mask)
     
 
 def make_data(entry, scan_file, mask=None):
@@ -39,7 +38,7 @@ def make_data(entry, scan_file, mask=None):
         entry.instrument.detector.pixel_mask = mask
         entry.instrument.detector.pixel_mask_applied = False
     if 'data' not in entry:
-        entry = NXdata()
+        entry.data = NXdata()
     entry.data.x_pixel = root.entry.data.x_pixel
     entry.data.y_pixel = root.entry.data.y_pixel
     entry.data.frame_number = root.entry.data.frame_number
@@ -82,11 +81,11 @@ def main():
     scan_dir = os.path.join(sample_name, sample_label, directory)
     scan = os.path.basename(scan_dir)
     if scan:
-        root = nxload(os.path.join(sample_name, sample_label, sample_name+'_'+scan+'.nxs'), 'rw')
+        nexus_file = nxload(os.path.join(sample_name, sample_label, sample_name+'_'+scan+'.nxs'), 'rw')
     else:
-        root = nxload(os.path.join(sample_name, sample_label, sample_name+'.nxs'), 'rw')
-    link_nexus_file(root, scan_dir, filenames, mask)
-    print 'Linking to ', root.nxfilename
+        nexus_file = nxload(os.path.join(sample_name, sample_label, sample_name+'.nxs'), 'rw')
+    link_files(nexus_file, scan_dir, filenames, mask)
+    print 'Linking to ', nexus_file.nxfilename
 
 if __name__ == '__main__':
     main()
