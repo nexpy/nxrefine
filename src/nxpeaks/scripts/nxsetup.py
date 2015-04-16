@@ -61,12 +61,14 @@ def main():
         print filenames
         os.makedirs(scan_directory)
         for f in filenames:
-            print os.path.join(scan_directory, f)
-            os.mkdir(os.path.join(scan_directory, f))
+            os.makedirs(os.path.join(scan_directory, f))
     except Exception:
         pass
 
-    nexus_file = os.path.join(sample_name, sample_label, sample_name + '_' + directory + '.nxs')
+    if directory:
+        nexus_file = os.path.join(sample_name, sample_label, sample_name+'_'+directory+'.nxs')
+    else:
+        nexus_file = os.path.join(sample_name, sample_label, sample_name+'.nxs')
     root = make_nexus_file(sample_name, sample_label, scan_directory, 
                            temperature, filenames, mask)
     root.save(nexus_file, 'w')

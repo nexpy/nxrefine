@@ -151,9 +151,9 @@ class NXRefine(object):
         self.Umat = self.read_parameter('instrument/detector/orientation_matrix')
         if isinstance(self.polar_angle, np.ndarray):
             try:
-                self.polar_max = np.sort(self.polar_angle)[20] + 0.1
+                self.set_polar_max(np.sort(self.polar_angle)[20] + 0.1)
             except IndexError:
-                self.polar_max = self.polar_angle.max()
+                self.set_polar_max(self.polar_angle.max())
 
     def write_parameter(self, path, value):
         if value is not None:
@@ -193,7 +193,7 @@ class NXRefine(object):
         self.write_parameter('instrument/detector/pixel_size', self.pixel_size)
         self.write_parameter('instrument/detector/pixel_mask', self.pixel_mask)
         self.write_parameter('instrument/detector/pixel_mask_applied', self.pixel_mask_applied)
-        if self.Umat:
+        if self.Umat is not None:
             self.write_parameter('instrument/detector/orientation_matrix', np.array(self.Umat))
         self.write_parameter('peaks/primary_reflection', self.primary)
         self.write_parameter('peaks/secondary_reflection', self.secondary)        
@@ -230,7 +230,7 @@ class NXRefine(object):
             other.write_parameter('instrument/detector/pixel_size', self.pixel_size)
             other.write_parameter('instrument/detector/pixel_mask', self.pixel_mask)
             other.write_parameter('instrument/detector/pixel_mask_applied', self.pixel_mask_applied)
-            if self.Umat:
+            if self.Umat is not None:
                 other.write_parameter('instrument/detector/orientation_matrix', np.array(self.Umat))
 
     def link_sample(self, other):
@@ -360,7 +360,7 @@ class NXRefine(object):
             self.b = self.a
             self.alpha = self.beta = 90.0 
             self.gamma = 120.0
-        elif symmetry == 'monoclinic':
+        elif self.symmetry == 'monoclinic':
             self.alpha = self.gamma = 90.0
 
     def guess_symmetry(self):
@@ -774,6 +774,48 @@ class NXRefine(object):
         pvx.plot(data[xslab], log=True)
         pvx.crosshairs(y, z)
 
+    def define_lattice_parameters(self):
+        self.p = [self.a, self.b, self.c]
+        self.init_p = self.p
+
+    def get_lattice_parameters(self, p):
+        self.a, self.b, self.c = p
+
+    def refine_lattice_parameters(self, method='nelder-mead', **opts):
+        self.define_lattice_parameters()
+        p0 = np.array(self.p)
+        result = minimize(self.lattice_residuals, p0, method='nelder-mead',
+                          options={'xtol': 1e-5, 'disp': True})
+        self.get_lattice_parameters(result.x)
+
+    def restore_lattice_parameters(self):
+        self.a, self.b, self.c = self.init_p
+
+    def lattice_residuals(self, p):
+        self.a, self.b, self.c = p
+        polar_angles, _ = self.calculate_angles(self.x, self.y)
+        rings = self.calculate_rings()
+        residuals = np.array([find_nearest(rings, polar_angle) - polar_angle 
+                              for polar_angle in polar_angles])
+        return np.sum(residuals**2)
+
+    def refine_orient_parameters(self, method='nelder-mead', **opts):
+        idx = self.idx
+        random.shuffle(idx)
+        self.idx = idx[0:20]
+        p0 = np.ravel(self.Umat)
+        self.fit_intensity = self.intensity[self.idx]
+        result = minimize(self.orient_residuals, p0, method=method,
+                          options={'xtol': 1e-5, 'disp': True})
+        self.Umat = np.matrix(result.x).reshape(3,3)
+        self.get_score()
+
+    def orient_residuals(self, p):
+        self.Umat = np.matrix(p).reshape(3,3)
+        diffs = np.array([self.diff(i) for i in self.idx])
+        score = np.sum(diffs * self.fit_intensity)
+        return score
+
 
 class NXpeak(object):
 
@@ -821,3 +863,4 @@ class NXgrain(object):
 
     def __len__(self):
         return len(self.peaks)
+
