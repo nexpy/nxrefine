@@ -40,6 +40,7 @@ setup (name = nxpeaks.__package_name__,
             # create & install scripts in <python>/bin
             'console_scripts': ['nxsetup=nxpeaks.scripts.nxsetup:main',
                                 'nxcopy=nxpeaks.scripts.nxcopy:main',
+                                'nxlink=nxpeaks.scripts.nxlink:main',
                                 'nxfind=nxpeaks.scripts.nxfind:main',
                                 'nxmake=nxpeaks.scripts.nxmake:main',
                                 'nxmask=nxpeaks.scripts.nxmask:main',
