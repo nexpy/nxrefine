@@ -64,8 +64,7 @@ def main():
     parser.add_argument('-d', '--directory', default='', help='scan directory')
     parser.add_argument('-f', '--filenames', default=['f1', 'f2'], nargs='+',
         help='names of NeXus files to be linked to this file')
-    parser.add_argument('-m', '--maskfile', default='pilatus_mask.nxs',
-        help='name of the pixel mask file')
+    parser.add_argument('-m', '--maskfile', help='name of the pixel mask file')
 
     args = parser.parse_args()
 
