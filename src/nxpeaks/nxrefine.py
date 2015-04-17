@@ -1,6 +1,5 @@
 import numpy as np
 from scipy.optimize import minimize
-from nexpy.gui.mainwindow import report_error
 from nexusformat.nexus import NeXusError, NXfield, NXroot, NXentry, NXdata
 from nexusformat.nexus import NXdetector, NXinstrument, NXmonochromator, NXsample
 from nxpeaks.unitcell import unitcell
