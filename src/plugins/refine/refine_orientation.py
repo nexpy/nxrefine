@@ -12,7 +12,7 @@ from nxpeaks.nxrefine import NXRefine
 
 def show_dialog(parent=None):
     try:
-        dialog = OrientationDialog(parent)
+        dialog = RefineOrientationDialog(parent)
         dialog.show()
     except NeXusError as error:
         report_error("Refining Orientation", error)
@@ -131,25 +131,24 @@ class RefineOrientationDialog(BaseDialog):
         self.plotview.crosshairs(x, y)
 
     def refine_orientation(self):
-        Umat = self.refine.Umat
         idx = self.refine.idx
         random.shuffle(idx)
         self.idx = idx[0:20]
-        p0 = np.ravel(self.refine.UBmat)
+        p0 = np.ravel(self.refine.Umat)
         self.fit_intensity = self.refine.intensity[self.idx]
-        result = minimize(self.residuals, p0, method='powell',
-                          options={'xtol': 1e-4, 'disp': True})
-        self.UBmat = np.matrix(result.x).reshape(3,3)
+        result = minimize(self.residuals, p0, method='nelder-mead',
+                          options={'xtol': 1e-5, 'disp': True})
+        self.Umat = np.matrix(result.x).reshape(3,3)
         self.get_score()
 
     def residuals(self, p):
-        self.refine.Umat = np.matrix(p).reshape(3,3) * self.refine.Bimat
+        self.refine.Umat = np.matrix(p).reshape(3,3)
         diffs = np.array([self.refine.diff(i) for i in self.idx])
         score = np.sum(diffs * self.fit_intensity)
         return score
 
     def accept(self):
-        self.refine.Umat = self.UBmat * self.refine.Bimat
+        self.refine.Umat = self.Umat
         self.write_parameters()
         super(RefineOrientationDialog, self).accept()
 
