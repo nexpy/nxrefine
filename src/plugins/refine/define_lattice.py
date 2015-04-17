@@ -2,7 +2,7 @@ import numpy as np
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.mainwindow import report_error
 from nexpy.gui.plotview import get_plotview, plotview
-from nexusformat.nexus import NeXusError
+from nexusformat.nexus import *
 from nxpeaks.nxrefine import NXRefine
 
 
