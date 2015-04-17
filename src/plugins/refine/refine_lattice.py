@@ -189,7 +189,7 @@ class RefineLatticeDialog(BaseDialog):
 
     def plot_rings(self, polar_max=None):
         if polar_max is None:
-            polar_max = self.polar_max
+            polar_max = self.refine.polar_max
         peaks = self.refine.calculate_rings(polar_max)
         plotview = get_plotview()
         plotview.vlines(peaks, colors='r', linestyles='dotted')
