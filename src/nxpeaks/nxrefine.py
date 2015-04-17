@@ -1,7 +1,6 @@
 import numpy as np
 from scipy.optimize import minimize
 from nexpy.gui.mainwindow import report_error
-from nexpy.gui.plotview import get_plotview
 from nexusformat.nexus import NeXusError, NXfield, NXroot, NXentry, NXdata
 from nexusformat.nexus import NXdetector, NXinstrument, NXmonochromator, NXsample
 from nxpeaks.unitcell import unitcell
@@ -735,44 +734,6 @@ class NXRefine(object):
 #                         for i in self.idx])
 #        result.shape = (len(self.idx),3)
 #        return result
-
-    def plot_peaks(self, x, y):
-        try:
-            polar_angles, azimuthal_angles = self.calculate_angles(x, y)
-            if polar_angles[0] > polar_angles[-1]:
-                polar_angles = polar_angles[::-1]
-                azimuthal_angles = azimuthal_angles[::-1]
-            azimuthal_field = NXfield(azimuthal_angles, name='azimuthal_angle')
-            azimuthal_field.long_name = 'Azimuthal Angle'
-            polar_field = NXfield(polar_angles, name='polar_angle')
-            polar_field.long_name = 'Polar Angle'
-            plotview = get_plotview()
-            plotview.plot(NXdata(azimuthal_field, polar_field, title='Peak Angles'))
-        except NeXusError as error:
-            report_error('Plotting Lattice', error)
-
-    def plot_rings(self, polar_max=None):
-        if polar_max is None:
-            polar_max = self.polar_max
-        peaks = self.calculate_rings(polar_max)
-        plotview = get_plotview()
-        plotview.vlines(peaks, colors='r', linestyles='dotted')
-        plotview.draw()
-    
-    def plot_peak(self, i):
-        x, y, z = self.xp[i], self.yp[i], self.zp[i]/10.0
-        xmin, xmax = max(0,int(x)-200), min(int(x)+200,data.v.shape[2])
-        ymin, ymax = max(0,int(y)-200), min(int(y)+200,data.v.shape[1])
-        zmin, zmax = max(0.0,z-20.0), min(z+20.0, 360.0)
-        xslab=np.s_[zmin:zmax,ymin:ymax,x]
-        yslab=np.s_[zmin:zmax,y,xmin:xmax]
-        zslab=np.s_[z,ymin:ymax,xmin:xmax]
-        pvz.plot(data[zslab], log=True)
-        pvz.crosshairs(x, y)
-        pvy.plot(data[yslab], log=True)
-        pvy.crosshairs(x, z)
-        pvx.plot(data[xslab], log=True)
-        pvx.crosshairs(y, z)
 
     def define_lattice_parameters(self):
         self.p = [self.a, self.b, self.c]
