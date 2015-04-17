@@ -11,7 +11,6 @@ import argparse
 import os
 import re
 import numpy as np
-import subprocess
 from nexusformat.nexus import *
 
 
