@@ -22,10 +22,6 @@ def main():
     directory = args.directory
     temperature = np.float32(args.temperature)
     files = args.filenames
-    if args.maskfile is not None:
-        mask = nxload(args.maskfile)['entry/mask']
-    else:
-        mask = None
     parent = args.parent
 
     label_path = '%s/%s' % (sample, label)
