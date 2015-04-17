@@ -1,7 +1,7 @@
 import numpy as np
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.mainwindow import report_error
-from nexpy.gui.plotview import plotview
+from nexpy.gui.plotview import get_plotview, plotview
 from nexusformat.nexus import NeXusError
 from nxpeaks.nxrefine import NXRefine
 
@@ -33,7 +33,7 @@ class LatticeDialog(BaseDialog):
         self.parameters.add('alpha', self.refine.alpha, 'Unit Cell - alpha (deg)')
         self.parameters.add('beta', self.refine.beta, 'Unit Cell - beta (deg)')
         self.parameters.add('gamma', self.refine.gamma, 'Unit Cell - gamma (deg)')
-        action_buttons = self.action_buttons(('Plot', self.plot_peaks),
+        action_buttons = self.action_buttons(('Plot', self.plot_lattice),
                                              ('Save', self.write_parameters))
         self.set_layout(self.entry_layout, self.parameters.grid(), 
                         action_buttons, self.close_buttons())
@@ -68,12 +68,12 @@ class LatticeDialog(BaseDialog):
             self.refine.alpha, self.refine.beta, self.refine.gamma = self.get_lattice_parameters()
         self.refine.centring = self.get_centring()
 
-    def plot_peaks(self):
+    def plot_lattice(self):
         try:
             self.get_parameters()
-            self.refine.plot_peaks(self.refine.xp, self.refine.yp)
+            self.plot_peaks(self.refine.xp, self.refine.yp)
             polar_min, polar_max = plotview.xaxis.get_limits()
-            self.refine.plot_rings(polar_max)
+            self.plot_rings(polar_max)
         except NeXusError as error:
             report_error('Plotting Lattice', error)
 
@@ -83,3 +83,27 @@ class LatticeDialog(BaseDialog):
             self.refine.write_parameters()
         except NeXusError as error:
             report_error('Defining Lattice', error)
+
+    def plot_peaks(self, x, y):
+        try:
+            polar_angles, azimuthal_angles = self.refine.calculate_angles(x, y)
+            if polar_angles[0] > polar_angles[-1]:
+                polar_angles = polar_angles[::-1]
+                azimuthal_angles = azimuthal_angles[::-1]
+            azimuthal_field = NXfield(azimuthal_angles, name='azimuthal_angle')
+            azimuthal_field.long_name = 'Azimuthal Angle'
+            polar_field = NXfield(polar_angles, name='polar_angle')
+            polar_field.long_name = 'Polar Angle'
+            plotview = get_plotview()
+            plotview.plot(NXdata(azimuthal_field, polar_field, title='Peak Angles'))
+        except NeXusError as error:
+            report_error('Plotting Lattice', error)
+
+    def plot_rings(self, polar_max=None):
+        if polar_max is None:
+            polar_max = self.refine.polar_max
+        peaks = self.refine.calculate_rings(polar_max)
+        plotview = get_plotview()
+        plotview.vlines(peaks, colors='r', linestyles='dotted')
+        plotview.draw()
+
