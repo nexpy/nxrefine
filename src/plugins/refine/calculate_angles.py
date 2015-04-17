@@ -1,5 +1,6 @@
 import numpy as np
 from nexusformat.nexus import NeXusError
+from nexpy.gui.plotview import get_plotview, plotview
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.mainwindow import report_error
 from nxpeaks.nxrefine import NXRefine
@@ -29,7 +30,7 @@ class CalculateDialog(BaseDialog):
         self.parameters.add('xc', self.refine.xc, 'Beam Center - x')
         self.parameters.add('yc', self.refine.yc, 'Beam Center - y')
         self.parameters.add('pixel', self.refine.pixel_size, 'Pixel Size (mm)')
-        action_buttons = self.action_buttons(('Plot', self.plot_peaks),
+        action_buttons = self.action_buttons(('Plot', self.plot_lattice),
                                              ('Save', self.write_parameters))
         self.set_layout(self.entry_layout, self.parameters.grid(), 
                         action_buttons, self.close_buttons())
@@ -65,12 +66,27 @@ class CalculateDialog(BaseDialog):
         self.refine.pixel_size = self.get_pixel_size()
         self.refine.yaw = self.refine.pitch = self.refine.roll = None
 
-    def plot_peaks(self):
+    def plot_lattice(self):
         try:
             self.get_parameters()
-            self.refine.plot_peaks(self.refine.xp, self.refine.yp)
+            self.plot_peaks(self.refine.xp, self.refine.yp)
         except NeXusError as error:
             report_error('Calculating Angles', error)
+
+    def plot_peaks(self, x, y):
+        try:
+            polar_angles, azimuthal_angles = self.refine.calculate_angles(x, y)
+            if polar_angles[0] > polar_angles[-1]:
+                polar_angles = polar_angles[::-1]
+                azimuthal_angles = azimuthal_angles[::-1]
+            azimuthal_field = NXfield(azimuthal_angles, name='azimuthal_angle')
+            azimuthal_field.long_name = 'Azimuthal Angle'
+            polar_field = NXfield(polar_angles, name='polar_angle')
+            polar_field.long_name = 'Polar Angle'
+            plotview = get_plotview()
+            plotview.plot(NXdata(azimuthal_field, polar_field, title='Peak Angles'))
+        except NeXusError as error:
+            report_error('Plotting Lattice', error)
 
     def write_parameters(self):
         try:
