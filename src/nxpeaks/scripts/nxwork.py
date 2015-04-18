@@ -1,6 +1,10 @@
 import argparse, os, subprocess
 import numpy as np
 
+def crash(msg):
+    print msg
+    exit(1)
+
 def main():
 
     parser = argparse.ArgumentParser(
@@ -27,6 +31,13 @@ def main():
     label_path = '%s/%s' % (sample, label)
     wrapper_file = '%s/%s_%s.nxs' % (label_path, sample, directory)
 
+    print wrapper_file
+    
+    if sample == None:
+        crash('Requires sample!')
+    if not os.path.exists(label_path):
+        crash("Label does not exist: "+label_path)
+    
     if not os.path.exists(wrapper_file):
         setup_command = 'nxsetup -s %s -l %s -d %s -t %s -f %s' \
                         % (sample, label, directory, temperature, ' '.join(files))
