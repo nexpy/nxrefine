@@ -31,8 +31,6 @@ def main():
     label_path = '%s/%s' % (sample, label)
     wrapper_file = '%s/%s_%s.nxs' % (label_path, sample, directory)
 
-    print wrapper_file
-    
     if sample == None:
         crash('Requires sample!')
     if not os.path.exists(label_path):
