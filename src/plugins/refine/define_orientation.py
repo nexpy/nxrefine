@@ -37,7 +37,8 @@ class OrientationDialog(BaseDialog):
         self.parameters.add('hkl_tolerance', self.refine.hkl_tolerance, 'HKL Tolerance')
         action_buttons = self.action_buttons(
                              ('Generate Grains', self.generate_grains),
-                             ('List Peaks', self.list_peaks))
+                             ('List Peaks', self.list_peaks),
+                             ('Refine', self.refine_orientation))
         self.grain_layout = QtGui.QHBoxLayout()
         self.grain_combo = QtGui.QComboBox()
         self.grain_combo.setSizeAdjustPolicy(QtGui.QComboBox.AdjustToContents)
@@ -46,12 +47,14 @@ class OrientationDialog(BaseDialog):
         self.grain_layout.addWidget(self.grain_combo)
         self.grain_layout.addStretch()
         self.grain_layout.addWidget(self.grain_textbox)
+        bottom_layout = QtGui.QHBoxLayout()
+        self.result_textbox = QtGui.QLabel()
+        bottom_layout.addWidget(self.result_textbox)
+        bottom_layout.addStretch()
+        bottom_layout.addWidget(self.close_buttons(save=True))
         self.set_layout(self.entry_layout, self.parameters.grid(), 
-                        action_buttons, self.close_buttons(save=True))
+                        action_buttons, bottom_layout)
         self.set_title('Defining Orientation')
-
-        self.Umat = None
-        self.grain = None
 
     def choose_entry(self):
         self.refine = NXRefine(self.entry)
@@ -113,6 +116,10 @@ class OrientationDialog(BaseDialog):
             grain = self.refine.grains[self.get_grain()]
             self.grain_textbox.setText('%s peaks; Score: %.4f' 
                                        % (len(grain), grain.score))
+            self.refine.Umat = grain.Umat
+            self.refine.primary = grain.primary
+            self.refine.secondary = grain.secondary
+            self.get_score()
         except:
             self.grain_textbox.setText('')
 
@@ -123,14 +130,18 @@ class OrientationDialog(BaseDialog):
         self.refine.omega_start, self.refine.omega_step = self.get_omega()
         if self.refine.grains is not None:
             grain = self.refine.grains[self.get_grain()]
-            Umat = self.refine.Umat
             self.refine.Umat = grain.Umat
-            self.list_orientations(grain)
-            self.refine.Umat = Umat
+            self.list_orientations()
         else:
             self.list_orientations()
 
-    def list_orientations(self, grain=None):
+    def get_score(self):
+        if self.refine.Umat is not None:
+            self.score = self.refine.score()
+            self.result_textbox.setText('%s peaks; Score: %.4f'
+                                        % (len(self.refine.idx), self.score))
+
+    def list_orientations(self):
         message_box = BaseDialog(self)
         message_box.setMinimumWidth(600)
         message_box.setMinimumHeight(600)
@@ -138,7 +149,7 @@ class OrientationDialog(BaseDialog):
                   'H', 'K', 'L', 'Diff']
         peak_list = self.refine.get_peaks()
         self.table_view = QtGui.QTableView()
-        self.table_view.setModel(NXTableModel(self, peak_list, header, grain))
+        self.table_view.setModel(NXTableModel(self, peak_list, header))
         self.table_view.resizeColumnsToContents()
         self.table_view.horizontalHeader().stretchLastSection()
         self.table_view.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
@@ -148,7 +159,7 @@ class OrientationDialog(BaseDialog):
         layout = QtGui.QVBoxLayout()
         layout.addWidget(self.table_view)
         close_layout = QtGui.QHBoxLayout()
-        status_text = QtGui.QLabel('Score: %.4f' % self.refine.score(grain))
+        status_text = QtGui.QLabel('Score: %.4f' % self.refine.score())
         close_button = QtGui.QPushButton('Close Window')
         close_button.clicked.connect(message_box.close)
         close_layout.addWidget(status_text)
@@ -156,7 +167,8 @@ class OrientationDialog(BaseDialog):
         close_layout.addWidget(close_button)
         layout.addLayout(close_layout)
         message_box.setLayout(layout)
-        s = str(grain)
+        s = 'Primary Peak = %s - Secondary Peak = %s' % (self.refine.primary, 
+                                                         self.refine.secondary)
         message_box.setWindowTitle(s if len(s) <= 50 else s[0:47]+'...')
         message_box.adjustSize()
         message_box.show()
@@ -180,23 +192,35 @@ class OrientationDialog(BaseDialog):
         self.plotview.plot(data[zslab], log=True)
         self.plotview.crosshairs(x, y)
 
+    def refine_orientation(self):
+        idx = self.refine.idx
+        random.shuffle(idx)
+        self.idx = idx[0:20]
+        p0 = np.ravel(self.refine.Umat)
+        self.fit_intensity = self.refine.intensity[self.idx]
+        result = minimize(self.residuals, p0, method='nelder-mead',
+                          options={'xtol': 1e-5, 'disp': True})
+        self.Umat = np.matrix(result.x).reshape(3,3)
+        self.get_score()
+
+    def residuals(self, p):
+        self.refine.Umat = np.matrix(p).reshape(3,3)
+        diffs = np.array([self.refine.diff(i) for i in self.idx])
+        score = np.sum(diffs * self.fit_intensity)
+        return score
+
     def accept(self):
-        grain = self.refine.grains[self.get_grain()]
-        if grain.Umat is not None:
-            self.refine.Umat = grain.Umat
-            self.refine.primary = grain.primary
-            self.refine.secondary = grain.secondary
+        self.refine.Umat = self.Umat
         self.write_parameters()
         super(OrientationDialog, self).accept()
 
 
 class NXTableModel(QtCore.QAbstractTableModel):
 
-    def __init__(self, parent, peak_list, header, grain, *args):
+    def __init__(self, parent, peak_list, header, *args):
         super(NXTableModel, self).__init__(parent, *args)
         self.peak_list = peak_list
         self.header = header
-        self.grain = grain
         self.parent = parent
 
     def rowCount(self, parent):
@@ -226,8 +250,6 @@ class NXTableModel(QtCore.QAbstractTableModel):
             peak = self.peak_list[row][0]
             if self.peak_list[row][10] > self.parent.refine.hkl_tolerance:
                 return QtGui.QColor(QtCore.Qt.red)
-            elif peak not in self.grain:
-                return QtGui.QColor(QtCore.Qt.lightGray)
             else:
                 return None
             
