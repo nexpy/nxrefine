@@ -10,7 +10,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Perform workflow for scan")
     parser.add_argument('-s', '--sample', help='sample name')
-    parser.add_argument('-l', '--label', default='', help='sample label')
+    parser.add_argument('-l', '--label', help='sample label')
     parser.add_argument('-d', '--directory', default='', help='scan directory')
     parser.add_argument('-t', '--temperature', help='temperature of scan')
     parser.add_argument('-f', '--filenames', default=['f1', 'f2', 'f3'], 
@@ -23,7 +23,16 @@ def main():
 
     sample = args.sample
     label = args.label
-    directory = args.directory
+    directory = args.directory.rstrip('/')
+    if sample is None and label is None:
+        sample = os.path.basename(os.path.dirname(os.path.dirname(directory)))   
+        label = os.path.basename(os.path.dirname(directory))
+        directory = os.path.basename(directory)
+
+    print "Processing sample '%s', label '%s', scan '%s'\n" % (sample,
+                                                               label,
+                                                               directory)
+    
     temperature = np.float32(args.temperature)
     files = args.filenames
     parent = args.parent
@@ -37,23 +46,31 @@ def main():
         crash("Label does not exist: "+label_path)
     
     if not os.path.exists(wrapper_file):
-        setup_command = 'nxsetup -s %s -l %s -d %s -t %s -f %s' \
-                        % (sample, label, directory, temperature, ' '.join(files))
+        print "\n\nSetting up %s\n" % wrapper_file
+        subprocess.call('nxsetup -s %s -l %s -d %s -t %s -f %s'
+                        % (sample, label, directory, temperature, 
+                           ' '.join(files)), shell=True)
 
     for f in files:
         path = '%s/%s/%s/%s' % (sample, label, directory, f)
-        subprocess.call('nxstack -d %s -p scan -e cbf -o %s.nxs -c None'
-                        % (path, path))
-        subprocess.call('nxlink -s %s -l %s -d %s -f %s -m pilatus_mask.nxs'
-                        % (sample, label, directory, f))
-        subprocess.call('nxmax -d %s -f %s -p %s/data'
-                        % (label_path, wrapper_file, f))
-        subprocess.call('nxfind -d %s -f %s -p %s/data -s 500 -e 1000'
-                        % (label_path, wrapper_file, f))
+        if not os.path.exists(path+'.nxs'):
+            print "\n\nStacking %s.nxs\n" % path
+            subprocess.call('nxstack -d %s -p scan -e cbf -o %s.nxs -s scan.spec -c None'
+                            % (path, path), shell=True)
+        print "\n\nLinking %s.nxs\n" % path
+        subprocess.call('nxlink -s %s -l %s -d %s -f %s -m mask_f1.nxs'
+                        % (sample, label, directory, f), shell=True)
+        print "\n\nDetermining maximum counts in %s.nxs\n" % path
+        subprocess.call('nxmax -f %s -p %s/data'
+                        % (wrapper_file, f), shell=True)
+        print "\n\nFinding peaks in %s.nxs\n" % path
+        subprocess.call('nxfind -f %s -p %s/data -s 500 -e 1000'
+                        % (wrapper_file, f), shell=True)
 
     if parent:
-        subprocess.call('nxcopy -f %s/%s -o %s' 
-                        % (label_path, parent, wrapper_file))
+        print "\n\nCopying parameters from %s\n" % parent
+        subprocess.call('nxcopy -f %s -o %s' 
+                        % (parent, wrapper_file), shell=True)
 
 if __name__=="__main__":
     main()
