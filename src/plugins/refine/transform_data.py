@@ -1,5 +1,5 @@
-import os
 from PySide import QtGui
+import os
 import numpy as np
 from nexpy.gui.datadialogs import BaseDialog
 from nexpy.gui.mainwindow import report_error
@@ -63,10 +63,10 @@ class TransformDialog(BaseDialog):
             pass
 
     def get_output_file(self):
-        return self.entry.nxname+'_transform.nxs'
+        return os.path.splitext(self.entry.data.nxsignal.nxfilename)[0]+'_transform.nxs'
 
     def get_settings_file(self):
-        return self.entry.nxname+'_transform.pars'
+        return os.path.splitext(self.entry.data.nxsignal.nxfilename)[0]+'_transform.pars'
 
     def get_h_grid(self):
         return (np.float32(self.start_h_box.text()),
@@ -103,12 +103,11 @@ class TransformDialog(BaseDialog):
         self.refine.k_start, self.refine.k_step, self.refine.k_stop = self.get_k_grid()
         self.refine.l_start, self.refine.l_step, self.refine.l_stop = self.get_l_grid()
         self.refine.define_grid()
-        self.refine.data_file = self.entry.nxfilename
 
     def accept(self):
         try:
             self.write_parameters()
-            self.refine.initialize_output(self.get_output_file())
+            self.refine.prepare_transform(self.get_output_file())
             self.refine.write_settings(self.get_settings_file())
             super(TransformDialog, self).accept()
         except NeXusError as error:
