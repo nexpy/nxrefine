@@ -26,8 +26,6 @@ def plugin_menu(parent):
                    triggered=refine_lattice.show_dialog))
     menu.addAction(QtGui.QAction('Define Orientation', parent, 
                    triggered=define_orientation.show_dialog))
-    menu.addAction(QtGui.QAction('Refine Orientation', parent, 
-                   triggered=refine_orientation.show_dialog))
     menu.addAction(QtGui.QAction('Transform Data', parent, 
                    triggered=transform_data.show_dialog))
     return menu

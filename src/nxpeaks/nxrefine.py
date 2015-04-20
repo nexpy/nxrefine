@@ -1,7 +1,7 @@
 import numpy as np
+import os
 from scipy.optimize import minimize
-from nexusformat.nexus import NeXusError, NXfield, NXroot, NXentry, NXdata
-from nexusformat.nexus import NXdetector, NXinstrument, NXmonochromator, NXsample
+from nexusformat.nexus import *
 from nxpeaks.unitcell import unitcell
 from nxpeaks import closest
 
@@ -92,9 +92,6 @@ class NXRefine(object):
         self.polar_tolerance = 0.1
         self.peak_tolerance = 5.0
         self.hkl_tolerance = 0.05
-        self.data_path = 'data/v'
-        self.data_file = None
-        self.data_shape = None
         self.output_chunks = None
         self.grid_origin = None
         self.grid_basis = None
@@ -128,8 +125,14 @@ class NXRefine(object):
         self.wavelength = self.read_parameter('instrument/monochromator/wavelength')
         self.distance = self.read_parameter('instrument/detector/distance')
         self.yaw = self.read_parameter('instrument/detector/yaw')
+        if self.yaw is None:
+            self.yaw = 0.0
         self.pitch = self.read_parameter('instrument/detector/pitch')
+        if self.pitch is None:
+            self.pitch = 0.0
         self.roll = self.read_parameter('instrument/detector/roll')
+        if self.roll is None:
+            self.roll = 0.0
         self.xc = self.read_parameter('instrument/detector/beam_center_x')
         self.yc = self.read_parameter('instrument/detector/beam_center_y')
         self.symmetry = self.read_parameter('sample/unit_cell_group')
@@ -270,7 +273,7 @@ class NXRefine(object):
         lines.append('outputData.dimensions = %s;' % list(self.grid_shape))
         lines.append('outputData.chunkSize =  [32,32,32];')
         lines.append('outputData.compression = %s;' % 0)
-        lines.append('outputData.hdfChunkSize = %s;' % list(self.output_chunks))
+        lines.append('outputData.hdfChunkSize = [32,32,32];')
         lines.append('transformer.transformOptions =  0;')
         lines.append('transformer.oversampleX = 1;')
         lines.append('transformer.oversampleY =  1;')
@@ -324,26 +327,41 @@ class NXRefine(object):
         self.l_shape = np.int32(np.round((self.l_stop - self.l_start) / 
                                           self.l_step, 2)) + 1
         self.grid_origin = [self.h_start, self.k_start, self.l_start]
-        self.grid_step = [np.int32(1.0/self.h_step)+1,    
-                          np.int32(1.0/self.k_step)+1,
-                          np.int32(1.0/self.l_step)+1]
+        self.grid_step = [np.int32(np.rint(1.0/self.h_step)),    
+                          np.int32(np.rint(1.0/self.k_step)),
+                          np.int32(np.rint(1.0/self.l_step))]
         self.grid_shape = [self.h_shape, self.k_shape, self.l_shape]
         self.grid_basis = [[1,0,0],[0,1,0],[0,0,1]]
 
-    def initialize_output(self, output_file):
-        self.output_file = output_file
-        root = NXroot(NXentry(NXdata()))
-        root.entry.data.h = np.linspace(self.h_start, self.h_stop, self.h_shape) 
-        root.entry.data.k = np.linspace(self.k_start, self.k_stop, self.k_shape) 
-        root.entry.data.l = np.linspace(self.l_start, self.l_stop, self.l_shape) 
-        root.entry.data.v = NXfield(shape=self.grid_shape, dtype=np.float32)
-        root.entry.data.v[0,0,0] = 0.0
-        self.output_chunks = root.entry.data.v._memfile['data'].chunks
-        root.entry.data.nxsignal = root.entry.data.v
-        root.entry.data.nxaxes = [root.entry.data.h, 
-                                  root.entry.data.k,
-                                  root.entry.data.l]
-        root.save(self.output_file)       
+    def prepare_transform(self, output_file):
+        name = self.entry.nxname + '_transform'
+        command = self.cctw_command(name)
+        h = NXfield(np.linspace(self.h_start, self.h_stop, self.h_shape), name='Qh')
+        k = NXfield(np.linspace(self.k_start, self.k_stop, self.k_shape), name='Qk')
+        l = NXfield(np.linspace(self.l_start, self.l_stop, self.l_shape), name='Ql')
+        self.entry[name] = NXdata(NXlink(name = 'data', 
+                                         target='/entry/data/v', 
+                                         file=output_file),
+                                  [l, k, h])
+        self.entry[name+'/command'] = command
+
+    def cctw_command(self, name):
+        dir = os.path.dirname(self.entry['data/data'].nxfilename)
+        filename = self.entry.nxfilename
+        mask_file = '%s/mask_%s.nxs' % (dir, self.entry.nxname)
+        if not os.path.exists(mask_file):
+            mask = self.entry['instrument/detector/pixel_mask']
+            mask.nxname = 'mask'
+            NXroot(NXentry(mask)).save(mask_file)
+        return (('cctw transform '
+                 '--script %s/%s.pars '
+                 '--mask %s\#/entry/mask '
+                 '%s\#/%s/data/data ' 
+                 '-o %s/%s.nxs\#/entry/data/v')
+                 % (dir, name, 
+                    mask_file,
+                    self.entry.nxfilename, self.entry.nxname, 
+                    dir, name))
 
     def set_symmetry(self):
         if self.symmetry == 'cubic':
@@ -362,6 +380,8 @@ class NXRefine(object):
             self.alpha = self.gamma = 90.0
 
     def guess_symmetry(self):
+        if self.lattice_parameters.count(None) > 0:
+            return 'monoclinic'
         if np.isclose(self.alpha, 90.0) and np.isclose(self.beta, 90.0):
             if np.isclose(self.gamma, 90.0):
                 if np.isclose(self.a, self.b) and np.isclose(self.a, self.c):
@@ -562,10 +582,13 @@ class NXRefine(object):
 
     def assign_rings(self):
         """Assign all the peaks to rings (stored in 'rp')"""
+        polar_max = self.polar_max
+        self.set_polar_max(max(self.polar_angle))
         rings = self.rings
         self.rp = np.zeros((self.npks), np.int16)
         for i in range(self.npks):
             self.rp[i] = (np.abs(self.polar_angle[i] - rings)).argmin()
+        self.set_polar_max(polar_max)
 
     def compatible(self, i, j):
         """Determine if the angle between two peaks is contained in the set of
@@ -699,18 +722,23 @@ class NXRefine(object):
                    np.rint(self.zp[peaks]).astype(np.int16))
         polar, azi = self.polar_angle[peaks], self.azimuthal_angle[peaks]
         intensity = self.intensity[peaks]
-        h, k, l = self.get_hkls()
-        h = np.array(h)[peaks]
-        k = np.array(k)[peaks]
-        l = np.array(l)[peaks]
-        diffs = self.diffs[peaks]
+        if self.Umat is not None:
+            h, k, l = self.get_hkls()
+            h = np.array(h)[peaks]
+            k = np.array(k)[peaks]
+            l = np.array(l)[peaks]
+            diffs = self.diffs[peaks]
+        else:
+            h = k = l = diffs = np.zeros((peaks), dtype=np.float32)
         return zip(peaks, x, y, z, polar, azi, intensity, h, k, l, diffs)
 
-#    def get_ring_hkls(self):
-#        dss = sorted([ringds for ringds in self.unitcell.ringds 
-#                      if ringds < self.ds_max])
-#        hkls=[self.unitcell.ringhkls[ds][0] for ds in dss]
-#        return [(abs(hkl[0]),abs(hkl[1]),abs(hkl[2])) for hkl in hkls]
+    def get_ring_hkls(self):
+        polar_max = self.polar_max
+        self.set_polar_max(max(self.polar_angle))
+        dss = sorted([ringds for ringds in self.unitcell.ringds])
+        hkls=[self.unitcell.ringhkls[ds] for ds in dss]
+        self.set_polar_max(polar_max)
+        return hkls
 #
 #    def find_ring(self, h, k, l):
 #        hkl_list = self.unitcell.gethkls(self.ds_max)

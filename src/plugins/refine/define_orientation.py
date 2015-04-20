@@ -37,8 +37,7 @@ class OrientationDialog(BaseDialog):
         self.parameters.add('hkl_tolerance', self.refine.hkl_tolerance, 'HKL Tolerance')
         action_buttons = self.action_buttons(
                              ('Generate Grains', self.generate_grains),
-                             ('List Peaks', self.list_peaks),
-                             ('Refine', self.refine_orientation))
+                             ('List Peaks', self.list_peaks))
         self.grain_layout = QtGui.QHBoxLayout()
         self.grain_combo = QtGui.QComboBox()
         self.grain_combo.setSizeAdjustPolicy(QtGui.QComboBox.AdjustToContents)
@@ -51,7 +50,7 @@ class OrientationDialog(BaseDialog):
         self.result_textbox = QtGui.QLabel()
         bottom_layout.addWidget(self.result_textbox)
         bottom_layout.addStretch()
-        bottom_layout.addWidget(self.close_buttons(save=True))
+        bottom_layout.addWidget(self.close_buttons())
         self.set_layout(self.entry_layout, self.parameters.grid(), 
                         action_buttons, bottom_layout)
         self.set_title('Defining Orientation')
@@ -148,8 +147,30 @@ class OrientationDialog(BaseDialog):
         header = ['i', 'x', 'y', 'z', 'Polar', 'Azi', 'Intensity',
                   'H', 'K', 'L', 'Diff']
         peak_list = self.refine.get_peaks()
+        self.refine.assign_rings()
+        self.rings = self.refine.get_ring_hkls()
+        orient_layout = QtGui.QHBoxLayout()
+        if self.refine.primary is None:
+            self.refine.primary = 0
+        if self.refine.secondary is None:
+            self.refine.secondary = 1
+        self.primary_box = QtGui.QLineEdit(str(self.refine.primary))
+        self.secondary_box = QtGui.QLineEdit(str(self.refine.secondary))
+        orient_button = QtGui.QPushButton('Orient')
+        orient_button.clicked.connect(self.orient)
+        refine_button = QtGui.QPushButton('Refine')
+        refine_button.clicked.connect(self.refine_orientation)
+        orient_layout.addStretch()
+        orient_layout.addWidget(QtGui.QLabel('Primary'))
+        orient_layout.addWidget(self.primary_box)
+        orient_layout.addWidget(QtGui.QLabel('Secondary'))
+        orient_layout.addWidget(self.secondary_box)
+        orient_layout.addStretch()
+        orient_layout.addWidget(orient_button)     
+        orient_layout.addWidget(refine_button)   
         self.table_view = QtGui.QTableView()
-        self.table_view.setModel(NXTableModel(self, peak_list, header))
+        self.table_model = NXTableModel(self, peak_list, header)
+        self.table_view.setModel(self.table_model)
         self.table_view.resizeColumnsToContents()
         self.table_view.horizontalHeader().stretchLastSection()
         self.table_view.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
@@ -157,28 +178,25 @@ class OrientationDialog(BaseDialog):
         self.table_view.setSortingEnabled(True)
         self.table_view.sortByColumn(0, QtCore.Qt.AscendingOrder)
         layout = QtGui.QVBoxLayout()
+        layout.addLayout(orient_layout)
         layout.addWidget(self.table_view)
         close_layout = QtGui.QHBoxLayout()
-        status_text = QtGui.QLabel('Score: %.4f' % self.refine.score())
+        self.status_text = QtGui.QLabel('Score: %.4f' % self.refine.score())
+        save_button = QtGui.QPushButton('Save Orientation')
+        save_button.clicked.connect(self.save_orientation)
         close_button = QtGui.QPushButton('Close Window')
         close_button.clicked.connect(message_box.close)
-        close_layout.addWidget(status_text)
+        close_layout.addWidget(self.status_text)
+        close_layout.addStretch()
+        close_layout.addWidget(save_button)
         close_layout.addStretch()
         close_layout.addWidget(close_button)
         layout.addLayout(close_layout)
         message_box.setLayout(layout)
-        s = 'Primary Peak = %s - Secondary Peak = %s' % (self.refine.primary, 
-                                                         self.refine.secondary)
-        message_box.setWindowTitle(s if len(s) <= 50 else s[0:47]+'...')
+        message_box.setWindowTitle('%s Peak Table' % self.entry.nxtitle)
         message_box.adjustSize()
         message_box.show()
         self.plotview = None
-
-    def write_parameters(self):
-        try:
-            self.refine.write_parameters()
-        except NeXusError as error:
-            report_error('Defining Orientation', error)
 
     def plot_peak(self):
         row = self.table_view.currentIndex().row()
@@ -192,27 +210,53 @@ class OrientationDialog(BaseDialog):
         self.plotview.plot(data[zslab], log=True)
         self.plotview.crosshairs(x, y)
 
+    def orient(self):
+        self.refine.primary = int(self.primary_box.text())
+        self.refine.secondary = int(self.secondary_box.text())
+        self.refine.Umat = self.refine.get_UBmat(self.refine.primary, 
+                                                 self.refine.secondary) \
+                           * self.refine.Bimat
+        self.update_table()
+
     def refine_orientation(self):
+        self.orient()
         idx = self.refine.idx
         random.shuffle(idx)
         self.idx = idx[0:20]
-        p0 = np.ravel(self.refine.Umat)
+        p0 = np.zeros(shape=(12), dtype=np.float32)
+        p0[0:3] = self.refine.a, self.refine.b, self.refine.c
+        p0[3:] = np.ravel(self.refine.Umat)
         self.fit_intensity = self.refine.intensity[self.idx]
         result = minimize(self.residuals, p0, method='nelder-mead',
                           options={'xtol': 1e-5, 'disp': True})
-        self.Umat = np.matrix(result.x).reshape(3,3)
-        self.get_score()
+        self.refine.a, self.refine.b, self.refine.c = result.x[0:3]
+        self.refine.Umat = np.matrix(result.x[3:]).reshape(3,3)
+        self.update_table()
+        self.status_text.setText('Score: %.4f' % self.refine.score())
+
+    def update_table(self):
+        self.table_model.peak_list = self.refine.get_peaks()
+        rows, columns = len(self.table_model.peak_list), 11
+        self.table_model.dataChanged.emit(self.table_model.createIndex(0, 0),
+                                          self.table_model.createIndex(rows-1, columns-1))
+        self.status_text.setText('Score: %.4f' % self.refine.score())
 
     def residuals(self, p):
-        self.refine.Umat = np.matrix(p).reshape(3,3)
+        self.refine.a, self.refine.b, self.refine.c = p[0:3]
+        self.refine.Umat = np.matrix(p[3:]).reshape(3,3)
         diffs = np.array([self.refine.diff(i) for i in self.idx])
         score = np.sum(diffs * self.fit_intensity)
         return score
 
-    def accept(self):
-        self.refine.Umat = self.Umat
+    def save_orientation(self):
         self.write_parameters()
-        super(OrientationDialog, self).accept()
+
+    def write_parameters(self):
+        try:
+            self.refine.write_parameters()
+        except NeXusError as error:
+            report_error('Defining Orientation', error)
+
 
 
 class NXTableModel(QtCore.QAbstractTableModel):
@@ -232,6 +276,10 @@ class NXTableModel(QtCore.QAbstractTableModel):
     def data(self, index, role):
         if not index.isValid():
              return None
+        elif role == QtCore.Qt.ToolTipRole:
+            row, col = index.row(), index.column()
+            peak = self.peak_list[row][0]
+            return str(self.parent.rings[self.parent.refine.rp[peak]])
         elif role == QtCore.Qt.DisplayRole:
             row, col = index.row(), index.column()
             value = self.peak_list[row][col]
@@ -248,7 +296,10 @@ class NXTableModel(QtCore.QAbstractTableModel):
         elif role == QtCore.Qt.BackgroundRole:
             row, col = index.row(), index.column()
             peak = self.peak_list[row][0]
-            if self.peak_list[row][10] > self.parent.refine.hkl_tolerance:
+            if peak == self.parent.refine.primary or \
+                 peak == self.parent.refine.secondary:
+                return QtGui.QColor(QtCore.Qt.lightGray)
+            elif self.peak_list[row][10] > self.parent.refine.hkl_tolerance:
                 return QtGui.QColor(QtCore.Qt.red)
             else:
                 return None
