@@ -357,7 +357,8 @@ class NXRefine(object):
                  '--script %s/%s.pars '
                  '--mask %s\#/entry/mask '
                  '%s\#/%s/data/data ' 
-                 '-o %s/%s.nxs\#/entry/data/v')
+                 '-o %s/%s.nxs\#/entry/data '
+                 '--normalization 0')
                  % (dir, name, 
                     mask_file,
                     self.entry.nxfilename, self.entry.nxname, 
