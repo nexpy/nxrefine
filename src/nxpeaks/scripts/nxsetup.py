@@ -41,8 +41,7 @@ def main():
     parser.add_argument('-t', '--temperature', help='temperature of scan')
     parser.add_argument('-f', '--filenames', default=['f1', 'f2', 'f3'], 
         nargs='+', help='names of NeXus files to be linked to this file')
-    parser.add_argument('-m', '--maskfile', default='pilatus_mask.nxs',
-        help='name of the pixel mask file')
+    parser.add_argument('-m', '--maskfile', help='name of the pixel mask file')
     
     args = parser.parse_args()
 
@@ -58,7 +57,6 @@ def main():
 
     scan_directory = os.path.join(sample_name, sample_label, directory)
     try: 
-        print filenames
         os.makedirs(scan_directory)
         for f in filenames:
             os.makedirs(os.path.join(scan_directory, f))

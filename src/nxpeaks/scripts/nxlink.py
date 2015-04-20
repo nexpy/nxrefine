@@ -43,6 +43,8 @@ def make_data(entry, scan_file, mask=None):
     entry.data.frame_number = root.entry.data.frame_number
     scan_parent = os.path.basename(os.path.dirname(scan_file))
     scan_link = os.path.join(scan_parent, os.path.basename(scan_file))
+    if 'data' in entry.data:
+        del entry.data['data']
     entry.data.data = NXlink(target='/entry/data/data', file=scan_link)
     entry.data.nxsignal = entry.data.data
     entry.data.nxaxes = [entry.data.frame_number, entry.data.y_pixel, 
