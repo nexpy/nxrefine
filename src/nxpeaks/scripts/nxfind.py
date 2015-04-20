@@ -76,7 +76,7 @@ def find_peaks(group, threshold=None, z_min=None, z_max=None):
                 pass
 
     if not allpeaks:
-        raise NeXus_Error('No peaks found')
+        raise NeXusError('No peaks found')
     allpeaks = sorted(allpeaks)
 
     merged_peaks = []
