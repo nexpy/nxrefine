@@ -34,7 +34,6 @@ class OrientationDialog(BaseDialog):
         self.parameters.add('polar', self.refine.polar_max, 'Max. Polar Angle (deg)')
         self.parameters.add('polar_tolerance', self.refine.polar_tolerance, 'Polar Angle Tolerance')
         self.parameters.add('peak_tolerance', self.refine.peak_tolerance, 'Peak Angle Tolerance')
-        self.parameters.add('hkl_tolerance', self.refine.hkl_tolerance, 'HKL Tolerance')
         action_buttons = self.action_buttons(
                              ('Generate Grains', self.generate_grains),
                              ('List Peaks', self.list_peaks))
@@ -65,7 +64,6 @@ class OrientationDialog(BaseDialog):
         self.parameters['polar'].value = self.refine.polar_max
         self.parameters['polar_tolerance'].value = self.refine.polar_tolerance
         self.parameters['peak_tolerance'].value = self.refine.peak_tolerance
-        self.parameters['hkl_tolerance'].value = self.refine.hkl_tolerance
 
     def get_omega(self):
         return (self.parameters['omega_start'].value,
@@ -92,12 +90,6 @@ class OrientationDialog(BaseDialog):
 
     def set_peak_tolerance(self):
         self.refine.peak_tolerance = self.get_peak_tolerance()
-
-    def get_hkl_tolerance(self):
-        return self.parameters['hkl_tolerance'].value
-
-    def set_hkl_tolerance(self):
-        self.refine.hkl_tolerance = self.get_hkl_tolerance()
 
     def generate_grains(self):
         self.set_polar_max()
@@ -155,11 +147,17 @@ class OrientationDialog(BaseDialog):
         if self.refine.secondary is None:
             self.refine.secondary = 1
         self.primary_box = QtGui.QLineEdit(str(self.refine.primary))
+        self.primary_box.setAlignment(QtCore.Qt.AlignRight)
+        self.primary_box.setFixedWidth(80)
         self.secondary_box = QtGui.QLineEdit(str(self.refine.secondary))
+        self.secondary_box.setAlignment(QtCore.Qt.AlignRight)
+        self.secondary_box.setFixedWidth(80)
         orient_button = QtGui.QPushButton('Orient')
         orient_button.clicked.connect(self.orient)
         refine_button = QtGui.QPushButton('Refine')
         refine_button.clicked.connect(self.refine_orientation)
+        restore_button = QtGui.QPushButton('Restore')
+        restore_button.clicked.connect(self.restore_orientation)
         orient_layout.addStretch()
         orient_layout.addWidget(QtGui.QLabel('Primary'))
         orient_layout.addWidget(self.primary_box)
@@ -167,7 +165,54 @@ class OrientationDialog(BaseDialog):
         orient_layout.addWidget(self.secondary_box)
         orient_layout.addStretch()
         orient_layout.addWidget(orient_button)     
-        orient_layout.addWidget(refine_button)   
+        orient_layout.addWidget(refine_button)
+        orient_layout.addWidget(restore_button)
+
+        grid = QtGui.QGridLayout()
+        grid.setSpacing(10)
+        self.lattice = GridParameters()
+        self.lattice.add('a', self.refine.a, 'a', False)
+        self.lattice.add('b', self.refine.b, 'b', False)
+        self.lattice.add('c', self.refine.c, 'c', False)
+        self.lattice.add('alpha', self.refine.alpha, 'alpha', False)
+        self.lattice.add('beta', self.refine.beta, 'beta', False)
+        self.lattice.add('gamma', self.refine.gamma, 'gamma', False)
+        p = self.lattice['a']
+        p.box.setFixedWidth(80)
+        label, value, checkbox = p.label, p.value, p.vary
+        grid.addWidget(p.label, 0, 0, QtCore.Qt.AlignRight)
+        grid.addWidget(p.box, 0, 1, QtCore.Qt.AlignHCenter)
+        grid.addWidget(p.checkbox, 0, 2, QtCore.Qt.AlignHCenter)
+        p = self.lattice['b']
+        p.box.setFixedWidth(80)
+        label, value, checkbox = p.label, p.value, p.vary
+        grid.addWidget(p.label, 0, 3, QtCore.Qt.AlignRight)
+        grid.addWidget(p.box, 0, 4, QtCore.Qt.AlignHCenter)
+        grid.addWidget(p.checkbox, 0, 5, QtCore.Qt.AlignHCenter)
+        p = self.lattice['c']
+        p.box.setFixedWidth(80)
+        label, value, checkbox = p.label, p.value, p.vary
+        grid.addWidget(p.label, 0, 6, QtCore.Qt.AlignRight)
+        grid.addWidget(p.box, 0, 7, QtCore.Qt.AlignHCenter)
+        grid.addWidget(p.checkbox, 0, 8, QtCore.Qt.AlignHCenter)
+        p = self.lattice['alpha']
+        p.box.setFixedWidth(80)
+        label, value, checkbox = p.label, p.value, p.vary
+        grid.addWidget(p.label, 1, 0, QtCore.Qt.AlignRight)
+        grid.addWidget(p.box, 1, 1, QtCore.Qt.AlignHCenter)
+        grid.addWidget(p.checkbox, 1, 2, QtCore.Qt.AlignHCenter)
+        p = self.lattice['beta']
+        p.box.setFixedWidth(80)
+        label, value, checkbox = p.label, p.value, p.vary
+        grid.addWidget(p.label, 1, 3, QtCore.Qt.AlignRight)
+        grid.addWidget(p.box, 1, 4, QtCore.Qt.AlignHCenter)
+        grid.addWidget(p.checkbox, 1, 5, QtCore.Qt.AlignHCenter)
+        p = self.lattice['gamma']
+        p.box.setFixedWidth(80)
+        label, value, checkbox = p.label, p.value, p.vary
+        grid.addWidget(p.label, 1, 6, QtCore.Qt.AlignRight)
+        grid.addWidget(p.box, 1, 7, QtCore.Qt.AlignHCenter)
+        grid.addWidget(p.checkbox, 1, 8, QtCore.Qt.AlignHCenter)
         self.table_view = QtGui.QTableView()
         self.table_model = NXTableModel(self, peak_list, header)
         self.table_view.setModel(self.table_model)
@@ -179,14 +224,23 @@ class OrientationDialog(BaseDialog):
         self.table_view.sortByColumn(0, QtCore.Qt.AscendingOrder)
         layout = QtGui.QVBoxLayout()
         layout.addLayout(orient_layout)
+        layout.addLayout(grid)
         layout.addWidget(self.table_view)
         close_layout = QtGui.QHBoxLayout()
         self.status_text = QtGui.QLabel('Score: %.4f' % self.refine.score())
+        self.tolerance_box = QtGui.QLineEdit(str(self.refine.hkl_tolerance))
+        self.tolerance_box.setAlignment(QtCore.Qt.AlignRight)
+        self.tolerance_box.setMaxLength(5)
+        self.tolerance_box.editingFinished.connect(self.update_table)
+        self.tolerance_box.setFixedWidth(80)
         save_button = QtGui.QPushButton('Save Orientation')
         save_button.clicked.connect(self.save_orientation)
         close_button = QtGui.QPushButton('Close Window')
         close_button.clicked.connect(message_box.close)
         close_layout.addWidget(self.status_text)
+        close_layout.addStretch()
+        close_layout.addWidget(QtGui.QLabel('Threshold'))
+        close_layout.addWidget(self.tolerance_box)
         close_layout.addStretch()
         close_layout.addWidget(save_button)
         close_layout.addStretch()
@@ -219,34 +273,69 @@ class OrientationDialog(BaseDialog):
         self.update_table()
 
     def refine_orientation(self):
-        self.orient()
         idx = self.refine.idx
         random.shuffle(idx)
         self.idx = idx[0:20]
-        p0 = np.zeros(shape=(12), dtype=np.float32)
-        p0[0:3] = self.refine.a, self.refine.b, self.refine.c
-        p0[3:] = np.ravel(self.refine.Umat)
+        p0 = self.set_parameters()
         self.fit_intensity = self.refine.intensity[self.idx]
         result = minimize(self.residuals, p0, method='nelder-mead',
                           options={'xtol': 1e-5, 'disp': True})
-        self.refine.a, self.refine.b, self.refine.c = result.x[0:3]
-        self.refine.Umat = np.matrix(result.x[3:]).reshape(3,3)
+        self.get_parameters(result.x)
+        self.update_lattice()
         self.update_table()
         self.status_text.setText('Score: %.4f' % self.refine.score())
 
+    def restore_orientation(self):
+        self.refine.Umat = self.Umat
+        for par in self.lattice.values():
+            par.value = par.init_value
+        self.update_table()
+
     def update_table(self):
+        self.refine.hkl_tolerance = np.float32(self.tolerance_box.text())
         self.table_model.peak_list = self.refine.get_peaks()
         rows, columns = len(self.table_model.peak_list), 11
         self.table_model.dataChanged.emit(self.table_model.createIndex(0, 0),
                                           self.table_model.createIndex(rows-1, columns-1))
         self.status_text.setText('Score: %.4f' % self.refine.score())
 
+    def update_lattice(self):
+        self.lattice['a'].value = self.refine.a
+        self.lattice['b'].value = self.refine.b
+        self.lattice['c'].value = self.refine.c
+        self.lattice['alpha'].value = self.refine.alpha
+        self.lattice['beta'].value = self.refine.beta
+        self.lattice['gamma'].value = self.refine.gamma
+
     def residuals(self, p):
-        self.refine.a, self.refine.b, self.refine.c = p[0:3]
-        self.refine.Umat = np.matrix(p[3:]).reshape(3,3)
+        self.get_parameters(p)
         diffs = np.array([self.refine.diff(i) for i in self.idx])
         score = np.sum(diffs * self.fit_intensity)
         return score
+
+    def set_parameters(self):
+        self.Umat = self.refine.Umat
+        pars = []
+        for par in self.lattice.values():
+            par.init_value = par.value
+            if par.vary:
+                pars.append(par.value)
+        p0 = np.zeros(shape=(len(pars)+9), dtype=np.float32)
+        p0[:len(pars)] = pars
+        p0[len(pars):] = np.ravel(self.refine.Umat)
+        return p0
+
+    def get_parameters(self, p):
+        i = 0
+        for par in self.lattice.values():
+            if par.vary:
+                par.value = p[i]
+                i += 1
+        self.refine.a, self.refine.b, self.refine.c, \
+            self.refine.alpha, self.refine.beta, self.refine.gamma = \
+                [par.value for par in self.lattice.values()]
+        self.refine.set_symmetry()
+        self.refine.Umat = np.matrix(p[i:]).reshape(3,3)
 
     def save_orientation(self):
         self.write_parameters()
