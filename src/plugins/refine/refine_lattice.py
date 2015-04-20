@@ -24,6 +24,8 @@ class RefineLatticeDialog(BaseDialog):
 
         self.refine = NXRefine(self.entry)
         self.refine.read_parameters()
+        if self.refine.symmetry is None:
+            self.refine.symmetry = self.refine.guess_symmetry()
 
         self.parameters = GridParameters()
         self.parameters.add('symmetry', self.refine.symmetries, 'Symmetry', 
@@ -81,6 +83,7 @@ class RefineLatticeDialog(BaseDialog):
         self.refine.a, self.refine.b, self.refine.c, \
             self.refine.alpha, self.refine.beta, self.refine.gamma = \
                 self.get_lattice_parameters()
+        self.refine.set_symmetry()
         self.refine.wavelength = self.get_wavelength()
         self.refine.distance = self.get_distance()
         self.refine.yaw, self.refine.pitch, self.refine.roll = self.get_tilts()
