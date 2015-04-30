@@ -105,10 +105,7 @@ class TransformDialog(BaseDialog):
         self.refine.define_grid()
 
     def accept(self):
-        try:
-            self.write_parameters()
-            self.refine.prepare_transform(self.get_output_file())
-            self.refine.write_settings(self.get_settings_file())
-            super(TransformDialog, self).accept()
-        except NeXusError as error:
-            report_error('Transforming Data', error)
+        self.write_parameters()
+        self.refine.prepare_transform(self.get_output_file())
+        self.refine.write_settings(self.get_settings_file())
+        super(TransformDialog, self).accept()

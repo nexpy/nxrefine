@@ -346,7 +346,7 @@ class NXRefine(object):
         self.entry[name+'/command'] = command
 
     def cctw_command(self, name):
-        dir = os.path.dirname(self.entry['data/data'].nxfilename)
+        dir = os.path.dirname(self.entry['data'].nxsignal.nxfilename)
         filename = self.entry.nxfilename
         mask_file = '%s/mask_%s.nxs' % (dir, self.entry.nxname)
         if not os.path.exists(mask_file):
