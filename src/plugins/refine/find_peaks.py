@@ -2,10 +2,12 @@ from PySide import QtGui
 import numpy as np
 from nexpy.gui.datadialogs import BaseDialog
 from nexpy.gui.mainwindow import report_error
-from nexusformat.nexus import NeXusError, NXfield, NXdata
-from nxpeaks import connectedpixels, labelimage
-import nxpeaks.peakmerge as peakmerge
+from nexusformat.nexus import *
 
+from nxpeaks import blobcorrector, __version__
+from nxpeaks.connectedpixels import blob_moments
+from nxpeaks.labelimage import labelimage, flip1
+from nxpeaks.peakmerge import peakmerger
 
 def show_dialog(parent=None):
     try:
@@ -81,38 +83,39 @@ class FindDialog(BaseDialog):
 
     def find_peaks(self):
 
+        field = self.node
         self.layout.removeWidget(self.find_button)
         self.find_button.setVisible(False)
-        if len(self.node.shape) == 2:
+        if len(field.shape) == 2:
             self.layout.addWidget(self.close_buttons(save=True))
-        elif len(self.node.shape) > 2:
+        elif len(field.shape) > 2:
             self.layout.addLayout(self.progress_layout(save=True))
 
         threshold = self.get_threshold()
-        self.blim = np.zeros(self.node.shape[-2:], np.int32)
+        self.blim = np.zeros(field.shape[-2:], np.int32)
         self.verbose = 0
-       
-        lio = labelimage.labelimage(self.node.shape[-2:], flipper=labelimage.flip1)
+   
+        lio = labelimage(field.shape[-2:], flipper=flip1)
         allpeaks = []
-        if len(self.node.shape) == 2:
+        if len(field.shape) == 2:
             res = None
         else:
-            chunk_size = self.node.nxfile[self.node.nxpath].chunks[0]
+            chunk_size = field.nxfile[field.nxpath].chunks[0]
             z_min, z_max = self.get_limits()
             pixel_tolerance, frame_tolerance = self.get_tolerance()
             self.progress_bar.setRange(z_min, z_max)
-            for i in range(0, self.node.shape[0], chunk_size):
+            for i in range(0, field.shape[0], chunk_size):
                 try:
                     if i + chunk_size > z_min and i < z_max:
                         self.progress_bar.setValue(i)
                         self.update_progress()
-                        v = self.node[i:i+chunk_size,:,:].nxdata
+                        v = field[i:i+chunk_size,:,:].nxdata
                         for j in range(chunk_size):
                             if i+j >= z_min and i+j <= z_max:
                                 omega = np.float32(i+j)
                                 lio.peaksearch(v[j], threshold, omega)
                                 if lio.res is not None:
-                                    connectedpixels.blob_moments(lio.res)
+                                    blob_moments(lio.res)
                                     for k in range(lio.res.shape[0]):
                                         res = lio.res[k]
                                         peak = NXpeak(res[0], res[22],
