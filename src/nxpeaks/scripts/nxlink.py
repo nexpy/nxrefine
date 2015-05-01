@@ -74,9 +74,13 @@ def main():
 
     args = parser.parse_args()
 
-    sample_name = args.sample
-    sample_label = args.label
-    directory = args.directory
+    sample = args.sample
+    label = args.label
+    directory = args.directory.rstrip('/')
+    if sample is None and label is None:
+        sample = os.path.basename(os.path.dirname(os.path.dirname(directory)))   
+        label = os.path.basename(os.path.dirname(directory))
+        directory = os.path.basename(directory)
     filenames = args.filenames
     maskfiles = args.maskfiles
     if maskfiles and len(maskfiles) < len(filenames):
@@ -87,12 +91,12 @@ def main():
     elif maskfiles is None:
         maskfiles = [None] * len(filenames)
 
-    scan_dir = os.path.join(sample_name, sample_label, directory)
+    scan_dir = os.path.join(sample, label, directory)
     scan = os.path.basename(scan_dir)
     if scan:
-        nexus_file = nxload(os.path.join(sample_name, sample_label, sample_name+'_'+scan+'.nxs'), 'rw')
+        nexus_file = nxload(os.path.join(sample, label, sample+'_'+scan+'.nxs'), 'rw')
     else:
-        nexus_file = nxload(os.path.join(sample_name, sample_label, sample_name+'.nxs'), 'rw')
+        nexus_file = nxload(os.path.join(sample, label, name+'.nxs'), 'rw')
     link_files(nexus_file, scan_dir, filenames, maskfiles)
     print 'Linking to ', nexus_file.nxfilename
 
