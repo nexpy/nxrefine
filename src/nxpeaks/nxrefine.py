@@ -334,18 +334,18 @@ class NXRefine(object):
         self.grid_basis = [[1,0,0],[0,1,0],[0,0,1]]
 
     def prepare_transform(self, output_file):
-        name = self.entry.nxname + '_transform'
-        command = self.cctw_command(name)
+        command = self.cctw_command()
         h = NXfield(np.linspace(self.h_start, self.h_stop, self.h_shape), name='Qh')
         k = NXfield(np.linspace(self.k_start, self.k_stop, self.k_shape), name='Qk')
         l = NXfield(np.linspace(self.l_start, self.l_stop, self.l_shape), name='Ql')
-        self.entry[name] = NXdata(NXlink(name = 'data', 
+        self.entry['transform'] = NXdata(NXlink(name = 'data', 
                                          target='/entry/data/v', 
                                          file=output_file),
                                   [l, k, h])
-        self.entry[name+'/command'] = command
+        self.entry['transform/command'] = command
 
-    def cctw_command(self, name):
+    def cctw_command(self):
+        name = self.entry.nxname + '_transform'
         dir = os.path.dirname(self.entry['data'].nxsignal.nxfilename)
         filename = self.entry.nxfilename
         mask_file = '%s/mask_%s.nxs' % (dir, self.entry.nxname)
