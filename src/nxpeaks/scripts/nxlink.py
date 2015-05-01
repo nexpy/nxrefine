@@ -77,7 +77,7 @@ def main():
     sample = args.sample
     label = args.label
     directory = args.directory.rstrip('/')
-    if sample is None and label is None:
+    if sample is None and label == '':
         sample = os.path.basename(os.path.dirname(os.path.dirname(directory)))   
         label = os.path.basename(os.path.dirname(directory))
         directory = os.path.basename(directory)
