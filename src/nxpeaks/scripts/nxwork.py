@@ -15,8 +15,9 @@ def main():
     parser.add_argument('-t', '--temperature', help='temperature of scan')
     parser.add_argument('-f', '--filenames', default=['f1', 'f2', 'f3'], 
         nargs='+', help='names of NeXus files to be linked to this file')
-    parser.add_argument('-m', '--maskfile', default='pilatus_mask.nxs',
-        help='name of the pixel mask file')
+    parser.add_argument('-m', '--maskfiles', 
+        default=['mask_f1', 'mask_f2', 'mask_f3'], nargs='+',
+        help='name of the pixel mask files')
     parser.add_argument('-p', '--parent', help='file name of file to copy from')
     
     args = parser.parse_args()
@@ -35,6 +36,12 @@ def main():
     
     temperature = np.float32(args.temperature)
     files = args.filenames
+    maskfiles = args.maskfiles
+    if len(maskfiles) < len(files):
+        if len(maskfiles) == 1:
+            maskfiles = [maskfiles] * len(files)
+        else:
+            crash('No. of maskfiles must same as no. of filenames or 1')
     parent = args.parent
 
     label_path = '%s/%s' % (sample, label)
@@ -51,15 +58,15 @@ def main():
                         % (sample, label, directory, temperature, 
                            ' '.join(files)), shell=True)
 
-    for f in files:
+    for (f, m) in zip(files, maskfiles):
         path = '%s/%s/%s/%s' % (sample, label, directory, f)
         if not os.path.exists(path+'.nxs'):
             print "\n\nStacking %s.nxs\n" % path
             subprocess.call('nxstack -d %s -p scan -e cbf -o %s.nxs -s scan.spec -c None'
                             % (path, path), shell=True)
         print "\n\nLinking %s.nxs\n" % path
-        subprocess.call('nxlink -s %s -l %s -d %s -f %s -m mask_f1.nxs'
-                        % (sample, label, directory, f), shell=True)
+        subprocess.call('nxlink -s %s -l %s -d %s -f %s -m %s'
+                        % (sample, label, directory, f, m), shell=True)
         print "\n\nDetermining maximum counts in %s.nxs\n" % path
         subprocess.call('nxmax -f %s -p %s/data'
                         % (wrapper_file, f), shell=True)
