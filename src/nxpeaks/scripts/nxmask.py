@@ -34,7 +34,6 @@ def main():
 
     parser = argparse.ArgumentParser(
         description="Add mask to the specified NeXus file")
-    parser.add_argument('-d', '--directory', default='./')
     parser.add_argument('-f', '--filename', required=True)
     parser.add_argument('-e', '--entry', nargs='+')
     parser.add_argument('-m', '--maskfile', default='pilatus_mask.nxs')
@@ -48,12 +47,12 @@ def main():
     name, ext = os.path.splitext(args.maskfile)
     if ext == '':
         args.maskfile = args.maskfile + '.nxs.'
-    root = nxload(os.path.join(args.directory, args.filename), 'rw')
+    root = nxload(args.filename, 'rw')
     if args.entry is not None:
         entries = [root[entry] for entry in args.entry]
     else:
         entries = root.NXentry
-    mask = nxload(os.path.join(args.directory, args.maskfile))[args.path]
+    mask = nxload(args.maskfile)[args.path]
     apply_mask(entries, mask)
 
 

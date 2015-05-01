@@ -227,8 +227,6 @@ def main():
 
     parser = argparse.ArgumentParser(
         description="Find peaks within the NeXus data")
-    parser.add_argument('-d', '--directory', default='./',
-                        help='directory containing the NeXus file')
     parser.add_argument('-f', '--filename', required=True,
                         help='NeXus file name')
     parser.add_argument('-p', '--path', default='/entry/data',
@@ -241,7 +239,7 @@ def main():
     args = parser.parse_args()
 
     tic=timeit.default_timer()
-    root = nxload(os.path.join(args.directory, args.filename), 'rw')
+    root = nxload(args.filename, 'rw')
     entry = root[args.path].nxentry
     find_peaks(root[args.path], args.threshold, args.start, args.end)
     note = NXnote('nxfind '+' '.join(sys.argv[1:]), 
