@@ -6,7 +6,7 @@ from nexusformat.nexus import *
 
 
 def make_nexus_file(sample_name, sample_label, scan_directory, temperature, 
-                    filenames, mask=None):    
+                    filenames, maskfiles):    
     root = NXroot()
     sample = NXsample()
     sample.name = sample_name
@@ -15,7 +15,11 @@ def make_nexus_file(sample_name, sample_label, scan_directory, temperature,
     sample['temperature'] = temperature
     sample['temperature'].attrs['units'] = 'K'
     root.entry = NXentry(sample)
-    for f in filenames:
+    for (f, m) in zip(filenames, maskfiles):
+        try:
+            mask = nxload(m+'.nxs')['entry/mask']
+        except Exception:
+            mask = None
         root[f] = make_entry(mask)
         root[f].makelink(root.entry.sample)
     return root
@@ -41,21 +45,30 @@ def main():
     parser.add_argument('-t', '--temperature', help='temperature of scan')
     parser.add_argument('-f', '--filenames', default=['f1', 'f2', 'f3'], 
         nargs='+', help='names of NeXus files to be linked to this file')
-    parser.add_argument('-m', '--maskfile', help='name of the pixel mask file')
+    parser.add_argument('-m', '--maskfiles', nargs='+',
+        help='name of the pixel mask files')
     
     args = parser.parse_args()
 
-    sample_name = args.sample
-    sample_label = args.label
-    directory = args.directory
+    sample = args.sample
+    label = args.label
+    directory = args.directory.rstrip('/')
+    if sample is None and label == '':
+        sample = os.path.basename(os.path.dirname(os.path.dirname(directory)))   
+        label = os.path.basename(os.path.dirname(directory))
+        directory = os.path.basename(directory)
     temperature = np.float32(args.temperature)
     filenames = args.filenames
-    if args.maskfile is not None:
-        mask = nxload(args.maskfile)['entry/mask']
-    else:
-        mask = None
+    maskfiles = args.maskfiles
+    if maskfiles and len(maskfiles) < len(filenames):
+        if len(maskfiles) == 1:
+            maskfiles = [maskfiles] * len(filenames)
+        else:
+            raise NeXusError('No. of maskfiles must same as no. of filenames or 1')
+    elif maskfiles is None:
+        maskfiles = [None] * len(filenames)
 
-    scan_directory = os.path.join(sample_name, sample_label, directory)
+    scan_directory = os.path.join(sample, label, directory)
     try: 
         os.makedirs(scan_directory)
         for f in filenames:
@@ -64,11 +77,11 @@ def main():
         pass
 
     if directory:
-        nexus_file = os.path.join(sample_name, sample_label, sample_name+'_'+directory+'.nxs')
+        nexus_file = os.path.join(sample, label, sample+'_'+directory+'.nxs')
     else:
-        nexus_file = os.path.join(sample_name, sample_label, sample_name+'.nxs')
-    root = make_nexus_file(sample_name, sample_label, scan_directory, 
-                           temperature, filenames, mask)
+        nexus_file = os.path.join(sample, label, sample+'.nxs')
+    root = make_nexus_file(sample, label, scan_directory, temperature, 
+                           filenames, maskfiles)
     root.save(nexus_file, 'w')
     print 'Saving ', nexus_file
     
