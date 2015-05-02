@@ -7,7 +7,6 @@ from nexusformat.nexus import *
 from nxpeaks import blobcorrector, __version__
 from nxpeaks.connectedpixels import blob_moments
 from nxpeaks.labelimage import labelimage, flip1
-from nxpeaks.peakmerge import peakmerger
 
 def show_dialog(parent=None):
     try:
@@ -21,32 +20,15 @@ class FindDialog(BaseDialog):
 
     def __init__(self, parent=None):
         super(FindDialog, self).__init__(parent)
-        self.node = self.get_node()
-        self.entry = self.node.nxentry
-        self.node = self.entry['data'].nxsignal
-        try:
-            self.mask = self.entry['instrument/detector/pixel_mask']
-        except NeXusError:
-            self.mask = None
-        self.layout = QtGui.QVBoxLayout()
-        self.threshold_box = QtGui.QLineEdit(str(self.entry['data'].attrs['maximum']/20.0))
-        self.min_box = QtGui.QLineEdit('0')
-        self.max_box = QtGui.QLineEdit(str(self.node.shape[0]))
-        self.pixel_tolerance_box = QtGui.QLineEdit('10')
-        self.frame_tolerance_box = QtGui.QLineEdit('10')
-        grid = QtGui.QGridLayout()
-        grid.setSpacing(10)
-        grid.addWidget(QtGui.QLabel('Threshold:'), 0, 0)
-        grid.addWidget(QtGui.QLabel('First Frame:'), 1, 0)
-        grid.addWidget(QtGui.QLabel('Last Frame:'), 2, 0)
-        grid.addWidget(QtGui.QLabel('Pixel Tolerance:'), 3, 0)
-        grid.addWidget(QtGui.QLabel('Frame Tolerance:'), 4, 0)
-        grid.addWidget(self.threshold_box, 0, 1)
-        grid.addWidget(self.min_box, 1, 1)
-        grid.addWidget(self.max_box, 2, 1)
-        grid.addWidget(self.pixel_tolerance_box, 3, 1)
-        grid.addWidget(self.frame_tolerance_box, 4, 1)
-        self.layout.addLayout(grid)
+
+        self.select_entry(self.choose_entry)
+
+        self.parameters = GridParameters()
+        self.parameters.add('threshold', threshold, 'Threshold')
+        self.parameters.add('min', 0, 'First Frame')
+        self.parameters.add('max', 0.0, 'Last Frame')
+        self.parameters.add('pixel_tolerance', 10, 'Pixel Tolerance')
+        self.parameters.add('frame_tolerance', 10, 'Frame Tolerance')
         find_layout = QtGui.QHBoxLayout()
         self.find_button = QtGui.QPushButton('Find Peaks')
         self.find_button.clicked.connect(self.find_peaks)
@@ -56,20 +38,31 @@ class FindDialog(BaseDialog):
         find_layout.addWidget(self.find_button)
         find_layout.addWidget(self.peak_count)
         find_layout.addStretch()
-        self.layout.addLayout(find_layout)
-        self.setLayout(self.layout)
+        self.set_layout(self.entry_layout, self.parameters.grid(), 
+                        find_layout, self.close_buttons())
+        self.set_title('Find Peaks')
 
-        self.setWindowTitle('Find Peaks')
-
-        if 'maximum' in self.node.attrs:        
-            self.threshold_box.setText(str(np.float32(self.node.maximum) / 20))
         self.npk = 0
+        try:
+            self.parameters['max'].value = self.entry['data'].nxsignal.shape[0]
+            self.parameters['threshold'].value = (
+                self.entry['data'].attrs['maximum'] / 20)
+        except Exception:
+            pass
+
+    def choose_entry(self):
+        try:
+            if 'maximum' in self.entry['data'].attrs:        
+                self.parameters['threshold'].value = (
+                    self.entry['data'].attrs['maximum'] / 20)
+        except Exception:
+            pass
 
     def get_threshold(self):
-        return np.float32(self.threshold_box.text())
+        return self.parameters['threshold'].value
 
     def get_limits(self):
-        return np.int32(self.min_box.text()), np.int32(self.max_box.text())
+        return self.parameters['min'].value, self.parameters['max'].value
 
     def get_tolerance(self):
         """
@@ -78,12 +71,17 @@ class FindDialog(BaseDialog):
         Note that the pixel tolerance is squared to save square-root 
         calculations in peak comparisons.
         """
-        return (np.float32(self.pixel_tolerance_box.text())**2, 
-                np.float32(self.frame_tolerance_box.text()))
+        return (self.parameters['pixel_tolerance'].value**2, 
+                self.parameters['frame_tolerance'].value)
 
     def find_peaks(self):
 
-        field = self.node
+        field = self.entry['data'].nxsignal
+        try:
+            self.mask = self.entry['instrument/detector/pixel_mask']
+        except NeXusError:
+            self.mask = None
+
         self.layout.removeWidget(self.find_button)
         self.find_button.setVisible(False)
         if len(field.shape) == 2:
