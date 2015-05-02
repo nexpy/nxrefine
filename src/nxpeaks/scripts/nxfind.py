@@ -17,7 +17,6 @@ from nexusformat.nexus import *
 from nxpeaks import blobcorrector, __version__
 from nxpeaks.connectedpixels import blob_moments
 from nxpeaks.labelimage import labelimage, flip1
-from nxpeaks.peakmerge import peakmerger
 
 
 def find_peaks(group, threshold=None, z_min=None, z_max=None):
