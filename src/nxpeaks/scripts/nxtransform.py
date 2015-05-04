@@ -1,4 +1,7 @@
+import argparse
 import os
+import subprocess
+
 import numpy as np
 from nexusformat.nexus import *
 from nxpeaks.nxrefine import NXRefine
@@ -25,9 +28,9 @@ def main():
     parser.add_argument('-d', '--directory', default='', help='scan directory')
     parser.add_argument('-f', '--filenames', default=['f1', 'f2', 'f3'], 
         nargs='+', help='names of NeXus files to be linked to this file')
-    parser.add_argument('-qh', nargs='3', help='Qh -min, step, max'
-    parser.add_argument('-qk', nargs='3', help='Qk -min, step, max'
-    parser.add_argument('-ql', nargs='3', help='Ql -min, step, max'
+    parser.add_argument('-qh', nargs=3, help='Qh - min, step, max')
+    parser.add_argument('-qk', nargs=3, help='Qk - min, step, max')
+    parser.add_argument('-ql', nargs=3, help='Ql - min, step, max')
     
     args = parser.parse_args()
 
@@ -39,9 +42,9 @@ def main():
         label = os.path.basename(os.path.dirname(directory))
         scan = os.path.basename(directory)
 
-    Qh = args.Qh
-    Qk = args.Qk
-    Ql = args.Ql
+    Qh = [np.float32(v) for v in args.qh]
+    Qk = [np.float32(v) for v in args.qk]
+    Ql = [np.float32(v) for v in args.ql]
 
     filenames = args.filenames
 
@@ -52,10 +55,10 @@ def main():
 
     for f in filenames:
         output = os.path.join(directory, f+'_transform.nxs')
-        settings = os.parth.join(directory, f+'_transform.pars')
+        settings = os.path.join(directory, f+'_transform.pars')
         prepare_transform(root[f], Qh, Qk, Ql, output, settings)
         print root[f].transform.command
-        subprocess.call(root[f].transform.command, shell=True)
+        subprocess.call(root[f].transform.command.nxdata, shell=True)
 
 
 if __name__=="__main__":
