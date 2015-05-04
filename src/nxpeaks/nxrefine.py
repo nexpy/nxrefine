@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import random
 from scipy.optimize import minimize
 from nexusformat.nexus import *
 from nxpeaks.unitcell import unitcell
@@ -155,6 +156,8 @@ class NXRefine(object):
                 self.set_polar_max(np.sort(self.polar_angle)[20] + 0.1)
             except IndexError:
                 self.set_polar_max(self.polar_angle.max())
+        else:
+            self.set_polar_max(20.0)
 
     def write_parameter(self, path, value):
         if value is not None:
@@ -339,9 +342,8 @@ class NXRefine(object):
         k = NXfield(np.linspace(self.k_start, self.k_stop, self.k_shape), name='Qk')
         l = NXfield(np.linspace(self.l_start, self.l_stop, self.l_shape), name='Ql')
         self.entry['transform'] = NXdata(NXlink(name = 'data', 
-                                         target='/entry/data/v', 
-                                         file=output_file),
-                                  [l, k, h])
+                                         target='/entry/data/v',
+                                         file=output_file), [l, k, h])
         self.entry['transform/command'] = command
 
     def cctw_command(self):
@@ -764,24 +766,36 @@ class NXRefine(object):
 #        return result
 
     def define_lattice_parameters(self):
-        self.p = [self.a, self.b, self.c]
-        self.init_p = self.p
+        if self.symmetry == 'cubic':
+            self.p = [self.a]
+        elif self.symmetry == 'tetragonal':
+            self.p = [self.a, self.c]
+        else:
+            self.p = [self.a, self.b, self.c]
+        self.init_p = self.a, self.b, self.c
 
     def get_lattice_parameters(self, p):
-        self.a, self.b, self.c = p
+        if self.symmetry == 'cubic':
+            self.a = self.b = self.c = p[0]
+        elif self.symmetry == 'tetragonal':
+            self.a, self.c = p
+            self.b = self.a
+        else:
+            self.a, self.b, self.c = p
 
     def refine_lattice_parameters(self, method='nelder-mead', **opts):
         self.define_lattice_parameters()
         p0 = np.array(self.p)
         result = minimize(self.lattice_residuals, p0, method='nelder-mead',
                           options={'xtol': 1e-5, 'disp': True})
-        self.get_lattice_parameters(result.x)
+        if result.success:
+            self.get_lattice_parameters(result.x)
 
     def restore_lattice_parameters(self):
         self.a, self.b, self.c = self.init_p
 
     def lattice_residuals(self, p):
-        self.a, self.b, self.c = p
+        self.get_lattice_parameters(p)
         polar_angles, _ = self.calculate_angles(self.x, self.y)
         rings = self.calculate_rings()
         residuals = np.array([find_nearest(rings, polar_angle) - polar_angle 
@@ -791,17 +805,17 @@ class NXRefine(object):
     def refine_orient_parameters(self, method='nelder-mead', **opts):
         idx = self.idx
         random.shuffle(idx)
-        self.idx = idx[0:20]
+        self.fit_idx = idx[0:20]
         p0 = np.ravel(self.Umat)
-        self.fit_intensity = self.intensity[self.idx]
+        self.fit_intensity = self.intensity[self.fit_idx]
         result = minimize(self.orient_residuals, p0, method=method,
                           options={'xtol': 1e-5, 'disp': True})
-        self.Umat = np.matrix(result.x).reshape(3,3)
-        self.get_score()
+        if result.success:
+            self.Umat = np.matrix(result.x).reshape(3,3)
 
     def orient_residuals(self, p):
         self.Umat = np.matrix(p).reshape(3,3)
-        diffs = np.array([self.diff(i) for i in self.idx])
+        diffs = np.array([self.diff(i) for i in self.fit_idx])
         score = np.sum(diffs * self.fit_intensity)
         return score
 

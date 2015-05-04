@@ -9,6 +9,7 @@ from nxpeaks.nxrefine import NXRefine
 
 def prepare_transform(entry, Qh, Qk, Ql, output, settings):
     refine = NXRefine(entry)
+    refine.refine_lattice_parameters()
     refine.output_file = output
     refine.settings_file = settings
     refine.h_start, refine.h_step, refine.h_stop = Qh
@@ -16,7 +17,8 @@ def prepare_transform(entry, Qh, Qk, Ql, output, settings):
     refine.l_start, refine.l_step, refine.l_stop = Ql
     refine.define_grid()
     refine.prepare_transform(output)
-    refine.write_settings(settings) 
+    refine.write_settings(settings)
+    refine.write_parameters()
 
 
 def main():
@@ -54,7 +56,7 @@ def main():
     root = nxload(wrapper_file, 'rw')
 
     for f in filenames:
-        output = os.path.join(directory, f+'_transform.nxs')
+        output = os.path.join(scan, f+'_transform.nxs')
         settings = os.path.join(directory, f+'_transform.pars')
         prepare_transform(root[f], Qh, Qk, Ql, output, settings)
         print root[f].transform.command
