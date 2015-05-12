@@ -526,14 +526,17 @@ class NXRefine(object):
                (((v3/np.linalg.norm(v3)) / self.wavelength) - self.Evec))
 
     def set_polar_max(self, polar_max):
-        if not isinstance(self.polar_angle, np.ndarray):
-            self.polar_angle, self.azimuthal_angle = self.calculate_angles(self.xp, self.yp)
-        self.x = []
-        self.y = []
-        for i in range(self.npks):
-            if self.polar_angle[i] <= polar_max:
-                self.x.append(self.xp[i])
-                self.y.append(self.yp[i])
+        try:
+            if not isinstance(self.polar_angle, np.ndarray):
+                self.polar_angle, self.azimuthal_angle = self.calculate_angles(self.xp, self.yp)
+            self.x = []
+            self.y = []
+            for i in range(self.npks):
+                if self.polar_angle[i] <= polar_max:
+                    self.x.append(self.xp[i])
+                    self.y.append(self.yp[i])
+        except Exception:
+            pass
         self.polar_max = polar_max
 
     def polar(self, x, y):
