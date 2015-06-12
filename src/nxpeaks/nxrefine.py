@@ -85,6 +85,7 @@ class NXRefine(object):
         self.azimuthal_angle = None
         self.rotation_angle = None
         self.intensity = None
+        self.pixel_size = 0.1
         self.polar_max = None
         self.Umat = None
         self.primary = None
