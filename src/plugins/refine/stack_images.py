@@ -8,7 +8,7 @@ import timeit
 from datetime import datetime
 from ConfigParser import ConfigParser
 
-from PySide import QtCore, QtGui
+from nexpy.gui.pyqt import QtCore, QtGui, getOpenFileName
 import numpy as np
 
 from nexpy.gui.importdialog import BaseImportDialog
@@ -151,9 +151,8 @@ class StackDialog(BaseImportDialog):
         Opens a file dialog and sets the settings file text box to the chosen path.
         """
         dirname = self.get_default_directory(self.get_output_file())
-        filename, _ = QtGui.QFileDialog.getOpenFileName(self, 'Choose Output File',
-                                                        dirname,
-                                                        self.nexus_filter)
+        filename = getOpenFileName(self, 'Choose Output File', dirname,
+                                   self.nexus_filter)
         if os.path.exists(dirname):    # avoids problems if <Cancel> was selected
             self.output_file.setText(filename)
             self.set_default_directory(dirname)
@@ -296,10 +295,8 @@ class StackDialog(BaseImportDialog):
         if self.get_image_type() == 'CBF':
             v0 = self.read_image(filenames[0])
             v = np.zeros([len(filenames), v0.shape[0], v0.shape[1]], dtype=np.int32)
-            i = 0
-            for filename in filenames:
+            for i,filename in enumerate(filenames):
                 v[i] = self.read_image(filename)
-                i += 1
         else:
             from nexpy.readers.tifffile import tifffile as TIFF
             v = TIFF.TiffSequence(filenames).asarray()        
