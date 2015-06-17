@@ -1,12 +1,3 @@
-"""
-Script for peaksearching images from the command line
-
-Uses the connectedpixels extension for finding blobs above a threshold
-and the blobcorrector(+splines) for correcting them for spatial distortion
-
-Defines one function (peaksearch) which might be reused
-"""
-
 from math import sqrt
 import argparse, glob, os, socket, sys, timeit
 
@@ -96,8 +87,9 @@ def find_peaks(group, threshold=None, z_min=None, z_max=None):
                         combined = True
                         break
                 if not combined:
-                    for peak2 in reversed(merged_peaks):
-                        idx = merged_peaks.index(peak2)
+                    reversed_peaks = [p for p in reversed(merged_peaks)
+                                      if p.z >= peak1.z - frame_tolerance]
+                    for peak2 in reversed_peaks:
                         if peak1 == peak2:
                             for idx in range(len(merged_peaks)):
                                 if peak1 == merged_peaks[idx]:

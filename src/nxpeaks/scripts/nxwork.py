@@ -71,7 +71,7 @@ def main():
         subprocess.call('nxmax -f %s -p %s/data'
                         % (wrapper_file, f), shell=True)
         print "\n\nFinding peaks in %s.nxs\n" % path
-        subprocess.call('nxfind -f %s -p %s/data -s 500 -e 1000'
+        subprocess.call('nxfind -f %s -p %s/data -s 500 -e 2500'
                         % (wrapper_file, f), shell=True)
 
     if parent:

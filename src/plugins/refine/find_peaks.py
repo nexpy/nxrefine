@@ -1,6 +1,6 @@
-from PySide import QtGui
+from nexpy.gui.pyqt import QtGui
 import numpy as np
-from nexpy.gui.datadialogs import BaseDialog
+from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.mainwindow import report_error
 from nexusformat.nexus import *
 
@@ -23,10 +23,17 @@ class FindDialog(BaseDialog):
 
         self.select_entry(self.choose_entry)
 
+        try:
+            threshold = np.float32(self.entry.data.attrs['maximum']) / 20
+            max_frame = np.int32(len(self.entry.data.nxaxes[0]))
+        except Exception:
+            threshold = 5000
+            max_frame = 0
+
         self.parameters = GridParameters()
         self.parameters.add('threshold', threshold, 'Threshold')
         self.parameters.add('min', 0, 'First Frame')
-        self.parameters.add('max', 0.0, 'Last Frame')
+        self.parameters.add('max', max_frame, 'Last Frame')
         self.parameters.add('pixel_tolerance', 10, 'Pixel Tolerance')
         self.parameters.add('frame_tolerance', 10, 'Frame Tolerance')
         find_layout = QtGui.QHBoxLayout()
@@ -39,7 +46,7 @@ class FindDialog(BaseDialog):
         find_layout.addWidget(self.peak_count)
         find_layout.addStretch()
         self.set_layout(self.entry_layout, self.parameters.grid(), 
-                        find_layout, self.close_buttons())
+                        find_layout)
         self.set_title('Find Peaks')
 
         self.npk = 0
@@ -52,9 +59,8 @@ class FindDialog(BaseDialog):
 
     def choose_entry(self):
         try:
-            if 'maximum' in self.entry['data'].attrs:        
-                self.parameters['threshold'].value = (
-                    self.entry['data'].attrs['maximum'] / 20)
+            self.parameters['threshold'].value = self.entry['data'].attrs['maximum'] / 20
+            self.parameters['max'].value = len(self.entry.data.nxaxes[0])
         except Exception:
             pass
 
@@ -62,7 +68,7 @@ class FindDialog(BaseDialog):
         return self.parameters['threshold'].value
 
     def get_limits(self):
-        return self.parameters['min'].value, self.parameters['max'].value
+        return np.int32(self.parameters['min'].value), np.int32(self.parameters['max'].value)
 
     def get_tolerance(self):
         """
@@ -155,8 +161,9 @@ class FindDialog(BaseDialog):
                             combined = True
                             break
                     if not combined:
-                        for peak2 in reversed(merged_peaks):
-                            idx = merged_peaks.index(peak2)
+                        reversed_peaks = [p for p in reversed(merged_peaks)
+                                          if p.z >= peak1.z - frame_tolerance]
+                        for peak2 in reversed_peaks:
                             if peak1 == peak2:
                                 for idx in range(len(merged_peaks)):
                                     if peak1 == merged_peaks[idx]:
@@ -185,26 +192,25 @@ class FindDialog(BaseDialog):
 
     def accept(self):
         try:
-            entry = self.node.nxentry
-            if 'peaks' in entry.entries:
-                del entry['peaks']
-            entry.peaks = NXdata()
+            if 'peaks' in self.entry.entries:
+                del self.entry['peaks']
+            self.entry.peaks = NXdata()
             shape = (len(self.peaks),)
-            entry.peaks.npixels = NXfield(
+            self.entry.peaks.npixels = NXfield(
                 [peak.np for peak in self.peaks], dtype=np.float32)
-            entry.peaks.intensity = NXfield(
+            self.entry.peaks.intensity = NXfield(
                 [peak.intensity for peak in self.peaks], dtype=np.float32)
-            entry.peaks.x = NXfield(
+            self.entry.peaks.x = NXfield(
                 [peak.x for peak in self.peaks], dtype=np.float32)
-            entry.peaks.y = NXfield(
+            self.entry.peaks.y = NXfield(
                 [peak.y for peak in self.peaks], dtype=np.float32)
-            entry.peaks.z = NXfield(
+            self.entry.peaks.z = NXfield(
                 [peak.z for peak in self.peaks], dtype=np.float32)
-            entry.peaks.sigx = NXfield(
+            self.entry.peaks.sigx = NXfield(
                 [peak.sigx for peak in self.peaks], dtype=np.float32)
-            entry.peaks.sigy = NXfield(
+            self.entry.peaks.sigy = NXfield(
                 [peak.sigy for peak in self.peaks], dtype=np.float32)
-            entry.peaks.covxy = NXfield(
+            self.entry.peaks.covxy = NXfield(
                 [peak.covxy for peak in self.peaks], dtype=np.float32)
             super(FindDialog, self).accept()
         except NeXusError as error:
