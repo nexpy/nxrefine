@@ -173,7 +173,7 @@ class NXRefine(object):
         if entry:
             self.entry = entry
         if 'sample' not in self.entry.entries:
-            self.entry.sample = NXsample()
+            self.entry['sample'] = NXsample()
         self.write_parameter('sample/unit_cell_group', self.symmetry)
         self.write_parameter('sample/lattice_centring', self.centring)
         self.write_parameter('sample/unitcell_a', self.a)
@@ -183,11 +183,11 @@ class NXRefine(object):
         self.write_parameter('sample/unitcell_beta', self.beta)
         self.write_parameter('sample/unitcell_gamma', self.gamma)
         if 'instrument' not in self.entry.entries:
-            self.entry.instrument = NXinstrument()
-        if 'detector' not in self.entry.instrument.entries:
-            self.entry.instrument.detector = NXdetector()
-        if 'monochromator' not in self.entry.instrument.entries:
-            self.entry.instrument.monochromator = NXmonochromator()
+            self.entry['instrument'] = NXinstrument()
+        if 'detector' not in self.entry['instrument'].entries:
+            self.entry['instrument/detector'] = NXdetector()
+        if 'monochromator' not in self.entry['instrument'].entries:
+            self.entry['instrument/monochromator'] = NXmonochromator()
         self.write_parameter('instrument/monochromator/wavelength', self.wavelength)
         self.write_parameter('instrument/detector/distance', self.distance)
         self.write_parameter('instrument/detector/yaw', self.yaw)
@@ -209,7 +209,7 @@ class NXRefine(object):
     def copy_parameters(self, other, sample=False, instrument=False):
         if sample:
             if 'sample' not in other.entry.entries:
-                other.entry.sample = NXsample()
+                other.entry['sample'] = NXsample()
             other.write_parameter('sample/unit_cell_group', self.symmetry)
             other.write_parameter('sample/lattice_centring', self.centring)
             other.write_parameter('sample/unitcell_a', self.a)
@@ -220,11 +220,11 @@ class NXRefine(object):
             other.write_parameter('sample/unitcell_gamma', self.gamma)
         if instrument:
             if 'instrument' not in other.entry.entries:
-                other.entry.instrument = NXinstrument()
-            if 'detector' not in other.entry.instrument.entries:
-                other.entry.instrument.detector = NXdetector()
-            if 'monochromator' not in other.entry.instrument.entries:
-                other.entry.instrument.monochromator = NXmonochromator()
+                other.entry['instrument'] = NXinstrument()
+            if 'detector' not in other.entry['instrument'].entries:
+                other.entry['instrument/detector'] = NXdetector()
+            if 'monochromator' not in other.entry['instrument'].entries:
+                other.entry['instrument/monochromator'] = NXmonochromator()
             other.write_parameter('instrument/monochromator/wavelength', self.wavelength)
             other.write_parameter('instrument/detector/distance', self.distance)
             other.write_parameter('instrument/detector/yaw', self.yaw)
@@ -288,17 +288,18 @@ class NXRefine(object):
 
     def write_angles(self, polar_angles, azimuthal_angles):
         if 'sample' not in self.entry.entries:
-            self.entry.sample = NXsample()
+            self.entry['sample'] = NXsample()
         if 'peaks' not in self.entry.entries:
-            self.entry.peaks = NXdata()
-        if 'polar_angle' in self.entry.peaks.entries:
-            del self.entry.peaks['polar_angle']
-        if 'azimuthal_angle' in self.entry.peaks.entries:
-            del self.entry.peaks['azimuthal_angle']
+            self.entry['peaks'] = NXdata()
+        else:
+            if 'polar_angle' in self.entry['peaks'].entries:
+                del self.entry['peaks/polar_angle']
+            if 'azimuthal_angle' in self.entry['peaks'].entries:
+                del self.entry['peaks/azimuthal_angle']
         self.write_parameter('peaks/polar_angle', polar_angles)
         self.write_parameter('peaks/azimuthal_angle', azimuthal_angles)
-        self.entry.peaks.nxsignal = self.entry.peaks.azimuthal_angle
-        self.entry.peaks.nxaxes = self.entry.peaks.polar_angle
+        self.entry['peaks'].nxsignal = self.entry['peaks/azimuthal_angle']
+        self.entry['peaks'].nxaxes = self.entry['peaks/polar_angle']
 
     def initialize_peaks(self):
         peaks=zip(self.xp,  self.yp, self.zp, self.intensity)
