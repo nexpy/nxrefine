@@ -527,6 +527,11 @@ class NXRefine(object):
         return (np.linalg.inv(self.Gmat(omega)) * 
                (((v3/np.linalg.norm(v3)) / self.wavelength) - self.Evec))
 
+    def get_Gvecs(self, idx):
+        self.Gvecs = [self.Gvec(x,y,z) for x,y,z 
+                      in zip(self.xp[idx], self.yp[idx], self.zp[idx])]
+        return self.Gvecs
+
     def set_polar_max(self, polar_max):
         try:
             if not isinstance(self.polar_angle, np.ndarray):

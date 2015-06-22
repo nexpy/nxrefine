@@ -1,33 +1,36 @@
 import argparse
 import os
+import socket
 import subprocess
+import sys
+import timeit
 
 import numpy as np
 from scipy.optimize import leastsq
 from nexusformat.nexus import *
 from nxpeaks.nxrefine import NXRefine
+from nxpeaks import __version__
 
 
 def refine_orientation(ref):
     idx = ref.idx
     intensities = ref.intensity[idx]
     sigma = np.average(intensities) / intensities
-    p0 = set_parameters(idx)
+    p0 = set_parameters(ref, idx)
     def diffs(p):
-        get_parameters(p)
+        get_parameters(ref, p)
         UBimat = np.linalg.inv(ref.UBmat)
-        Q = [UBimat * Gvec[i] for i in idx]
+        Q = np.array([UBimat * ref.Gvecs[i] for i in idx])
         dQ = Q - np.rint(Q)
         return np.array([np.linalg.norm(ref.Bmat*np.matrix(dQ[i])) 
                          for i in idx]) / sigma
-    popt, C, info, msg, success = leastsq(diffs, p0, full_output=1)
-    get_parameters(popt)
+    popt, C, info, msg, success = leastsq(diffs, p0, epsfcn=1e-6, full_output=1)
+    get_parameters(ref, popt)
+    return success, info, msg
 
 
 def set_parameters(ref, idx):
-    global Gvec, Umat
-    x, y, z = ref.xp[idx], ref.yp[idx], ref.zp[idx]
-    Gvec = [ref.Gvec(xx,yy,zz) for xx,yy,zz in zip(x,y,z)]
+    ref.get_Gvecs(idx)
     if ref.symmetry == 'cubic':
         pars = [ref.a]
     elif ref.symmetry == 'tetragonal' or ref.symmetry == 'hexagonal':
@@ -46,10 +49,11 @@ def set_parameters(ref, idx):
 
 def get_parameters(ref, p):
     if ref.symmetry == 'cubic':
-        ref.a = p[0]
+        ref.a = ref.b = ref.c = p[0]
         i = 1
     elif ref.symmetry == 'tetragonal' or ref.symmetry == 'hexagonal':
-        ref.a, ref.c = p[0:2]
+        ref.a = ref.b = p[0]
+        ref.c = p[1]
         i = 2
     elif ref.symmetry == 'orthorhombic':
         ref.a, ref.b, ref.c = p[0:3]
@@ -60,7 +64,6 @@ def get_parameters(ref, p):
     else:
         ref.a, ref.b, ref.c, ref.alpha, ref.beta, ref.gamma = p[0:6]
         i = 6
-    ref.set_symmetry()
     ref.Umat = np.matrix(p[i:]).reshape(3,3)
 
 
@@ -72,36 +75,49 @@ def main():
 
     parser = argparse.ArgumentParser(
         description="Refine orientation matrix")
-    parser.add_argument('-s', '--sample', help='sample name')
-    parser.add_argument('-l', '--label', help='sample label')
-    parser.add_argument('-d', '--directory', default='', help='scan directory')
+    parser.add_argument('-d', '--directory', default='./',
+                        help='directory containing the NeXus file')
+    parser.add_argument('-f', '--filename', required=True,
+                         help='NeXus file name')
     parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
         nargs='+', help='names of entries to be oriented')
     parser.add_argument('-o', '--omega', default='0.0', help='omega start')
     
     args = parser.parse_args()
 
-    sample = args.sample
-    label = args.label
-    directory = args.directory.rstrip('/')
-    if sample is None and label is None:
-        sample = os.path.basename(os.path.dirname(os.path.dirname(directory)))   
-        label = os.path.basename(os.path.dirname(directory))
-        scan = os.path.basename(directory)
-
-    label_path = '%s/%s' % (sample, label)
-    wrapper_file = '%s/%s_%s.nxs' % (label_path, sample, scan)
-
-    root = nxload(wrapper_file, 'rw')
+    name, ext = os.path.splitext(args.filename)
+    if ext == '':
+        args.filename = args.filename + '.nxs'
+    root = nxload(os.path.join(args.directory, args.filename), 'rw')
 
     entries = args.entries
 
-    omega = 
+    tic=timeit.default_timer()
     for e in entries:
-        ref = NXrefine(root[e])
-        ref.read_parameters()
-        ref.refine_orientation()
-        ref.write_parameters()
+        entry = root[e]
+        ref = NXRefine(entry)
+        old_score = ref.score()
+        print 'Current lattice parameters: ', ref.a, ref.b, ref.c
+        print '%s peaks; Old score: %.4f' % (len(ref.idx), old_score)
+        success, info, msg = refine_orientation(ref)
+        new_score = ref.score()
+        print 'Success:', success, ' ', msg
+        print 'No. of function calls:', info['nfev']
+        print 'New lattice parameters: ', ref.a, ref.b, ref.c
+        print '%s peaks; New score: %.4f' % (len(ref.idx), new_score)
+        if new_score <= old_score and success > 0 and success < 5:
+            write_parameters(ref)
+            note = NXnote('nxorient '+' '.join(sys.argv[1:]), 
+                          ('Current machine: %s\n'
+                           'Current working directory: %s')
+                            % (socket.gethostname(), os.getcwd()))
+            entry['nxorient'] = NXprocess(program='nxorient', 
+                                          sequence_index=len(entry.NXprocess)+1, 
+                                          version=__version__, 
+                                          note=note)
+
+    toc=timeit.default_timer()
+    print toc-tic, 'seconds for', args.filename
 
 
 if __name__=="__main__":
