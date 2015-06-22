@@ -5,12 +5,12 @@ from nexpy.gui.mainwindow import report_error
 from nexusformat.nexus import NeXusError, NXfield
 
 
-def show_dialog(parent=None):
-    try:
-        dialog = MaximumDialog(parent)
-        dialog.show()
-    except NeXusError as error:
-        report_error("Finding Maximum", error)
+def show_dialog():
+#    try:
+    dialog = MaximumDialog()
+    dialog.show()
+#    except NeXusError as error:
+#        report_error("Finding Maximum", error)
         
 
 class MaximumDialog(BaseDialog):

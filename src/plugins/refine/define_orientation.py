@@ -1,8 +1,8 @@
 import operator
-from PySide import QtCore, QtGui
+from nexpy.gui.pyqt import QtCore, QtGui
 import numpy as np
 import random
-from scipy.optimize import minimize
+from scipy.optimize import leastsq
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.mainwindow import report_error
 from nexpy.gui.plotview import NXPlotView
@@ -10,12 +10,12 @@ from nexusformat.nexus import NeXusError
 from nxpeaks.nxrefine import NXRefine
 
 
-def show_dialog(parent=None):
-    try:
-        dialog = OrientationDialog(parent)
-        dialog.show()
-    except NeXusError as error:
-        report_error("Defining Orientation", error)
+def show_dialog():
+#    try:
+    dialog = OrientationDialog()
+    dialog.show()
+#    except NeXusError as error:
+#        report_error("Defining Orientation", error)
         
 
 class OrientationDialog(BaseDialog):
@@ -258,6 +258,7 @@ class OrientationDialog(BaseDialog):
         x, y, z = [self.table_view.model().peak_list[row][i] for i in range(1, 4)]
         xmin, xmax = max(0,x-200), min(x+200,data.nxsignal.shape[2])
         ymin, ymax = max(0,y-200), min(y+200,data.nxsignal.shape[1])
+        zmin, zmax = max(0,z-200), min(z+200,data.nxsignal.shape[0])
         zslab=np.s_[z,ymin:ymax,xmin:xmax]
         if self.plotview is None:
             self.plotview = NXPlotView('X-Y Projection')
@@ -274,13 +275,18 @@ class OrientationDialog(BaseDialog):
 
     def refine_orientation(self):
         idx = self.refine.idx
-        random.shuffle(idx)
-        self.idx = idx[0:20]
-        p0 = self.set_parameters()
-        self.fit_intensity = self.refine.intensity[self.idx]
-        result = minimize(self.residuals, p0, method='nelder-mead',
-                          options={'xtol': 1e-5, 'disp': True})
-        self.get_parameters(result.x)
+        intensities = self.refine.intensity[idx]
+        sigma = np.average(intensities) / intensities
+        p0 = self.set_parameters(idx)
+        def diffs(p):
+            self.get_parameters(p)
+            UBimat = np.linalg.inv(self.refine.UBmat)
+            Q = [UBimat * self.Gvec[i] for i in idx]
+            dQ = Q - np.rint(Q)
+            return np.array([np.linalg.norm(self.refine.Bmat*np.matrix(dQ[i])) 
+                             for i in idx]) / sigma
+        popt, C, info, msg, success = leastsq(diffs, p0, full_output=1)
+        self.get_parameters(popt)
         self.update_lattice()
         self.update_table()
         self.status_text.setText('Score: %.4f' % self.refine.score())
@@ -307,13 +313,9 @@ class OrientationDialog(BaseDialog):
         self.lattice['beta'].value = self.refine.beta
         self.lattice['gamma'].value = self.refine.gamma
 
-    def residuals(self, p):
-        self.get_parameters(p)
-        diffs = np.array([self.refine.diff(i) for i in self.idx])
-        score = np.sum(diffs * self.fit_intensity)
-        return score
-
-    def set_parameters(self):
+    def set_parameters(self, idx):
+        x, y, z = self.refine.xp[idx], self.refine.yp[idx], self.refine.zp[idx]
+        self.Gvec = [self.refine.Gvec(xx,yy,zz) for xx,yy,zz in zip(x,y,z)]
         self.Umat = self.refine.Umat
         pars = []
         for par in self.lattice.values():

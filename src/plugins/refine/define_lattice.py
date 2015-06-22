@@ -6,13 +6,13 @@ from nexusformat.nexus import *
 from nxpeaks.nxrefine import NXRefine
 
 
-def show_dialog(parent=None):
-    try:
-        dialog = LatticeDialog(parent)
-        dialog.show()
-    except NeXusError as error:
-        report_error("Defining Lattice", error)
-        
+def show_dialog():
+#    try:
+    dialog = LatticeDialog()
+    dialog.show()
+#    except NeXusError as error:
+#        report_error("Defining Lattice", error)
+
 
 class LatticeDialog(BaseDialog):
 

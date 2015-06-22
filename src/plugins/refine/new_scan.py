@@ -6,8 +6,8 @@ from nexpy.gui.mainwindow import report_error
 from nxpeaks.nxrefine import NXRefine
 
 
-def show_dialog(parent=None):
-    dialog = ScanDialog(parent)
+def show_dialog():
+    dialog = ScanDialog()
     dialog.show()
 
 

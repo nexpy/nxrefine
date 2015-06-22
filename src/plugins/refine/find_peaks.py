@@ -8,12 +8,12 @@ from nxpeaks import blobcorrector, __version__
 from nxpeaks.connectedpixels import blob_moments
 from nxpeaks.labelimage import labelimage, flip1
 
-def show_dialog(parent=None):
-    try:
-        dialog = FindDialog(parent)
-        dialog.show()
-    except NeXusError as error:
-        report_error("Finding Peaks", error)
+def show_dialog():
+#    try:
+    dialog = FindDialog()
+    dialog.show()
+#    except NeXusError as error:
+#        report_error("Finding Peaks", error)
 
 
 class FindDialog(BaseDialog):
@@ -34,7 +34,7 @@ class FindDialog(BaseDialog):
         self.parameters.add('threshold', threshold, 'Threshold')
         self.parameters.add('min', 0, 'First Frame')
         self.parameters.add('max', max_frame, 'Last Frame')
-        self.parameters.add('pixel_tolerance', 10, 'Pixel Tolerance')
+        self.parameters.add('pixel_tolerance', 50, 'Pixel Tolerance')
         self.parameters.add('frame_tolerance', 10, 'Frame Tolerance')
         find_layout = QtGui.QHBoxLayout()
         self.find_button = QtGui.QPushButton('Find Peaks')
@@ -77,7 +77,7 @@ class FindDialog(BaseDialog):
         Note that the pixel tolerance is squared to save square-root 
         calculations in peak comparisons.
         """
-        return (self.parameters['pixel_tolerance'].value**2, 
+        return (self.parameters['pixel_tolerance'].value,
                 self.parameters['frame_tolerance'].value)
 
     def find_peaks(self):
@@ -232,7 +232,7 @@ class NXpeak(object):
         self.covxy = covxy
         self.threshold = threshold
         self.peaks = [self]
-        self.pixel_tolerance = pixel_tolerance
+        self.pixel_tolerance = pixel_tolerance**2
         self.frame_tolerance = frame_tolerance
         self.combined = False
 
@@ -289,7 +289,7 @@ class NXpeak(object):
     def isvalid(self, mask):
         if mask is not None:
             clip = mask[int(self.y),int(self.x)]
-            if clip.nxdata:
+            if clip:
                 return False
         if np.isclose(self.average, 0.0) or np.isnan(self.average) or self.np < 5:
             return False

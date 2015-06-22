@@ -1,16 +1,15 @@
-from PySide import QtGui
+from nexpy.gui.pyqt import QtGui
 import numpy as np
 from nexpy.gui.datadialogs import BaseDialog
 from nexpy.gui.mainwindow import report_error
 from nexusformat.nexus import NeXusError
 
 
-def show_dialog(parent=None):
-    try:
-        dialog = MaskDialog(parent)
-        dialog.show()
-    except NeXusError as error:
-        report_error("Applying Mask", error)
+def show_dialog():
+    dialog = MaskDialog()
+    dialog.show()
+#    except NeXusError as error:
+#        report_error("Applying Mask", error)
         
 
 class MaskDialog(BaseDialog):
@@ -41,15 +40,14 @@ class MaskDialog(BaseDialog):
         return self.mask_box.text()
 
     def save_mask(self):
-        try:
-            mask = self.treeview.tree[self.get_mask_path()]
-            if mask.dtype != np.bool:
-                raise NeXusError('Mask must be a Boolean array')
-            elif len(mask.shape) == 1:
-                raise NeXusError('Mask must be at least two-dimensional')
-            elif len(mask.shape) > 2:
-                mask = mask[0]                
-            self.entry['instrument/detector/pixel_mask'] = mask
-            self.entry['instrument/detector/pixel_mask_applied'] = False
-        except NeXusError as error:
-            report_error('Applying Mask', error)
+        mask = self.treeview.tree[self.get_mask_path()]
+        if mask.dtype != np.bool:
+            raise NeXusError('Mask must be a Boolean array')
+        elif len(mask.shape) == 1:
+            raise NeXusError('Mask must be at least two-dimensional')
+        elif len(mask.shape) > 2:
+            mask = mask[0]                
+        self.entry['instrument/detector/pixel_mask'] = mask
+        self.entry['instrument/detector/pixel_mask_applied'] = False
+#        except NeXusError as error:
+#            report_error('Applying Mask', error)

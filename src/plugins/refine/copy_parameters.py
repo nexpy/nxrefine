@@ -7,12 +7,12 @@ from nexusformat.nexus import NeXusError
 from nxpeaks.nxrefine import NXRefine, find_nearest
 
 
-def show_dialog(parent=None):
-    try:
-        dialog = CopyDialog(parent)
-        dialog.show()
-    except NeXusError as error:
-        report_error("Copying Parameters", error)
+def show_dialog():
+#    try:
+    dialog = CopyDialog()
+    dialog.show()
+#    except NeXusError as error:
+#        report_error("Copying Parameters", error)
 
 
 class CopyDialog(BaseDialog):

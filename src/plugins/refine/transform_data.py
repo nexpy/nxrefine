@@ -1,4 +1,4 @@
-from PySide import QtGui
+from nexpy.gui.pyqt import QtGui
 import os
 import numpy as np
 from nexpy.gui.datadialogs import BaseDialog
@@ -7,8 +7,8 @@ from nexusformat.nexus import NeXusError
 from nxpeaks.nxrefine import NXRefine
 
 
-def show_dialog(parent=None):
-    dialog = TransformDialog(parent)
+def show_dialog():
+    dialog = TransformDialog()
     dialog.show()
         
 

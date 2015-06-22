@@ -7,12 +7,12 @@ from nexusformat.nexus import *
 from nxpeaks.nxrefine import NXRefine, find_nearest
 
 
-def show_dialog(parent=None):
-    try:
-        dialog = RefineLatticeDialog(parent)
-        dialog.show()
-    except NeXusError as error:
-        report_error("Refining Lattice", error)
+def show_dialog():
+#    try:
+    dialog = RefineLatticeDialog()
+    dialog.show()
+#    except NeXusError as error:
+#        report_error("Refining Lattice", error)
 
 
 class RefineLatticeDialog(BaseDialog):
@@ -24,8 +24,6 @@ class RefineLatticeDialog(BaseDialog):
 
         self.refine = NXRefine(self.entry)
         self.refine.read_parameters()
-        if self.refine.symmetry is None:
-            self.refine.symmetry = self.refine.guess_symmetry()
 
         self.parameters = GridParameters()
         self.parameters.add('symmetry', self.refine.symmetries, 'Symmetry', 
@@ -55,8 +53,7 @@ class RefineLatticeDialog(BaseDialog):
         self.set_layout(self.entry_layout, self.parameters.grid(), 
                         action_buttons, self.close_buttons())
         self.set_title('Refining Lattice')
-        self.parameters['symmetry'].value = self.refine.symmetry
-
+        self.parameters['symmetry'].value = self.guess_symmetry()
         
     def choose_entry(self):
         self.refine = NXRefine(self.entry)
@@ -93,13 +90,10 @@ class RefineLatticeDialog(BaseDialog):
 
     def write_parameters(self):
         self.transfer_parameters()
-        try:
-            polar_angles, azimuthal_angles = self.refine.calculate_angles(
-                                                 self.refine.xp, self.refine.yp)
-            self.refine.write_angles(polar_angles, azimuthal_angles)
-            self.refine.write_parameters()
-        except NeXusError as error:
-            report_error('Refining Lattice', error)
+        polar_angles, azimuthal_angles = self.refine.calculate_angles(
+                                             self.refine.xp, self.refine.yp)
+        self.refine.write_angles(polar_angles, azimuthal_angles)
+        self.refine.write_parameters()
 
     def get_symmetry(self):
         return self.parameters['symmetry'].value

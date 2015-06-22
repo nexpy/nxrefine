@@ -23,12 +23,12 @@ index_pattern = re.compile('^(.*?)([0-9]*)[.](.*)$')
 maximum = 0.0
 
 
-def show_dialog(parent=None):
-    try:
-        dialog = StackDialog(parent)
-        dialog.show()
-    except NeXusError as error:
-        report_error("Stacking Images", error)
+def show_dialog():
+#    try:
+    dialog = StackDialog()
+    dialog.show()
+#    except NeXusError as error:
+#        report_error("Stacking Images", error)
 
 def isotime(time_stamp):
     return datetime.fromtimestamp(time_stamp).isoformat()
@@ -151,7 +151,7 @@ class StackDialog(BaseImportDialog):
         Opens a file dialog and sets the settings file text box to the chosen path.
         """
         dirname = self.get_default_directory(self.get_output_file())
-        filename = getOpenFileName(self, 'Choose Output File', dirname,
+        filename = getOpenFileName(self, 'Choose Output File', dirname, 
                                    self.nexus_filter)
         if os.path.exists(dirname):    # avoids problems if <Cancel> was selected
             self.output_file.setText(filename)
@@ -336,6 +336,8 @@ class StackDialog(BaseImportDialog):
         return NXroot(NXentry(NXdata(v,(z,y,x))))
 
     def accept(self):
+#        try:
+        output_file = self.get_output_file()
         try:
             output_file = self.get_output_file()
             try:
