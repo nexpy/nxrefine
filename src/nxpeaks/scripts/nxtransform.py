@@ -43,6 +43,8 @@ def main():
         sample = os.path.basename(os.path.dirname(os.path.dirname(directory)))   
         label = os.path.basename(os.path.dirname(directory))
         scan = os.path.basename(directory)
+    else:
+        scan = directory
 
     Qh = [np.float32(v) for v in args.qh]
     Qk = [np.float32(v) for v in args.qk]
