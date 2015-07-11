@@ -30,6 +30,7 @@ def main():
     parser.add_argument('-d', '--directory', default='', help='scan directory')
     parser.add_argument('-f', '--filenames', default=['f1', 'f2', 'f3'], 
         nargs='+', help='names of NeXus files to be linked to this file')
+    parser.add_argument('-p', '--parent', help='file name of file to copy from')
     parser.add_argument('-qh', nargs=3, help='Qh - min, step, max')
     parser.add_argument('-qk', nargs=3, help='Qk - min, step, max')
     parser.add_argument('-ql', nargs=3, help='Ql - min, step, max')
@@ -46,9 +47,13 @@ def main():
     else:
         scan = directory
 
-    Qh = [np.float32(v) for v in args.qh]
-    Qk = [np.float32(v) for v in args.qk]
-    Ql = [np.float32(v) for v in args.ql]
+    if args.parent:
+        parent = nxload(args.parent)
+    else:
+        parent = None
+        Qh = [np.float32(v) for v in args.qh]
+        Qk = [np.float32(v) for v in args.qk]
+        Ql = [np.float32(v) for v in args.ql]
 
     filenames = args.filenames
 
@@ -60,6 +65,17 @@ def main():
     for f in filenames:
         output = os.path.join(scan, f+'_transform.nxs')
         settings = os.path.join(directory, f+'_transform.pars')
+        if parent is not None:
+            if f in parent and 'transform' in parent[f]:
+                transform = parent[f+'/transform']
+                Qh, Qk, Ql = (transform['Qh'].nxdata, 
+                              transform['Qk'].nxdata, 
+                              transform['Ql'].nxdata)
+                Qh = Qh[0], Qh[1]-Qh[0], Qh[-1]
+                Qk = Qk[0], Qk[1]-Qk[0], Qk[-1]
+                Ql = Ql[0], Ql[1]-Ql[0], Ql[-1]
+            else:
+                raise NeXusError('Transform parameters not defined in '+f)
         prepare_transform(root[f], Qh, Qk, Ql, output, settings)
         print root[f].transform.command
         subprocess.call(root[f].transform.command.nxdata, shell=True)
