@@ -54,7 +54,7 @@ def main():
     input = ' '.join([os.path.join(directory, '%s_transform.nxs\#/entry/data'
                       % f) for f in filenames])
     output = os.path.join(directory, 'transform.nxs\#/entry/data/v')
-    command = 'cctw merge %s -o %s' (input, output)
+    command = 'cctw merge %s -o %s' % (input, output)
     subprocess.call(command, shell=True)
 
     Qh = root['entry/%s/transform/Qh' % filenames[0]]
