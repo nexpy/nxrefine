@@ -9,7 +9,7 @@ from nxpeaks.nxrefine import NXRefine
 
 def prepare_transform(entry, Qh, Qk, Ql, output, settings):
     refine = NXRefine(entry)
-    refine.refine_lattice_parameters()
+#    refine.refine_lattice_parameters()
     refine.output_file = output
     refine.settings_file = settings
     refine.h_start, refine.h_step, refine.h_stop = Qh
