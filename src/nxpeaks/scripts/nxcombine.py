@@ -57,9 +57,9 @@ def main():
     command = 'cctw merge %s -o %s' % (input, output)
     subprocess.call(command, shell=True)
 
-    Qh = root['entry/%s/transform/Qh' % filenames[0]]
-    Qk = root['entry/%s/transform/Qk' % filenames[0]]
-    Ql = root['entry/%s/transform/Ql' % filenames[0]]
+    Qh = root['%s/transform/Qh' % filenames[0]]
+    Qk = root['%s/transform/Qk' % filenames[0]]
+    Ql = root['%s/transform/Ql' % filenames[0]]
     data = NXlink('/entry/data/v', file=os.path.join(scan, 'transform.nxs'))
     if 'transform' not in root['entry']:
         root['entry/transform'] = NXdata(data, [Ql,Qk,Qh])
