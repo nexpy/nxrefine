@@ -23,7 +23,7 @@ def main():
             time.sleep(10)
         subprocess.call('nxwork -s %s -l %s -d %s -t %s -f f1 -m mask_f1 -p %s'
                         % (sample, label, dir, temperature, parent), shell=True)
-        subprocess.call('nxtransform -d %s  -f f1 -p %s' % (scan_dir, parent))
+        subprocess.call('nxtransform -d %s  -f f1 -p %s' % (scan_dir, parent), shell=True)
 
 if __name__=="__main__":
     main()
