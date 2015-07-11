@@ -24,7 +24,7 @@ def prepare_transform(entry, Qh, Qk, Ql, output, settings):
 def main():
 
     parser = argparse.ArgumentParser(
-        description="Prepare files for a CCTW transform")
+        description="Perform CCTW transform")
     parser.add_argument('-s', '--sample', help='sample name')
     parser.add_argument('-l', '--label', help='sample label')
     parser.add_argument('-d', '--directory', default='', help='scan directory')
@@ -62,20 +62,22 @@ def main():
 
     root = nxload(wrapper_file, 'rw')
 
+    f = filenames[0]
+    if parent is not None:
+        if f in parent and 'transform' in parent[f]:
+            transform = parent[f+'/transform']
+            Qh, Qk, Ql = (transform['Qh'].nxdata, 
+                          transform['Qk'].nxdata, 
+                          transform['Ql'].nxdata)
+            Qh = Qh[0], Qh[1]-Qh[0], Qh[-1]
+            Qk = Qk[0], Qk[1]-Qk[0], Qk[-1]
+            Ql = Ql[0], Ql[1]-Ql[0], Ql[-1]
+        else:
+            raise NeXusError('Transform parameters not defined in '+f)
+
     for f in filenames:
         output = os.path.join(scan, f+'_transform.nxs')
         settings = os.path.join(directory, f+'_transform.pars')
-        if parent is not None:
-            if f in parent and 'transform' in parent[f]:
-                transform = parent[f+'/transform']
-                Qh, Qk, Ql = (transform['Qh'].nxdata, 
-                              transform['Qk'].nxdata, 
-                              transform['Ql'].nxdata)
-                Qh = Qh[0], Qh[1]-Qh[0], Qh[-1]
-                Qk = Qk[0], Qk[1]-Qk[0], Qk[-1]
-                Ql = Ql[0], Ql[1]-Ql[0], Ql[-1]
-            else:
-                raise NeXusError('Transform parameters not defined in '+f)
         prepare_transform(root[f], Qh, Qk, Ql, output, settings)
         print root[f].transform.command
         subprocess.call(root[f].transform.command.nxdata, shell=True)
