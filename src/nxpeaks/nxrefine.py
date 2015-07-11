@@ -346,6 +346,8 @@ class NXRefine(object):
         self.entry['transform'] = NXdata(NXlink(name = 'data', 
                                          target='/entry/data/v',
                                          file=output_file), [l, k, h])
+        self.entry['transform/weights'] = NXlink(target='/entry/data/n',
+                                                 file=output_file)
         self.entry['transform/command'] = command
 
     def cctw_command(self):
