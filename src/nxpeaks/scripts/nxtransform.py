@@ -66,8 +66,8 @@ def main():
     if parent is not None:
         if f in parent and 'transform' in parent[f]:
             transform = parent[f+'/transform']
-            Qh, Qk, Ql = (transform['Qh'].nxdata, 
-                          transform['Qk'].nxdata, 
+            Qh, Qk, Ql = (transform['Qh'].nxdata,
+                          transform['Qk'].nxdata,
                           transform['Ql'].nxdata)
             Qh = Qh[0], Qh[1]-Qh[0], Qh[-1]
             Qk = Qk[0], Qk[1]-Qk[0], Qk[-1]
