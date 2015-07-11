@@ -20,10 +20,10 @@ def main():
         dir = temperature+'K'
         scan_dir = os.path.join(directory, dir)
         while not os.path.exists(os.path.join(scan_dir, 'f1', 'done.txt')):
-            sleep.wait(30)
+            time.sleep(10)
         subprocess.call('nxwork -s %s -l %s -d %s -t %s -f f1 -m mask_f1 -p %s'
                         % (sample, label, dir, temperature, parent), shell=True)
-        subprocess.call('nxtransform -d %s  -f f1 -p %s' % (scan_dir, parent))           
+        subprocess.call('nxtransform -d %s  -f f1 -p %s' % (scan_dir, parent))
 
 if __name__=="__main__":
     main()

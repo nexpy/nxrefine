@@ -78,8 +78,6 @@ def main():
         print "\n\nCopying parameters from %s\n" % parent
         subprocess.call('nxcopy -f %s -o %s' 
                         % (parent, wrapper_file), shell=True)
-        subprocess.call('nxorient -f %s -e f1' 
-                        % wrapper_file, shell=True)
         
 
 if __name__=="__main__":
