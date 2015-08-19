@@ -1,10 +1,13 @@
 import argparse
 import os
+import socket
 import subprocess
+import sys
 
 import numpy as np
 from nexusformat.nexus import *
 from nxpeaks.nxrefine import NXRefine
+from nxpeaks import __version__
 
 
 def prepare_transform(entry, Qh, Qk, Ql, output, settings):
@@ -49,6 +52,7 @@ def main():
     wrapper_file = '%s/%s_%s.nxs' % (label_path, sample, scan)
 
     root = nxload(wrapper_file, 'rw')
+    entry = root['entry']
 
     output = os.path.join(scan, 'transform.nxs')
     input = ' '.join([os.path.join(directory, '%s_transform.nxs\#/entry/data'
@@ -60,11 +64,22 @@ def main():
     Qh = root['%s/transform/Qh' % filenames[0]]
     Qk = root['%s/transform/Qk' % filenames[0]]
     Ql = root['%s/transform/Ql' % filenames[0]]
-    data = NXlink('/entry/data/v', file=os.path.join(scan, 'transform.nxs'))
-    if 'transform' not in root['entry']:
-        root['entry/transform'] = NXdata(data, [Ql,Qk,Qh])
+    data = NXlink('/entry/data/v', file=os.path.join(scan, 'transform.nxs'),
+                  name='data')
+    if 'transform' not in entry:
+        entry['transform'] = NXdata(data, [Ql,Qk,Qh])
     else:
-        root['entry/transform_1'] = NXdata(data, [Ql,Qk,Qh])    
+        entry['transform_1'] = NXdata(data, [Ql,Qk,Qh])
+
+    note = NXnote('nxcombine '+' '.join(sys.argv[1:]), 
+                  ('Current machine: %s\n'
+                   'Current working directory: %s')
+                    % (socket.gethostname(), os.getcwd()))
+    entry['nxcombine'] = NXprocess(program='nxcombine', 
+                                   sequence_index=len(entry.NXprocess)+1, 
+                                   version=__version__, 
+                                   note=note)
+
 
 
 if __name__=="__main__":
