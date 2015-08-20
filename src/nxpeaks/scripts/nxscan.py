@@ -18,7 +18,6 @@ def main():
         default=['mask_f1', 'mask_f2', 'mask_f3'], nargs='+',
         help='name of the pixel mask files')
     parser.add_argument('-t', '--temperatures', nargs='+', help='list of temperatures')
-    parser.add_argument('-w', )
     parser.add_argument('-w', '--wait', action='store_true', default=False,
                         help='wait for stream completion')    
     args = parser.parse_args()
