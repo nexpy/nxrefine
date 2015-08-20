@@ -18,7 +18,9 @@ def main():
         default=['mask_f1', 'mask_f2', 'mask_f3'], nargs='+',
         help='name of the pixel mask files')
     parser.add_argument('-t', '--temperatures', nargs='+', help='list of temperatures')
-    
+    parser.add_argument('-w', )
+    parser.add_argument('-w', '--wait', action='store_true', default=False,
+                        help='wait for stream completion')    
     args = parser.parse_args()
 
     directory = args.directory.rstrip('/')
@@ -33,13 +35,15 @@ def main():
         else:
             crash('No. of maskfiles must same as no. of filenames or 1')
     temperatures = args.temperatures
+    wait = args.wait
 
     for temperature in temperatures:
         dir = temperature+'K'
         scan_dir = os.path.join(directory, dir)
         for (f, m) in zip(files, maskfiles):
-            while not os.path.exists(os.path.join(scan_dir, 'f', 'done.txt')):
-                time.sleep(10)
+            if wait:
+                while not os.path.exists(os.path.join(scan_dir, 'f', 'done.txt')):
+                    time.sleep(10)
             subprocess.call('nxwork -s %s -l %s -d %s -t %s -f %s -m %s -p %s'
                         % (sample, label, dir, temperature, f, m, parent), shell=True)
         subprocess.call('nxtransform -d %s  -f %s -p %s' % (scan_dir, f, parent), shell=True)
