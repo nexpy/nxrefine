@@ -354,21 +354,31 @@ class NXRefine(object):
         name = self.entry.nxname + '_transform'
         dir = os.path.dirname(self.entry['data'].nxsignal.nxfilename)
         filename = self.entry.nxfilename
-        mask_file = '%s/mask_%s.nxs' % (dir, self.entry.nxname)
-        if not os.path.exists(mask_file):
-            mask = self.entry['instrument/detector/pixel_mask']
-            mask.nxname = 'mask'
-            NXroot(NXentry(mask)).save(mask_file)
-        return (('cctw transform '
-                 '--script %s/%s.pars '
-                 '--mask %s\#/entry/mask '
-                 '%s\#/%s/data/data ' 
-                 '-o %s/%s.nxs\#/entry/data '
-                 '--normalization 0')
-                 % (dir, name, 
-                    mask_file,
-                    self.entry.nxfilename, self.entry.nxname, 
-                    dir, name))
+        try:
+            mask_file = '%s/mask_%s.nxs' % (dir, self.entry.nxname)
+            if not os.path.exists(mask_file):
+                mask = self.entry['instrument/detector/pixel_mask']
+                mask.nxname = 'mask'
+                NXroot(NXentry(mask)).save(mask_file)
+            return (('cctw transform '
+                     '--script %s/%s.pars '
+                     '--mask %s\#/entry/mask '
+                     '%s\#/%s/data/data ' 
+                     '-o %s/%s.nxs\#/entry/data '
+                     '--normalization 0')
+                     % (dir, name, 
+                        mask_file,
+                        self.entry.nxfilename, self.entry.nxname, 
+                        dir, name))
+        except NeXusError:
+            return (('cctw transform '
+                     '--script %s/%s.pars '
+                     '%s\#/%s/data/data ' 
+                     '-o %s/%s.nxs\#/entry/data '
+                     '--normalization 0')
+                     % (dir, name, 
+                        self.entry.nxfilename, self.entry.nxname, 
+                        dir, name))
 
     def set_symmetry(self):
         if self.symmetry == 'cubic':
