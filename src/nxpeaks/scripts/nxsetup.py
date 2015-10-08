@@ -39,6 +39,8 @@ def main():
 
     parser = argparse.ArgumentParser(
         description="Make NeXus file and directories for new scan")
+    parser.add_argument('-r', '--root', default='', 
+                        help='root directory')
     parser.add_argument('-s', '--sample', help='sample name')
     parser.add_argument('-l', '--label', default='', help='sample label')
     parser.add_argument('-d', '--directory', default='', help='scan directory')
@@ -47,9 +49,11 @@ def main():
         nargs='+', help='names of NeXus files to be linked to this file')
     parser.add_argument('-m', '--maskfiles', nargs='+',
         help='name of the pixel mask files')
+    parser.add_argument('-p', '--parent', help='file name of file to copy from')
     
     args = parser.parse_args()
 
+    root = args.root
     sample = args.sample
     label = args.label
     directory = args.directory.rstrip('/')
@@ -68,7 +72,9 @@ def main():
     elif maskfiles is None:
         maskfiles = [None] * len(filenames)
 
-    scan_directory = os.path.join(sample, label, directory)
+    parent = args.parent
+
+    scan_directory = os.path.join(root, sample, label, directory)
     try: 
         os.makedirs(scan_directory)
         for f in filenames:
@@ -80,10 +86,15 @@ def main():
         nexus_file = os.path.join(sample, label, sample+'_'+directory+'.nxs')
     else:
         nexus_file = os.path.join(sample, label, sample+'.nxs')
-    root = make_nexus_file(sample, label, scan_directory, temperature, 
+    nexus_root = make_nexus_file(sample, label, scan_directory, temperature, 
                            filenames, maskfiles)
-    root.save(nexus_file, 'w')
+    nexus_root.save(nexus_file, 'w')
     print 'Saving ', nexus_file
+
+    if parent:
+        print "\n\nCopying parameters from %s\n" % parent
+        subprocess.call('nxcopy -f %s -o %s' 
+                        % (parent, nexus_file), shell=True)
     
 
 if __name__=="__main__":
