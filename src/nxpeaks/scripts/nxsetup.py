@@ -12,8 +12,9 @@ def make_nexus_file(sample_name, sample_label, scan_directory, temperature,
     sample.name = sample_name
     if sample_label:
         sample.label = sample_label
-    sample['temperature'] = temperature
-    sample['temperature'].attrs['units'] = 'K'
+    if temperature is not None:
+        sample['temperature'] = temperature
+        sample['temperature'].attrs['units'] = 'K'
     root.entry = NXentry(sample)
     for (f, m) in zip(filenames, maskfiles):
         try:
@@ -61,7 +62,10 @@ def main():
         sample = os.path.basename(os.path.dirname(os.path.dirname(directory)))   
         label = os.path.basename(os.path.dirname(directory))
         directory = os.path.basename(directory)
-    temperature = np.float32(args.temperature)
+    if args.temperature is not None:
+        temperature = np.float32(args.temperature)
+    else:
+        temperature = None
     filenames = args.filenames
     maskfiles = args.maskfiles
     if maskfiles and len(maskfiles) < len(filenames):
