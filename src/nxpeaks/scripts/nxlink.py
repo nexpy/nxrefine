@@ -29,8 +29,10 @@ def link_files(nexus_file, scan_dir, filenames, maskfiles):
 
 def make_data(entry, scan_file, mask=None):
     root = nxload(scan_file)
-    entry.filename = root.entry.filename
-    entry.start_time = root.entry.start_time
+    if filename in root.entry:
+        entry.filename = root.entry.filename
+    if start_time in root.entry.start_time:
+        entry.start_time = root.entry.start_time
     if 'instrument' not in entry:
         entry.instrument = root.entry.instrument
     if 'detector' not in entry.instrument:
