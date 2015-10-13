@@ -73,7 +73,7 @@ class NXRefine(object):
         self.symmetry = symmetry
         self.centring = centring
         self.omega_start = 0.0
-        self.omega_step = 0.1
+        self.omega_step = -0.1
         self.peak = None
         self.xp = None
         self.yp = None
@@ -501,7 +501,7 @@ class NXRefine(object):
         When all angles are zero,
             +X(det) = -y(lab), +Y(det) = +z(lab), and +Z(det) = -x(lab)
         """
-        return np.matrix(((0,0,1), (0,1,0), (-1,0,0)))
+        return np.matrix(((0,-1,0), (0,0,1), (-1,0,0)))
 
     @property
     def Dmat(self):
