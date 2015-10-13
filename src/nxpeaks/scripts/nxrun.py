@@ -34,15 +34,24 @@ def main():
     sample = args.sample
     label = args.label
     directory = args.directory
-    files = args.filenames
-    maskfiles = args.maskfiles
-    if len(maskfiles) < len(files):
-        if len(maskfiles) == 1:
-            maskfiles = [maskfiles] * len(files)
-        else:
-            crash('No. of maskfiles must same as no. of filenames or 1')
+    try:
+        n = int(args.filenames[0])
+        files = ['f%s' % (i+1) for i in range(n)]
+        maskfiles = [args.maskfiles[0]] * len(files)
+    except:
+        files = args.filenames
+        maskfiles = args.maskfiles
+        if len(maskfiles) < len(files):
+            if len(maskfiles) == 1:
+                maskfiles = [maskfiles[0]] * len(files)
+            else:
+                crash('No. of maskfiles must same as no. of filenames or 1')
     x_motors = args.x_motors
+    if len(x_motors) == 1:
+        x_motors = [x_motors[0]] * len(files)
     y_motors = args.y_motors    
+    if len(y_motors) == 1:
+        y_motors = [y_motors[0]] * len(files)
     temperatures = args.temperatures
     parent = args.parent
     spec_macro = args.output
