@@ -31,7 +31,7 @@ def make_data(entry, scan_file, mask=None):
     root = nxload(scan_file)
     if 'filename' in root.entry:
         entry.filename = root.entry.filename
-    if 'start_time' in root.entry.start_time:
+    if 'start_time' in root.entry:
         entry.start_time = root.entry.start_time
     if 'instrument' not in entry:
         entry.instrument = root.entry.instrument
