@@ -85,9 +85,6 @@ class NXRefine(object):
         self.azimuthal_angle = None
         self.rotation_angle = None
         self.intensity = None
-        self.qh = None
-        self.qk = None
-        self.ql = None
         self.pixel_size = 0.1
         self.polar_max = None
         self.Umat = None
@@ -148,9 +145,6 @@ class NXRefine(object):
         self.polar_angle = self.read_parameter('peaks/polar_angle')
         self.azimuthal_angle = self.read_parameter('peaks/azimuthal_angle')
         self.intensity = self.read_parameter('peaks/intensity')
-        self.qh = self.read_parameter('peaks/qh')
-        self.qk = self.read_parameter('peaks/qk')
-        self.ql = self.read_parameter('peaks/ql')
         self.pixel_size = self.read_parameter('instrument/detector/pixel_size')
         self.pixel_mask = self.read_parameter('instrument/detector/pixel_mask')
         self.pixel_mask_applied = self.read_parameter('instrument/detector/pixel_mask_applied')
@@ -501,7 +495,7 @@ class NXRefine(object):
         When all angles are zero,
             +X(det) = -y(lab), +Y(det) = +z(lab), and +Z(det) = -x(lab)
         """
-        return np.matrix(((0,-1,0), (0,0,1), (-1,0,0)))
+        return np.matrix(((0,0,1), (0,1,0), (-1,0,0)))
 
     @property
     def Dmat(self):
@@ -678,10 +672,6 @@ class NXRefine(object):
 
     @property
     def idx(self):
-        return range(self.npks)
-
-    @property
-    def good_idx(self):
         return list(np.where(self.diffs < self.hkl_tolerance)[0])
 
     def score(self, grain=None):
