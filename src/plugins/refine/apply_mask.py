@@ -1,5 +1,5 @@
 import numpy as np
-from nexpy.gui.datadialogs import BaseDialog
+from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.mainwindow import report_error
 from nexusformat.nexus import NeXusError
 

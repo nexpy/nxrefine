@@ -119,7 +119,7 @@ class RefineLatticeDialog(BaseDialog):
             self.parameters['gamma'].vary = False
         elif self.refine.symmetry == 'hexagonal':
             self.parameters['b'].vary = False
-            self.parameters['alph'].vary = False
+            self.parameters['alpha'].vary = False
             self.parameters['beta'].vary = False
             self.parameters['gamma'].vary = False
         elif self.refine.symmetry == 'monoclinic':
