@@ -1,4 +1,5 @@
-import new_scan, stack_images, apply_mask, find_maximum, find_peaks
+import new_experiment, new_scan
+import stack_images, apply_mask, find_maximum, find_peaks
 import calculate_angles, copy_parameters
 import define_lattice, refine_lattice
 import define_orientation, transform_data
@@ -6,6 +7,7 @@ import define_orientation, transform_data
 def plugin_menu():
     menu = 'Refine'
     actions = []
+    actions.append(('New Experiment', new_experiment.show_dialog))
     actions.append(('New Scan', new_scan.show_dialog))
     actions.append(('Stack Images', stack_images.show_dialog))
     actions.append(('Apply Mask', apply_mask.show_dialog))
