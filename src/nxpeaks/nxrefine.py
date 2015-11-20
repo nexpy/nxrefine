@@ -73,7 +73,7 @@ class NXRefine(object):
         self.symmetry = symmetry
         self.centring = centring
         self.omega_start = 0.0
-        self.omega_step = -0.1
+        self.omega_step = 0.1
         self.peak = None
         self.xp = None
         self.yp = None
