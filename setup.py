@@ -11,7 +11,9 @@
 from setuptools import setup, find_packages, Extension
 
 import numpy
-import os, sys
+import os
+import sys
+import versioneer
 
 sys.path.insert(0, os.path.join('src', ))
 import nxpeaks
@@ -19,7 +21,8 @@ import nxpeaks
 verbose=1
 
 setup (name = nxpeaks.__package_name__, 
-       version = nxpeaks.__version__,
+       version=versioneer.get_version(),
+       cmdclass=versioneer.get_cmdclass(),
        license = nxpeaks.__license__,
        description = nxpeaks.__description__,
        long_description = nxpeaks.__long_description__,

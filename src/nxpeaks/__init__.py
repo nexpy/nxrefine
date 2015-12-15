@@ -7,10 +7,12 @@
 #-----------------------------------------------------------------------------
 
 __package_name__ = u'NXpeaks'
-__version__ = u'0.1.0'
+from ._version import get_versions
+__version__ = get_versions()['version']
+del get_versions
 
 __documentation_author__ = u'Ray Osborn'
-__documentation_copyright__ = u'2013, Ray Osborn'
+__documentation_copyright__ = u'2013-15, Ray Osborn'
 
 __license__ = u'BSD'
 __author_name__ = u'NeXpy Development Team'
