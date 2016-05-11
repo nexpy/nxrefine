@@ -28,7 +28,8 @@ via a fit2d spline file
 To think about doing - valid regions? What if someone uses a 1K spline
 file for a 2K image etc?
 """
-import logging, numpy, math
+from __future__ import absolute_import
+from . import logging, numpy, math
 from scipy.interpolate import bisplev
 
 def readfit2dfloats(filep, nfl):

@@ -5,6 +5,7 @@
 #
 # The full license is in the file COPYING, distributed with this software.
 #-----------------------------------------------------------------------------
+from __future__ import absolute_import
 
 __package_name__ = u'NXpeaks'
 from ._version import get_versions
@@ -12,7 +13,7 @@ __version__ = get_versions()['version']
 del get_versions
 
 __documentation_author__ = u'Ray Osborn'
-__documentation_copyright__ = u'2013-15, Ray Osborn'
+__documentation_copyright__ = u'2013-16, Ray Osborn'
 
 __license__ = u'BSD'
 __author_name__ = u'NeXpy Development Team'

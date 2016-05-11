@@ -1,10 +1,13 @@
+from __future__ import absolute_import
+
 import numpy as np
 import os
 import random
 from scipy.optimize import minimize
+
 from nexusformat.nexus import *
-from nxpeaks.unitcell import unitcell
-from nxpeaks import closest
+from .unitcell import unitcell
+from . import closest
 
 
 degrees = 180.0 / np.pi
