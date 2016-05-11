@@ -1,0 +1,44 @@
+package:
+  name: nxpeaks
+  version: "0.1.0"
+
+source:
+  git_url: https://github.com/rayosborn/nxpeaks.git
+  git_tag: v0.1.0
+
+build:
+  entry_points:
+    - nxsetup=nxpeaks.scripts.nxsetup:main
+    - nxcopy=nxpeaks.scripts.nxcopy:main
+    - nxlink=nxpeaks.scripts.nxlink:main
+    - nxfind=nxpeaks.scripts.nxfind:main
+    - nxmake=nxpeaks.scripts.nxmake:main
+    - nxmask=nxpeaks.scripts.nxmask:main
+    - nxmax=nxpeaks.scripts.nxmax:main
+    - nxorient=nxpeaks.scripts.nxorient:main
+    - nxwork=nxpeaks.scripts.nxwork:main
+    - nxrun=nxpeaks.scripts.nxrun:main
+    - nxscan=nxpeaks.scripts.nxscan:main
+    - nxcombine=nxpeaks.scripts.nxcombine:main
+    - nxtransform=nxpeaks.scripts.nxtransform:main
+  number: 0
+
+requirements:
+  build:
+    - python
+    - setuptools
+    - numpy >=1.6.0
+
+  run:
+    - python
+    - numpy >=1.6.0
+
+test:
+  imports:
+    - nexusformat
+    - nexusformat.nexus
+
+about:
+  home: http://nexpy.github.io/nexpy/
+  license: BSD License
+  summary: 'nxpeaks: Python API to refine single crystal x-ray scattering'
