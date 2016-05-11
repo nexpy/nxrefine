@@ -1,8 +1,10 @@
-import new_experiment, new_scan
-import stack_images, apply_mask, find_maximum, find_peaks
-import calculate_angles, copy_parameters
-import define_lattice, refine_lattice
-import define_orientation, transform_data
+from __future__ import absolute_import
+
+from . import new_experiment, new_scan
+from . import stack_images, apply_mask, find_maximum, find_peaks
+from . import calculate_angles, copy_parameters
+from . import define_lattice, refine_lattice
+from . import define_orientation, transform_data
 
 def plugin_menu():
     menu = 'Refine'

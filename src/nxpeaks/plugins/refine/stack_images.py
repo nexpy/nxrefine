@@ -10,10 +10,10 @@ from ConfigParser import ConfigParser
 
 from nexpy.gui.pyqt import QtCore, QtGui, getOpenFileName
 import numpy as np
+import tifffile as TIFF
 
 from nexpy.gui.importdialog import BaseImportDialog
 from nexpy.gui.mainwindow import report_error
-from nexpy.readers.tifffile import tifffile as TIFF
 from nexusformat.nexus import *
 
 

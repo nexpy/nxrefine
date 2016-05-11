@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 import operator
 from nexpy.gui.pyqt import QtCore, QtGui
 import numpy as np
@@ -11,11 +13,11 @@ from nxpeaks.nxrefine import NXRefine
 
 
 def show_dialog():
-#    try:
-    dialog = OrientationDialog()
-    dialog.show()
-#    except NeXusError as error:
-#        report_error("Defining Orientation", error)
+    try:
+        dialog = OrientationDialog()
+        dialog.show()
+    except NeXusError as error:
+        report_error("Defining Orientation", error)
         
 
 class OrientationDialog(BaseDialog):
@@ -77,7 +79,7 @@ class OrientationDialog(BaseDialog):
         return self.parameters['polar'].value
 
     def set_polar_max(self):
-        self.refine.set_polar_max(self.polar_max)
+        self.refine.polar_max = self.polar_max
 
     def get_polar_tolerance(self):
         return self.parameters['polar_tolerance'].value
