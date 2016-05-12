@@ -288,7 +288,6 @@ class StackDialog(BaseImportDialog):
             imsize = cbf.get_image_size(0)
             return np.fromstring(cbf.get_integerarray_as_string(),np.int32).reshape(imsize)
         else:
-            from nexpy.readers.tifffile import tifffile as TIFF
             return TIFF.imread(filename)
 
     def read_images(self, filenames):
@@ -298,7 +297,6 @@ class StackDialog(BaseImportDialog):
             for i,filename in enumerate(filenames):
                 v[i] = self.read_image(filename)
         else:
-            from nexpy.readers.tifffile import tifffile as TIFF
             v = TIFF.TiffSequence(filenames).asarray()        
         global maximum
         if v.max() > maximum:
