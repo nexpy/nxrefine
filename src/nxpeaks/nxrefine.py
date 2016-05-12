@@ -1,8 +1,9 @@
-from __future__ import absolute_import
+from __future__ import absolute_import, unicode_literals
 
 import numpy as np
 import os
 import random
+import six
 from scipy.optimize import minimize
 
 from nexusformat.nexus import *
@@ -76,7 +77,7 @@ class NXRefine(object):
         self.symmetry = symmetry
         self.centring = centring
         self.omega_start = 0.0
-        self.omega_step = 0.1
+        self.omega_step = -0.1
         self.peak = None
         self.xp = None
         self.yp = None
@@ -111,10 +112,7 @@ class NXRefine(object):
     def read_parameter(self, path):
         try:
             field = self.entry[path]
-            if field.shape == () and not isinstance(field.nxdata, basestring):
-                return np.asscalar(field.nxdata)
-            else:
-                return field.nxdata
+            return field.nxdata
         except NeXusError:
             pass 
 
@@ -165,7 +163,7 @@ class NXRefine(object):
 
     def write_parameter(self, path, value):
         if value is not None:
-            if isinstance(value, basestring):
+            if isinstance(value, six.text_type):
                 try:
                     del self.entry[path]
                 except NeXusError:
@@ -498,7 +496,7 @@ class NXRefine(object):
         When all angles are zero,
             +X(det) = -y(lab), +Y(det) = +z(lab), and +Z(det) = -x(lab)
         """
-        return np.matrix(((0,0,1), (0,1,0), (-1,0,0)))
+        return np.matrix(((0,-1,0), (0,0,1), (-1,0,0)))
 
     @property
     def Dmat(self):
@@ -679,10 +677,7 @@ class NXRefine(object):
 
     def score(self, grain=None):
         diffs = self.diffs
-        if grain:
-            idx = grain.peaks
-        else:
-            idx = list(np.where(diffs < self.hkl_tolerance)[0])
+        idx = list(np.where(diffs < self.hkl_tolerance)[0])
         diffs = diffs[idx]
         weights = self.intensity[idx]
         return np.sum(weights * diffs) / np.sum(weights)
