@@ -238,7 +238,6 @@ class RefineLatticeDialog(BaseDialog):
         pvx.crosshairs(y, z)
 
     def refine_angles(self):
-        self.status.setVisible(True)
         self.parameters['orientation_matrix'].vary = False
         self.parameters['omega_start'].vary = False
         self.parameters.refine_parameters(self.angle_residuals)
@@ -247,8 +246,11 @@ class RefineLatticeDialog(BaseDialog):
     def angle_residuals(self, p):
         self.parameters.get_parameters(p)
         self.transfer_parameters()
-        residuals = np.sum(self.refine.diff_rings())**2
-        return residuals
+        polar_angles, _ = self.refine.calculate_angles(self.refine.x, self.refine.y)
+        rings = self.refine.calculate_rings()
+        residuals = np.array([find_nearest(rings, polar_angle) - polar_angle 
+                              for polar_angle in polar_angles])
+        return np.sum(residuals**2)
 
     def refine_hkls(self):
         self.parameters.refine_parameters(self.hkl_residuals)
