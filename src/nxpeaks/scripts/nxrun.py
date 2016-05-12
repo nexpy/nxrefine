@@ -10,7 +10,7 @@ def main():
 
     parser = argparse.ArgumentParser(
         description="Setup a list of SPEC macros for set of scans")
-    parser.add_argument('-r', '--root', default='rosenkranz-311-1', 
+    parser.add_argument('-r', '--root', default='rosenkranz-311-2/data1', 
                         help='root directory')
     parser.add_argument('-s', '--sample', help='sample name')
     parser.add_argument('-l', '--label', default='', help='sample label')
