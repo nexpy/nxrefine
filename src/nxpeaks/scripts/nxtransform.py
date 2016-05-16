@@ -46,6 +46,7 @@ def main():
         scan = os.path.basename(directory)
     else:
         scan = directory
+        directory = os.path.join(sample, label, directory)
 
     if args.parent:
         parent = nxload(args.parent)
