@@ -31,6 +31,10 @@ class OrientationDialog(BaseDialog):
         self.refine.read_parameters()
 
         self.parameters = GridParameters()
+        self.parameters.add('phi_start', self.refine.phi_start, 'Phi Start (deg)')
+        self.parameters.add('phi_step', self.refine.phi_step, 'Phi Step (deg)')
+        self.parameters.add('chi_start', self.refine.chi_start, 'Chi Start (deg)')
+        self.parameters.add('chi_step', self.refine.chi_step, 'Chi Step (deg)')
         self.parameters.add('omega_start', self.refine.omega_start, 'Omega Start (deg)')
         self.parameters.add('omega_step', self.refine.omega_step, 'Omega Step (deg)')
         self.parameters.add('polar', self.refine.polar_max, 'Max. Polar Angle (deg)')
@@ -61,11 +65,29 @@ class OrientationDialog(BaseDialog):
         self.update_parameters()
 
     def update_parameters(self):
+        self.parameters['phi_start'].value = self.refine.phi_start
+        self.parameters['phi_step'].value = self.refine.phi_step
+        self.parameters['chi_start'].value = self.refine.chi_start
+        self.parameters['chi_step'].value = self.refine.chi_step
         self.parameters['omega_start'].value = self.refine.omega_start
         self.parameters['omega_step'].value = self.refine.omega_step
         self.parameters['polar'].value = self.refine.polar_max
         self.parameters['polar_tolerance'].value = self.refine.polar_tolerance
         self.parameters['peak_tolerance'].value = self.refine.peak_tolerance
+
+    def get_phi(self):
+        return (self.parameters['phi_start'].value,
+                self.parameters['phi_step'].value) 
+
+    def set_phi(self):
+        self.refine.phi_start, self.refine.phi_step = self.get_phi() 
+
+    def get_chi(self):
+        return (self.parameters['chi_start'].value,
+                self.parameters['chi_step'].value) 
+
+    def set_chi(self):
+        self.refine.chi_start, self.refine.chi_step = self.get_chi() 
 
     def get_omega(self):
         return (self.parameters['omega_start'].value,
@@ -120,6 +142,8 @@ class OrientationDialog(BaseDialog):
         return int(self.grain_combo.currentText().split()[-1])
 
     def list_peaks(self):
+        self.refine.phi_start, self.refine.phi_step = self.get_phi()
+        self.refine.chi_start, self.refine.chi_step = self.get_chi()
         self.refine.omega_start, self.refine.omega_step = self.get_omega()
         if self.refine.grains is not None:
             grain = self.refine.grains[self.get_grain()]

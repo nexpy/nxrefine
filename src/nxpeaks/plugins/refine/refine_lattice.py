@@ -43,6 +43,10 @@ class RefineLatticeDialog(BaseDialog):
         self.parameters.add('roll', self.refine.roll, 'Roll (deg)')
         self.parameters.add('xc', self.refine.xc, 'Beam Center - x', False)
         self.parameters.add('yc', self.refine.yc, 'Beam Center - y', False)
+        self.parameters.add('phi_start', self.refine.phi_start, 'Phi Start (deg)', False)
+        self.parameters.add('phi_step', self.refine.phi_step, 'Phi Step (deg)')
+        self.parameters.add('chi_start', self.refine.chi_start, 'Chi Start (deg)', False)
+        self.parameters.add('chi_step', self.refine.chi_step, 'Chi Step (deg)')
         self.parameters.add('omega_start', self.refine.omega_start, 'Omega Start (deg)', False)
         self.parameters.add('omega_step', self.refine.omega_step, 'Omega Step (deg)')
         self.parameters.add('polar', self.refine.polar_max, 
@@ -65,7 +69,9 @@ class RefineLatticeDialog(BaseDialog):
         self.set_layout(self.entry_layout, self.parameters.grid(), 
                         self.refine_buttons, self.lattice_buttons,
                         self.close_buttons())
-                        
+
+        self.parameters.grid_layout.setVerticalSpacing(1)
+                                
         self.set_title('Refining Lattice')
 
         self.parameters['symmetry'].value = self.refine.symmetry
@@ -91,7 +97,12 @@ class RefineLatticeDialog(BaseDialog):
         self.parameters['roll'].value = self.refine.roll
         self.parameters['xc'].value = self.refine.xc
         self.parameters['yc'].value = self.refine.yc
+        self.parameters['phi_start'].value = self.refine.phi_start
+        self.parameters['phi_step'].value = self.refine.phi_step
+        self.parameters['chi_start'].value = self.refine.chi_start
+        self.parameters['chi_step'].value = self.refine.chi_step
         self.parameters['omega_start'].value = self.refine.omega_start
+        self.parameters['omega_step'].value = self.refine.omega_step
         self.parameters['polar'].value = self.refine.polar_max
         self.parameters['polar_tolerance'].value = self.refine.polar_tolerance
         try:
@@ -109,7 +120,9 @@ class RefineLatticeDialog(BaseDialog):
         self.refine.distance = self.get_distance()
         self.refine.yaw, self.refine.pitch, self.refine.roll = self.get_tilts()
         self.refine.xc, self.refine.yc = self.get_centers()
-        self.refine.omega_start = self.get_omega_start()
+        self.refine.phi_start, self.refine.phi_step = self.get_phi()
+        self.refine.chi_start, self.refine.chi_step = self.get_chi()
+        self.refine.omega_start, self.refine.omega_step = self.get_omega()
         self.refine.polar_max = self.get_polar_max()
         self.refine.polar_tol = self.get_tolerance()
         self.refine.polar_angles
@@ -183,8 +196,17 @@ class RefineLatticeDialog(BaseDialog):
     def get_tolerance(self):
         return self.parameters['polar_tolerance'].value
 
-    def get_omega_start(self):
-        return self.parameters['omega_start'].value
+    def get_phi(self):
+        return (self.parameters['phi_start'].value, 
+                self.parameters['phi_step'].value)
+
+    def get_chi(self):
+        return (self.parameters['chi_start'].value, 
+                self.parameters['chi_step'].value)
+
+    def get_omega(self):
+        return (self.parameters['omega_start'].value, 
+                self.parameters['omega_step'].value)
 
     def get_hkl_tolerance(self):
         try:
@@ -239,6 +261,8 @@ class RefineLatticeDialog(BaseDialog):
 
     def refine_angles(self):
         self.parameters['orientation_matrix'].vary = False
+        self.parameters['phi_start'].vary = False
+        self.parameters['chi_start'].vary = False
         self.parameters['omega_start'].vary = False
         self.parameters.refine_parameters(self.angle_residuals)
         self.update_parameters()
