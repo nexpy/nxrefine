@@ -51,7 +51,7 @@ class NXRefine(object):
 
     def __init__(self, node=None):
 
-        if node:
+        if node is not None:
             self.entry = node.nxentry
 
         self.a = 3.0
@@ -101,7 +101,7 @@ class NXRefine(object):
         
         self.grains = None
         
-        if node:
+        if self.entry:
             self.read_parameters()
 
     def read_parameter(self, path, initial_value=None):
@@ -375,35 +375,30 @@ class NXRefine(object):
         self.entry['transform/command'] = command
 
     def cctw_command(self):
-        name = self.entry.nxname + '_transform'
+        entry = self.entry.nxname
+        name = entry + '_transform'
         dir = os.path.dirname(self.entry['data'].nxsignal.nxfilename)
         filename = self.entry.nxfilename
+        command = ['cctw transform --script %s/%s.pars' % (dir, name)]
+        mask_file = '%s/mask_%s.nxs' % (dir, entry)
         try:
-            mask_file = '%s/mask_%s.nxs' % (dir, self.entry.nxname)
             if not os.path.exists(mask_file):
                 mask = self.entry['instrument/detector/pixel_mask']
                 mask.nxname = 'mask'
                 NXroot(NXentry(mask)).save(mask_file)
-            return (('cctw transform '
-                     '--script %s/%s.pars '
-                     '--mask %s\#/entry/mask '
-                     '%s\#/%s/data/data ' 
-                     '-o %s/%s.nxs\#/entry/data '
-                     '--normalization 0')
-                     % (dir, name, 
-                        mask_file,
-                        self.entry.nxfilename, self.entry.nxname, 
-                        dir, name))
+            command.append('--mask %s\#/entry/mask' % mask_file)
         except NeXusError:
-            return (('cctw transform '
-                     '--script %s/%s.pars '
-                     '%s\#/%s/data/data ' 
-                     '-o %s/%s.nxs\#/entry/data '
-                     '--normalization 0')
-                     % (dir, name, 
-                        self.entry.nxfilename, self.entry.nxname, 
-                        dir, name))
-
+            pass          
+#        elif 'pixel_mask' in self.entry['instrument/detector']:
+#            command.append('--mask /%s/instrument/detector/pixel_mask' % entry)
+        if 'monitor_weight' in self.entry['data']:
+            command.append('--weights %s\#/%s/data/monitor_weight' 
+                           % (filename, entry))
+        command.append('%s\#/%s/data/data' % (filename, entry))
+        command.append('--output %s/%s.nxs\#/entry/data' % (dir, name))
+        command.append('--normalization 0')
+        return ' '.join(command)
+ 
     def set_symmetry(self):
         if self.symmetry == 'cubic':
             self.c = self.b = self.a
