@@ -3,18 +3,18 @@ import operator
 from nexpy.gui.pyqt import QtCore, QtGui
 from scipy.optimize import minimize
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
-from nexpy.gui.mainwindow import report_error
 from nexpy.gui.plotview import NXPlotView, get_plotview, plotview
+from nexpy.gui.utils import report_error
 from nexusformat.nexus import *
 from nxpeaks.nxrefine import NXRefine, find_nearest
 
 
 def show_dialog():
-#    try:
-    dialog = RefineLatticeDialog()
-    dialog.show()
-#    except NeXusError as error:
-#        report_error("Refining Lattice", error)
+    try:
+        dialog = RefineLatticeDialog()
+        dialog.show()
+    except NeXusError as error:
+        report_error("Refining Lattice", error)
 
 
 class RefineLatticeDialog(BaseDialog):

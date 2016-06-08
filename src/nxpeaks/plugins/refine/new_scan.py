@@ -3,13 +3,16 @@ import os
 import numpy as np
 from nexusformat.nexus import *
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
-from nexpy.gui.mainwindow import report_error
+from nexpy.gui.utils import report_error
 from nxpeaks.nxrefine import NXRefine
 
 
 def show_dialog():
-    dialog = ScanDialog()
-    dialog.show()
+    try:
+        dialog = ScanDialog()
+        dialog.show()
+    except NeXusError as error:
+        report_error("Defining New Scan", error)
 
 
 class ScanDialog(BaseDialog):

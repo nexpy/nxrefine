@@ -1,16 +1,16 @@
 from nexpy.gui.pyqt import QtGui
 import numpy as np
 from nexpy.gui.datadialogs import BaseDialog
-from nexpy.gui.mainwindow import report_error
+from nexpy.gui.utils import report_error
 from nexusformat.nexus import NeXusError, NXfield
 
 
 def show_dialog():
-#    try:
-    dialog = MaximumDialog()
-    dialog.show()
-#    except NeXusError as error:
-#        report_error("Finding Maximum", error)
+    try:
+        dialog = MaximumDialog()
+        dialog.show()
+    except NeXusError as error:
+        report_error("Finding Maximum", error)
         
 
 class MaximumDialog(BaseDialog):

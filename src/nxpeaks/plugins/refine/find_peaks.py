@@ -1,19 +1,20 @@
 from nexpy.gui.pyqt import QtGui
 import numpy as np
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
-from nexpy.gui.mainwindow import report_error
+from nexpy.gui.utils import report_error
 from nexusformat.nexus import *
 
 from nxpeaks import blobcorrector, __version__
 from nxpeaks.connectedpixels import blob_moments
 from nxpeaks.labelimage import labelimage, flip1
 
+
 def show_dialog():
-#    try:
-    dialog = FindDialog()
-    dialog.show()
-#    except NeXusError as error:
-#        report_error("Finding Peaks", error)
+    try:
+        dialog = FindDialog()
+        dialog.show()
+    except NeXusError as error:
+        report_error("Finding Peaks", error)
 
 
 class FindDialog(BaseDialog):

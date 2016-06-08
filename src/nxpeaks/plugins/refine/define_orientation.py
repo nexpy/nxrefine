@@ -1,13 +1,11 @@
-from __future__ import absolute_import
-
 import operator
 from nexpy.gui.pyqt import QtCore, QtGui
 import numpy as np
 import random
 from scipy.optimize import leastsq
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
-from nexpy.gui.mainwindow import report_error
 from nexpy.gui.plotview import NXPlotView
+from nexpy.gui.utils import report_error
 from nexusformat.nexus import NeXusError
 from nxpeaks.nxrefine import NXRefine
 

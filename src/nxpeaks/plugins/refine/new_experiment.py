@@ -2,12 +2,15 @@ import os
 import numpy as np
 from nexusformat.nexus import *
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
-from nexpy.gui.mainwindow import report_error
+from nexpy.gui.utils import report_error
 
 
 def show_dialog():
-    dialog = ExperimentDialog()
-    dialog.show()
+    try:
+        dialog = ExperimentDialog()
+        dialog.show()
+    except NeXusError as error:
+        report_error("Defining New Experiment", error)
 
 
 class ExperimentDialog(BaseDialog):
@@ -81,8 +84,11 @@ class ExperimentDialog(BaseDialog):
             entry.makelink(self.experiment_file['entry/sample'])
 
     def accept(self):
-        home_directory = self.get_directory()
-        self.get_parameters()
-        self.experiment_file.save(os.path.join(home_directory, experiment+'.nxs'))
-        self.treeview.tree.load(self.experiment_file.nxfilename, 'rw')
-        super(ExperimentDialog, self).accept()
+        try:
+            home_directory = self.get_directory()
+            self.get_parameters()
+            self.experiment_file.save(os.path.join(home_directory, experiment+'.nxs'))
+            self.treeview.tree.load(self.experiment_file.nxfilename, 'rw')
+            super(ExperimentDialog, self).accept()
+        except NeXusError as error:
+            report_error("Defining New Experiment", error)

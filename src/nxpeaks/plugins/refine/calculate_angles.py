@@ -2,15 +2,16 @@ import numpy as np
 from nexusformat.nexus import *
 from nexpy.gui.plotview import get_plotview, plotview
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
-from nexpy.gui.mainwindow import report_error
+from nexpy.gui.utils import report_error
 from nxpeaks.nxrefine import NXRefine
 
 
 def show_dialog():
-    dialog = CalculateDialog()
-    dialog.show()
-#    except NeXusError as error:
-#        report_error("Calculating Angles", error)
+    try:
+        dialog = CalculateDialog()
+        dialog.show()
+    except NeXusError as error:
+        report_error("Calculating Angles", error)
 
 
 class CalculateDialog(BaseDialog):
@@ -88,10 +89,11 @@ class CalculateDialog(BaseDialog):
             report_error('Plotting Lattice', error)
 
     def write_parameters(self):
-        self.get_parameters()
-        polar_angles, azimuthal_angles = self.refine.calculate_angles(
-                                             self.refine.xp, self.refine.yp)
-        self.refine.write_angles(polar_angles, azimuthal_angles)
-        self.refine.write_parameters()
-#        except NeXusError as error:
-#            report_error('Calculating Angles', error)
+        try:
+            self.get_parameters()
+            polar_angles, azimuthal_angles = self.refine.calculate_angles(
+                                                 self.refine.xp, self.refine.yp)
+            self.refine.write_angles(polar_angles, azimuthal_angles)
+            self.refine.write_parameters()
+        except NeXusError as error:
+            report_error('Calculating Angles', error)

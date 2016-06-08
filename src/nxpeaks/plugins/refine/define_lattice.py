@@ -1,17 +1,17 @@
 import numpy as np
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
-from nexpy.gui.mainwindow import report_error
 from nexpy.gui.plotview import get_plotview, plotview
+from nexpy.gui.utils import report_error
 from nexusformat.nexus import *
 from nxpeaks.nxrefine import NXRefine
 
 
 def show_dialog():
-#    try:
-    dialog = LatticeDialog()
-    dialog.show()
-#    except NeXusError as error:
-#        report_error("Defining Lattice", error)
+    try:
+        dialog = LatticeDialog()
+        dialog.show()
+    except NeXusError as error:
+        report_error("Defining Lattice", error)
 
 
 class LatticeDialog(BaseDialog):

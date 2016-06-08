@@ -1,4 +1,3 @@
-import datetime
 import glob
 import os
 import re
@@ -6,14 +5,13 @@ import sys
 import time
 import timeit
 from datetime import datetime
-from ConfigParser import ConfigParser
 
 from nexpy.gui.pyqt import QtCore, QtGui, getOpenFileName
 import numpy as np
 import tifffile as TIFF
 
 from nexpy.gui.importdialog import BaseImportDialog
-from nexpy.gui.mainwindow import report_error
+from nexpy.gui.utils import report_error
 from nexusformat.nexus import *
 
 
@@ -24,11 +22,11 @@ maximum = 0.0
 
 
 def show_dialog():
-#    try:
-    dialog = StackDialog()
-    dialog.show()
-#    except NeXusError as error:
-#        report_error("Stacking Images", error)
+    try:
+        dialog = StackDialog()
+        dialog.show()
+    except NeXusError as error:
+        report_error("Stacking Images", error)
 
 def isotime(time_stamp):
     return datetime.fromtimestamp(time_stamp).isoformat()
@@ -334,8 +332,6 @@ class StackDialog(BaseImportDialog):
         return NXroot(NXentry(NXdata(v,(z,y,x))))
 
     def accept(self):
-#        try:
-        output_file = self.get_output_file()
         try:
             output_file = self.get_output_file()
             try:

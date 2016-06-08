@@ -2,14 +2,17 @@ from nexpy.gui.pyqt import QtGui
 import os
 import numpy as np
 from nexpy.gui.datadialogs import BaseDialog
-from nexpy.gui.mainwindow import report_error
+from nexpy.gui.utils import report_error
 from nexusformat.nexus import NeXusError
 from nxpeaks.nxrefine import NXRefine
 
 
 def show_dialog():
-    dialog = TransformDialog()
-    dialog.show()
+    try:
+        dialog = TransformDialog()
+        dialog.show()
+    except NeXusError as error:
+        report_error("Preparing Data Transform", error)
         
 
 class TransformDialog(BaseDialog):
@@ -105,7 +108,11 @@ class TransformDialog(BaseDialog):
         self.refine.define_grid()
 
     def accept(self):
-        self.write_parameters()
-        self.refine.prepare_transform(self.get_output_file())
-        self.refine.write_settings(self.get_settings_file())
-        super(TransformDialog, self).accept()
+        try:
+            self.write_parameters()
+            self.refine.prepare_transform(self.get_output_file())
+            self.refine.write_settings(self.get_settings_file())
+            super(TransformDialog, self).accept()
+        except NeXusError as error:
+            report_error("Preparing Data Transform", error)
+

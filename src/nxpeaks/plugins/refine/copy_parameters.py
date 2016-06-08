@@ -1,18 +1,18 @@
 import numpy as np
 from scipy.optimize import minimize
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
-from nexpy.gui.mainwindow import report_error
 from nexpy.gui.plotview import plotview
+from nexpy.gui.utils import report_error
 from nexusformat.nexus import NeXusError
 from nxpeaks.nxrefine import NXRefine, find_nearest
 
 
 def show_dialog():
-#    try:
-    dialog = CopyDialog()
-    dialog.show()
-#    except NeXusError as error:
-#        report_error("Copying Parameters", error)
+    try:
+        dialog = CopyDialog()
+        dialog.show()
+    except NeXusError as error:
+        report_error("Copying Parameters", error)
 
 
 class CopyDialog(BaseDialog):
