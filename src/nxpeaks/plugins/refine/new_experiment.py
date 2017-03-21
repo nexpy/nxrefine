@@ -32,6 +32,7 @@ class ExperimentDialog(BaseDialog):
 
     def setup_instrument(self):
         entry = self.experiment_file['entry']
+        entry.sample = NXsample()
         entry.instrument = NXinstrument()
         entry.instrument.monochromator = NXmonochromator()
         entry.instrument.detector = NXdetector()
@@ -42,6 +43,7 @@ class ExperimentDialog(BaseDialog):
         entry['instrument/detector/pixel_size'] = NXfield(0.172, dtype=np.float32)
         entry['instrument/detector/pixel_size'].attrs['units'] = 'mm'
         self.instrument = GridParameters()
+        self.instrument.add('experiment', 'experiment', 'Experiment Name')
         self.instrument.add('wavelength', entry['instrument/monochromator/wavelength'], 'Wavelength (Ang)')
         self.instrument.add('distance', entry['instrument/detector/distance'], 'Detector Distance (mm)')
         self.instrument.add('pixel', entry['instrument/detector/pixel_size'], 'Pixel Size (mm)')
@@ -71,6 +73,7 @@ class ExperimentDialog(BaseDialog):
 
     def get_parameters(self):
         entry = self.experiment_file['entry']
+        entry['sample']
         entry['instrument/monochromator/wavelength'] = self.instrument['wavelength'].value
         entry['instrument/detector/distance'] = self.instrument['distance'].value
         entry['instrument/detector/pixel_size'] = self.instrument['pixel'].value
@@ -87,7 +90,8 @@ class ExperimentDialog(BaseDialog):
         try:
             home_directory = self.get_directory()
             self.get_parameters()
-            self.experiment_file.save(os.path.join(home_directory, experiment+'.nxs'))
+            self.experiment_file.save(os.path.join(home_directory, 
+                                      self.instrument['experiment'].value+'.nxs'))
             self.treeview.tree.load(self.experiment_file.nxfilename, 'rw')
             super(ExperimentDialog, self).accept()
         except NeXusError as error:
