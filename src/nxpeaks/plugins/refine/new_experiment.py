@@ -26,13 +26,12 @@ class ExperimentDialog(BaseDialog):
 
         self.setup_instrument()
 
-        self.set_layout(self.directorybox('Choose Home Directory'), 
+        self.set_layout(self.directorybox('Choose Data Directory'), 
                         self.instrument.grid(header=False))
         self.set_title('New Experiment')
 
     def setup_instrument(self):
         entry = self.experiment_file['entry']
-        entry.sample = NXsample()
         entry.instrument = NXinstrument()
         entry.instrument.monochromator = NXmonochromator()
         entry.instrument.detector = NXdetector()
@@ -73,18 +72,19 @@ class ExperimentDialog(BaseDialog):
 
     def get_parameters(self):
         entry = self.experiment_file['entry']
-        entry['sample']
         entry['instrument/monochromator/wavelength'] = self.instrument['wavelength'].value
         entry['instrument/detector/distance'] = self.instrument['distance'].value
         entry['instrument/detector/pixel_size'] = self.instrument['pixel'].value
         for position in range(1, self.positions+1):
             entry = self.experiment_file['f%s' % position]
-            entry['instrument/monochromator/wavelength'] = self.instrument['wavelength'].value
-            entry['instrument/detector/distance'] = self.instrument['distance'].value
-            entry['instrument/detector/pixel_size'] = self.instrument['pixel'].value
+            entry['instrument/monochromator'].makelink(
+                self.experiment_file['entry/instrument/monochromator/wavelength'])
+            entry['instrument/detector'].makelink(
+                self.experiment_file['entry/instrument/detector/distance'])
+            entry['instrument/detector'].makelink(
+                self.experiment_file['entry/instrument/detector/pixel_size'])
             entry['instrument/detector/beam_center_x'] = self.detectors[position]['xc'].value
             entry['instrument/detector/beam_center_y'] = self.detectors[position]['yc'].value
-            entry.makelink(self.experiment_file['entry/sample'])
 
     def accept(self):
         try:
