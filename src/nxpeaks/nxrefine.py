@@ -264,6 +264,7 @@ class NXRefine(object):
         lines.append('parameters.twoThetaCorrection = 0;')
         lines.append('parameters.twoThetaNom = %s;' % (self.twotheta*radians))
         lines.append('parameters.omegaCorrection = 0;')
+        if self.omega_step 
         lines.append('parameters.omegaStep = %s;' % (self.omega_step*radians))
         lines.append('parameters.chiCorrection = 0;')
         lines.append('parameters.chiNom = %s;' % (self.chi*radians))
