@@ -1,4 +1,4 @@
-from nexpy.gui.pyqt import QtGui
+from nexpy.gui.pyqt import QtWidgets
 import numpy as np
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.utils import report_error
@@ -37,10 +37,10 @@ class FindDialog(BaseDialog):
         self.parameters.add('max', max_frame, 'Last Frame')
         self.parameters.add('pixel_tolerance', 50, 'Pixel Tolerance')
         self.parameters.add('frame_tolerance', 10, 'Frame Tolerance')
-        find_layout = QtGui.QHBoxLayout()
-        self.find_button = QtGui.QPushButton('Find Peaks')
+        find_layout = QtWidgets.QHBoxLayout()
+        self.find_button = QtWidgets.QPushButton('Find Peaks')
         self.find_button.clicked.connect(self.find_peaks)
-        self.peak_count = QtGui.QLabel()
+        self.peak_count = QtWidgets.QLabel()
         self.peak_count.setVisible(False)
         find_layout.addStretch()
         find_layout.addWidget(self.find_button)

@@ -1,4 +1,4 @@
-from nexpy.gui.pyqt import QtGui
+from nexpy.gui.pyqt import QtWidgets 
 import numpy as np
 from nexpy.gui.datadialogs import BaseDialog
 from nexpy.gui.utils import report_error
@@ -20,7 +20,7 @@ class MaximumDialog(BaseDialog):
 
         self.select_entry(self.choose_entry)
 
-        self.output = QtGui.QLabel('Maximum Value:')
+        self.output = QtWidgets.QLabel('Maximum Value:')
         action_buttons = self.action_buttons(('Find Maximum', self.find_maximum))
         self.set_layout(self.entry_layout, self.output, 
                         action_buttons, self.progress_layout(save=True))

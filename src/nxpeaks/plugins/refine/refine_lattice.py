@@ -1,6 +1,6 @@
 import numpy as np
 import operator
-from nexpy.gui.pyqt import QtCore, QtGui
+from nexpy.gui.pyqt import QtCore, QtGui, QtWidgets
 from scipy.optimize import minimize
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.plotview import NXPlotView, get_plotview, plotview
@@ -309,54 +309,54 @@ class RefineLatticeDialog(BaseDialog):
         peak_list = self.refine.get_peaks()
         self.refine.assign_rings()
         self.rings = self.refine.get_ring_hkls()
-        orient_layout = QtGui.QHBoxLayout()
+        orient_layout = QtWidgets.QHBoxLayout()
         if self.refine.primary is None:
             self.refine.primary = 0
         if self.refine.secondary is None:
             self.refine.secondary = 1
-        self.primary_box = QtGui.QLineEdit(str(self.refine.primary))
+        self.primary_box = QtWidgets.QLineEdit(str(self.refine.primary))
         self.primary_box.setAlignment(QtCore.Qt.AlignRight)
         self.primary_box.setFixedWidth(80)
-        self.secondary_box = QtGui.QLineEdit(str(self.refine.secondary))
+        self.secondary_box = QtWidgets.QLineEdit(str(self.refine.secondary))
         self.secondary_box.setAlignment(QtCore.Qt.AlignRight)
         self.secondary_box.setFixedWidth(80)
-        orient_button = QtGui.QPushButton('Orient')
+        orient_button = QtWidgets.QPushButton('Orient')
         orient_button.clicked.connect(self.orient)
 
         orient_layout.addStretch()
-        orient_layout.addWidget(QtGui.QLabel('Primary'))
+        orient_layout.addWidget(QtWidgets.QLabel('Primary'))
         orient_layout.addWidget(self.primary_box)
-        orient_layout.addWidget(QtGui.QLabel('Secondary'))
+        orient_layout.addWidget(QtWidgets.QLabel('Secondary'))
         orient_layout.addWidget(self.secondary_box)
         orient_layout.addStretch()
         orient_layout.addWidget(orient_button)     
  
-        self.table_view = QtGui.QTableView()
+        self.table_view = QtWidgets.QTableView()
         self.table_model = NXTableModel(self, peak_list, header)
         self.table_view.setModel(self.table_model)
         self.table_view.resizeColumnsToContents()
         self.table_view.horizontalHeader().stretchLastSection()
-        self.table_view.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
+        self.table_view.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.table_view.doubleClicked.connect(self.plot_peak)
         self.table_view.setSortingEnabled(True)
         self.table_view.sortByColumn(0, QtCore.Qt.AscendingOrder)
-        layout = QtGui.QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
         layout.addLayout(orient_layout)
         layout.addWidget(self.table_view)
-        close_layout = QtGui.QHBoxLayout()
-        self.status_text = QtGui.QLabel('Score: %.4f' % self.refine.score())
-        self.tolerance_box = QtGui.QLineEdit(str(self.refine.hkl_tolerance))
+        close_layout = QtWidgets.QHBoxLayout()
+        self.status_text = QtWidgets.QLabel('Score: %.4f' % self.refine.score())
+        self.tolerance_box = QtWidgets.QLineEdit(str(self.refine.hkl_tolerance))
         self.tolerance_box.setAlignment(QtCore.Qt.AlignRight)
         self.tolerance_box.setMaxLength(5)
         self.tolerance_box.editingFinished.connect(self.update_table)
         self.tolerance_box.setFixedWidth(80)
-        save_button = QtGui.QPushButton('Save Orientation')
+        save_button = QtWidgets.QPushButton('Save Orientation')
         save_button.clicked.connect(self.save_orientation)
-        close_button = QtGui.QPushButton('Close Window')
+        close_button = QtWidgets.QPushButton('Close Window')
         close_button.clicked.connect(self.close_peaks_box)
         close_layout.addWidget(self.status_text)
         close_layout.addStretch()
-        close_layout.addWidget(QtGui.QLabel('Threshold'))
+        close_layout.addWidget(QtWidgets.QLabel('Threshold'))
         close_layout.addWidget(self.tolerance_box)
         close_layout.addStretch()
         close_layout.addWidget(save_button)
