@@ -12,6 +12,7 @@ def main():
     parser.add_argument('-s', '--sample', help='sample name')
     parser.add_argument('-l', '--label', help='sample label')
     parser.add_argument('-d', '--directory', default='', help='scan directory')
+    parser.add_argument('-e', '--extension', default='tiff', help='image extension')
     parser.add_argument('-t', '--temperature', help='temperature of scan')
     parser.add_argument('-f', '--filenames', default=['f1', 'f2', 'f3'], 
         nargs='+', help='names of NeXus files to be linked to this file')
@@ -33,6 +34,7 @@ def main():
     print "Processing sample '%s', label '%s', scan '%s'\n" % (sample,
                                                                label,
                                                                directory)
+    ext = args.extension
     
     temperature = np.float32(args.temperature)
     files = args.filenames
@@ -62,8 +64,8 @@ def main():
         path = '%s/%s/%s/%s' % (sample, label, directory, f)
         if not os.path.exists(path+'.nxs'):
             print "\n\nStacking %s.nxs\n" % path
-            subprocess.call('nxstack -d %s -p scan -e cbf -o %s.nxs -s scan.spec -c lzf'
-                            % (path, path), shell=True)
+            subprocess.call('nxstack -d %s -p scan -e %s -o %s.nxs -s scan.spec -c lzf'
+                            % (path, ext, path), shell=True)
         print "\n\nLinking %s.nxs\n" % path
         subprocess.call('nxlink -s %s -l %s -d %s -f %s -m %s'
                         % (sample, label, directory, f, m), shell=True)
