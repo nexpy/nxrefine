@@ -1162,7 +1162,12 @@ static PyMethodDef connectedpixelsMethods[] = {
   {NULL, NULL, 0, NULL} /* setinel */
 };
 
-void initconnectedpixels(void) {
+#if (PY_VERSION_HEX >= 0x03000000)
+void *initconnectedpixels(void)
+#else
+void initconnectedpixels(void)
+#endif
+{
    PyObject *m, *d, *s;
 
    m=Py_InitModule("connectedpixels", connectedpixelsMethods);
@@ -1213,5 +1218,6 @@ void initconnectedpixels(void) {
    Py_DECREF(s);
    if(PyErr_Occurred())
      Py_FatalError("cant initialise connectedpixels");
+   return NUMPY_IMPORT_ARRAY_RETVAL;
 }
 

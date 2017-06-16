@@ -964,7 +964,11 @@ static PyMethodDef closestMethods[] = {
    { NULL, NULL, 0, NULL }  
 };
 
+#if (PY_VERSION_HEX >= 0x03000000)
+void *initclosest(void)
+#else
 void initclosest(void)
+#endif
 {
    PyObject *m, *d, *s;
    m=Py_InitModule("closest",closestMethods);
@@ -975,6 +979,7 @@ void initclosest(void)
    Py_DECREF(s);
    if (PyErr_Occurred())
       Py_FatalError("cant initialise closest module");
+   return NUMPY_IMPORT_ARRAY_RETVAL;
 }
      
 
