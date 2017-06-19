@@ -196,8 +196,8 @@ class correctorclass: #IGNORE:R0902
         # SPATIAL DISTORTION SPLINE INTERPOLATION COEFFICIENTS
         myline = fin.readline() 
         if myline[:7] != "SPATIAL":
-            raise SyntaxError, name + \
-                ": file does not seem to be a fit2d spline file"
+            raise SyntaxError(name + 
+                              ": file does not seem to be a fit2d spline file")
         myline = fin.readline() # BLANK LINE
         myline = fin.readline() # VALID REGION
         myline = fin.readline() # the actual valid region, 
