@@ -964,22 +964,49 @@ static PyMethodDef closestMethods[] = {
    { NULL, NULL, 0, NULL }  
 };
 
-#if (PY_VERSION_HEX >= 0x03000000)
-void *initclosest(void)
+#if PY_MAJOR_VERSION >= 3
+    static struct PyModuleDef moduledef = {
+        PyModuleDef_HEAD_INIT,
+        "closest",           /* m_name */
+        "C extension",       /* m_doc */
+        -1,                  /* m_size */
+        closestMethods,      /* m_methods */
+        NULL,                /* m_reload */
+        NULL,                /* m_traverse */
+        NULL,                /* m_clear */
+        NULL,                /* m_free */
+    };
+#endif
+
+#if PY_MAJOR_VERSION >= 3
+PyMODINIT_FUNC
+PyInit_closest(void)
 #else
 void initclosest(void)
 #endif
 {
    PyObject *m, *d, *s;
-   m=Py_InitModule("closest",closestMethods);
+#if PY_MAJOR_VERSION >= 3
+   m = PyModule_Create(&moduledef);
+#else
+   m = Py_InitModule("closest", closestMethods);
+#endif
    import_array();
-   d=PyModule_GetDict(m);
+   d = PyModule_GetDict(m);
+#if PY_MAJOR_VERSION < 3
    s = PyString_FromString(moduledocs);
+#else
+   s = PyUnicode_FromString(moduledocs);
+#endif   
    PyDict_SetItemString(d,"__doc__",s);
    Py_DECREF(s);
    if (PyErr_Occurred())
-      Py_FatalError("cant initialise closest module");
+      Py_FatalError("can't initialise closest module");
+#if PY_MAJOR_VERSION >= 3
+   return m;
+#else
    return NUMPY_IMPORT_ARRAY_RETVAL;
+#endif
 }
      
 

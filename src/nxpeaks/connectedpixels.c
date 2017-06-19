@@ -1162,18 +1162,43 @@ static PyMethodDef connectedpixelsMethods[] = {
   {NULL, NULL, 0, NULL} /* setinel */
 };
 
-#if (PY_VERSION_HEX >= 0x03000000)
-void *initconnectedpixels(void)
+#if PY_MAJOR_VERSION >= 3
+    static struct PyModuleDef moduledef = {
+        PyModuleDef_HEAD_INIT,
+        "connectedpixels",      /* m_name */
+        "C extension",          /* m_doc */
+        -1,                     /* m_size */
+        connectedpixelsMethods, /* m_methods */
+        NULL,                   /* m_reload */
+        NULL,                   /* m_traverse */
+        NULL,                   /* m_clear */
+        NULL,                   /* m_free */
+    };
+#define PyInt_FromLong PyLong_FromLong
+#endif
+
+
+#if PY_MAJOR_VERSION >= 3
+PyMODINIT_FUNC
+PyInit_connectedpixels(void)
 #else
 void initconnectedpixels(void)
 #endif
 {
    PyObject *m, *d, *s;
 
-   m=Py_InitModule("connectedpixels", connectedpixelsMethods);
+#if PY_MAJOR_VERSION >= 3
+   m = PyModule_Create(&moduledef);
+#else
+   m = Py_InitModule("connectedpixels", connectedpixelsMethods);
+#endif
    import_array();
-   d=PyModule_GetDict(m);
-   s=PyString_FromString(moduledocs);
+   d = PyModule_GetDict(m);
+#if PY_MAJOR_VERSION < 3
+   s = PyString_FromString(moduledocs);
+#else
+   s = PyUnicode_FromString(moduledocs);
+#endif   
    PyDict_SetItemString(d,"__doc__",s);
 #define str(x) (#x)
    PyDict_SetItemString(d,str(s_1)    ,PyInt_FromLong(s_1));
@@ -1218,6 +1243,10 @@ void initconnectedpixels(void)
    Py_DECREF(s);
    if(PyErr_Occurred())
      Py_FatalError("cant initialise connectedpixels");
+#if PY_MAJOR_VERSION >= 3
+   return m;
+#else
    return NUMPY_IMPORT_ARRAY_RETVAL;
+#endif
 }
 
