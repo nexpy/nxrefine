@@ -33,27 +33,38 @@ class RefineLatticeDialog(BaseDialog):
         self.parameters.add('a', self.refine.a, 'Unit Cell - a (Ang)', True)
         self.parameters.add('b', self.refine.b, 'Unit Cell - b (Ang)', True)
         self.parameters.add('c', self.refine.c, 'Unit Cell - c (Ang)', True)
-        self.parameters.add('alpha', self.refine.alpha, 'Unit Cell - alpha (deg)', False)
-        self.parameters.add('beta', self.refine.beta, 'Unit Cell - beta (deg)', False)
-        self.parameters.add('gamma', self.refine.gamma, 'Unit Cell - gamma (deg)', False)
-        self.parameters.add('wavelength', self.refine.wavelength, 'Wavelength (Ang)', False)
-        self.parameters.add('distance', self.refine.distance, 'Distance (mm)', False)
+        self.parameters.add('alpha', self.refine.alpha, 
+                            'Unit Cell - alpha (deg)', False)
+        self.parameters.add('beta', self.refine.beta, 
+                            'Unit Cell - beta (deg)', False)
+        self.parameters.add('gamma', self.refine.gamma, 
+                            'Unit Cell - gamma (deg)', False)
+        self.parameters.add('wavelength', self.refine.wavelength, 
+                            'Wavelength (Ang)', False)
+        self.parameters.add('distance', self.refine.distance, 'Distance (mm)', 
+                            False)
         self.parameters.add('yaw', self.refine.yaw, 'Yaw (deg)', False)
         self.parameters.add('pitch', self.refine.pitch, 'Pitch (deg)', False)
         self.parameters.add('roll', self.refine.roll, 'Roll (deg)')
         self.parameters.add('xc', self.refine.xc, 'Beam Center - x', False)
         self.parameters.add('yc', self.refine.yc, 'Beam Center - y', False)
-        self.parameters.add('phi_start', self.refine.phi_start, 'Phi Start (deg)', False)
+        self.parameters.add('phi_start', self.refine.phi_start, 
+                            'Phi Start (deg)', False)
         self.parameters.add('phi_step', self.refine.phi_step, 'Phi Step (deg)')
-        self.parameters.add('chi_start', self.refine.chi_start, 'Chi Start (deg)', False)
-        self.parameters.add('chi_step', self.refine.chi_step, 'Chi Step (deg)')
-        self.parameters.add('omega_start', self.refine.omega_start, 'Omega Start (deg)', False)
-        self.parameters.add('omega_step', self.refine.omega_step, 'Omega Step (deg)')
+        self.parameters.add('chi', self.refine.chi, 'Chi (deg)', False)
+        self.parameters.add('omega', self.refine.omega, 'Omega (deg)', False)
+        self.parameters.add('twotheta', self.refine.twotheta, 
+                            'Two Theta (deg)', False)
         self.parameters.add('polar', self.refine.polar_max, 
                             'Max. Polar Angle (deg)', None, self.set_polar_max)
-        self.parameters.add('polar_tolerance', self.refine.polar_tolerance, 'Polar Angle Tolerance')
-        self.parameters.add('peak_tolerance', self.refine.peak_tolerance, 'Peak Angle Tolerance')
-        self.parameters.add('orientation_matrix', False, 'Orientation Matrix', False)
+        self.parameters.add('polar_tolerance', self.refine.polar_tolerance, 
+                            'Polar Angle Tolerance')
+        self.parameters.add('peak_tolerance', self.refine.peak_tolerance, 
+                            'Peak Angle Tolerance')
+        self.parameters.add('orientation_matrix', False, 'Orientation Matrix', 
+                            False)
+        self.parameters.add('threshold', False, 'Threshold', 
+                            False)
 
         self.refine_buttons = self.action_buttons(
                                   ('Refine Angles', self.refine_angles),
@@ -99,8 +110,7 @@ class RefineLatticeDialog(BaseDialog):
         self.parameters['yc'].value = self.refine.yc
         self.parameters['phi_start'].value = self.refine.phi_start
         self.parameters['phi_step'].value = self.refine.phi_step
-        self.parameters['chi_start'].value = self.refine.chi_start
-        self.parameters['chi_step'].value = self.refine.chi_step
+        self.parameters['chi'].value = self.refine.chi
         self.parameters['omega_start'].value = self.refine.omega_start
         self.parameters['omega_step'].value = self.refine.omega_step
         self.parameters['polar'].value = self.refine.polar_max
@@ -121,11 +131,8 @@ class RefineLatticeDialog(BaseDialog):
         self.refine.yaw, self.refine.pitch, self.refine.roll = self.get_tilts()
         self.refine.xc, self.refine.yc = self.get_centers()
         self.refine.phi_start, self.refine.phi_step = self.get_phi()
-        self.refine.chi_start, self.refine.chi_step = self.get_chi()
-        self.refine.omega_start, self.refine.omega_step = self.get_omega()
         self.refine.polar_max = self.get_polar_max()
         self.refine.polar_tol = self.get_tolerance()
-        self.refine.polar_angles
 
     def write_parameters(self):
         self.transfer_parameters()
@@ -200,14 +207,6 @@ class RefineLatticeDialog(BaseDialog):
         return (self.parameters['phi_start'].value, 
                 self.parameters['phi_step'].value)
 
-    def get_chi(self):
-        return (self.parameters['chi_start'].value, 
-                self.parameters['chi_step'].value)
-
-    def get_omega(self):
-        return (self.parameters['omega_start'].value, 
-                self.parameters['omega_step'].value)
-
     def get_hkl_tolerance(self):
         try:
             return np.float32(self.tolerance_box.text())
@@ -222,7 +221,8 @@ class RefineLatticeDialog(BaseDialog):
 
     def plot_peaks(self):
         try:
-            x, y = self.refine.xp[self.refine.idx], self.refine.yp[self.refine.idx]
+            x, y = (self.refine.xp[self.refine.idx], 
+                    self.refine.yp[self.refine.idx])
             polar_angles, azimuthal_angles = self.refine.calculate_angles(x, y)
             if polar_angles[0] > polar_angles[-1]:
                 polar_angles = polar_angles[::-1]
@@ -232,7 +232,8 @@ class RefineLatticeDialog(BaseDialog):
             polar_field = NXfield(polar_angles, name='polar_angle')
             polar_field.long_name = 'Polar Angle'
             plotview = get_plotview()
-            plotview.plot(NXdata(azimuthal_field, polar_field, title='Peak Angles'))
+            plotview.plot(NXdata(azimuthal_field, polar_field, 
+                          title='Peak Angles'))
         except NeXusError as error:
             report_error('Plotting Lattice', error)
 
@@ -262,15 +263,14 @@ class RefineLatticeDialog(BaseDialog):
     def refine_angles(self):
         self.parameters['orientation_matrix'].vary = False
         self.parameters['phi_start'].vary = False
-        self.parameters['chi_start'].vary = False
-        self.parameters['omega_start'].vary = False
         self.parameters.refine_parameters(self.angle_residuals)
         self.update_parameters()
 
     def angle_residuals(self, p):
         self.parameters.get_parameters(p)
         self.transfer_parameters()
-        polar_angles, _ = self.refine.calculate_angles(self.refine.x, self.refine.y)
+        polar_angles, _ = self.refine.calculate_angles(self.refine.x, 
+                                                       self.refine.y)
         rings = self.refine.calculate_rings()
         residuals = np.array([find_nearest(rings, polar_angle) - polar_angle 
                               for polar_angle in polar_angles])
@@ -336,7 +336,8 @@ class RefineLatticeDialog(BaseDialog):
         self.table_view.setModel(self.table_model)
         self.table_view.resizeColumnsToContents()
         self.table_view.horizontalHeader().stretchLastSection()
-        self.table_view.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.table_view.setSelectionBehavior(
+            QtWidgets.QAbstractItemView.SelectRows)
         self.table_view.doubleClicked.connect(self.plot_peak)
         self.table_view.setSortingEnabled(True)
         self.table_view.sortByColumn(0, QtCore.Qt.AscendingOrder)
@@ -375,14 +376,16 @@ class RefineLatticeDialog(BaseDialog):
         self.table_model.peak_list = self.refine.get_peaks()
         rows, columns = len(self.table_model.peak_list), 11
         self.table_model.dataChanged.emit(self.table_model.createIndex(0, 0),
-                                          self.table_model.createIndex(rows-1, columns-1))
+                                          self.table_model.createIndex(rows-1, 
+                                              columns-1))
         self.status_text.setText('Score: %.4f' % self.refine.score())
 
 
     def plot_peak(self):
         row = self.table_view.currentIndex().row()
         data = self.entry.data
-        x, y, z = [self.table_view.model().peak_list[row][i] for i in range(1, 4)]
+        x, y, z = [self.table_view.model().peak_list[row][i] 
+                   for i in range(1, 4)]
         xmin, xmax = max(0,x-200), min(x+200,data.nxsignal.shape[2])
         ymin, ymax = max(0,y-200), min(y+200,data.nxsignal.shape[1])
         zmin, zmax = max(0,z-200), min(z+200,data.nxsignal.shape[0])
@@ -395,9 +398,9 @@ class RefineLatticeDialog(BaseDialog):
     def orient(self):
         self.refine.primary = int(self.primary_box.text())
         self.refine.secondary = int(self.secondary_box.text())
-        self.refine.Umat = self.refine.get_UBmat(self.refine.primary, 
-                                                 self.refine.secondary) \
-                           * self.refine.Bimat
+        self.refine.Umat =  (self.refine.get_UBmat(self.refine.primary, 
+                                                 self.refine.secondary)
+                             * self.refine.Bimat)
         self.update_table()
 
     def save_orientation(self):
@@ -455,7 +458,8 @@ class NXTableModel(QtCore.QAbstractTableModel):
         return None
 
     def headerData(self, col, orientation, role):
-        if orientation == QtCore.Qt.Horizontal and role == QtCore.Qt.DisplayRole:
+        if (orientation == QtCore.Qt.Horizontal and 
+            role == QtCore.Qt.DisplayRole):
             return self.header[col]
         return None
 
