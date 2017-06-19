@@ -25,14 +25,18 @@ class LatticeDialog(BaseDialog):
         self.refine.read_parameters()
 
         self.parameters = GridParameters()
+        self.parameters.add('symmetry', self.refine.symmetries, 'Symmetry')
+        self.parameters['symmetry'].value = self.refine.symmetry
         self.parameters.add('centring', self.refine.centrings, 'Cell Centring')
         self.parameters['centring'].value = self.refine.centring
         self.parameters.add('a', self.refine.a, 'Unit Cell - a (Ang)')
         self.parameters.add('b', self.refine.b, 'Unit Cell - b (Ang)')
         self.parameters.add('c', self.refine.c, 'Unit Cell - c (Ang)')
-        self.parameters.add('alpha', self.refine.alpha, 'Unit Cell - alpha (deg)')
+        self.parameters.add('alpha', self.refine.alpha, 
+                            'Unit Cell - alpha (deg)')
         self.parameters.add('beta', self.refine.beta, 'Unit Cell - beta (deg)')
-        self.parameters.add('gamma', self.refine.gamma, 'Unit Cell - gamma (deg)')
+        self.parameters.add('gamma', self.refine.gamma, 
+                            'Unit Cell - gamma (deg)')
         action_buttons = self.action_buttons(('Plot', self.plot_lattice),
                                              ('Save', self.write_parameters))
         self.set_layout(self.entry_layout, self.parameters.grid(), 
@@ -44,6 +48,7 @@ class LatticeDialog(BaseDialog):
         self.update_parameters()
 
     def update_parameters(self):
+        self.parameters['symmetry'].value = self.refine.symmetry
         self.parameters['centring'].value = self.refine.centring
         self.parameters['a'].value = self.refine.a
         self.parameters['b'].value = self.refine.b
@@ -51,6 +56,9 @@ class LatticeDialog(BaseDialog):
         self.parameters['alpha'].value = self.refine.alpha
         self.parameters['beta'].value = self.refine.beta
         self.parameters['gamma'].value = self.refine.gamma
+
+    def get_symmetry(self):
+        return self.parameters['symmetry'].value
 
     def get_centring(self):
         return self.parameters['centring'].value
@@ -64,8 +72,10 @@ class LatticeDialog(BaseDialog):
                 self.parameters['gamma'].value)
 
     def get_parameters(self):
-        self.refine.a, self.refine.b, self.refine.c, \
-            self.refine.alpha, self.refine.beta, self.refine.gamma = self.get_lattice_parameters()
+        (self.refine.a, self.refine.b, self.refine.c, 
+         self.refine.alpha, self.refine.beta, self.refine.gamma) = (
+            self.get_lattice_parameters())
+        self.refine.symmetry = self.get_symmetry()
         self.refine.centring = self.get_centring()
 
     def plot_lattice(self):
