@@ -49,35 +49,30 @@ class NXRefine(object):
                   'monoclinic', 'triclinic']
     centrings = ['P', 'A', 'B', 'C', 'I', 'F', 'R']
 
-    def __init__(self, node=None, 
-                 a=None, b=None, c=None, alpha=None, beta=None, gamma=None,
-                 wavelength=None, distance=None, 
-                 yaw=None, pitch=None, roll=None,
-                 xc=None, yc=None, symmetry=None, centring=None,
-                 polar_max=None):
+    def __init__(self, node=None):
         if node is not None:
             self.entry = node.nxentry
-        self.a = a
-        self.b = b
-        self.c = c
-        self.alpha = alpha
-        self.beta = beta
-        self.gamma = gamma
-        self.wavelength = wavelength
-        self.distance = distance
-        self.yaw = yaw
-        self.pitch = pitch
-        self.roll = roll
+        self.a = 4.0
+        self.b = 4.0
+        self.c = 4.0
+        self.alpha = 90.0
+        self.beta = 90.0
+        self.gamma = 90.0
+        self.wavelength = 1.0
+        self.distance = 100.0
+        self.yaw = 0.0
+        self.pitch = 0.0
+        self.roll = 0.0
         self.gonpitch = 0.0
         self.twotheta = 0.0
-        self.phi = 0.0
         self.chi = 0.0
-        self.xc = xc
-        self.yc = yc
-        self.symmetry = symmetry
-        self.centring = centring
-        self.omega_start = 0.0
-        self.omega_step = -0.1
+        self.omega = 0.0
+        self.xc = 256.0
+        self.yc = 256.0
+        self.symmetry = 'cubic'
+        self.centring = 'P'
+        self.phi_start = 0.0
+        self.phi_step = 0.1
         self.peak = None
         self.xp = None
         self.yp = None
@@ -103,6 +98,7 @@ class NXRefine(object):
         self.grid_basis = None
         self.grid_shape = None
         self.grid_step = None
+        self.standard = True
         
         self.grains = None
         
@@ -114,7 +110,7 @@ class NXRefine(object):
             field = self.entry[path]
             return field.nxdata
         except NeXusError:
-            pass 
+            return None 
 
     def read_parameters(self, entry=None):
         if entry:
@@ -125,7 +121,8 @@ class NXRefine(object):
         self.alpha = self.read_parameter('sample/unitcell_alpha')
         self.beta = self.read_parameter('sample/unitcell_beta')
         self.gamma = self.read_parameter('sample/unitcell_gamma')
-        self.wavelength = self.read_parameter('instrument/monochromator/wavelength')
+        self.wavelength = self.read_parameter(
+                              'instrument/monochromator/wavelength')
         self.distance = self.read_parameter('instrument/detector/distance')
         self.yaw = self.read_parameter('instrument/detector/yaw')
         if self.yaw is None:
@@ -138,6 +135,9 @@ class NXRefine(object):
             self.roll = 0.0
         self.xc = self.read_parameter('instrument/detector/beam_center_x')
         self.yc = self.read_parameter('instrument/detector/beam_center_y')
+        self.chi = self.read_parameter('instrument/goniometer/chi')
+        self.omega = self.read_parameter('instrument/goniometer/omega')
+        self.twotheta = self.read_parameter('instrument/goniometer/two_theta')
         self.symmetry = self.read_parameter('sample/unit_cell_group')
         self.centring = self.read_parameter('sample/lattice_centring')
         self.xp = self.read_parameter('peaks/x')
@@ -148,11 +148,13 @@ class NXRefine(object):
         self.intensity = self.read_parameter('peaks/intensity')
         self.pixel_size = self.read_parameter('instrument/detector/pixel_size')
         self.pixel_mask = self.read_parameter('instrument/detector/pixel_mask')
-        self.pixel_mask_applied = self.read_parameter('instrument/detector/pixel_mask_applied')
+        self.pixel_mask_applied = self.read_parameter(
+                                      'instrument/detector/pixel_mask_applied')
         self.rotation_angle = self.read_parameter('peaks/rotation_angle')
         self.primary = self.read_parameter('peaks/primary_reflection')
         self.secondary = self.read_parameter('peaks/secondary_reflection')
-        self.Umat = self.read_parameter('instrument/detector/orientation_matrix')
+        self.Umat = self.read_parameter(
+                        'instrument/detector/orientation_matrix')
         if isinstance(self.polar_angle, np.ndarray):
             try:
                 self.set_polar_max(np.sort(self.polar_angle)[20] + 0.1)
@@ -173,7 +175,7 @@ class NXRefine(object):
     def write_parameters(self, entry=None):
         if entry:
             self.entry = entry
-        if 'sample' not in self.entry.entries:
+        if 'sample' not in self.entry:
             self.entry['sample'] = NXsample()
         self.write_parameter('sample/unit_cell_group', self.symmetry)
         self.write_parameter('sample/lattice_centring', self.centring)
@@ -183,13 +185,16 @@ class NXRefine(object):
         self.write_parameter('sample/unitcell_alpha', self.alpha)
         self.write_parameter('sample/unitcell_beta', self.beta)
         self.write_parameter('sample/unitcell_gamma', self.gamma)
-        if 'instrument' not in self.entry.entries:
+        if 'instrument' not in self.entry:
             self.entry['instrument'] = NXinstrument()
-        if 'detector' not in self.entry['instrument'].entries:
+        if 'detector' not in self.entry['instrument']:
             self.entry['instrument/detector'] = NXdetector()
-        if 'monochromator' not in self.entry['instrument'].entries:
+        if 'monochromator' not in self.entry['instrument']:
             self.entry['instrument/monochromator'] = NXmonochromator()
-        self.write_parameter('instrument/monochromator/wavelength', self.wavelength)
+        if 'goniometer' not in self.entry['instrument']:
+            self.entry['instrument/goniometer'] = NXgoniometer()
+        self.write_parameter('instrument/monochromator/wavelength', 
+                             self.wavelength)
         self.write_parameter('instrument/detector/distance', self.distance)
         self.write_parameter('instrument/detector/yaw', self.yaw)
         self.write_parameter('instrument/detector/pitch', self.pitch)
@@ -198,14 +203,21 @@ class NXRefine(object):
         self.write_parameter('instrument/detector/beam_center_y', self.yc)
         self.write_parameter('instrument/detector/pixel_size', self.pixel_size)
         self.write_parameter('instrument/detector/pixel_mask', self.pixel_mask)
-        self.write_parameter('instrument/detector/pixel_mask_applied', self.pixel_mask_applied)
+        self.write_parameter('instrument/detector/pixel_mask_applied', 
+                             self.pixel_mask_applied)
         if self.Umat is not None:
-            self.write_parameter('instrument/detector/orientation_matrix', np.array(self.Umat))
+            self.write_parameter('instrument/detector/orientation_matrix', 
+                                 np.array(self.Umat))
+        self.write_parameter('instrument/goniometer/phi', self.chi)
+        self.write_parameter('instrument/goniometer/chi', self.chi)
+        self.write_parameter('instrument/goniometer/omega', self.omega)
+        self.write_parameter('instrument/goniometer/two_theta', self.twotheta)
         self.write_parameter('peaks/primary_reflection', self.primary)
         self.write_parameter('peaks/secondary_reflection', self.secondary)        
-        if self.omega_start is not None and self.omega_step is not None:
+        if self.phi_start is not None and self.phi_step is not None:
             if isinstance(self.z, np.ndarray):
-                self.rotation_angle = self.z * self.omega_step + self.omega_start
+                self.rotation_angle = self.z * self.phi_step + self.phi_start
+                
 
     def copy_parameters(self, other, sample=False, instrument=False):
         if sample:
@@ -226,18 +238,23 @@ class NXRefine(object):
                 other.entry['instrument/detector'] = NXdetector()
             if 'monochromator' not in other.entry['instrument'].entries:
                 other.entry['instrument/monochromator'] = NXmonochromator()
-            other.write_parameter('instrument/monochromator/wavelength', self.wavelength)
+            other.write_parameter('instrument/monochromator/wavelength', 
+                                  self.wavelength)
             other.write_parameter('instrument/detector/distance', self.distance)
             other.write_parameter('instrument/detector/yaw', self.yaw)
             other.write_parameter('instrument/detector/pitch', self.pitch)
             other.write_parameter('instrument/detector/roll', self.roll)
             other.write_parameter('instrument/detector/beam_center_x', self.xc)
             other.write_parameter('instrument/detector/beam_center_y', self.yc)
-            other.write_parameter('instrument/detector/pixel_size', self.pixel_size)
-            other.write_parameter('instrument/detector/pixel_mask', self.pixel_mask)
-            other.write_parameter('instrument/detector/pixel_mask_applied', self.pixel_mask_applied)
+            other.write_parameter('instrument/detector/pixel_size', 
+                                  self.pixel_size)
+            other.write_parameter('instrument/detector/pixel_mask', 
+                                  self.pixel_mask)
+            other.write_parameter('instrument/detector/pixel_mask_applied', 
+                                  self.pixel_mask_applied)
             if self.Umat is not None:
-                other.write_parameter('instrument/detector/orientation_matrix', np.array(self.Umat))
+                other.write_parameter('instrument/detector/orientation_matrix', 
+                                      np.array(self.Umat))
 
     def link_sample(self, other):
         if 'sample' in self.entry:
@@ -257,18 +274,22 @@ class NXRefine(object):
         lines.append('parameters.det0x = %s;' % self.xc)
         lines.append('parameters.det0y = %s;' % self.yc)
         lines.append('parameters.xTrans = [0,0,0];')
-        lines.append('parameters.orientErrorDetPitch = %s;' % (self.pitch*radians))
-        lines.append('parameters.orientErrorDetRoll = %s;' % (self.roll*radians))
+        lines.append('parameters.orientErrorDetPitch = %s;' 
+                     % (self.pitch*radians))
+        lines.append('parameters.orientErrorDetRoll = %s;' 
+                     % (self.roll*radians))
         lines.append('parameters.orientErrorDetYaw = %s;' % (self.yaw*radians))
-        lines.append('parameters.orientErrorGonPitch = %s;' % (self.gonpitch*radians))
+        lines.append('parameters.orientErrorGonPitch = %s;' 
+                     % (self.gonpitch*radians))
         lines.append('parameters.twoThetaCorrection = 0;')
         lines.append('parameters.twoThetaNom = %s;' % (self.twotheta*radians))
         lines.append('parameters.omegaCorrection = 0;')
-        lines.append('parameters.omegaStep = %s;' % (self.omega_step*radians))
+        lines.append('parameters.omegaNom = %s;' % (self.omega*radians))
         lines.append('parameters.chiCorrection = 0;')
         lines.append('parameters.chiNom = %s;' % (self.chi*radians))
         lines.append('parameters.phiCorrection = 0;')
-        lines.append('parameters.phiNom = %s;' % (self.phi*radians))
+        lines.append('parameters.phiNom = %s;' % (self.phi_start*radians))
+        lines.append('parameters.phiStep = %s;' % (self.phi_step*radians))
         lines.append('parameters.gridOrigin = %s;' % self.grid_origin)
         lines.append('parameters.gridBasis = %s;' % self.grid_basis)
         lines.append('parameters.gridDim = %s;' % self.grid_step)
@@ -304,7 +325,8 @@ class NXRefine(object):
 
     def initialize_peaks(self):
         peaks=zip(self.xp,  self.yp, self.zp, self.intensity)
-        self.peak = dict(zip(range(len(peaks)),[NXpeak(*args) for args in peaks]))
+        self.peak = dict(zip(range(len(peaks)),[NXpeak(*args) 
+                                                for args in peaks]))
 
     def initialize_grid(self):
         try:
@@ -341,9 +363,12 @@ class NXRefine(object):
 
     def prepare_transform(self, output_file):
         command = self.cctw_command()
-        h = NXfield(np.linspace(self.h_start, self.h_stop, self.h_shape), name='Qh')
-        k = NXfield(np.linspace(self.k_start, self.k_stop, self.k_shape), name='Qk')
-        l = NXfield(np.linspace(self.l_start, self.l_stop, self.l_shape), name='Ql')
+        h = NXfield(np.linspace(self.h_start, self.h_stop, self.h_shape), 
+                    name='Qh')
+        k = NXfield(np.linspace(self.k_start, self.k_stop, self.k_shape), 
+                    name='Qk')
+        l = NXfield(np.linspace(self.l_start, self.l_stop, self.l_shape), 
+                    name='Ql')
         self.entry['transform'] = NXdata(NXlink(name = 'data', 
                                          target='/entry/data/v',
                                          file=output_file), [l, k, h])
@@ -436,9 +461,9 @@ class NXRefine(object):
 
     @property
     def unitcell(self):
-        if self._unitcell is None or \
-           not np.allclose(self._unitcell.lattice_parameters,
-                           np.array(self.lattice_parameters)):
+        if (self._unitcell is None or
+            not np.allclose(self._unitcell.lattice_parameters,
+                            np.array(self.lattice_parameters))):
            self._unitcell = unitcell(self.lattice_parameters, self.centring)
         self._unitcell.makerings(self.ds_max)
         return self._unitcell
@@ -452,7 +477,8 @@ class NXRefine(object):
 
     @property
     def rings(self):
-        return 2*np.arcsin(np.array(self.unitcell.ringds)*self.wavelength/2)*degrees
+        return 2 * np.arcsin(np.array(self.unitcell.ringds) * 
+                             self.wavelength/2) * degrees
 
     @property
     def UBmat(self):
@@ -491,7 +517,10 @@ class NXRefine(object):
         When all angles are zero,
             +X(det) = -y(lab), +Y(det) = +z(lab), and +Z(det) = -x(lab)
         """
-        return np.matrix(((0,-1,0), (0,0,1), (-1,0,0)))
+        if self.standard:
+            return np.matrix(((0,-1,0), (0,0,1), (-1,0,0)))
+        else:
+            return np.matrix(((0,0,1), (0,1,0), (-1,0,0)))
 
     @property
     def Dmat(self):
@@ -506,33 +535,35 @@ class NXRefine(object):
                              rotmat(3, self.twotheta) *
                              rotmat(2, self.gonpitch))
 
-    def Gmat(self, omega):
-        """Define the matrix that physically orients the goniometer head into place
+    def Gmat(self, phi):
+        """Define the matrix that physically orients the goniometer head into 
+           place
     
         Its inverse transforms lab coords into head coords.
         """
-        return (rotmat(3, self.phi) * rotmat(1, self.chi) * rotmat(3, omega) * 
+        return (rotmat(3, phi) * rotmat(1, self.chi) * rotmat(3, self.omega) * 
                 rotmat(2,self.gonpitch))
 
     @property
     def Cvec(self):
         return vec(self.xc, self.yc)
 
-    def Dvec(self, omega):
+    def Dvec(self, phi):
         Svec = vec(0.0)
-        return (self.Gmat(omega) * Svec - 
-            (rotmat(2,self.gonpitch) * rotmat(3,self.twotheta) * vec(self.distance)))
+        return (self.Gmat(phi) * Svec - 
+                - (rotmat(2,self.gonpitch) * rotmat(3,self.twotheta) * 
+                   vec(self.distance)))
 
     @property
     def Evec(self):
         return vec(1.0 / self.wavelength)
 
     def Gvec(self, x, y, z):
-        omega = self.omega_start + self.omega_step * z
+        phi = self.phi_start + self.phi_step * z
         v1 = vec(x, y)
         v2 = self.pixel_size * np.linalg.inv(self.Omat) * (v1 - self.Cvec)
-        v3 = np.linalg.inv(self.Dmat) * v2 - self.Dvec(omega)
-        return (np.linalg.inv(self.Gmat(omega)) * 
+        v3 = np.linalg.inv(self.Dmat) * v2 - self.Dvec(phi)
+        return (np.linalg.inv(self.Gmat(phi)) * 
                (((v3/np.linalg.norm(v3)) / self.wavelength) - self.Evec))
 
     def get_Gvecs(self, idx):
@@ -543,7 +574,8 @@ class NXRefine(object):
     def set_polar_max(self, polar_max):
         try:
             if not isinstance(self.polar_angle, np.ndarray):
-                self.polar_angle, self.azimuthal_angle = self.calculate_angles(self.xp, self.yp)
+                self.polar_angle, self.azimuthal_angle = \
+                    self.calculate_angles(self.xp, self.yp)
             self.x = []
             self.y = []
             for i in range(self.npks):
@@ -573,14 +605,16 @@ class NXRefine(object):
             polar_angle = np.arctan(v / self.distance)
             polar_angles.append(polar_angle)
             azimuthal_angles.append(np.arctan2(-peak[1,0], peak[2,0]))
-        return np.array(polar_angles)*degrees, np.array(azimuthal_angles)*degrees
+        return (np.array(polar_angles) * degrees, 
+                np.array(azimuthal_angles) * degrees)
 
     def calculate_rings(self, polar_max=None):
         """Calculate the polar angles of the Bragg peak rings"""
         if polar_max is None:
             polar_max = self.polar_max
         ds_max = 2 * np.sin(polar_max*radians/2) / self.wavelength
-        dss = set(sorted([np.around(x[0],3) for x in self.unitcell.gethkls(ds_max)]))
+        dss = set(sorted([np.around(x[0],3) 
+                          for x in self.unitcell.gethkls(ds_max)]))
         peaks = []
         for ds in dss:
             peaks.append(2*np.arcsin(self.wavelength*ds/2)*degrees)
@@ -598,7 +632,8 @@ class NXRefine(object):
         
     def angle_rings(self, ring1, ring2):
         """Calculate the set of angles allowed between peaks in two rings"""
-        return set(np.around(np.arccos(self.unitcell.getanglehkls(ring1, ring2)[1])
+        return set(np.around(np.arccos(
+                                 self.unitcell.getanglehkls(ring1, ring2)[1])
                              * degrees, 3))
 
     def assign_rings(self):
@@ -627,7 +662,8 @@ class NXRefine(object):
     def generate_grains(self):
         self.assign_rings()
         grains = []
-        peaks = [i for i in range(self.npks) if self.polar_angle[i] < self.polar_max]
+        peaks = [i for i in range(self.npks) 
+                 if self.polar_angle[i] < self.polar_max]
         assigned = set()
         for (i, j) in [(i, j) for i in peaks for j in peaks if j > i]:
             if self.compatible(i,j):
@@ -647,7 +683,8 @@ class NXRefine(object):
                             if not bad:
                                 grain.append(j)
                                 assigned.add(j)
-        self.grains = sorted([NXgrain(grain) for grain in grains if len(grain) > 2])
+        self.grains = sorted([NXgrain(grain) 
+                              for grain in grains if len(grain) > 2])
         for grain in self.grains:
             self.orient(grain)
             grain.peaks = [i for i in range(self.npks) 
@@ -657,14 +694,16 @@ class NXRefine(object):
     def orient(self, grain=None):
         """Determine the UB matrix (optionally for the specified grain)"""
         if grain:
-            for (i, j) in [(i,j) for i in grain.peaks for j in grain.peaks if j > i]:
+            for (i, j) in [(i,j) for i in grain.peaks 
+                           for j in grain.peaks if j > i]:
                 angle = self.angle_peaks(i, j)
                 if abs(angle) > 20.0 and abs(angle-180.0) > 20.0:
                     break
             grain.primary, grain.secondary = i, j
             self.Umat = grain.Umat = self.get_UBmat(i, j) * self.Bimat
         else:
-            self.Umat = self.get_UBmat(self.primary, self.secondary) * self.Bimat
+            self.Umat = (self.get_UBmat(self.primary, self.secondary) 
+                         * self.Bimat)
 
     @property
     def idx(self):
@@ -748,7 +787,7 @@ class NXRefine(object):
             diffs = self.diffs[peaks]
         else:
             h = k = l = diffs = np.zeros((peaks), dtype=np.float32)
-        return zip(peaks, x, y, z, polar, azi, intensity, h, k, l, diffs)
+        return list(zip(peaks, x, y, z, polar, azi, intensity, h, k, l, diffs))
 
     def get_ring_hkls(self):
         polar_max = self.polar_max
@@ -769,8 +808,10 @@ class NXRefine(object):
 #    def find_ring_indices(self, ring):
 #        if ring is None:
 #            return []
-#        less = list(np.where(self.polar_angle>self.rings[ring]-self.polar_tolerance)[0])
-#        more = list(np.where(self.polar_angle<self.rings[ring]+self.polar_tolerance)[0])
+#        less = list(np.where(self.polar_angle>self.rings[ring]
+#                             - self.polar_tolerance)[0])
+#        more = list(np.where(self.polar_angle<self.rings[ring]
+#                             + self.polar_tolerance)[0])
 #        return [idx for idx in less if idx in more]
 #    def Gvs(self, polar_max=None):
 #        if self.polar_max is None:
