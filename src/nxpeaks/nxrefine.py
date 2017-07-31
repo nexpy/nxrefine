@@ -216,8 +216,7 @@ class NXRefine(object):
         self.write_parameter('peaks/secondary_reflection', self.secondary)        
         if self.phi_start is not None and self.phi_step is not None:
             if isinstance(self.z, np.ndarray):
-                self.rotation_angle = self.z * self.phi_step + self.phi_start
-                
+                self.rotation_angle = self.z * self.phi_step + self.phi_start              
 
     def copy_parameters(self, other, sample=False, instrument=False):
         if sample:
@@ -550,7 +549,7 @@ class NXRefine(object):
 
     def Dvec(self, phi):
         Svec = vec(0.0)
-        return (self.Gmat(phi) * Svec - 
+        return (self.Gmat(phi) * Svec
                 - (rotmat(2,self.gonpitch) * rotmat(3,self.twotheta) * 
                    vec(self.distance)))
 
