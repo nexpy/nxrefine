@@ -135,6 +135,8 @@ class NXRefine(object):
             self.roll = 0.0
         self.xc = self.read_parameter('instrument/detector/beam_center_x')
         self.yc = self.read_parameter('instrument/detector/beam_center_y')
+        self.phi_start = self.read_parameter('instrument/goniometer/phi')
+        self.phi_step = self.read_parameter('instrument/goniometer/phi_step')
         self.chi = self.read_parameter('instrument/goniometer/chi')
         self.omega = self.read_parameter('instrument/goniometer/omega')
         self.twotheta = self.read_parameter('instrument/goniometer/two_theta')
@@ -208,7 +210,8 @@ class NXRefine(object):
         if self.Umat is not None:
             self.write_parameter('instrument/detector/orientation_matrix', 
                                  np.array(self.Umat))
-        self.write_parameter('instrument/goniometer/phi', self.chi)
+        self.write_parameter('instrument/goniometer/phi', self.phi_start)
+        self.write_parameter('instrument/goniometer/phi_step', self.phi_step)
         self.write_parameter('instrument/goniometer/chi', self.chi)
         self.write_parameter('instrument/goniometer/omega', self.omega)
         self.write_parameter('instrument/goniometer/two_theta', self.twotheta)
@@ -237,8 +240,15 @@ class NXRefine(object):
                 other.entry['instrument/detector'] = NXdetector()
             if 'monochromator' not in other.entry['instrument'].entries:
                 other.entry['instrument/monochromator'] = NXmonochromator()
+            if 'goniometer' not in other.entry['instrument'].entries:
+                other.entry['instrument/goniometer'] = NXgoniometer()
             other.write_parameter('instrument/monochromator/wavelength', 
                                   self.wavelength)
+            other.write_parameter('instrument/goniometer/phi', self.phi_start)
+            other.write_parameter('instrument/goniometer/phi_step', self.phi_step)
+            other.write_parameter('instrument/goniometer/chi', self.chi)
+            other.write_parameter('instrument/goniometer/omega', self.omega)
+            other.write_parameter('instrument/goniometer/twotheta', self.twotheta)
             other.write_parameter('instrument/detector/distance', self.distance)
             other.write_parameter('instrument/detector/yaw', self.yaw)
             other.write_parameter('instrument/detector/pitch', self.pitch)
