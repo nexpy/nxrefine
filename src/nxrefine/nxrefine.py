@@ -67,12 +67,11 @@ class NXRefine(object):
         self.twotheta = 0.0
         self.chi = 0.0
         self.omega = 0.0
+        self.phi = np.array((0.0, 0.1), dtype=np.float32)
         self.xc = 256.0
         self.yc = 256.0
         self.symmetry = 'cubic'
         self.centring = 'P'
-        self.phi_start = 0.0
-        self.phi_step = 0.1
         self.peak = None
         self.xp = None
         self.yp = None
@@ -110,7 +109,7 @@ class NXRefine(object):
             field = self.entry[path]
             return field.nxdata
         except NeXusError:
-            return None 
+            pass 
 
     def read_parameters(self, entry=None):
         if entry:
@@ -135,8 +134,7 @@ class NXRefine(object):
             self.roll = 0.0
         self.xc = self.read_parameter('instrument/detector/beam_center_x')
         self.yc = self.read_parameter('instrument/detector/beam_center_y')
-        self.phi_start = self.read_parameter('instrument/goniometer/phi')
-        self.phi_step = self.read_parameter('instrument/goniometer/phi_step')
+        self.phi = self.read_parameter('instrument/goniometer/phi')
         self.chi = self.read_parameter('instrument/goniometer/chi')
         self.omega = self.read_parameter('instrument/goniometer/omega')
         self.twotheta = self.read_parameter('instrument/goniometer/two_theta')
@@ -210,16 +208,14 @@ class NXRefine(object):
         if self.Umat is not None:
             self.write_parameter('instrument/detector/orientation_matrix', 
                                  np.array(self.Umat))
-        self.write_parameter('instrument/goniometer/phi', self.phi_start)
-        self.write_parameter('instrument/goniometer/phi_step', self.phi_step)
+        self.write_parameter('instrument/goniometer/phi', self.phi)
         self.write_parameter('instrument/goniometer/chi', self.chi)
         self.write_parameter('instrument/goniometer/omega', self.omega)
         self.write_parameter('instrument/goniometer/two_theta', self.twotheta)
         self.write_parameter('peaks/primary_reflection', self.primary)
         self.write_parameter('peaks/secondary_reflection', self.secondary)        
-        if self.phi_start is not None and self.phi_step is not None:
-            if isinstance(self.z, np.ndarray):
-                self.rotation_angle = self.z * self.phi_step + self.phi_start              
+        if isinstance(self.z, np.ndarray):
+            self.rotation_angle = self.phi_start + (self.phi_step * self.z)
 
     def copy_parameters(self, other, sample=False, instrument=False):
         if sample:
@@ -244,8 +240,7 @@ class NXRefine(object):
                 other.entry['instrument/goniometer'] = NXgoniometer()
             other.write_parameter('instrument/monochromator/wavelength', 
                                   self.wavelength)
-            other.write_parameter('instrument/goniometer/phi', self.phi_start)
-            other.write_parameter('instrument/goniometer/phi_step', self.phi_step)
+            other.write_parameter('instrument/goniometer/phi', self.phi)
             other.write_parameter('instrument/goniometer/chi', self.chi)
             other.write_parameter('instrument/goniometer/omega', self.omega)
             other.write_parameter('instrument/goniometer/twotheta', self.twotheta)
@@ -465,6 +460,20 @@ class NXRefine(object):
         return self.xc, self.yc
 
     @property
+    def phi_start(self):
+        try:
+            return self.phi[0]
+        except Exception:
+            return 0.0
+
+    @property
+    def phi_step(self):
+        try:
+            return self.phi[1] - self.phi[0] 
+        except Exception:
+            return 0.1
+
+    @property
     def ds_max(self):
         return 2 * np.sin(self.polar_max*radians/2) / self.wavelength
 
@@ -481,7 +490,7 @@ class NXRefine(object):
     def npks(self):
         try:
             return self.xp.size
-        except:
+        except Exception:
             return 0
 
     @property
