@@ -5,9 +5,9 @@ import numpy as np
 
 from nexusformat.nexus import *
 
-from nxpeaks import blobcorrector, __version__
-from nxpeaks.connectedpixels import blob_moments
-from nxpeaks.labelimage import labelimage, flip1
+from nxrefine import blobcorrector, __version__
+from nxrefine.connectedpixels import blob_moments
+from nxrefine.labelimage import labelimage, flip1
 
 
 def find_peaks(group, threshold=None, z_min=None, z_max=None):

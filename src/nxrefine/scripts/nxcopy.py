@@ -9,7 +9,7 @@
 
 import argparse, os
 from nexusformat.nexus import *
-from nxpeaks.nxrefine import NXRefine
+from nxrefine.nxrefine import NXRefine
 
 
 def main():

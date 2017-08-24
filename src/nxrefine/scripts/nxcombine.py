@@ -6,8 +6,8 @@ import sys
 
 import numpy as np
 from nexusformat.nexus import *
-from nxpeaks.nxrefine import NXRefine
-from nxpeaks import __version__
+from nxrefine.nxrefine import NXRefine
+from nxrefine import __version__
 
 
 def prepare_transform(entry, Qh, Qk, Ql, output, settings):

@@ -4,7 +4,7 @@ import subprocess
 
 import numpy as np
 from nexusformat.nexus import *
-from nxpeaks.nxrefine import NXRefine
+from nxrefine.nxrefine import NXRefine
 
 
 def prepare_transform(entry, Qh, Qk, Ql, output, settings):

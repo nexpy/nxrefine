@@ -7,20 +7,20 @@
 #-----------------------------------------------------------------------------
 from __future__ import absolute_import
 
-__package_name__ = u'NXpeaks'
+__package_name__ = u'NXrefine'
 from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions
 
 __documentation_author__ = u'Ray Osborn'
-__documentation_copyright__ = u'2013-16, Ray Osborn'
+__documentation_copyright__ = u'2013-17, Ray Osborn'
 
 __license__ = u'BSD'
 __author_name__ = u'NeXpy Development Team'
 __author_email__ = u'nexpydev@gmail.com'
 __author__ = __author_name__ + u' <' + __author_email__ + u'>'
 
-__description__ = u'NXpeaks: Python package to process crystallographic data'
+__description__ = u'NXrefine: Python package to process crystallographic data'
 __long_description__ = \
 u"""
 This is designed to be used in coordination with NeXpy. It utilizes software

@@ -10,7 +10,7 @@
 import argparse, os, socket, sys, timeit
 import numpy as np
 from nexusformat.nexus import *
-from nxpeaks import __version__
+from nxrefine import __version__
 
 def apply_mask(entries, mask):
     for entry in entries:

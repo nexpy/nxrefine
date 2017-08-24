@@ -8,8 +8,8 @@ import timeit
 import numpy as np
 from scipy.optimize import leastsq
 from nexusformat.nexus import *
-from nxpeaks.nxrefine import NXRefine
-from nxpeaks import __version__
+from nxrefine.nxrefine import NXRefine
+from nxrefine import __version__
 
 
 def refine_orientation(ref):
