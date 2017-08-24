@@ -4,7 +4,7 @@ from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.plotview import plotview
 from nexpy.gui.utils import report_error
 from nexusformat.nexus import NeXusError
-from nxpeaks.nxrefine import NXRefine, find_nearest
+from nxrefine.nxrefine import NXRefine, find_nearest
 
 
 def show_dialog():

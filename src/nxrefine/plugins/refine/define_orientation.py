@@ -7,7 +7,7 @@ from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.plotview import NXPlotView
 from nexpy.gui.utils import report_error
 from nexusformat.nexus import NeXusError
-from nxpeaks.nxrefine import NXRefine
+from nxrefine.nxrefine import NXRefine
 
 
 def show_dialog():

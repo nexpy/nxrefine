@@ -4,7 +4,7 @@ import numpy as np
 from nexusformat.nexus import *
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.utils import report_error
-from nxpeaks.nxrefine import NXRefine
+from nxrefine.nxrefine import NXRefine
 
 
 def show_dialog():
