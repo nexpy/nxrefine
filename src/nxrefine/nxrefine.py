@@ -547,11 +547,11 @@ class NXRefine(object):
         It also transforms detector coords into lab coords.
         Operation order:    yaw -> pitch -> roll -> twotheta -> gonpitch
         """
-        return np.linalg.inv(rotmat(3, self.yaw) *
-                             rotmat(2, self.pitch) *
-                             rotmat(1, self.roll) *
+        return np.linalg.inv(rotmat(2, self.gonpitch) *
                              rotmat(3, self.twotheta) *
-                             rotmat(2, self.gonpitch))
+                             rotmat(1, self.roll) *
+                             rotmat(2, self.pitch) *
+                             rotmat(3, self.yaw))
 
     def Gmat(self, phi):
         """Define the matrix that physically orients the goniometer head into 
@@ -559,8 +559,8 @@ class NXRefine(object):
     
         Its inverse transforms lab coords into head coords.
         """
-        return (rotmat(3, phi) * rotmat(1, self.chi) * rotmat(3, self.omega) * 
-                rotmat(2,self.gonpitch))
+        return (rotmat(2,self.gonpitch) * rotmat(3, self.omega) * 
+                rotmat(1, self.chi) * rotmat(3, phi))
 
     @property
     def Cvec(self):
