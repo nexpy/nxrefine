@@ -11,7 +11,7 @@ def show_dialog():
     try:
         dialog = ScanDialog()
         dialog.show()
-    except NeXusError as error:
+    except Exception as error:
         report_error("Defining New Scan", error)
 
 

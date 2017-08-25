@@ -9,7 +9,7 @@ def show_dialog():
     try:
         dialog = ExperimentDialog()
         dialog.show()
-    except NeXusError as error:
+    except Exception as error:
         report_error("Defining New Experiment", error)
 
 
@@ -94,5 +94,5 @@ class ExperimentDialog(BaseDialog):
                                       self.instrument['experiment'].value+'.nxs'))
             self.treeview.tree.load(self.experiment_file.nxfilename, 'rw')
             super(ExperimentDialog, self).accept()
-        except NeXusError as error:
+        except Exception as error:
             report_error("Defining New Experiment", error)

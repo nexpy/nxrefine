@@ -8,7 +8,7 @@ def show_dialog():
     try:
         dialog = MaskDialog()
         dialog.show()
-    except NeXusError as error:
+    except Exception as error:
         report_error("Applying Mask", error)
         
 
@@ -36,5 +36,5 @@ class MaskDialog(BaseDialog):
                 mask = mask[0]                
             self.entry['instrument/detector/pixel_mask'] = mask
             self.entry['instrument/detector/pixel_mask_applied'] = False
-        except NeXusError as error:
+        except Exception as error:
             report_error('Applying Mask', error)

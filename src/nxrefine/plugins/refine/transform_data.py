@@ -11,7 +11,7 @@ def show_dialog():
     try:
         dialog = TransformDialog()
         dialog.show()
-    except NeXusError as error:
+    except Exception as error:
         report_error("Preparing Data Transform", error)
         
 
@@ -113,6 +113,6 @@ class TransformDialog(BaseDialog):
             self.refine.prepare_transform(self.get_output_file())
             self.refine.write_settings(self.get_settings_file())
             super(TransformDialog, self).accept()
-        except NeXusError as error:
+        except Exception as error:
             report_error("Preparing Data Transform", error)
 

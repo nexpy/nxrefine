@@ -11,7 +11,7 @@ def show_dialog():
     try:
         dialog = CopyDialog()
         dialog.show()
-    except NeXusError as error:
+    except Exception as error:
         report_error("Copying Parameters", error)
 
 

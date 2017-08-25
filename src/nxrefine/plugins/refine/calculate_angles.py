@@ -10,7 +10,7 @@ def show_dialog():
     try:
         dialog = CalculateDialog()
         dialog.show()
-    except NeXusError as error:
+    except Exception as error:
         report_error("Calculating Angles", error)
 
 
@@ -70,7 +70,7 @@ class CalculateDialog(BaseDialog):
         try:
             self.get_parameters()
             self.plot_peaks(self.refine.xp, self.refine.yp)
-        except NeXusError as error:
+        except Exception as error:
             report_error('Calculating Angles', error)
 
     def plot_peaks(self, x, y):
@@ -84,8 +84,9 @@ class CalculateDialog(BaseDialog):
             polar_field = NXfield(polar_angles, name='polar_angle')
             polar_field.long_name = 'Polar Angle'
             plotview = get_plotview()
-            plotview.plot(NXdata(azimuthal_field, polar_field, title='Peak Angles'))
-        except NeXusError as error:
+            plotview.plot(NXdata(azimuthal_field, polar_field, 
+                                 title='Peak Angles'))
+        except Exception as error:
             report_error('Plotting Lattice', error)
 
     def write_parameters(self):
@@ -95,5 +96,5 @@ class CalculateDialog(BaseDialog):
                                                  self.refine.xp, self.refine.yp)
             self.refine.write_angles(polar_angles, azimuthal_angles)
             self.refine.write_parameters()
-        except NeXusError as error:
+        except Exception as error:
             report_error('Calculating Angles', error)

@@ -25,7 +25,7 @@ def show_dialog():
     try:
         dialog = StackDialog()
         dialog.show()
-    except NeXusError as error:
+    except Exception as error:
         report_error("Stacking Images", error)
 
 def isotime(time_stamp):
@@ -340,5 +340,5 @@ class StackDialog(BaseImportDialog):
                 workspace = self.treeview.tree.get_new_name()
             self.treeview.tree[workspace] = self.user_ns[workspace] = self.get_data()
             super(StackDialog, self).accept()
-        except NeXusError as error:
+        except Exception as error:
             report_error("Stacking Images", error)

@@ -9,7 +9,7 @@ def show_dialog():
     try:
         dialog = MaximumDialog()
         dialog.show()
-    except NeXusError as error:
+    except Exception as error:
         report_error("Finding Maximum", error)
         
 
