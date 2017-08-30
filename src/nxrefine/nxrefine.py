@@ -104,49 +104,53 @@ class NXRefine(object):
         if self.entry:
             self.read_parameters()
 
-    def read_parameter(self, path):
+    def read_parameter(self, path, default=None):
         try:
             field = self.entry[path]
             return field.nxdata
         except NeXusError:
-            pass 
+            return default
 
     def read_parameters(self, entry=None):
         if entry:
             self.entry = entry
-        self.a = self.read_parameter('sample/unitcell_a')
-        self.b = self.read_parameter('sample/unitcell_b')
-        self.c = self.read_parameter('sample/unitcell_c')
-        self.alpha = self.read_parameter('sample/unitcell_alpha')
-        self.beta = self.read_parameter('sample/unitcell_beta')
-        self.gamma = self.read_parameter('sample/unitcell_gamma')
+        self.a = self.read_parameter('sample/unitcell_a', self.a)
+        self.b = self.read_parameter('sample/unitcell_b', self.b)
+        self.c = self.read_parameter('sample/unitcell_c', self.c)
+        self.alpha = self.read_parameter('sample/unitcell_alpha', self.alpha)
+        self.beta = self.read_parameter('sample/unitcell_beta', self.beta)
+        self.gamma = self.read_parameter('sample/unitcell_gamma', self.gamma)
         self.wavelength = self.read_parameter(
-                              'instrument/monochromator/wavelength')
-        self.distance = self.read_parameter('instrument/detector/distance')
-        self.yaw = self.read_parameter('instrument/detector/yaw')
-        if self.yaw is None:
-            self.yaw = 0.0
-        self.pitch = self.read_parameter('instrument/detector/pitch')
-        if self.pitch is None:
-            self.pitch = 0.0
-        self.roll = self.read_parameter('instrument/detector/roll')
-        if self.roll is None:
-            self.roll = 0.0
-        self.xc = self.read_parameter('instrument/detector/beam_center_x')
-        self.yc = self.read_parameter('instrument/detector/beam_center_y')
-        self.phi = self.read_parameter('instrument/goniometer/phi')
-        self.chi = self.read_parameter('instrument/goniometer/chi')
-        self.omega = self.read_parameter('instrument/goniometer/omega')
-        self.twotheta = self.read_parameter('instrument/goniometer/two_theta')
-        self.symmetry = self.read_parameter('sample/unit_cell_group')
-        self.centring = self.read_parameter('sample/lattice_centring')
+                              'instrument/monochromator/wavelength', 
+                              self.wavelength)
+        self.distance = self.read_parameter('instrument/detector/distance', 
+                                            self.distance)
+        self.yaw = self.read_parameter('instrument/detector/yaw', self.yaw)
+        self.pitch = self.read_parameter('instrument/detector/pitch', 
+                                         self.pitch)
+        self.roll = self.read_parameter('instrument/detector/roll', self.roll)
+        self.xc = self.read_parameter('instrument/detector/beam_center_x', 
+                                      self.xc)
+        self.yc = self.read_parameter('instrument/detector/beam_center_y', 
+                                      self.yc)
+        self.phi = self.read_parameter('instrument/goniometer/phi', self.phi)
+        self.chi = self.read_parameter('instrument/goniometer/chi', self.chi)
+        self.omega = self.read_parameter('instrument/goniometer/omega', 
+                                         self.omega)
+        self.twotheta = self.read_parameter('instrument/goniometer/two_theta', 
+                                            self.twotheta)
+        self.symmetry = self.read_parameter('sample/unit_cell_group', 
+                                            self.symmetry)
+        self.centring = self.read_parameter('sample/lattice_centring', 
+                                            self.centring)
         self.xp = self.read_parameter('peaks/x')
         self.yp = self.read_parameter('peaks/y')
         self.zp = self.read_parameter('peaks/z')
         self.polar_angle = self.read_parameter('peaks/polar_angle')
         self.azimuthal_angle = self.read_parameter('peaks/azimuthal_angle')
         self.intensity = self.read_parameter('peaks/intensity')
-        self.pixel_size = self.read_parameter('instrument/detector/pixel_size')
+        self.pixel_size = self.read_parameter('instrument/detector/pixel_size', 
+                                              self.pixel_size)
         self.pixel_mask = self.read_parameter('instrument/detector/pixel_mask')
         self.pixel_mask_applied = self.read_parameter(
                                       'instrument/detector/pixel_mask_applied')
@@ -165,12 +169,10 @@ class NXRefine(object):
 
     def write_parameter(self, path, value):
         if value is not None:
-            if isinstance(value, six.text_type):
-                try:
-                    del self.entry[path]
-                except NeXusError:
-                    pass
-            self.entry[path] = value
+            if path in self.entry:
+                self.entry[path].replace(value)
+            else:
+                self.entry[path] = value
 
     def write_parameters(self, entry=None):
         if entry:
