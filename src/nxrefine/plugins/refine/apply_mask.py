@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 import numpy as np
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.utils import report_error
@@ -8,7 +10,7 @@ def show_dialog():
     try:
         dialog = MaskDialog()
         dialog.show()
-    except Exception as error:
+    except NeXusError as error:
         report_error("Applying Mask", error)
         
 

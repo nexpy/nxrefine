@@ -13,7 +13,7 @@ def show_dialog():
     try:
         dialog = FindDialog()
         dialog.show()
-    except Exception as error:
+    except NeXusError as error:
         report_error("Finding Peaks", error)
 
 
@@ -214,7 +214,7 @@ class FindDialog(BaseDialog):
             self.entry.peaks.covxy = NXfield(
                 [peak.covxy for peak in self.peaks], dtype=np.float32)
             super(FindDialog, self).accept()
-        except Exception as error:
+        except NeXusError as error:
             report_error('Finding peaks', error)
 
 

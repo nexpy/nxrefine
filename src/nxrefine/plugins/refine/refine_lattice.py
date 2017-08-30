@@ -13,7 +13,7 @@ def show_dialog():
     try:
         dialog = RefineLatticeDialog()
         dialog.show()
-    except Exception as error:
+    except NeXusError as error:
         report_error("Refining Lattice", error)
 
 
@@ -235,7 +235,7 @@ class RefineLatticeDialog(BaseDialog):
             plotview = get_plotview()
             plotview.plot(NXdata(azimuthal_field, polar_field, 
                           title='Peak Angles'))
-        except Exception as error:
+        except NeXusError as error:
             report_error('Plotting Lattice', error)
 
     def plot_rings(self, polar_max=None):

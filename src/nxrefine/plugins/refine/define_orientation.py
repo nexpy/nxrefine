@@ -14,7 +14,7 @@ def show_dialog():
     try:
         dialog = OrientationDialog()
         dialog.show()
-    except Exception as error:
+    except NeXusError as error:
         report_error("Defining Orientation", error)
         
 
@@ -367,9 +367,8 @@ class OrientationDialog(BaseDialog):
     def write_parameters(self):
         try:
             self.refine.write_parameters()
-        except Exception as error:
+        except NeXusError as error:
             report_error('Defining Orientation', error)
-
 
 
 class NXTableModel(QtCore.QAbstractTableModel):

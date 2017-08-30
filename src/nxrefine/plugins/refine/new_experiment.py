@@ -9,7 +9,7 @@ def show_dialog():
     try:
         dialog = ExperimentDialog()
         dialog.show()
-    except Exception as error:
+    except NeXusError as error:
         report_error("Defining New Experiment", error)
 
 

@@ -10,7 +10,7 @@ def show_dialog():
     try:
         dialog = LatticeDialog()
         dialog.show()
-    except Exception as error:
+    except NeXusError as error:
         report_error("Defining Lattice", error)
 
 
@@ -84,14 +84,14 @@ class LatticeDialog(BaseDialog):
             self.plot_peaks(self.refine.xp, self.refine.yp)
             polar_min, polar_max = plotview.xaxis.get_limits()
             self.plot_rings(polar_max)
-        except Exception as error:
+        except NeXusError as error:
             report_error('Plotting Lattice', error)
 
     def write_parameters(self):
         try:
             self.get_parameters()
             self.refine.write_parameters()
-        except Exception as error:
+        except NeXusError as error:
             report_error('Defining Lattice', error)
 
     def plot_peaks(self, x, y):
@@ -106,7 +106,7 @@ class LatticeDialog(BaseDialog):
             polar_field.long_name = 'Polar Angle'
             plotview = get_plotview()
             plotview.plot(NXdata(azimuthal_field, polar_field, title='Peak Angles'))
-        except Exception as error:
+        except NeXusError as error:
             report_error('Plotting Lattice', error)
 
     def plot_rings(self, polar_max=None):
