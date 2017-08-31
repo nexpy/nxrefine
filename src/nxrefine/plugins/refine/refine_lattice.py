@@ -91,6 +91,7 @@ class RefineLatticeDialog(BaseDialog):
         self.set_symmetry()
 
         self.peaks_box = None
+        self.table_model = None
         
     def choose_entry(self):
         self.refine = NXRefine(self.entry)
@@ -302,7 +303,7 @@ class RefineLatticeDialog(BaseDialog):
         self.update_parameters()
 
     def list_peaks(self):
-        if self.peaks_box is not None:
+        if self.peaks_box is not None and self.table_model is not None:
             self.update_table()
             return
         self.peaks_box = BaseDialog(self)
