@@ -135,6 +135,8 @@ class RefineLatticeDialog(BaseDialog):
         self.refine.yaw, self.refine.pitch, self.refine.roll = self.get_tilts()
         self.refine.xc, self.refine.yc = self.get_centers()
         self.refine.phi = self.get_phi()
+        self.refine.chi, self.refine.omega, self.refine.twotheta, \
+            self.refine.gonpitch = self.get_angles()
         self.refine.polar_max = self.get_polar_max()
         self.refine.polar_tol = self.get_tolerance()
 
@@ -198,6 +200,17 @@ class RefineLatticeDialog(BaseDialog):
     def get_centers(self):
         return self.parameters['xc'].value, self.parameters['yc'].value
 
+    def get_phi(self):
+        start, step = (self.parameters['phi_start'].value, 
+                       self.parameters['phi_step'].value)
+        return np.array((start, start+step), dtype=np.float32)
+
+    def get_angles(self):
+        return (self.parameters['chi'].value,
+                self.parameters['omega'].value,
+                self.parameters['twotheta'].value,
+                self.parameters['gonpitch'].value)
+
     def get_polar_max(self):
         return self.parameters['polar'].value
 
@@ -206,11 +219,6 @@ class RefineLatticeDialog(BaseDialog):
 
     def get_tolerance(self):
         return self.parameters['polar_tolerance'].value
-
-    def get_phi(self):
-        start, step = (self.parameters['phi_start'].value, 
-                       self.parameters['phi_step'].value)
-        return np.array((start, start+step), dtype=np.float32)
 
     def get_hkl_tolerance(self):
         try:

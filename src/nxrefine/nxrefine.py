@@ -250,7 +250,7 @@ class NXRefine(object):
             other.write_parameter('instrument/goniometer/phi', self.phi)
             other.write_parameter('instrument/goniometer/chi', self.chi)
             other.write_parameter('instrument/goniometer/omega', self.omega)
-            other.write_parameter('instrument/goniometer/twotheta', self.twotheta)
+            other.write_parameter('instrument/goniometer/two_theta', self.twotheta)
             other.write_parameter('instrument/goniometer/goniometer_pitch', 
                                   self.gonpitch)
             other.write_parameter('instrument/detector/distance', self.distance)
