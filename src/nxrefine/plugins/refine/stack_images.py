@@ -6,7 +6,7 @@ import time
 import timeit
 from datetime import datetime
 
-from nexpy.gui.pyqt import QtCore, QtGui, getOpenFileName
+from nexpy.gui.pyqt import QtCore, QtWidgets, getOpenFileName
 import numpy as np
 import tifffile as TIFF
 
@@ -43,8 +43,8 @@ class StackDialog(BaseImportDialog):
 
         super(StackDialog, self).__init__(parent)
         
-        status_layout = QtGui.QHBoxLayout()
-        self.progress_bar = QtGui.QProgressBar()
+        status_layout = QtWidgets.QHBoxLayout()
+        self.progress_bar = QtWidgets.QProgressBar()
         status_layout.addWidget(self.progress_bar)
         self.progress_bar.setVisible(False)
         status_layout.addStretch()
@@ -62,17 +62,17 @@ class StackDialog(BaseImportDialog):
         self.suffix = ''
 
     def make_filter_box(self):
-        filter_box = QtGui.QWidget()
-        layout = QtGui.QGridLayout()
+        filter_box = QtWidgets.QWidget()
+        layout = QtWidgets.QGridLayout()
         layout.setSpacing(10)
-        prefix_label = QtGui.QLabel('File Prefix')
-        self.prefix_box = QtGui.QLineEdit()
+        prefix_label = QtWidgets.QLabel('File Prefix')
+        self.prefix_box = QtWidgets.QLineEdit()
         self.prefix_box.editingFinished.connect(self.set_range)
-        extension_label = QtGui.QLabel('File Extension')
-        self.extension_box = QtGui.QLineEdit()
+        extension_label = QtWidgets.QLabel('File Extension')
+        self.extension_box = QtWidgets.QLineEdit()
         self.extension_box.editingFinished.connect(self.set_extension)
-        suffix_label = QtGui.QLabel('File Suffix')
-        self.suffix_box = QtGui.QLineEdit('')
+        suffix_label = QtWidgets.QLabel('File Suffix')
+        self.suffix_box = QtWidgets.QLineEdit('')
         self.suffix_box.editingFinished.connect(self.get_prefixes)
         layout.addWidget(prefix_label, 0, 0)
         layout.addWidget(self.prefix_box, 0, 1)
@@ -80,11 +80,13 @@ class StackDialog(BaseImportDialog):
         layout.addWidget(self.extension_box, 0, 3)
         layout.addWidget(suffix_label, 0, 4)
         layout.addWidget(self.suffix_box, 0, 5)
-        self.prefix_combo = QtGui.QComboBox()
-        self.prefix_combo.setSizeAdjustPolicy(QtGui.QComboBox.AdjustToContents)
+        self.prefix_combo = QtWidgets.QComboBox()
+        self.prefix_combo.setSizeAdjustPolicy(
+            QtWidgets.QComboBox.AdjustToContents)
         self.prefix_combo.activated.connect(self.choose_prefix)
-        self.extension_combo = QtGui.QComboBox()
-        self.extension_combo.setSizeAdjustPolicy(QtGui.QComboBox.AdjustToContents)
+        self.extension_combo = QtWidgets.QComboBox()
+        self.extension_combo.setSizeAdjustPolicy(
+            QtWidgets.QComboBox.AdjustToContents)
         self.extension_combo.activated.connect(self.choose_extension)
         layout.addWidget(self.prefix_combo, 1, 1, alignment=QtCore.Qt.AlignHCenter)
         layout.addWidget(self.extension_combo, 1, 3, alignment=QtCore.Qt.AlignHCenter)
@@ -98,14 +100,14 @@ class StackDialog(BaseImportDialog):
         return self.suffix_box.text()
 
     def make_range_box(self):
-        range_box = QtGui.QWidget()
-        layout = QtGui.QHBoxLayout()
-        rangeminlabel = QtGui.QLabel("Min. index")
-        self.rangemin = QtGui.QLineEdit()
+        range_box = QtWidgets.QWidget()
+        layout = QtWidgets.QHBoxLayout()
+        rangeminlabel = QtWidgets.QLabel("Min. index")
+        self.rangemin = QtWidgets.QLineEdit()
         self.rangemin.setFixedWidth(150)
         self.rangemin.setAlignment(QtCore.Qt.AlignRight)
-        rangemaxlabel = QtGui.QLabel("Max. index")
-        self.rangemax = QtGui.QLineEdit()
+        rangemaxlabel = QtWidgets.QLabel("Max. index")
+        self.rangemax = QtWidgets.QLineEdit()
         self.rangemax.setFixedWidth(150)
         self.rangemax.setAlignment(QtCore.Qt.AlignRight)
         layout.addWidget(rangeminlabel)
@@ -122,12 +124,12 @@ class StackDialog(BaseImportDialog):
         """
         Creates a text box and button for selecting the output file.
         """
-        output_box = QtGui.QWidget()
-        layout = QtGui.QHBoxLayout()
+        output_box = QtWidgets.QWidget()
+        layout = QtWidgets.QHBoxLayout()
        
-        file_button =  QtGui.QPushButton("Choose Output File")
+        file_button =  QtWidgets.QPushButton("Choose Output File")
         file_button.clicked.connect(self.choose_output_file)
-        self.output_file = QtGui.QLineEdit(self)
+        self.output_file = QtWidgets.QLineEdit(self)
         self.output_file.setMinimumWidth(300)
         layout.addWidget(file_button)
         layout.addWidget(self.output_file)
