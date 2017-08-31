@@ -139,9 +139,9 @@ class NXRefine(object):
                                          self.omega)
         self.twotheta = self.read_parameter('instrument/goniometer/two_theta', 
                                             self.twotheta)
-        self.twotheta = self.read_parameter(
+        self.gonpitch = self.read_parameter(
             'instrument/goniometer/goniometer_pitch', 
-            self.twotheta)
+            self.gonpitch)
         self.symmetry = self.read_parameter('sample/unit_cell_group', 
                                             self.symmetry)
         self.centring = self.read_parameter('sample/lattice_centring', 
