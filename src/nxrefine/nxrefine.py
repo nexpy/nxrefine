@@ -139,6 +139,9 @@ class NXRefine(object):
                                          self.omega)
         self.twotheta = self.read_parameter('instrument/goniometer/two_theta', 
                                             self.twotheta)
+        self.twotheta = self.read_parameter(
+            'instrument/goniometer/goniometer_pitch', 
+            self.twotheta)
         self.symmetry = self.read_parameter('sample/unit_cell_group', 
                                             self.symmetry)
         self.centring = self.read_parameter('sample/lattice_centring', 
@@ -214,6 +217,8 @@ class NXRefine(object):
         self.write_parameter('instrument/goniometer/chi', self.chi)
         self.write_parameter('instrument/goniometer/omega', self.omega)
         self.write_parameter('instrument/goniometer/two_theta', self.twotheta)
+        self.write_parameter('instrument/goniometer/goniometer_pitch', 
+                             self.gonpitch)
         self.write_parameter('peaks/primary_reflection', self.primary)
         self.write_parameter('peaks/secondary_reflection', self.secondary)        
         if isinstance(self.z, np.ndarray):
@@ -246,6 +251,8 @@ class NXRefine(object):
             other.write_parameter('instrument/goniometer/chi', self.chi)
             other.write_parameter('instrument/goniometer/omega', self.omega)
             other.write_parameter('instrument/goniometer/twotheta', self.twotheta)
+            other.write_parameter('instrument/goniometer/goniometer_pitch', 
+                                  self.gonpitch)
             other.write_parameter('instrument/detector/distance', self.distance)
             other.write_parameter('instrument/detector/yaw', self.yaw)
             other.write_parameter('instrument/detector/pitch', self.pitch)

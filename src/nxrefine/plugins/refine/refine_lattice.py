@@ -55,6 +55,8 @@ class RefineLatticeDialog(BaseDialog):
         self.parameters.add('omega', self.refine.omega, 'Omega (deg)', False)
         self.parameters.add('twotheta', self.refine.twotheta, 
                             'Two Theta (deg)', False)
+        self.parameters.add('gonpitch', self.refine.gonpitch, 
+                            'Goniometer Pitch (deg)', False)
         self.parameters.add('polar', self.refine.polar_max, 
                             'Max. Polar Angle (deg)', None, self.set_polar_max)
         self.parameters.add('polar_tolerance', self.refine.polar_tolerance, 
@@ -111,8 +113,9 @@ class RefineLatticeDialog(BaseDialog):
         self.parameters['phi_start'].value = self.refine.phi_start
         self.parameters['phi_step'].value = self.refine.phi_step
         self.parameters['chi'].value = self.refine.chi
-        self.parameters['omega_start'].value = self.refine.omega_start
-        self.parameters['omega_step'].value = self.refine.omega_step
+        self.parameters['omega'].value = self.refine.omega
+        self.parameters['twotheta'].value = self.refine.twotheta
+        self.parameters['gonpitch'].value = self.refine.gonpitch
         self.parameters['polar'].value = self.refine.polar_max
         self.parameters['polar_tolerance'].value = self.refine.polar_tolerance
         try:
