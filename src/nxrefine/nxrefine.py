@@ -10,6 +10,8 @@ from nexusformat.nexus import *
 from .unitcell import unitcell
 from . import closest
 
+from numpy.linalg import inv, norm
+
 
 degrees = 180.0 / np.pi
 radians = np.pi / 180.0
@@ -39,8 +41,8 @@ def vec(x, y=0.0, z=0.0):
     return np.matrix((x, y, z)).T
 
 
-def norm(vec):
-    return vec / np.linalg.norm(vec)
+def norm_vec(vec):
+    return vec / norm(vec)
 
 
 class NXRefine(object):
@@ -534,7 +536,7 @@ class NXRefine(object):
         """Create a B matrix containing the column basis vectors of the direct 
         unit cell.
         """
-        return np.linalg.inv(self.Bimat)
+        return inv(self.Bimat)
 
     @property
     def Omat(self):
@@ -556,11 +558,11 @@ class NXRefine(object):
         It also transforms detector coords into lab coords.
         Operation order:    yaw -> pitch -> roll -> twotheta -> gonpitch
         """
-        return np.linalg.inv(rotmat(2, self.gonpitch) *
-                             rotmat(3, self.twotheta) *
-                             rotmat(1, self.roll) *
-                             rotmat(2, self.pitch) *
-                             rotmat(3, self.yaw))
+        return inv(rotmat(2, self.gonpitch) *
+                   rotmat(3, self.twotheta) *
+                   rotmat(1, self.roll) *
+                   rotmat(2, self.pitch) *
+                   rotmat(3, self.yaw))
 
     def Gmat(self, phi):
         """Define the matrix that physically orients the goniometer head into 
@@ -568,17 +570,26 @@ class NXRefine(object):
     
         Its inverse transforms lab coords into head coords.
         """
-        return (rotmat(2,self.gonpitch) * rotmat(3, self.omega) * 
-                rotmat(1, self.chi) * rotmat(3, phi))
+        return (rotmat(2,self.gonpitch) * 
+                rotmat(3, self.omega) * 
+                rotmat(1, self.chi) * 
+                rotmat(3, phi))
 
     @property
     def Cvec(self):
         return vec(self.xc, self.yc)
 
     def Dvec(self, phi):
+        """Define the vector from the detector center to the sample position.
+        
+        Svec is the vector from the goniometer center to the sample position, 
+        i.e., t_gs. From this is subtracted the vector from the goniometer 
+        center to the detector center, i.e., t_gd
+        """
         Svec = vec(0.0)
         return (self.Gmat(phi) * Svec
-                - (rotmat(2,self.gonpitch) * rotmat(3,self.twotheta) * 
+                - (rotmat(2,self.gonpitch) * 
+                   rotmat(3,self.twotheta) * 
                    vec(self.distance)))
 
     @property
@@ -588,10 +599,10 @@ class NXRefine(object):
     def Gvec(self, x, y, z):
         phi = self.phi_start + self.phi_step * z
         v1 = vec(x, y)
-        v2 = self.pixel_size * np.linalg.inv(self.Omat) * (v1 - self.Cvec)
-        v3 = np.linalg.inv(self.Dmat) * v2 - self.Dvec(phi)
-        return (np.linalg.inv(self.Gmat(phi)) * 
-               (((v3/np.linalg.norm(v3)) / self.wavelength) - self.Evec))
+        v2 = self.pixel_size * inv(self.Omat) * (v1 - self.Cvec)
+        v3 = inv(self.Dmat) * v2 - self.Dvec(phi)
+        return (inv(self.Gmat(phi)) * 
+                ((norm_vec(v3) / self.wavelength) - self.Evec))
 
     def get_Gvecs(self, idx):
         self.Gvecs = [self.Gvec(x,y,z) for x,y,z 
@@ -614,21 +625,21 @@ class NXRefine(object):
         self.polar_max = polar_max
 
     def polar(self, x, y):
-        Oimat = np.linalg.inv(self.Omat)
-        Mat = self.pixel_size * np.linalg.inv(self.Dmat) * Oimat
+        Oimat = inv(self.Omat)
+        Mat = self.pixel_size * inv(self.Dmat) * Oimat
         peak = Oimat * (vec(x, y) - self.Cvec)
-        v = np.linalg.norm(Mat * peak)
+        v = norm(Mat * peak)
         return np.arctan(v / self.distance) * degrees
 
     def calculate_angles(self, x, y):
         """Calculate the polar and azimuthal angles of the specified pixels"""
-        Oimat = np.linalg.inv(self.Omat)
-        Mat = self.pixel_size * np.linalg.inv(self.Dmat) * Oimat
+        Oimat = inv(self.Omat)
+        Mat = self.pixel_size * inv(self.Dmat) * Oimat
         polar_angles = []
         azimuthal_angles = []
         for i in range(len(x)):
             peak = Oimat * (vec(x[i], y[i]) - self.Cvec)
-            v = np.linalg.norm(Mat * peak)
+            v = norm(Mat * peak)
             polar_angle = np.arctan(v / self.distance)
             polar_angles.append(polar_angle)
             azimuthal_angles.append(np.arctan2(-peak[1,0], peak[2,0]))
@@ -649,8 +660,8 @@ class NXRefine(object):
 
     def angle_peaks(self, i, j):
         """Calculate the angle (in degrees) between two peaks"""
-        g1 = norm(self.Gvec(self.xp[i], self.yp[i], self.zp[i]))
-        g2 = norm(self.Gvec(self.xp[j], self.yp[j], self.zp[j]))
+        g1 = norm_vec(self.Gvec(self.xp[i], self.yp[i], self.zp[i]))
+        g2 = norm_vec(self.Gvec(self.xp[j], self.yp[j], self.zp[j]))
         return np.around(np.arccos(float(g1.T*g2)) * degrees, 3)
 
     def angle_hkls(self, h1, h2):
@@ -756,9 +767,9 @@ class NXRefine(object):
         """Determine hkl for the specified pixel coordinates"""
         if self.Umat is not None:
             v5 = self.Gvec(x, y, z)
-#            v6 = np.linalg.inv(self.Umat) * v5
-#            v7 = np.linalg.inv(self.Bmat) * v6
-            v7 = np.linalg.inv(self.UBmat) * v5
+#            v6 = inv(self.Umat) * v5
+#            v7 = inv(self.Bmat) * v6
+            v7 = inv(self.UBmat) * v5
             return list(np.array(v7.T)[0])
         else:
             return [0.0, 0.0, 0.0]
@@ -788,7 +799,7 @@ class NXRefine(object):
         h, k, l = self.hkl(i)
         Q = np.matrix((h, k, l)).T
         Q0 = np.matrix((np.rint(h), np.rint(k), np.rint(l))).T
-        return np.linalg.norm(self.Bmat * (Q - Q0))
+        return norm(self.Bmat * (Q - Q0))
 
     def xyz(self, i):
         """Return the pixel coordinates of the specified peak"""
