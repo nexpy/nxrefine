@@ -1,2 +1,2 @@
 include versioneer.py
-include src/nxpeaks/_version.py
+include src/nxrefine/_version.py

@@ -1,26 +1,26 @@
 package:
-  name: nxpeaks
+  name: nxrefine
   version: "0.1.0"
 
 source:
-  git_url: https://github.com/rayosborn/nxpeaks.git
+  git_url: https://github.com/rayosborn/nxrefine.git
   git_tag: v0.1.0
 
 build:
   entry_points:
-    - nxsetup=nxpeaks.scripts.nxsetup:main
-    - nxcopy=nxpeaks.scripts.nxcopy:main
-    - nxlink=nxpeaks.scripts.nxlink:main
-    - nxfind=nxpeaks.scripts.nxfind:main
-    - nxmake=nxpeaks.scripts.nxmake:main
-    - nxmask=nxpeaks.scripts.nxmask:main
-    - nxmax=nxpeaks.scripts.nxmax:main
-    - nxorient=nxpeaks.scripts.nxorient:main
-    - nxwork=nxpeaks.scripts.nxwork:main
-    - nxrun=nxpeaks.scripts.nxrun:main
-    - nxscan=nxpeaks.scripts.nxscan:main
-    - nxcombine=nxpeaks.scripts.nxcombine:main
-    - nxtransform=nxpeaks.scripts.nxtransform:main
+    - nxsetup=nxrefine.scripts.nxsetup:main
+    - nxcopy=nxrefine.scripts.nxcopy:main
+    - nxlink=nxrefine.scripts.nxlink:main
+    - nxfind=nxrefine.scripts.nxfind:main
+    - nxmake=nxrefine.scripts.nxmake:main
+    - nxmask=nxrefine.scripts.nxmask:main
+    - nxmax=nxrefine.scripts.nxmax:main
+    - nxorient=nxrefine.scripts.nxorient:main
+    - nxwork=nxrefine.scripts.nxwork:main
+    - nxrun=nxrefine.scripts.nxrun:main
+    - nxscan=nxrefine.scripts.nxscan:main
+    - nxcombine=nxrefine.scripts.nxcombine:main
+    - nxtransform=nxrefine.scripts.nxtransform:main
   number: 0
 
 requirements:
@@ -41,4 +41,4 @@ test:
 about:
   home: http://nexpy.github.io/nexpy/
   license: BSD License
-  summary: 'nxpeaks: Python API to refine single crystal x-ray scattering'
+  summary: 'NXrefine: Python API to refine single crystal x-ray scattering'
