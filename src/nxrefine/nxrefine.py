@@ -584,8 +584,7 @@ class NXRefine(object):
         i.e., t_gs. From this is subtracted the vector from the goniometer 
         center to the detector center, i.e., t_gd
         """
-        Svec = vec(0.0)
-        return Svec - vec(self.distance)
+        return vec(-self.distance)
 
     @property
     def Evec(self):
