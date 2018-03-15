@@ -23,7 +23,7 @@ def find_maximum(field):
     if len(field.shape) == 2:
         maximum = field[:,:].max()
     else:
-        chunk_size = field.nxfile[field.nxpath].chunks[0]
+        chunk_size = field.chunks[0]
         for i in range(0, field.shape[0], chunk_size):
             try:
                 print 'Processing', i

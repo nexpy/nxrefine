@@ -105,7 +105,7 @@ class FindDialog(BaseDialog):
         if len(field.shape) == 2:
             res = None
         else:
-            chunk_size = field.nxfile[field.nxpath].chunks[0]
+            chunk_size = field.chunks[0]
             z_min, z_max = self.get_limits()
             pixel_tolerance, frame_tolerance = self.get_tolerance()
             self.progress_bar.setRange(z_min, z_max)

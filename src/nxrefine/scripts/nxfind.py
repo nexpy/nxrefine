@@ -26,7 +26,8 @@ def find_peaks(group, threshold=None, z_min=None, z_max=None):
         elif 'maximum' in field.attrs:
             threshold = np.float32(field.maximum) / 20
         else:
-            raise NeXusError('Must give threshold if the field maximum is unknown')
+            raise NeXusError(
+                'Must give threshold if the field maximum is unknown')
 
     if z_min == None:
         z_min = 0
@@ -38,7 +39,7 @@ def find_peaks(group, threshold=None, z_min=None, z_max=None):
     if len(field.shape) == 2:
         res = None
     else:
-        chunk_size = field.nxfile[field.nxpath].chunks[0]
+        chunk_size = field.chunks[0]
         pixel_tolerance = 50
         frame_tolerance = 10
         for i in range(0, field.shape[0], chunk_size):

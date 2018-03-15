@@ -52,7 +52,7 @@ class MaximumDialog(BaseDialog):
         else:
             self.progress_bar.setVisible(True)
             self.progress_bar.setRange(0, signal.shape[0])
-            chunk_size = signal.nxfile[signal.nxpath].chunks[0]
+            chunk_size = signal.chunks[0]
             for i in range(0, signal.shape[0], chunk_size):
                 try:
                     self.progress_bar.setValue(i)

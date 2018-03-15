@@ -558,9 +558,7 @@ class NXRefine(object):
         It also transforms detector coords into lab coords.
         Operation order:    yaw -> pitch -> roll -> twotheta -> gonpitch
         """
-        return inv(rotmat(2, self.gonpitch) *
-                   rotmat(3, self.twotheta) *
-                   rotmat(1, self.roll) *
+        return inv(rotmat(1, self.roll) *
                    rotmat(2, self.pitch) *
                    rotmat(3, self.yaw))
 
@@ -586,11 +584,7 @@ class NXRefine(object):
         i.e., t_gs. From this is subtracted the vector from the goniometer 
         center to the detector center, i.e., t_gd
         """
-        Svec = vec(0.0)
-        return (self.Gmat(phi) * Svec
-                - (rotmat(2,self.gonpitch) * 
-                   rotmat(3,self.twotheta) * 
-                   vec(self.distance)))
+        return vec(-self.distance)
 
     @property
     def Evec(self):

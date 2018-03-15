@@ -75,6 +75,8 @@ def main():
                   ('Current machine: %s\n'
                    'Current working directory: %s')
                     % (socket.gethostname(), os.getcwd()))
+    if 'nxcombine' in entry:
+        del entry['nxcombine']
     entry['nxcombine'] = NXprocess(program='nxcombine', 
                                    sequence_index=len(entry.NXprocess)+1, 
                                    version=__version__, 
