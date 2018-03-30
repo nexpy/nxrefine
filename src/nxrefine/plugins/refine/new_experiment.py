@@ -1,5 +1,8 @@
 import os
 import numpy as np
+
+from pyFAI.detectors import ALL_DETECTORS
+
 from nexusformat.nexus import *
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.utils import report_error
@@ -39,26 +42,32 @@ class ExperimentDialog(BaseDialog):
         entry['instrument/monochromator/wavelength'].attrs['units'] = 'Angstroms'
         entry['instrument/detector/distance'] = NXfield(100.0, dtype=np.float32)
         entry['instrument/detector/distance'].attrs['units'] = 'mm'
-        entry['instrument/detector/pixel_size'] = NXfield(0.172, dtype=np.float32)
-        entry['instrument/detector/pixel_size'].attrs['units'] = 'mm'
         self.instrument = GridParameters()
         self.instrument.add('experiment', 'experiment', 'Experiment Name')
         self.instrument.add('wavelength', entry['instrument/monochromator/wavelength'], 'Wavelength (Ang)')
         self.instrument.add('distance', entry['instrument/detector/distance'], 'Detector Distance (mm)')
-        self.instrument.add('pixel', entry['instrument/detector/pixel_size'], 'Pixel Size (mm)')
+        detector_list = sorted(list(set([detector().name for detector in ALL_DETECTORS.values()])))
+        self.instrument.add('detector', detector_list, 'Detector')
+        self.instrument['detector'].value = 'Pilatus CdTe 2M'
         self.instrument.add('positions', [0,1,2,3,4], 'Number of Detector Positions', slot=self.set_entries)
         self.instrument['positions'].value = '0'
 
     def setup_entry(self, position):
-        entry = self.experiment_file['f%s' % position] = NXentry()
+        entry = NXentry()
         entry.instrument = NXinstrument()
         entry.instrument.detector = NXdetector()
         entry.instrument.monochromator = NXmonochromator()
-        entry['instrument/detector/beam_center_x'] = NXfield(1024.0, dtype=np.float32)
-        entry['instrument/detector/beam_center_y'] = NXfield(1024.0, dtype=np.float32)
+        entry['instrument/detector/translation_x'] = NXfield(0.0, dtype=np.float32)
+        entry['instrument/detector/translation_y'] = NXfield(0.0, dtype=np.float32)
         self.detectors[position] = GridParameters()
-        self.detectors[position].add('xc', entry['instrument/detector/beam_center_x'], 'Beam Center - x')
-        self.detectors[position].add('yc', entry['instrument/detector/beam_center_y'], 'Beam Center - y')
+        self.detectors[position].add('x', entry['instrument/detector/translation_x'], 'Translation - x (mm)')
+        self.detectors[position].add('y', entry['instrument/detector/translation_y'], 'Translation - y (mm)')
+        self.experiment_file['f%s' % position] = entry
+
+    def get_detector(self):
+        for detector in ALL_DETECTORS:
+            if ALL_DETECTORS[detector]().name == self.instrument['detector'].value:
+                return ALL_DETECTORS[detector]()
 
     @property
     def positions(self):
@@ -73,18 +82,25 @@ class ExperimentDialog(BaseDialog):
     def get_parameters(self):
         entry = self.experiment_file['entry']
         entry['instrument/monochromator/wavelength'] = self.instrument['wavelength'].value
+        detector = self.get_detector()
+        entry['instrument/detector/name'] = detector.name
         entry['instrument/detector/distance'] = self.instrument['distance'].value
-        entry['instrument/detector/pixel_size'] = self.instrument['pixel'].value
+        entry['instrument/detector/pixel_size'] = detector.pixel1 * 1000
         for position in range(1, self.positions+1):
             entry = self.experiment_file['f%s' % position]
             entry['instrument/monochromator'].makelink(
                 self.experiment_file['entry/instrument/monochromator/wavelength'])
             entry['instrument/detector'].makelink(
+                self.experiment_file['entry/instrument/detector/name'])
+            entry['instrument/detector'].makelink(
                 self.experiment_file['entry/instrument/detector/distance'])
             entry['instrument/detector'].makelink(
                 self.experiment_file['entry/instrument/detector/pixel_size'])
-            entry['instrument/detector/beam_center_x'] = self.detectors[position]['xc'].value
-            entry['instrument/detector/beam_center_y'] = self.detectors[position]['yc'].value
+            entry['instrument/detector/translation_x'] = self.detectors[position]['x'].value
+            entry['instrument/detector/translation_x'].attrs['units'] = 'mm'
+            entry['instrument/detector/translation_y'] = self.detectors[position]['y'].value
+            entry['instrument/detector/translation_y'].attrs['units'] = 'mm'
+            entry['instrument/detector/pixel_mask'] = detector.mask
 
     def accept(self):
         try:
