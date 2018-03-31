@@ -86,6 +86,7 @@ class ExperimentDialog(BaseDialog):
         entry['instrument/detector/name'] = detector.name
         entry['instrument/detector/distance'] = self.instrument['distance'].value
         entry['instrument/detector/pixel_size'] = detector.pixel1 * 1000
+        entry['instrument/detector/pixel_size'].attrs['units'] = 'mm'
         for position in range(1, self.positions+1):
             entry = self.experiment_file['f%s' % position]
             entry['instrument/monochromator'].makelink(
