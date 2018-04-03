@@ -38,7 +38,6 @@ class MaskDialog(BaseDialog):
         self.data = self.entry['instrument/calibration']
         self.plot_data()
         shape = self.data.nxsignal.shape
-        self.y, self.x = (shape[0]/2.0, shape[1]/2.0)
 
     def plot_data(self):
         if self.plotview is None:
@@ -52,13 +51,17 @@ class MaskDialog(BaseDialog):
         self.plotview.deactivate()
 
     def add_shape(self):
+        xlo, xhi = self.plotview.xaxis.lo, self.plotview.xaxis.hi
+        ylo, yhi = self.plotview.yaxis.lo, self.plotview.yaxis.hi
+        xc, yc = xlo + 0.5 * (xhi - xlo), ylo + 0.5 * (yhi - ylo)
+        r = (xhi - xlo) / 4
         if self.shape_box.currentText() == 'Rectangle':
-            self.shapes.append(NXrectangle(self.x-100, self.y-100, 200, 200,
+            self.shapes.append(NXrectangle(xc-r, yc-r, 2*r, 2*r,
                                            border_tol=0.1, plotview=self.plotview,
                                            facecolor='r', edgecolor='k',
                                            linewidth=1, alpha=0.3))
         else:
-            self.shapes.append(NXcircle(self.x, self.y, 200, border_tol=0.1, 
+            self.shapes.append(NXcircle(xc, yc, r, border_tol=0.1, 
                                         plotview=self.plotview,
                                         facecolor='r', edgecolor='k',
                                         linewidth=1, alpha=0.3))
