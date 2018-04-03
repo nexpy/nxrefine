@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 
-from . import new_experiment, new_scan
-from . import stack_images, apply_mask, find_maximum, find_peaks
+from . import new_experiment, load_calibration, calibrate_powder, new_scan
+from . import create_mask, stack_images, find_maximum, find_peaks
 from . import calculate_angles, copy_parameters
 from . import define_lattice, refine_lattice
 from . import define_orientation, transform_data
@@ -11,8 +11,8 @@ def plugin_menu():
     actions = []
     actions.append(('New Experiment', new_experiment.show_dialog))
     actions.append(('New Scan', new_scan.show_dialog))
+    actions.append(('Create Mask', create_mask.show_dialog))
     actions.append(('Stack Images', stack_images.show_dialog))
-    actions.append(('Apply Mask', apply_mask.show_dialog))
     actions.append(('Find Maximum', find_maximum.show_dialog))
     actions.append(('Find Peaks', find_peaks.show_dialog))
     actions.append(('Copy Parameters', copy_parameters.show_dialog))
