@@ -48,9 +48,9 @@ class MaskDialog(BaseDialog):
         self.plotview.plot(self.data, log=True)
         self.plotview.aspect='equal'
         self.plotview.ytab.flipped = True
-        self.plotview.deactivate()
 
     def add_shape(self):
+        self.plotview.deactivate()
         xlo, xhi = self.plotview.xaxis.lo, self.plotview.xaxis.hi
         ylo, yhi = self.plotview.yaxis.lo, self.plotview.yaxis.hi
         xc, yc = xlo + 0.5 * (xhi - xlo), ylo + 0.5 * (yhi - ylo)
