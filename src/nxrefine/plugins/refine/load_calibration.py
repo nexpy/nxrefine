@@ -45,9 +45,8 @@ class LoadDialog(BaseDialog):
             self.reject()
         else:
             if 'calibration' in self.entry['instrument']:
-                confirmed = confirm_action(
-                    "Do you want to overwrite existing calibration data?")
-                if confirmed:
+                if confirm_action(
+                        "Do you want to overwrite existing calibration data?"):
                     del self.entry['instrument/calibration']
                 else:
                     self.reject()
