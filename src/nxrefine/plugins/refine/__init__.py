@@ -18,7 +18,7 @@ def plugin_menu():
     actions.append(('Copy Parameters', copy_parameters.show_dialog))
     actions.append(('Calculate Angles', calculate_angles.show_dialog))
     actions.append(('Define Lattice', define_lattice.show_dialog))
-    actions.append(('Refine Lattice', refine_lattice.show_dialog))
     actions.append(('Define Orientation', define_orientation.show_dialog))
+    actions.append(('Refine Lattice', refine_lattice.show_dialog))
     actions.append(('Transform Data', transform_data.show_dialog))
     return menu, actions
