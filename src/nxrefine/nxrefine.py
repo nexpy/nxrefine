@@ -818,7 +818,7 @@ class NXRefine(object):
             l = np.array(l)[peaks]
             diffs = self.diffs[peaks]
         else:
-            h = k = l = diffs = np.zeros((peaks), dtype=np.float32)
+            h = k = l = diffs = np.zeros(peaks.shape, dtype=np.float32)
         return list(zip(peaks, x, y, z, polar, azi, intensity, h, k, l, diffs))
 
     def get_ring_hkls(self):
