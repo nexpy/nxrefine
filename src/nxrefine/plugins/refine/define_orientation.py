@@ -138,7 +138,7 @@ class OrientationDialog(BaseDialog):
         return int(self.grain_combo.currentText().split()[-1])
 
     def list_peaks(self):
-        self.refine.phi_start, self.refine.phi_step = self.get_phi()
+        self.refine.phi = self.get_phi()
         self.refine.chi = self.get_chi()
         self.refine.omega = self.get_omega()
         if self.refine.grains is not None:
