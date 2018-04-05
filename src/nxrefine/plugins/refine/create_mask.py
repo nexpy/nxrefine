@@ -36,6 +36,8 @@ class MaskDialog(BaseDialog):
         if 'calibration' not in self.entry['instrument']:
             raise NeXusError('Please load calibration data to this entry')
         self.data = self.entry['instrument/calibration']
+        self.counts = self.data.nxsignal.nxvalue
+        self.mask = self.entry['instrument/detector/pixel_mask'].nxvalue
         self.plot_data()
         shape = self.data.nxsignal.shape
 
@@ -48,6 +50,7 @@ class MaskDialog(BaseDialog):
         self.plotview.plot(self.data, log=True)
         self.plotview.aspect='equal'
         self.plotview.ytab.flipped = True
+        self.plotview.draw()
 
     def add_shape(self):
         self.plotview.deactivate()
@@ -69,21 +72,21 @@ class MaskDialog(BaseDialog):
         self.shapes[-1].connect()    
 
     def accept(self):
-        mask = self.entry['instrument/detector/pixel_mask'].nxvalue
-        x, y = np.arange(mask.shape[1]), np.arange(mask.shape[0])
+        x, y = np.arange(self.mask.shape[1]), np.arange(self.mask.shape[0])
         for shape in self.shapes:
             if isinstance(shape, NXrectangle):
                 rect = shape.rectangle
                 x0, y0 = int(rect.get_x()), int(rect.get_y())
                 x1, y1 = int(x0+rect.get_width()), int(y0+rect.get_height())               
-                mask[y0:y1,x0:x1] = 1
+                self.mask[y0:y1,x0:x1] = 1
             else:
                 circle = shape.circle
                 xc, yc = circle.center
                 r = circle.radius
                 inside = (x[None,:]-int(xc))**2+(y[:,None]-int(yc))**2 < r**2
-                mask = mask | inside
-        self.entry['instrument/detector/pixel_mask'] = mask        
+                self.mask = self.mask | inside
+        self.mask[np.where(self.counts<0)] = 1
+        self.entry['instrument/detector/pixel_mask'] = self.mask        
         super(MaskDialog, self).accept()
         if 'Mask Editor' in plotviews:
             plotviews['Mask Editor'].close_view()
