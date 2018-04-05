@@ -39,8 +39,8 @@ class ExperimentDialog(BaseDialog):
         entry.instrument.monochromator = NXmonochromator()
         entry.instrument.detector = NXdetector()
         entry['instrument/monochromator/wavelength'] = NXfield(0.5, dtype=np.float32)
-        entry['instrument/monochromator/energy'] = NXfield(12.398419739640717/0.5, dtype=np.float32)
         entry['instrument/monochromator/wavelength'].attrs['units'] = 'Angstroms'
+        entry['instrument/monochromator/energy'] = NXfield(12.398419739640717/0.5, dtype=np.float32)
         entry['instrument/monochromator/energy'].attrs['units'] = 'keV'
         entry['instrument/detector/distance'] = NXfield(100.0, dtype=np.float32)
         entry['instrument/detector/distance'].attrs['units'] = 'mm'
