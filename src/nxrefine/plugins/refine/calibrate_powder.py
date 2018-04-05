@@ -26,6 +26,7 @@ class CalibrateDialog(BaseDialog):
 
         self.plotview = None
         self.data = None
+        self.counts = None
         self.points = []
         self.pattern_geometry = None
         self.cake_geometry = None
@@ -54,8 +55,9 @@ class CalibrateDialog(BaseDialog):
                             self.rings_box),
                         self.action_buttons(('Calibrate', self.calibrate),
                                             ('Plot Cake', self.plot_cake),
-                                            ('Restore', self.restore_parameters)), 
-                        self.close_buttons(save=True))
+                                            ('Restore', self.restore_parameters),
+                                            ('Save', self.save_parameters)), 
+                        self.close_buttons(close=True))
         self.set_title('Calibrating Powder')
 
     def choose_entry(self):
@@ -76,18 +78,8 @@ class CalibrateDialog(BaseDialog):
         if 'beam_center_y' in detector:
             self.parameters['yc'].value = detector['beam_center_y']
         self.data = self.entry['instrument/calibration']
+        self.counts = self.data.nxsignal.nxvalue
 
-
-    def write_parameters(self):
-        self.entry['instrument/monochromator/wavelength'] = self.parameters['wavelength'].value
-        self.entry['instrument/monochromator/energy'] = self.parameters['wavelength'].value * 12.398419739640717
-        detector = self.entry['instrument/detector']
-        detector['distance'] = self.parameters['distance'].value
-        detector['yaw'] = self.parameters['yaw'].value
-        detector['pitch'] = self.parameters['pitch'].value
-        detector['roll'] = self.parameters['roll'].value
-        detector['beam_center_x'] = self.parameters['xc'].value
-        detector['beam_center_y'] = self.parameters['yc'].value
 
     @property
     def search_size(self):
@@ -129,12 +121,24 @@ class CalibrateDialog(BaseDialog):
                 circle = point[0]
                 if circle.contains_point(self.plotview.ax.transData.transform((x,y))):
                     circle.remove()
+                    for circle in point[2]:
+                        circle.remove()
                     del self.points[i]
                     return
-            idx, idy = self.find_peak(x, y)            
-            self.points.append([self.plotview.circle(idx, idy, self.search_size,
-                                    facecolor=self.ring_color, edgecolor='k'),
-                                idy, idx, self.ring])
+            idx, idy = self.find_peak(x, y)
+            points = [(idy, idx)]
+            circles = []
+            massif = Massif(self.counts)
+            extra_points = massif.find_peaks((idy, idx))
+            for point in extra_points:
+                points.append(point)
+                circles.append(self.circle(point[1], point[0], alpha=0.3))  
+            self.points.append([self.circle(idx, idy), points, circles, self.ring])
+
+    def circle(self, idx, idy, alpha=1.0):
+        return self.plotview.circle(idx, idy, self.search_size,
+                                    facecolor=self.ring_color, edgecolor='k',
+                                    alpha=alpha)
 
     def select(self):
         self.plotview.cidpress = self.plotview.mpl_connect(
@@ -150,7 +154,7 @@ class CalibrateDialog(BaseDialog):
         top = int(np.round(y - s * 0.5))
         if top < 0:
             top = 0
-        region = self.data.nxsignal.nxvalue[top:(top+s),left:(left+s)]
+        region = self.counts[top:(top+s),left:(left+s)]
         idy, idx = np.where(region == region.max())
         idx = left + idx[0]
         idy = top + idy[0]
@@ -165,7 +169,11 @@ class CalibrateDialog(BaseDialog):
 
     @property
     def point_array(self):
-        return np.array([point[1:4] for point in self.points])
+        points = []
+        for point in self.points:
+            for p in point[1]:
+                points.append((p[0], p[1], point[3]))
+        return np.array(points)
 
     def prepare_parameters(self):
         self.parameters.set_parameters()
@@ -223,13 +231,13 @@ class CalibrateDialog(BaseDialog):
         self.cake_geometry.wavelength = pyFAI_parameter['wavelength']
 
     def plot_cake(self):
-        if 'Cake Plot' not in plotviews:
+        if 'Cake Plot' in plotviews:
             plotview = plotviews['Cake Plot']
         else:
             plotview = NXPlotView('Cake Plot')    
-        if not is_calibrated:
+        if not self.is_calibrated:
             raise NeXusError('No refinement performed')
-        res = self.cake_geometry.integrate2d(self.data.nxsignal.nxvalue, 
+        res = self.cake_geometry.integrate2d(self.counts, 
                                              1024, 1024,
                                              method='csr',
                                              unit='2th_deg',
@@ -252,13 +260,16 @@ class CalibrateDialog(BaseDialog):
     def restore_parameters(self):
         self.parameters.restore_parameters()
 
-    def accept(self):
-        self.write_parameters()
-        super(CalibrateDialog, self).accept()
-        if 'Powder Calibration' in plotviews:
-            plotviews['Powder Calibration'].close_view()
-        if 'Cake Plot' in plotviews:
-            plotviews['Cake Plot'].close_view()
+    def save_parameters(self):
+        self.entry['instrument/monochromator/wavelength'] = self.parameters['wavelength'].value
+        self.entry['instrument/monochromator/energy'] = 12.398419739640717 / self.parameters['wavelength'].value 
+        detector = self.entry['instrument/detector']
+        detector['distance'] = self.parameters['distance'].value
+        detector['yaw'] = self.parameters['yaw'].value
+        detector['pitch'] = self.parameters['pitch'].value
+        detector['roll'] = self.parameters['roll'].value
+        detector['beam_center_x'] = self.parameters['xc'].value
+        detector['beam_center_y'] = self.parameters['yc'].value
 
     def reject(self):
         super(CalibrateDialog, self).reject()
@@ -266,3 +277,4 @@ class CalibrateDialog(BaseDialog):
             plotviews['Powder Calibration'].close_view()
         if 'Cake Plot' in plotviews:
             plotviews['Cake Plot'].close_view()
+
