@@ -1,4 +1,5 @@
 import numpy as np
+import pyFAI
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 from pyFAI.blob_detection import BlobDetection
 from pyFAI.calibrant import Calibrant, ALL_CALIBRANTS
@@ -7,7 +8,7 @@ from pyFAI.massif import Massif
 
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.plotview import NXPlotView, plotviews
-from nexpy.gui.utils import report_error, load_image
+from nexpy.gui.utils import report_error, confirm_action, load_image
 from nexusformat.nexus import *
 from nxrefine.nxrefine import NXRefine
 
@@ -267,7 +268,30 @@ class CalibrateDialog(BaseDialog):
         self.parameters.restore_parameters()
 
     def save_parameters(self):
+        if not self.is_calibrated:
+            raise NeXusError('No refinement performed')
+        elif 'refinement' in self.entry['instrument/calibration']:
+            if confirm_action('Overwrite previous refinement?'):
+                del self.entry['instrument/calibration/refinement']
+            else:
+                return
         self.entry['instrument/calibration/calibrant'] = self.parameters['calibrant'].value
+        process = NXprocess()
+        process.program = 'pyFAI'
+        process.version = pyFAI.version
+        process.parameters = NXcollection()
+        process.parameters['Detector'] = self.entry['instrument/detector/description']
+        pyFAI_parameter = self.pattern_geometry.getPyFAI()
+        process.parameters['PixelSize1'] =  pyFAI_parameter['pixel1']
+        process.parameters['PixelSize2'] =  pyFAI_parameter['pixel2']
+        process.parameters['Distance'] =  pyFAI_parameter['dist']
+        process.parameters['Poni1'] =  pyFAI_parameter['poni1']
+        process.parameters['Poni2'] =  pyFAI_parameter['poni2']
+        process.parameters['Rot1'] =  pyFAI_parameter['rot1']
+        process.parameters['Rot2'] =  pyFAI_parameter['rot2']
+        process.parameters['Rot3'] =  pyFAI_parameter['rot3']
+        process.parameters['Wavelength'] =  pyFAI_parameter['wavelength']
+        self.entry['instrument/calibration/refinement'] = process
         self.entry['instrument/monochromator/wavelength'] = self.parameters['wavelength'].value
         self.entry['instrument/monochromator/energy'] = 12.398419739640717 / self.parameters['wavelength'].value 
         detector = self.entry['instrument/detector']
