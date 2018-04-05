@@ -132,7 +132,7 @@ class CalibrateDialog(BaseDialog):
             extra_points = massif.find_peaks((idy, idx))
             for point in extra_points:
                 points.append(point)
-                circles.append(self.circle(point[1], point[0], alpha=0.3))  
+                circles.append(self.circle(point[1], point[0], alpha=0.3))
             self.points.append([self.circle(idx, idy), points, circles, self.ring])
 
     def circle(self, idx, idy, alpha=1.0):
@@ -245,6 +245,12 @@ class CalibrateDialog(BaseDialog):
         self.cake_data = NXdata(res[0], (NXfield(res[2], name='azimumthal_angle'),
                                          NXfield(res[1], name='polar_angle')))
         plotview.plot(self.cake_data, log=True)
+        wavelength = self.parameters['wavelength'].value
+        polar_angles = [2 * np.degrees(np.arcsin(wavelength/(2*d)))
+                        for d in self.calibrant.dSpacing]
+        plotview.vlines([polar_angle for polar_angle in polar_angles 
+                         if polar_angle < plotview.xaxis.max], 
+                        linestyle=':', color='r')
 
     def read_parameters(self):
         pyFAI = self.pattern_geometry.getPyFAI()
@@ -261,6 +267,7 @@ class CalibrateDialog(BaseDialog):
         self.parameters.restore_parameters()
 
     def save_parameters(self):
+        self.entry['instrument/calibration/calibrant'] = self.parameters['calibrant'].value
         self.entry['instrument/monochromator/wavelength'] = self.parameters['wavelength'].value
         self.entry['instrument/monochromator/energy'] = 12.398419739640717 / self.parameters['wavelength'].value 
         detector = self.entry['instrument/detector']
