@@ -14,10 +14,11 @@ from nxrefine.nxrefine import NXRefine
 
 
 def show_dialog():
-    dialog = CalibrateDialog()
-    dialog.show()
-#    except NeXusError as error:
-#        report_error("Calibrating Powder", error)
+    try:
+        dialog = CalibrateDialog()
+        dialog.show()
+    except NeXusError as error:
+        report_error("Calibrating Powder", error)
 
 
 class CalibrateDialog(BaseDialog):

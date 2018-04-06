@@ -65,8 +65,6 @@ class RefineLatticeDialog(BaseDialog):
                             'Peak Angle Tolerance')
         self.parameters.add('orientation_matrix', False, 'Orientation Matrix', 
                             False)
-        self.parameters.add('threshold', False, 'Threshold', 
-                            False)
 
         self.refine_buttons = self.action_buttons(
                                   ('Refine Angles', self.refine_angles),

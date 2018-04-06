@@ -10,8 +10,10 @@ def plugin_menu():
     menu = 'Refine'
     actions = []
     actions.append(('New Experiment', new_experiment.show_dialog))
-    actions.append(('New Scan', new_scan.show_dialog))
+    actions.append(('Load Calibration', load_calibration.show_dialog))
+    actions.append(('Calibrate Powder', calibrate_powder.show_dialog))
     actions.append(('Create Mask', create_mask.show_dialog))
+    actions.append(('New Scan', new_scan.show_dialog))
     actions.append(('Stack Images', stack_images.show_dialog))
     actions.append(('Find Maximum', find_maximum.show_dialog))
     actions.append(('Find Peaks', find_peaks.show_dialog))
