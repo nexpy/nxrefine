@@ -46,7 +46,7 @@ class CalibrateDialog(BaseDialog):
         self.parameters.add('yaw', 0.0, 'Yaw (degrees)', True)
         self.parameters.add('pitch', 0.0, 'Pitch (degrees)', True)
         self.parameters.add('roll', 0.0, 'Roll (degrees)', True)
-        self.parameters.add('search_size', 20, 'Search Size (pixels)')
+        self.parameters.add('search_size', 10, 'Search Size (pixels)')
         rings = ['Ring1', 'Ring2', 'Ring3', 'Ring4', 'Ring5']
         self.rings_box = self.select_box(rings)
         self.set_layout(self.select_entry(self.choose_entry),
