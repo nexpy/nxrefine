@@ -246,6 +246,7 @@ class CalibrateDialog(BaseDialog):
                                              correctSolidAngle=True)
         self.cake_data = NXdata(res[0], (NXfield(res[2], name='azimumthal_angle'),
                                          NXfield(res[1], name='polar_angle')))
+        self.cake_data['title'] = self.entry['instrument/calibration/title']
         plotview.plot(self.cake_data, log=True)
         wavelength = self.parameters['wavelength'].value
         polar_angles = [2 * np.degrees(np.arcsin(wavelength/(2*d)))
