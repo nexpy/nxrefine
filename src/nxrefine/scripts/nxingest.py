@@ -17,7 +17,7 @@ def read_metadata(head_file, meta_file, logs):
         logs[key] = value
     meta_input = np.genfromtxt(meta_file, delimiter=',', names=True)
     for i, key in enumerate(meta_input.dtype.names):
-        logs[key] = [array[0] for array in meta_input]
+        logs[key] = [array[i] for array in meta_input]
 
 
 def main():
