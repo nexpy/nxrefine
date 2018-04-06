@@ -9,10 +9,11 @@ from nxrefine.nxrefine import NXRefine
 
 
 def show_dialog():
-    dialog = LoadDialog()
-    dialog.show()
-#    except NeXusError as error:
-#        report_error("Loading Calibration", error)
+    try:
+        dialog = LoadDialog()
+        dialog.show()
+    except NeXusError as error:
+        report_error("Loading Calibration", error)
 
 
 class LoadDialog(BaseDialog):
@@ -53,10 +54,10 @@ class LoadDialog(BaseDialog):
                     return
             self.entry['instrument/calibration'] = self.data
             super(LoadDialog, self).accept()
-            if self.plotview == plotviews['Powder Calibration']:
-                self.plotview.close_view()
+        if 'Powder Calibration' in plotviews and self.plotview == plotviews['Powder Calibration']:
+            self.plotview.close_view()
 
     def reject(self):
         super(LoadDialog, self).reject()
-        if self.plotview == plotviews['Powder Calibration']:
+        if 'Powder Calibration' in plotviews and self.plotview == plotviews['Powder Calibration']:
             self.plotview.close_view()
