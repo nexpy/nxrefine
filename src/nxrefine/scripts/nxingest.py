@@ -47,7 +47,7 @@ def main():
         if 'logs' in entry['instrument']:
             del entry['instrument/logs']
         entry['instrument/logs'] = NXcollection()
-        read_metadata(head_file, meta_file, entry['instrument/logs']))              
+        read_metadata(head_file, meta_file, entry['instrument/logs'])             
                 
 
 if __name__=="__main__":
