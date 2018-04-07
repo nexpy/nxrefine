@@ -14,10 +14,10 @@ import numpy as np
 from nexusformat.nexus import *
 
 
-def link_files(nexus_file, scan_dir, filenames):    
+def link_files(nexus_file, scan_dir, filenames, extension):
     for f in filenames:
-        if f in os.listdir(scan_dir):
-            scan_file = os.path.join(scan_dir, f)
+        if f+extension in os.listdir(scan_dir):
+            scan_file = os.path.join(scan_dir, f+extension)
             make_data(nexus_file[f], scan_file)
     
 
@@ -48,8 +48,10 @@ def main():
     parser.add_argument('-l', '--label', default='', help='sample label')
     parser.add_argument('-d', '--directory', default='', help='scan directory')
     parser.add_argument('-f', '--filenames', 
-        default=['f1.h5', 'f2.h5', 'f3.h5'], nargs='+',
+        default=['f1', 'f2', 'f3'], nargs='+',
         help='names of NeXus files to be linked to this file')
+    parser.add_argument('-e', '--extension', default='.h5', 
+        help='extension of raw data files')
 
     args = parser.parse_args()
 
@@ -61,6 +63,7 @@ def main():
         label = os.path.basename(os.path.dirname(directory))
         directory = os.path.basename(directory)
     filenames = args.filenames
+    extension = args.extension
 
     scan_dir = os.path.join(sample, label, directory)
     scan = os.path.basename(scan_dir)
@@ -68,7 +71,7 @@ def main():
         nexus_file = nxload(os.path.join(sample, label, sample+'_'+scan+'.nxs'), 'rw')
     else:
         nexus_file = nxload(os.path.join(sample, label, name+'.nxs'), 'rw')
-    link_files(nexus_file, scan_dir, filenames)
+    link_files(nexus_file, scan_dir, filenames, extension)
     print('Linking to ', nexus_file.nxfilename)
 
 if __name__ == '__main__':
