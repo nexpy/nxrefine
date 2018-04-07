@@ -23,9 +23,9 @@ def write_specfile(entry, spec_file):
     for subentry in subentries:
         if subentry.nxname not in entry:
             entry[subentry.nxname] = subentry
-            print "'%s' added to '%s'" % (subentry.nxname, entry.nxname)
+            print("'%s' added to '%s'" % (subentry.nxname, entry.nxname))
         else:
-            print "'%s' already in '%s'" % (subentry.nxname, entry.nxname)
+            print("'%s' already in '%s'" % (subentry.nxname, entry.nxname))
 
 
 def main():
@@ -50,9 +50,9 @@ def main():
     label_path = '%s/%s' % (sample, label)
     wrapper_file = '%s/%s_%s.nxs' % (label_path, sample, directory)
 
-    print "Processing sample '%s', label '%s', scan '%s'" % (sample,
+    print("Processing sample '%s', label '%s', scan '%s'" % (sample,
                                                              label,
-                                                             directory)
+                                                             directory))
     
     root = nxload(wrapper_file, 'rw')    
     for f in files:
@@ -61,7 +61,7 @@ def main():
         if os.path.exists(spec_file):
             write_specfile(entry, spec_file)
         else:
-            print "'%s' not found" % spec_file                
+            print("'%s' not found" % spec_file)              
                 
 
 if __name__=="__main__":

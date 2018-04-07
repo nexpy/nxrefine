@@ -97,14 +97,14 @@ def main():
         entry = root[e]
         ref = NXRefine(entry)
         old_score = ref.score()
-        print 'Current lattice parameters: ', ref.a, ref.b, ref.c
-        print '%s peaks; Old score: %.4f' % (len(ref.idx), old_score)
+        print('Current lattice parameters: ', ref.a, ref.b, ref.c)
+        print('%s peaks; Old score: %.4f' % (len(ref.idx), old_score))
         success, info, msg = refine_orientation(ref)
         new_score = ref.score()
-        print 'Success:', success, ' ', msg
-        print 'No. of function calls:', info['nfev']
-        print 'New lattice parameters: ', ref.a, ref.b, ref.c
-        print '%s peaks; New score: %.4f' % (len(ref.idx), new_score)
+        print('Success:', success, ' ', msg)
+        print('No. of function calls:', info['nfev'])
+        print('New lattice parameters: ', ref.a, ref.b, ref.c)
+        print('%s peaks; New score: %.4f' % (len(ref.idx), new_score))
         if new_score <= old_score and success > 0 and success < 5:
             write_parameters(ref)
             note = NXnote('nxorient '+' '.join(sys.argv[1:]), 
@@ -117,7 +117,7 @@ def main():
                                           note=note)
 
     toc=timeit.default_timer()
-    print toc-tic, 'seconds for', args.filename
+    print(toc-tic, 'seconds for', args.filename)
 
 
 if __name__=="__main__":

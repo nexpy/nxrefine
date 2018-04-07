@@ -93,10 +93,10 @@ def main():
     nexus_root = make_nexus_file(sample, label, scan_directory, temperature, 
                            filenames, maskfiles)
     nexus_root.save(nexus_file, 'w')
-    print 'Saving ', nexus_file
+    print('Saving ', nexus_file)
 
     if parent:
-        print "\n\nCopying parameters from %s\n" % parent
+        print("\n\nCopying parameters from %s\n" % parent)
         subprocess.call('nxcopy -f %s -o %s' 
                         % (parent, nexus_file), shell=True)
     

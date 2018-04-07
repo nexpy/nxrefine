@@ -17,7 +17,7 @@ def apply_mask(entries, mask):
         try:
             entry['instrument/detector/pixel_mask'] = mask
             entry['instrument/detector/pixel_mask_applied'] = False
-            print 'Mask applied to %s' % entry
+            print('Mask applied to %s' % entry)
             note = NXnote('nxmask '+' '.join(sys.argv[1:]), 
                           ('Current machine: %s\n'
                            'Current working directory: %s\n'

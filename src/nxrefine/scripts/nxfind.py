@@ -45,7 +45,7 @@ def find_peaks(group, threshold=None, z_min=None, z_max=None):
         for i in range(0, field.shape[0], chunk_size):
             try:
                 if i + chunk_size > z_min and i < z_max:
-                    print 'Processing', i
+                    print('Processing', i)
                     v = field[i:i+chunk_size,:,:].nxdata
                     for j in range(chunk_size):
                         if i+j >= z_min and i+j <= z_max:
@@ -112,7 +112,7 @@ def find_peaks(group, threshold=None, z_min=None, z_max=None):
     merged_peaks = sorted(merged_peaks)
     peaks = merged_peaks
 
-    print '%s peaks found' % len(peaks)
+    print('%s peaks found' % len(peaks))
 
     if len(peaks) > 0:
         write_peaks(field, peaks)
@@ -244,7 +244,7 @@ def main():
                                 note=note)
 
     toc=timeit.default_timer()
-    print toc-tic, 'seconds for', args.filename
+    print(toc-tic, 'seconds for', args.filename)
 
 
 if __name__=="__main__":

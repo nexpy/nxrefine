@@ -26,7 +26,7 @@ def find_maximum(field):
         chunk_size = field.chunks[0]
         for i in range(0, field.shape[0], chunk_size):
             try:
-                print 'Processing', i
+                print('Processing', i)
                 v = field[i:i+chunk_size,:,:]
             except IndexError as error:
                 pass
@@ -60,10 +60,10 @@ def main():
         args.filename = args.filename + '.nxs'
     root = nxload(os.path.join(args.directory, args.filename), 'rw')
     maximum = find_maximum(root[args.path].nxsignal)
-    print 'Maximum counts are ', maximum
+    print('Maximum counts are ', maximum)
     save_maximum(root[args.path], maximum)
     toc=timeit.default_timer()
-    print toc-tic, 'seconds for', args.filename
+    print(toc-tic, 'seconds for', args.filename)
 
 
 if __name__=="__main__":

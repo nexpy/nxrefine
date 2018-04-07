@@ -102,7 +102,7 @@ def main():
     root = make_nexus_file(sample_name, sample_label, scan_dir, 
                            parameter, unit, filenames, pattern, mask)
     root.save(nexus_file, 'w')
-    print 'Saving ', nexus_file
+    print('Saving ', nexus_file)
 
 if __name__ == '__main__':
     main()

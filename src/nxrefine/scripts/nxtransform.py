@@ -80,7 +80,7 @@ def main():
         output = os.path.join(scan, f+'_transform.nxs')
         settings = os.path.join(directory, f+'_transform.pars')
         prepare_transform(root[f], Qh, Qk, Ql, output, settings)
-        print root[f].transform.command
+        print(root[f].transform.command)
         subprocess.call(root[f].transform.command.nxdata, shell=True)
 
 

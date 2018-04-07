@@ -2,7 +2,7 @@ import argparse, os, subprocess, time
 
 
 def crash(msg):
-    print msg
+    print(msg)
     exit(1)
 
 

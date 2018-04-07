@@ -14,20 +14,16 @@ import numpy as np
 from nexusformat.nexus import *
 
 
-def link_files(nexus_file, scan_dir, filenames, maskfiles):    
-    for (f, m) in zip(filenames, maskfiles):
+def link_files(nexus_file, scan_dir, filenames):    
+    for f in filenames:
         if f+'.nxs' in os.listdir(scan_dir):
             if f not in nexus_file:
                 nexus_file[f] = NXentry()
             scan_file = os.path.join(scan_dir, f+'.nxs')
-            try:
-                mask = nxload(m+'.nxs')['entry/mask']
-            except Exception:
-                mask = None
-            make_data(nexus_file[f], scan_file, mask)
+            make_data(nexus_file[f], scan_file)
     
 
-def make_data(entry, scan_file, mask=None):
+def make_data(entry, scan_file):
     root = nxload(scan_file)
     if 'filename' in root.entry:
         entry.filename = root.entry.filename
@@ -39,9 +35,6 @@ def make_data(entry, scan_file, mask=None):
         entry.instrument.detector = NXdetector()
     entry.instrument.detector.frame_start = root.entry.instrument.detector.frame_start
     entry.instrument.detector.frame_time = root.entry.instrument.detector.frame_time
-    if mask is not None:
-        entry.instrument.detector.pixel_mask = mask
-        entry.instrument.detector.pixel_mask_applied = False
     if 'data' not in entry:
         entry.data = NXdata()
     entry.data.x_pixel = root.entry.data.x_pixel
@@ -71,8 +64,6 @@ def main():
     parser.add_argument('-d', '--directory', default='', help='scan directory')
     parser.add_argument('-f', '--filenames', default=['f1', 'f2'], nargs='+',
         help='names of NeXus files to be linked to this file')
-    parser.add_argument('-m', '--maskfiles', nargs='+',
-        help='name of the pixel mask files')
 
     args = parser.parse_args()
 
@@ -84,14 +75,6 @@ def main():
         label = os.path.basename(os.path.dirname(directory))
         directory = os.path.basename(directory)
     filenames = args.filenames
-    maskfiles = args.maskfiles
-    if maskfiles and len(maskfiles) < len(filenames):
-        if len(maskfiles) == 1:
-            maskfiles = [maskfiles] * len(filenames)
-        else:
-            raise NeXusError('No. of maskfiles must same as no. of filenames or 1')
-    elif maskfiles is None:
-        maskfiles = [None] * len(filenames)
 
     scan_dir = os.path.join(sample, label, directory)
     scan = os.path.basename(scan_dir)
@@ -99,8 +82,8 @@ def main():
         nexus_file = nxload(os.path.join(sample, label, sample+'_'+scan+'.nxs'), 'rw')
     else:
         nexus_file = nxload(os.path.join(sample, label, name+'.nxs'), 'rw')
-    link_files(nexus_file, scan_dir, filenames, maskfiles)
-    print 'Linking to ', nexus_file.nxfilename
+    link_files(nexus_file, scan_dir, filenames)
+    print('Linking to ', nexus_file.nxfilename)
 
 if __name__ == '__main__':
     main()
