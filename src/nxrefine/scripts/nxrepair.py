@@ -64,6 +64,8 @@ def main():
         directory = os.path.basename(directory)
     filenames = args.filenames
     extension = args.extension
+    id not extension.startswith('.'):
+        extension = '.' + extension
 
     scan_dir = os.path.join(sample, label, directory)
     scan = os.path.basename(scan_dir)
