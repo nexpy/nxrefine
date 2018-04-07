@@ -48,8 +48,6 @@ def main():
     parser.add_argument('-t', '--temperature', help='temperature of scan')
     parser.add_argument('-f', '--filenames', default=['f1', 'f2', 'f3'], 
         nargs='+', help='names of NeXus files to be linked to this file')
-    parser.add_argument('-m', '--maskfiles', nargs='+',
-        help='name of the pixel mask files')
     parser.add_argument('-p', '--parent', help='file name of file to copy from')
     
     args = parser.parse_args()
