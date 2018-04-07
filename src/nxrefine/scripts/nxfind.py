@@ -161,7 +161,7 @@ class NXpeak(object):
         return "Peak x=%f y=%f z=%f np=%i avg=%f" % (self.x, self.y, self.z, self.np, self.average)
 
     def __lt__(self, other):
-        return self.z < other.z:
+        return self.z < other.z
 
     def __eq__(self, other):
         if abs(self.z - other.z) <= self.frame_tolerance:
