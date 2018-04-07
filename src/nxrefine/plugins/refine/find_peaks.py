@@ -243,13 +243,8 @@ class NXpeak(object):
     def __repr__(self):
         return "Peak x=%f y=%f z=%f np=%i avg=%f" % (self.x, self.y, self.z, self.np, self.average)
 
-    def __cmp__(self, other):
-        if np.isclose(self.z, other.z):
-            return 0
-        elif self.z < other.z:
-            return -1
-        elif self.z > other.z:
-            return 1
+    def __lt__(self, other):
+        return self.z < other.z
 
     def __eq__(self, other):
         if abs(self.z - other.z) <= self.frame_tolerance:

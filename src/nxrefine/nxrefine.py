@@ -941,13 +941,8 @@ class NXgrain(object):
     def __repr__(self):
         return "NXgrain(%s)" % self.peaks
 
-    def __cmp__(self, other):
-        if len(self.peaks) == len(other.peaks):
-            return 0
-        if len(self.peaks) < len(other.peaks):
-            return 1
-        if len(self.peaks) > len(other.peaks):
-            return -1
+    def __lt__(self, other):
+        return len(self.peaks) < len(other.peaks)
 
     def __contains__(self, peak):
         return peak in self.peaks
