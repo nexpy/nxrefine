@@ -90,7 +90,7 @@ class ScanDialog(BaseDialog):
                 entry['data'] = NXdata()
                 scan = self.sample['scan'].value
                 entry['data'].nxsignal = NXlink('/entry/data/data', 
-                    file=os.path.join(scan, entry.nxname+'.nxs'))
+                    file=os.path.join(scan, entry.nxname+'.h5'))
                 entry['data/x_pixel'] = np.arange(1475, dtype=np.int32)
                 entry['data/y_pixel'] = np.arange(1679, dtype=np.int32)
                 entry['data/frame_number'] = np.arange(3649, dtype=np.int32)
