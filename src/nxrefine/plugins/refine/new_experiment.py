@@ -29,7 +29,7 @@ class ExperimentDialog(BaseDialog):
 
         self.setup_instrument()
 
-        self.set_layout(self.directorybox('Choose Data Directory'), 
+        self.set_layout(self.directorybox('Choose Experiment Directory'), 
                         self.instrument.grid(header=False))
         self.set_title('New Experiment')
 
@@ -101,9 +101,13 @@ class ExperimentDialog(BaseDialog):
     def accept(self):
         try:
             home_directory = self.get_directory()
+            self.mainwindow.default_directory = home_directory
             self.get_parameters()
-            self.experiment_file.save(os.path.join(home_directory, 
-                                      self.instrument['experiment'].value+'.nxs'))
+            configuration_directory = os.path.join(home_directory, 'configurations')
+            if not os.path.exists(configuration_directory):
+                os.makedirs(configuration_directory)
+            self.experiment_file.save(os.path.join(configuration_directory,
+                                                   self.instrument['experiment'].value+'.nxs'))
             self.treeview.tree.load(self.experiment_file.nxfilename, 'rw')
             super(ExperimentDialog, self).accept()
         except Exception as error:
