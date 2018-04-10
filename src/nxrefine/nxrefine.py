@@ -401,8 +401,9 @@ class NXRefine(object):
         try:
             if not os.path.exists(mask_file):
                 mask = self.entry['instrument/detector/pixel_mask']
-                mask.nxname = 'mask'
-                NXroot(NXentry(mask)).save(mask_file)
+                mask_root = NXroot(NXentry())
+                mask_root['entry/mask'] = mask
+                mask_root.save(mask_file)
             command.append('--mask %s\#/entry/mask' % mask_file)
         except NeXusError:
             pass          
