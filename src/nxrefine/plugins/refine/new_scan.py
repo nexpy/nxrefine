@@ -4,7 +4,6 @@ import numpy as np
 from nexusformat.nexus import *
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.utils import report_error
-from nxrefine.nxrefine import NXRefine
 
 
 def show_dialog():
@@ -20,92 +19,212 @@ class ScanDialog(BaseDialog):
     def __init__(self, parent=None):
         super(ScanDialog, self).__init__(parent)
 
+        self.config_file = None
+        self.positions = 1
+        self.entries = {}
+
         self.scan_file = NXroot()
         self.scan_file['entry'] = NXentry()
 
-        self.detectors = {}
-        self.entries = {}
+        self.directory_box = self.directorybox('Choose Experiment Directory',
+                                               self.choose_directory)
+        self.configuration_box = self.select_configuration()
+        self.configuration_layout = self.make_layout(
+            self.action_buttons(('Choose Experiment Configuration', 
+                                 self.choose_configuration)),
+            self.configuration_box)
+        self.sample_box = self.select_sample()
+        self.sample_layout = self.make_layout(
+            self.action_buttons(('Choose Sample', self.choose_sample)),
+            self.sample_box)
+        self.scan_box = self.select_box(['1'], slot=self.choose_position)
+        self.setup_scans()
 
-        self.setup_sample()
-        self.setup_scan()
-
-        self.set_layout(self.directorybox('Choose Data Directory'), 
-                        self.filebox('Choose Experiment File'),
-                        self.sample.grid(header=False),
+        self.set_layout(self.directory_box,
+                        self.configuration_layout,
+                        self.sample_layout,
                         self.scan.grid(header=False),
+                        self.make_layout(self.labels('Position'), self.scan_box),
+                        self.entries[1].grid(header=False),
+                        self.entries[2].grid(header=False),
+                        self.entries[3].grid(header=False),
+                        self.entries[4].grid(header=False),
+                        self.entries[5].grid(header=False),
                         self.action_buttons(('Make Scan File', self.make_scan)),
                         self.close_buttons(close=True))
+        self.setup_directory()
+        for i in self.entries:
+            self.entries[i].hide_grid()
+        self.entries[1].show_grid()
         self.set_title('New Scan')
 
-    def setup_sample(self):
-        self.sample = GridParameters()
-        self.sample.add('sample', 'sample', 'Sample Name')
-        self.sample.add('label', 'label', 'Sample Label')
-        self.sample.add('scan', 'scan', 'Scan Label')
-        self.sample.add('temperature', 300.0, 'Temperature (K)')
+    @property
+    def configuration(self):
+        return self.configuration_box.currentText()
 
-    def setup_entry(self, position):
-        entry = NXentry()
-        self.detectors[position] = GridParameters()
-        self.detectors[position].add('x', 0.0, 'Translation - x (mm)')
-        self.detectors[position].add('y', 0.0, 'Translation - y (mm)')
-        self.experiment_file['f%s' % position] = entry
+    @property
+    def sample(self):
+        return self.sample_box.currentText().split('/')[0]
 
-    def setup_scan(self):
+    @property
+    def label(self):
+        return self.sample_box.currentText().split('/')[1]
+
+    @property
+    def position(self):
+        try:
+            return int(self.scan_box.currentText())
+        except ValueError:
+            return 1
+
+    def choose_directory(self):
+        super(ScanDialog, self).choose_directory()
+        self.mainwindow.default_directory = self.get_directory()
+        self.setup_directory()
+
+    def setup_directory(self):
+        self.configuration_box.clear()
+        configurations = self.get_configurations()
+        for configuration in configurations:
+            self.configuration_box.addItem(configuration)
+        self.choose_configuration()
+        self.sample_box.clear()
+        samples = self.get_samples()
+        for sample in samples:
+            self.sample_box.addItem(sample)
+        self.sample_box.adjustSize()
+        self.choose_sample()
+
+    def select_configuration(self):
+        return self.select_box(self.get_configurations())
+
+    def get_configurations(self):
+        home_directory = self.get_directory()
+        if 'configurations' in os.listdir(home_directory):
+            return [f for f in 
+                    os.listdir(os.path.join(home_directory, 'configurations'))
+                    if f.endswith('.nxs')]
+        else:
+            return []
+
+    def choose_configuration(self):
+        home_directory = self.get_directory()
+        config_file = os.path.join(home_directory, 'configurations',
+                                   self.configuration)
+        if os.path.exists(config_file):
+            self.config_file = nxload(config_file)
+            self.positions = len(self.config_file.entries) - 1
+            self.scan_box.clear()
+            for position in range(1, self.positions+1):
+                self.scan_box.addItem('%d' % position)
+            self.scan_box.setCurrentIndex(0)
+            self.copy_configuration()
+
+    def select_sample(self):
+        return self.select_box(self.get_samples())
+        
+    def get_samples(self):
+        home_directory = self.get_directory()
+        if 'configurations' in os.listdir(home_directory):
+            sample_directories = [f for f in os.listdir(home_directory)
+                                  if (not f.startswith('.') and
+                                      os.path.isdir(
+                                        os.path.join(home_directory, f)))]
+        else:
+            sample_directories = []
+        samples = []
+        for sample_directory in sample_directories:
+            label_directories = [f for f in 
+                os.listdir(os.path.join(home_directory, sample_directory))
+                if os.path.isdir(os.path.join(home_directory, sample_directory, f))]
+            for label_directory in label_directories:
+                samples.append(os.path.join(sample_directory, label_directory))
+        return [sample.strip() for sample in samples]
+                        
+    def choose_sample(self):
+        pass
+                
+    def setup_scans(self):
         self.scan = GridParameters()
-        self.scan.add('phi_start', -5.0, 'Phi Start')
-        self.scan.add('phi_end', 360.0, 'Phi End')
-        self.scan.add('phi_step', 0.1, 'Phi Step')
-        self.scan.add('chi', -90.0, 'Chi')
-        self.scan.add('omega', 0.0, 'Omega')
-        self.scan.add('frame_rate', 10.0, 'Frame Rate (Hz)')
+        self.scan.add('scan', 'scan', 'Scan Label')
+        self.scan.add('temperature', 300.0, 'Temperature (K)')
+        self.scan.add('phi_start', -5.0, 'Phi Start (deg)')
+        self.scan.add('phi_end', 360.0, 'Phi End (deg)')
+        self.scan.add('phi_step', 0.1, 'Phi Step (deg)')
+        self.scan.add('frame_rate', 10, 'Frame Rate (Hz)')
+        
+        for position in range(1, 6):
+            self.setup_position(position)
 
-    def copy_experiment(self, experiment):
+    def setup_position(self, position):
+        self.entries[position] = GridParameters()
+        self.entries[position].add('chi', 0.0, 'Chi (deg)')
+        self.entries[position].add('omega', 0.0, 'Omega (deg)')
+        self.entries[position].add('x', 0.0, 'Translation - x (mm)')
+        self.entries[position].add('y', 0.0, 'Translation - y (mm)')
+        self.entries[position].add('linkfile', 'f%d.h5' % position, 'Detector Filename')
+        self.entries[position].add('linkpath', '/entry/data/data', 'Detector Data Path')
+
+    def choose_position(self):
+        for i in self.entries:
+            self.entries[i].hide_grid()
+        if self.position in self.entries:
+            self.entries[self.position].show_grid()
+
+    def copy_configuration(self):
         self.scan_file = NXroot()
-        for entry in experiment.entries:
-            self.scan_file[entry] = experiment[entry]
+        for entry in self.config_file.entries:
+            self.scan_file[entry] = self.config_file[entry]
+        self.read_parameters()
+
+    def read_parameters(self):
+        for position in range(1, self.positions+1):
+            entry = self.scan_file['f%d' % position]
+            self.entries[position]['x'].value = entry['instrument/detector/translation_x']
+            self.entries[position]['y'].value = entry['instrument/detector/translation_y']
 
     def get_parameters(self):
-        for e in self.scan_file.entries:
-            entry = self.scan_file[e]
-            if e == 'entry':
-                entry['sample'] = NXsample()
-                entry['sample/name'] = self.sample['sample'].value
-                entry['sample/label'] = self.sample['label'].value
-                entry['sample/temperature'] = self.sample['temperature'].value
-                entry['sample/temperature'].attrs['units'] = 'K'
-            else:
-                entry.makelink(self.scan_file['entry/sample'])
-                phi_start = self.scan['phi_start'].value
-                phi_end = self.scan['phi_end'].value
-                phi_step = self.scan['phi_step'].value
-                chi = self.scan['chi'].value
-                omega = self.scan['omega'].value
-                frame_rate = self.scan['frame_rate'].value
-                if 'goniometer' not in entry['instrument']:
-                    entry['instrument/goniometer'] = NXgoniometer()
-                entry['instrument/goniometer/phi'] = [phi_start, phi_start+phi_step]
-                entry['instrument/goniometer/chi'] = chi
-                entry['instrument/goniometer/omega'] = omega
-                entry['data'] = NXdata()
-                scan = self.sample['scan'].value
-                entry['data'].nxsignal = NXlink('/entry/data/data', 
-                    file=os.path.join(scan, entry.nxname+'.h5'))
-                entry['data/x_pixel'] = np.arange(1475, dtype=np.int32)
-                entry['data/y_pixel'] = np.arange(1679, dtype=np.int32)
-                entry['data/frame_number'] = np.arange(3649, dtype=np.int32)
-                entry['data'].nxaxes = [entry['data/frame_number'],
-                                        entry['data/y_pixel'],
-                                        entry['data/x_pixel']]
+        entry = self.scan_file['entry']
+        entry['sample'] = NXsample()
+        entry['sample/name'] = self.sample
+        entry['sample/label'] = self.label
+        entry['sample/temperature'] = self.scan['temperature'].value
+        entry['sample/temperature'].attrs['units'] = 'K'
+        y_size, x_size = entry['instrument/detector/shape'].nxvalue
+        scan = self.scan['scan'].value
+        for position in range(1, self.positions+1):
+            entry = self.scan_file['f%d' % position]
+            entry.makelink(self.scan_file['entry/sample'])
+            phi_start = self.scan['phi_start'].value
+            phi_end = self.scan['phi_end'].value
+            phi_step = self.scan['phi_step'].value
+            frame_rate = self.scan['frame_rate'].value
+            chi = self.entries[position]['chi'].value
+            omega = self.entries[position]['omega'].value
+            
+            if 'goniometer' not in entry['instrument']:
+                entry['instrument/goniometer'] = NXgoniometer()
+            entry['instrument/goniometer/phi'] = [phi_start, phi_start+phi_step]
+            entry['instrument/goniometer/chi'] = chi
+            entry['instrument/goniometer/omega'] = omega
+            linkpath = self.entries[position]['linkpath'].value
+            linkfile = os.path.join(scan, self.entries[position]['linkfile'].value)
+            entry['data'] = NXdata()
+            entry['data'].nxsignal = NXlink(linkpath, linkfile) 
+            entry['data/x_pixel'] = np.arange(x_size, dtype=np.int32)
+            entry['data/y_pixel'] = np.arange(y_size, dtype=np.int32)
+            entry['data/frame_number'] = np.arange(3649, dtype=np.int32)
+            entry['data'].nxaxes = [entry['data/frame_number'],
+                                    entry['data/y_pixel'],
+                                    entry['data/x_pixel']]
 
     def make_scan(self):
         home_directory = self.get_directory()
-        experiment_template = nxload(self.get_filename())
-        self.copy_experiment(experiment_template)
-        sample_directory = os.path.join(home_directory, self.sample['sample'].value)
-        label_directory = os.path.join(home_directory, self.sample['sample'].value, self.sample['label'].value)
-        scan_directory = os.path.join(label_directory, self.sample['scan'].value)
-        scan_name = self.sample['sample'].value+'_'+self.sample['scan'].value
+        self.mainwindow.default_directory = home_directory
+        sample_directory = os.path.join(home_directory, self.sample)
+        label_directory = os.path.join(home_directory, self.sample, self.label)
+        scan_directory = os.path.join(label_directory, self.scan['scan'].value)
+        scan_name = self.sample+'_'+self.scan['scan'].value
         try: 
             os.makedirs(scan_directory)
             for position in range(1, self.positions+1):
