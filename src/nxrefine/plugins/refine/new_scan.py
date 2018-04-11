@@ -23,9 +23,6 @@ class ScanDialog(BaseDialog):
         self.positions = 1
         self.entries = {}
 
-        self.scan_file = NXroot()
-        self.scan_file['entry'] = NXentry()
-
         self.directory_box = self.directorybox('Choose Experiment Directory',
                                                self.choose_directory)
         self.configuration_box = self.select_configuration()
@@ -185,7 +182,8 @@ class ScanDialog(BaseDialog):
 
     def get_parameters(self):
         entry = self.scan_file['entry']
-        entry['sample'] = NXsample()
+        if 'sample' not in entry:
+            entry['sample'] = NXsample()
         entry['sample/name'] = self.sample
         entry['sample/label'] = self.label
         entry['sample/temperature'] = self.scan['temperature'].value
@@ -231,6 +229,7 @@ class ScanDialog(BaseDialog):
                 os.mkdir(os.path.join(scan_directory, 'f%s' % position))
         except Exception:
             pass
+        self.copy_configuration()
         self.get_parameters()
         self.scan_file.save(os.path.join(label_directory, scan_name+'.nxs'))
         self.treeview.tree.load(self.scan_file.nxfilename, 'rw')
