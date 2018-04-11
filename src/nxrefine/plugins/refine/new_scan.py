@@ -225,8 +225,6 @@ class ScanDialog(BaseDialog):
         scan_name = self.sample+'_'+self.scan['scan'].value
         try: 
             os.makedirs(scan_directory)
-            for position in range(1, self.positions+1):
-                os.mkdir(os.path.join(scan_directory, 'f%s' % position))
         except Exception:
             pass
         self.copy_configuration()
