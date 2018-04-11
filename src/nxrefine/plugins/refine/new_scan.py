@@ -211,7 +211,7 @@ class ScanDialog(BaseDialog):
             entry['data'].nxsignal = NXlink(linkpath, linkfile) 
             entry['data/x_pixel'] = np.arange(x_size, dtype=np.int32)
             entry['data/y_pixel'] = np.arange(y_size, dtype=np.int32)
-            entry['data/frame_number'] = np.arange(3649, dtype=np.int32)
+            entry['data/frame_number'] = np.arange(3650, dtype=np.int32)
             entry['data'].nxaxes = [entry['data/frame_number'],
                                     entry['data/y_pixel'],
                                     entry['data/x_pixel']]
