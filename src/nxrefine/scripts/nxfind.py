@@ -1,3 +1,4 @@
+from __future__ import print_function
 from math import sqrt
 import argparse, glob, os, socket, sys, timeit
 
@@ -8,6 +9,12 @@ from nexusformat.nexus import *
 from nxrefine import blobcorrector, __version__
 from nxrefine.connectedpixels import blob_moments
 from nxrefine.labelimage import labelimage, flip1
+
+def update_progress(i):
+    s = 'Processing %d' % i
+    if i > 0:
+        s = '\r' + s
+    print(s, end='')
 
 
 def find_peaks(group, threshold=None, z_min=None, z_max=None):
@@ -45,7 +52,7 @@ def find_peaks(group, threshold=None, z_min=None, z_max=None):
         for i in range(0, field.shape[0], chunk_size):
             try:
                 if i + chunk_size > z_min and i < z_max:
-                    print('Processing', i)
+                    update_progress(i)
                     v = field[i:i+chunk_size,:,:].nxdata
                     for j in range(chunk_size):
                         if i+j >= z_min and i+j <= z_max:

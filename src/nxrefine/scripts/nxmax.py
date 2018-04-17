@@ -6,10 +6,16 @@
 #
 # The full license is in the file COPYING, distributed with this software.
 #-----------------------------------------------------------------------------
-
+from __future__ import print_function
 import argparse, os, sys, timeit
 import numpy as np
 from nexusformat.nexus import *
+
+def update_progress(i):
+    s = 'Processing %d' % i
+    if i > 0:
+        s = '\r' + s
+    print(s, end='')
 
 
 def find_maximum(field):
@@ -26,7 +32,7 @@ def find_maximum(field):
         chunk_size = field.chunks[0]
         for i in range(0, field.shape[0], chunk_size):
             try:
-                print('Processing', i)
+                update_progress(i)
                 v = field[i:i+chunk_size,:,:]
             except IndexError as error:
                 pass
