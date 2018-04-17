@@ -196,22 +196,24 @@ class ScanDialog(BaseDialog):
             phi_start = self.scan['phi_start'].value
             phi_end = self.scan['phi_end'].value
             phi_step = self.scan['phi_step'].value
-            frame_rate = self.scan['frame_rate'].value
+            phi = np.linspace(phi_start, phi_end, int((phi_end-phi_start)/phi_step))
             chi = self.entries[position]['chi'].value
             omega = self.entries[position]['omega'].value
-            
+            frame_rate = self.entries[position]['frame_rate']
             if 'goniometer' not in entry['instrument']:
                 entry['instrument/goniometer'] = NXgoniometer()
-            entry['instrument/goniometer/phi'] = [phi_start, phi_start+phi_step]
+            entry['instrument/goniometer/phi'] = phi
             entry['instrument/goniometer/chi'] = chi
             entry['instrument/goniometer/omega'] = omega
+            if frame_rate > 0.0:
+                entry['instrument/detector/frame_time'] = 1.0 / frame_rate
             linkpath = self.entries[position]['linkpath'].value
             linkfile = os.path.join(scan, self.entries[position]['linkfile'].value)
             entry['data'] = NXdata()
             entry['data'].nxsignal = NXlink(linkpath, linkfile) 
             entry['data/x_pixel'] = np.arange(x_size, dtype=np.int32)
             entry['data/y_pixel'] = np.arange(y_size, dtype=np.int32)
-            entry['data/frame_number'] = np.arange(3650, dtype=np.int32)
+            entry['data/frame_number'] = np.arange(len(phi)-1, dtype=np.int32)
             entry['data'].nxaxes = [entry['data/frame_number'],
                                     entry['data/y_pixel'],
                                     entry['data/x_pixel']]
