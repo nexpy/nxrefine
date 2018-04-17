@@ -1,5 +1,6 @@
 import argparse, os, subprocess
 import numpy as np
+from nexusformat.nexus import nxload
 
 def crash(msg):
     print(msg)
