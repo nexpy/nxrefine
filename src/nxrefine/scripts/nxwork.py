@@ -21,7 +21,7 @@ def main():
     sample = os.path.basename(os.path.dirname(directory))  
     label = os.path.basename(directory)
 
-    print("Processing sample '%s', label '%s'\n" % (sample, label))
+    print("Processing directory '%s'" % directory)
     
     files = args.filenames
     parent = args.parent
@@ -38,10 +38,12 @@ def main():
                      if filename.endswith('.nxs')]
 
     for wrapper_file in wrapper_files:
-        root = nxload(wrapper_file)    
+        print("\n\nProcessing %s" % wrapper_file)
+        root = nxload(wrapper_file)
+        scan_label = os.path.splitext(wrapper_file)[0][len(sample)+1:]
+        path = os.path.join(sample, label, scan_label)        
         for f in files:
-            path = os.path.join(sample, label, directory)
-            print("\n\nProcessing %s" % wrapper_file)
+            print("\n\nProcessing %s" % f)
             if 'logs' not in root[f]['instrument']:
                 print("\n\nReading in metadata in %s\n" % f)
                 subprocess.call('nxingest -d %s -f %s' % (path, f), shell=True)
