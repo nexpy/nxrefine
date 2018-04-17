@@ -53,7 +53,7 @@ def main():
                                 % (wrapper_file, f), shell=True)
             if 'peaks' not in root[f]:
                 print("\n\nFinding peaks in %s\n" % f)
-                subprocess.call('nxfind -f %s -p %s/data -s 500 -e 2500'
+                subprocess.call('nxfind -f %s -p %s/data -s 20 -e 3630'
                                 % (wrapper_file, f), shell=True)
 
         if parent:
