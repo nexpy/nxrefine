@@ -24,6 +24,7 @@ class MakeDialog(BaseDialog):
                                           self.choose_sample),
                         self.textboxes(('Scan Command', 'Pil2Mscan')),
                         self.action_buttons(('Select All', self.select_scans),
+                                            ('Reverse All', self.reverse_scans),
                                             ('Clear All', self.clear_scans),
                                             ('Make Scan Macro', self.make_scans)),
                         self.close_buttons(close=True))
@@ -51,7 +52,7 @@ class MakeDialog(BaseDialog):
             scan = 'f%d' % i
             self.scans.add(scan, i+1, f, True, self.update_scans)
             self.scans[scan].checkbox.stateChanged.connect(self.update_scans)
-        self.insert_layout(2, self.scans.grid(header=False, checkbox_label=False))
+        self.insert_layout(2, self.scans.grid(header=False))
 
     @property
     def scan_list(self):
@@ -79,6 +80,11 @@ class MakeDialog(BaseDialog):
             self.scans[scan].value = i+1
             self.scans[scan].checkbox.setChecked(True)
 
+    def reverse_scans(self):
+        for i, scan in enumerate(reversed(self.scan_list)):
+            scan.value = i+1
+            scan.checkbox.setChecked(True)
+
     def clear_scans(self):
         for scan in self.scans:
             self.scans[scan].value = 0
@@ -87,7 +93,8 @@ class MakeDialog(BaseDialog):
     def make_scans(self):
         scans = [scan.label.text() for scan in self.scan_list]  
         scan_command = self.textbox['Scan Command'].text()
-        scan_parameters = []
+        scan_parameters = ['#command path detx dety temperature ' + 
+                           'phi_start phi_step phi_end chi omega frame_rate']
         for scan in self.scan_list:
             nexus_file = scan.label.text()
             root = nxload(os.path.join(self.sample_directory, nexus_file))
