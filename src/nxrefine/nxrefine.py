@@ -72,6 +72,9 @@ class NXRefine(object):
         self.phi = np.array((0.0, 0.1), dtype=np.float32)
         self.xc = 256.0
         self.yc = 256.0
+        self.xd = 0.0
+        self.yd = 0.0
+        self.frame_time = 0.1
         self.symmetry = 'cubic'
         self.centring = 'P'
         self.peak = None
@@ -135,6 +138,12 @@ class NXRefine(object):
                                       self.xc)
         self.yc = self.read_parameter('instrument/detector/beam_center_y', 
                                       self.yc)
+        self.xd = self.read_parameter('instrument/detector/translation_x', 
+                                      self.xd)
+        self.yd = self.read_parameter('instrument/detector/translation_y', 
+                                      self.yd)
+        self.frame_time = self.read_parameter('instrument/detector/frame_time', 
+                                              self.frame_time)
         self.phi = self.read_parameter('instrument/goniometer/phi', self.phi)
         self.chi = self.read_parameter('instrument/goniometer/chi', self.chi)
         self.omega = self.read_parameter('instrument/goniometer/omega', 
@@ -212,6 +221,9 @@ class NXRefine(object):
         self.write_parameter('instrument/detector/pixel_mask', self.pixel_mask)
         self.write_parameter('instrument/detector/pixel_mask_applied', 
                              self.pixel_mask_applied)
+        self.write_parameter('instrument/detector/translation_x', self.xd)
+        self.write_parameter('instrument/detector/translation_y', self.yd)
+        self.write_parameter('instrument/detector/frame_time', self.frame_time)
         if self.Umat is not None:
             self.write_parameter('instrument/detector/orientation_matrix', 
                                  np.array(self.Umat))
@@ -267,6 +279,10 @@ class NXRefine(object):
                                   self.pixel_mask)
             other.write_parameter('instrument/detector/pixel_mask_applied', 
                                   self.pixel_mask_applied)
+            other.write_parameter('instrument/detector/translation_x', self.xd)
+            other.write_parameter('instrument/detector/translation_y', self.yd)
+            other.write_parameter('instrument/detector/frame_time', 
+                                  self.frame_time)
             if self.Umat is not None:
                 other.write_parameter('instrument/detector/orientation_matrix', 
                                       np.array(self.Umat))
