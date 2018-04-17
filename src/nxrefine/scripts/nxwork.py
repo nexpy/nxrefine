@@ -33,14 +33,15 @@ def main():
     if not os.path.exists(label_path):
         crash("Label does not exist: "+label_path)
 
-    wrapper_files = [filename for filename in os.listdir(label_path) 
+    wrapper_files = [os.path.join(directory, filename) 
+                     for filename in os.listdir(label_path) 
                      if filename.endswith('.nxs')]
 
     for wrapper_file in wrapper_files:
         root = nxload(wrapper_file)    
         for f in files:
             path = os.path.join(sample, label, directory)
-            print("\n\nProcessing %s" % path)
+            print("\n\nProcessing %s" % wrapper_file)
             if 'logs' not in root[f]['instrument']:
                 print("\n\nReading in metadata in %s\n" % f)
                 subprocess.call('nxingest -d %s -f %s' % (path, f), shell=True)
