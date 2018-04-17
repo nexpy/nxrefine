@@ -22,7 +22,6 @@ def main():
 
     print("Processing sample '%s', label '%s'\n" % (sample, label))
     
-    temperature = np.float32(args.temperature)
     files = args.filenames
     parent = args.parent
 
