@@ -196,7 +196,7 @@ class ScanDialog(BaseDialog):
             phi_start = self.scan['phi_start'].value
             phi_end = self.scan['phi_end'].value
             phi_step = self.scan['phi_step'].value
-            phi = np.linspace(phi_start, phi_end, int((phi_end-phi_start)/phi_step))
+            phi = np.linspace(phi_start, phi_end, int((phi_end-phi_start)/phi_step)+1)
             chi = self.entries[position]['chi'].value
             omega = self.entries[position]['omega'].value
             frame_rate = self.scan['frame_rate'].value
