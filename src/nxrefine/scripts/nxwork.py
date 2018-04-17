@@ -16,8 +16,6 @@ def main():
     
     args = parser.parse_args()
 
-    sample = args.sample
-    label = args.label
     directory = args.directory.rstrip('/')
     if sample is None and label is None:
         sample = os.path.basename(os.path.dirname(directory))  
