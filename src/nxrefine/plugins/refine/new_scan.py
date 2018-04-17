@@ -199,7 +199,7 @@ class ScanDialog(BaseDialog):
             phi = np.linspace(phi_start, phi_end, int((phi_end-phi_start)/phi_step))
             chi = self.entries[position]['chi'].value
             omega = self.entries[position]['omega'].value
-            frame_rate = self.entries[position]['frame_rate']
+            frame_rate = self.scan['frame_rate'].value
             if 'goniometer' not in entry['instrument']:
                 entry['instrument/goniometer'] = NXgoniometer()
             entry['instrument/goniometer/phi'] = phi
