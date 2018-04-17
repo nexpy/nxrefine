@@ -17,9 +17,8 @@ def main():
     args = parser.parse_args()
 
     directory = args.directory.rstrip('/')
-    if sample is None and label is None:
-        sample = os.path.basename(os.path.dirname(directory))  
-        label = os.path.basename(directory)
+    sample = os.path.basename(os.path.dirname(directory))  
+    label = os.path.basename(directory)
 
     print("Processing sample '%s', label '%s'\n" % (sample, label))
     
