@@ -40,7 +40,7 @@ def main():
     for wrapper_file in wrapper_files:
         print("\n\nProcessing %s" % wrapper_file)
         root = nxload(wrapper_file)
-        scan_label = os.path.splitext(wrapper_file)[0][len(sample)+1:]
+        scan_label = os.path.splitext(os.path.basename(wrapper_file))[0][len(sample)+1:]
         path = os.path.join(sample, label, scan_label)        
         for f in files:
             print("\n\nProcessing %s" % f)
