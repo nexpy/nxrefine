@@ -10,6 +10,7 @@ from nxrefine import blobcorrector, __version__
 from nxrefine.connectedpixels import blob_moments
 from nxrefine.labelimage import labelimage, flip1
 
+
 def update_progress(i):
     s = 'Processing %d' % i
     if i > 0:
@@ -49,7 +50,8 @@ def find_peaks(group, threshold=None, z_min=None, z_max=None):
         chunk_size = field.chunks[0]
         pixel_tolerance = 50
         frame_tolerance = 10
-        for i in range(0, field.shape[0], chunk_size):
+        nframes = field.shape[0]
+        for i in range(0, nframes, chunk_size):
             try:
                 if i + chunk_size > z_min and i < z_max:
                     update_progress(i)
@@ -119,7 +121,7 @@ def find_peaks(group, threshold=None, z_min=None, z_max=None):
     merged_peaks = sorted(merged_peaks)
     peaks = merged_peaks
 
-    print('%s peaks found' % len(peaks))
+    print('\n%s peaks found' % len(peaks))
 
     if len(peaks) > 0:
         write_peaks(field, peaks)

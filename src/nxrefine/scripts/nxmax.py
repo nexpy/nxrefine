@@ -11,6 +11,7 @@ import argparse, os, sys, timeit
 import numpy as np
 from nexusformat.nexus import *
 
+
 def update_progress(i):
     s = 'Processing %d' % i
     if i > 0:
@@ -29,8 +30,9 @@ def find_maximum(field):
     if len(field.shape) == 2:
         maximum = field[:,:].max()
     else:
+        nframes = field.shape[0]
         chunk_size = field.chunks[0]
-        for i in range(0, field.shape[0], chunk_size):
+        for i in range(0, nframes, chunk_size):
             try:
                 update_progress(i)
                 v = field[i:i+chunk_size,:,:]
@@ -66,7 +68,7 @@ def main():
         args.filename = args.filename + '.nxs'
     root = nxload(os.path.join(args.directory, args.filename), 'rw')
     maximum = find_maximum(root[args.path].nxsignal)
-    print('Maximum counts are ', maximum)
+    print('\nMaximum counts are ', maximum)
     save_maximum(root[args.path], maximum)
     toc=timeit.default_timer()
     print(toc-tic, 'seconds for', args.filename)
