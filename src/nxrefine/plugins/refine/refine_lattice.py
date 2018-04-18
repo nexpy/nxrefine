@@ -63,6 +63,7 @@ class RefineLatticeDialog(BaseDialog):
                             'Polar Angle Tolerance')
         self.parameters.add('peak_tolerance', self.refine.peak_tolerance, 
                             'Peak Angle Tolerance')
+        self.phi = self.refine.phi
 
         self.refine_buttons = self.action_buttons(
                                   ('Refine Angles', self.refine_angles),
@@ -199,7 +200,9 @@ class RefineLatticeDialog(BaseDialog):
     def get_phi(self):
         start, step = (self.parameters['phi_start'].value, 
                        self.parameters['phi_step'].value)
-        return np.array((start, start+step), dtype=np.float32)
+        self.phi[0] = start
+        self.phi[1] = start + step
+        return self.phi
 
     def get_angles(self):
         return (self.parameters['chi'].value,
