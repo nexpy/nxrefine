@@ -63,8 +63,6 @@ class RefineLatticeDialog(BaseDialog):
                             'Polar Angle Tolerance')
         self.parameters.add('peak_tolerance', self.refine.peak_tolerance, 
                             'Peak Angle Tolerance')
-        self.parameters.add('orientation_matrix', False, 'Orientation Matrix', 
-                            False)
 
         self.refine_buttons = self.action_buttons(
                                   ('Refine Angles', self.refine_angles),
@@ -272,7 +270,6 @@ class RefineLatticeDialog(BaseDialog):
         pvx.crosshairs(y, z)
 
     def refine_angles(self):
-        self.parameters['orientation_matrix'].vary = False
         self.parameters['phi_start'].vary = False
         self.parameters.refine_parameters(self.angle_residuals)
         self.update_parameters()
@@ -283,9 +280,8 @@ class RefineLatticeDialog(BaseDialog):
         polar_angles, _ = self.refine.calculate_angles(self.refine.x, 
                                                        self.refine.y)
         rings = self.refine.calculate_rings()
-        residuals = np.array([find_nearest(rings, polar_angle) - polar_angle 
-                              for polar_angle in polar_angles])
-        return np.sum(residuals**2)
+        return np.array([find_nearest(rings, polar_angle) - polar_angle 
+                         for polar_angle in polar_angles])
 
     def refine_hkls(self):
         self.parameters.refine_parameters(self.hkl_residuals)
@@ -298,7 +294,7 @@ class RefineLatticeDialog(BaseDialog):
     def hkl_residuals(self, p):
         self.parameters.get_parameters(p)
         self.transfer_parameters()
-        return self.refine.score(self.refine.idx)
+        return self.refine.diffs
 
     def restore_parameters(self):
         self.parameters.restore_parameters()
