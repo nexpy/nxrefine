@@ -181,7 +181,7 @@ class NXRefine(object):
             except IndexError:
                 self.set_polar_max(self.polar_angle.max())
         else:
-            self.set_polar_max(20.0)
+            self.set_polar_max(10.0)
 
     def write_parameter(self, path, value):
         if value is not None:
@@ -362,6 +362,7 @@ class NXRefine(object):
                                                 for args in peaks]))
 
     def initialize_grid(self):
+        polar_max = self.polar_max
         try:
             self.set_polar_max(self.polar_angle.max())
         except:
@@ -379,6 +380,7 @@ class NXRefine(object):
         self.l_start = -self.l_stop
         self.l_step = np.round(l_range/1000, 2)
         self.define_grid()
+        self.polar_max = polar_max
 
     def define_grid(self):
         self.h_shape = np.int32(np.round((self.h_stop - self.h_start) / 
@@ -757,13 +759,11 @@ class NXRefine(object):
 
     @property
     def idx(self):
-        return list(np.where(self.diffs < self.hkl_tolerance)[0])
+        return list(np.where(self.polar_angle < self.polar_max)[0])
 
     def score(self, grain=None):
         diffs = self.diffs
-        idx = list(np.where(diffs < self.hkl_tolerance)[0])
-        diffs = diffs[idx]
-        weights = self.intensity[idx]
+        weights = self.weights
         return np.sum(weights * diffs) / np.sum(weights)
 
     def get_UBmat(self, i, j):
@@ -803,7 +803,11 @@ class NXRefine(object):
     @property
     def diffs(self):
         """Return the set of reciproal space differences for all the peaks"""
-        return np.array([self.diff(i) for i in range(self.npks)])
+        return np.array(np.array([self.diff(i) for i in self.idx]))
+
+    @property
+    def weights(self):
+        return np.array(self.intensity[self.idx])
 
     def diff(self, i):
         """Determine the reciprocal space difference between the calculated 
@@ -834,7 +838,7 @@ class NXRefine(object):
             h = np.array(h)[peaks]
             k = np.array(k)[peaks]
             l = np.array(l)[peaks]
-            diffs = self.diffs[peaks]
+            diffs = np.array([self.diff(i) for i in peaks])
         else:
             h = k = l = diffs = np.zeros(peaks.shape, dtype=np.float32)
         return list(zip(peaks, x, y, z, polar, azi, intensity, h, k, l, diffs))
