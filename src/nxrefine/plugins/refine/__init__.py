@@ -1,11 +1,11 @@
 from __future__ import absolute_import
 
 from . import new_experiment, load_calibration, calibrate_powder
-from . import new_sample, new_scan, make_scans
-from . import create_mask, stack_images, find_maximum, find_peaks
+from . import new_sample, new_scan, edit_scan, make_scans
+from . import create_mask, find_maximum, find_peaks
 from . import calculate_angles, copy_parameters
 from . import define_lattice, refine_lattice
-from . import define_orientation, transform_data
+from . import transform_data
 
 def plugin_menu():
     menu = 'Refine'
@@ -16,14 +16,15 @@ def plugin_menu():
     actions.append(('Create Mask', create_mask.show_dialog))
     actions.append(('New Sample', new_sample.show_dialog))
     actions.append(('New Scan', new_scan.show_dialog))
+    actions.append(('Edit Scan', edit_scan.show_dialog))
     actions.append(('Make Scans', make_scans.show_dialog))
-    actions.append(('Stack Images', stack_images.show_dialog))
+#    actions.append(('Stack Images', stack_images.show_dialog))
     actions.append(('Find Maximum', find_maximum.show_dialog))
     actions.append(('Find Peaks', find_peaks.show_dialog))
     actions.append(('Copy Parameters', copy_parameters.show_dialog))
     actions.append(('Calculate Angles', calculate_angles.show_dialog))
     actions.append(('Define Lattice', define_lattice.show_dialog))
-    actions.append(('Define Orientation', define_orientation.show_dialog))
+#    actions.append(('Define Orientation', define_orientation.show_dialog))
     actions.append(('Refine Lattice', refine_lattice.show_dialog))
     actions.append(('Transform Data', transform_data.show_dialog))
     return menu, actions
