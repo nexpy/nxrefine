@@ -4,7 +4,7 @@ import numpy as np
 import os
 import random
 import six
-from scipy.optimize import minimize
+from lmfit import minimize, Parameters
 
 from nexusformat.nexus import *
 from .unitcell import unitcell
@@ -18,11 +18,13 @@ radians = np.pi / 180.0
 
 
 def find_nearest(array, value):
+    """Return array value closest to the requested value."""
     idx = (np.abs(array-value)).argmin()
     return array[idx]
  
 
 def rotmat(axis, angle):
+    """Return a rotation matrix for rotation about the specified axis."""
     mat = np.eye(3) 
     if angle is None or np.isclose(angle, 0.0):
         return mat
@@ -573,17 +575,16 @@ class NXRefine(object):
         """Define the matrix, whose inverse physically orients the detector.
 
         It also transforms detector coords into lab coords.
-        Operation order:    yaw -> pitch -> roll -> twotheta -> gonpitch
+        Operation order:    yaw -> pitch -> roll
         """
         return inv(rotmat(1, self.roll) *
                    rotmat(2, self.pitch) *
                    rotmat(3, self.yaw))
 
     def Gmat(self, phi):
-        """Define the matrix that physically orients the goniometer head into 
-           place
+        """Define the matrix that physically orients the goniometer head.
     
-        Its inverse transforms lab coords into head coords.
+        It performs the inverse transform of lab coords into head coords.
         """
         return (rotmat(2,self.gonpitch) * 
                 rotmat(3, self.omega) * 
@@ -871,28 +872,31 @@ class NXRefine(object):
 #        return result
 
     def define_lattice_parameters(self):
+        p = Parameters()
         if self.symmetry == 'cubic':
-            self.p = [self.a]
+            p.add('a', self.a, vary=True)
         elif self.symmetry == 'tetragonal':
-            self.p = [self.a, self.c]
+            p.add('a', self.a, vary=True)
+            p.add('c', self.c, vary=True)
         else:
-            self.p = [self.a, self.b, self.c]
+            p.add('a', self.a, vary=True)
+            p.add('b', self.b, vary=True)
+            p.add('c', self.c, vary=True)
         self.init_p = self.a, self.b, self.c
+        return p
 
     def get_lattice_parameters(self, p):
         if self.symmetry == 'cubic':
-            self.a = self.b = self.c = p[0]
+            self.a = self.b = self.c = p['a'].value
         elif self.symmetry == 'tetragonal':
-            self.a, self.c = p
+            self.a, self.c = p['a'].value, p['c'].value
             self.b = self.a
         else:
-            self.a, self.b, self.c = p
+            self.a, self.b, self.c = p['a'].value, p['b'].value, p['c'].value
 
-    def refine_lattice_parameters(self, method='nelder-mead', **opts):
-        self.define_lattice_parameters()
-        p0 = np.array(self.p)
-        result = minimize(self.lattice_residuals, p0, method='nelder-mead',
-                          options={'xtol': 1e-5, 'disp': True})
+    def refine_lattice_parameters(self, **opts):
+        p0 = self.define_lattice_parameters()
+        result = minimize(self.lattice_residuals, p0)
         if result.success:
             self.get_lattice_parameters(result.x)
 
@@ -907,19 +911,30 @@ class NXRefine(object):
                               for polar_angle in polar_angles])
         return np.sum(residuals**2)
 
-    def refine_orient_parameters(self, method='nelder-mead', **opts):
-        idx = self.idx
-        random.shuffle(idx)
-        self.fit_idx = idx[0:20]
-        p0 = np.ravel(self.Umat)
-        self.fit_intensity = self.intensity[self.fit_idx]
-        result = minimize(self.orient_residuals, p0, method=method,
-                          options={'xtol': 1e-5, 'disp': True})
+    def define_orientation_matrix(self):
+        p = Parameters()
+        for i in range(3):
+            for j in range(3):
+                p.add('U%d%d' % (i,j), self.Umat[i,j])
+        self.init_p = self.Umat
+        return p
+
+    def get_orientation_matrix(self, p):
+        for i in range(3):
+            for j in range(3):
+                self.Umat[i,j] = p['U%d%d' % (i,j)].value
+
+    def refine_orientation_matrix(self, **opts):
+        p0 = self.define_orientation_matrix()
+        result = minimize(self.orient_residuals, p0)
         if result.success:
-            self.Umat = np.matrix(result.x).reshape(3,3)
+            self.get_orientation_matrix(result.x)
+
+    def restore_orientation_matrix(self):
+        self.Umat = self.init_p
 
     def orient_residuals(self, p):
-        self.Umat = np.matrix(p).reshape(3,3)
+        self.get_orientation_matrix(p)
         diffs = np.array([self.diff(i) for i in self.fit_idx])
         score = np.sum(diffs * self.fit_intensity)
         return score

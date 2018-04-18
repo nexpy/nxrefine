@@ -13,6 +13,12 @@ def main():
     parser.add_argument('-d', '--directory', default='', help='scan directory')
     parser.add_argument('-f', '--filenames', default=['f1', 'f2', 'f3'], 
         nargs='+', help='names of NeXus files linked to this file')
+    parser.add_argument('-t', '--threshold', type=float,
+                        help='peak threshold - defaults to maximum counts/20')
+    parser.add_argument('-s', '--start', default=20, type=int, 
+                        help='starting frame')
+    parser.add_argument('-e', '--end', default=3630, type=int, 
+                        help='ending frame')
     parser.add_argument('-p', '--parent', help='file name of file to copy from')
     
     args = parser.parse_args()
@@ -25,6 +31,9 @@ def main():
     
     files = args.filenames
     parent = args.parent
+    threshold = args.threshold
+    start = args.start
+    end = args.end
 
     label_path = '%s/%s' % (sample, label)
 
@@ -47,14 +56,18 @@ def main():
             if 'logs' not in root[f]['instrument']:
                 print("\n\nReading in metadata in %s\n" % f)
                 subprocess.call('nxingest -d %s -f %s' % (path, f), shell=True)
-            if 'maximum' not in root[f]['data'].attrs:
+            if 'maximum' not in root[f]['data'].attrs and not threshold:
                 print("\n\nDetermining maximum counts in %s\n" % f)
                 subprocess.call('nxmax -f %s -p %s/data'
                                 % (wrapper_file, f), shell=True)
             if 'peaks' not in root[f]:
                 print("\n\nFinding peaks in %s\n" % f)
-                subprocess.call('nxfind -f %s -p %s/data -s 20 -e 3630'
-                                % (wrapper_file, f), shell=True)
+                if threshold:
+                    subprocess.call('nxfind -f %s -p %s/data -t %s -s %s -e %s'
+                        % (wrapper_file, f, threshold, start, end), shell=True)
+                else:
+                    subprocess.call('nxfind -f %s -p %s/data -s %s -e %s'
+                                    % (wrapper_file, f, start, end), shell=True)
 
         if parent:
             print("\n\nCopying parameters from %s\n" % parent)
