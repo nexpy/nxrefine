@@ -47,21 +47,21 @@ def main():
                      if filename.endswith('.nxs')]
 
     for wrapper_file in wrapper_files:
-        print("\n\nProcessing %s" % wrapper_file)
+        print("Processing %s" % wrapper_file)
         root = nxload(wrapper_file)
         scan_label = os.path.splitext(os.path.basename(wrapper_file))[0][len(sample)+1:]
         path = os.path.join(sample, label, scan_label)        
         for f in files:
-            print("\n\nProcessing %s" % f)
+            print("Processing %s" % f)
             if 'logs' not in root[f]['instrument']:
-                print("\n\nReading in metadata in %s\n" % f)
+                print("Reading in metadata in %s" % f)
                 subprocess.call('nxingest -d %s -f %s' % (path, f), shell=True)
             if 'maximum' not in root[f]['data'].attrs and not threshold:
-                print("\n\nDetermining maximum counts in %s\n" % f)
+                print("Determining maximum counts in %s" % f)
                 subprocess.call('nxmax -f %s -p %s/data'
                                 % (wrapper_file, f), shell=True)
             if 'peaks' not in root[f]:
-                print("\n\nFinding peaks in %s\n" % f)
+                print("Finding peaks in %s" % f)
                 if threshold:
                     subprocess.call('nxfind -f %s -p %s/data -t %s -s %s -e %s'
                         % (wrapper_file, f, threshold, start, end), shell=True)
@@ -70,7 +70,7 @@ def main():
                                     % (wrapper_file, f, start, end), shell=True)
 
         if parent:
-            print("\n\nCopying parameters from %s\n" % parent)
+            print("Copying parameters from %s" % parent)
             subprocess.call('nxcopy -f %s -o %s' 
                             % (parent, wrapper_file), shell=True)
     
