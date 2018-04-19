@@ -823,11 +823,8 @@ class NXRefine(object):
 
     def get_peaks(self, polar_max=None):
         """Return tuples containing the peaks and their respective parameters"""
-        if polar_max is not None:
-            peaks = np.array([i for i in range(self.npks) 
-                              if self.polar_angle[i] < polar_max])
-        else:
-            peaks = np.arange(self.npks)
+        peaks = np.array([i for i in range(self.npks) 
+                          if self.polar_angle[i] < self.polar_max])
         x, y, z = (np.rint(self.xp[peaks]).astype(np.int16), 
                    np.rint(self.yp[peaks]).astype(np.int16), 
                    np.rint(self.zp[peaks]).astype(np.int16))
