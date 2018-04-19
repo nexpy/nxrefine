@@ -77,10 +77,13 @@ class RefineLatticeDialog(BaseDialog):
                                    ('Save', self.write_parameters))
 
         self.set_layout(self.entry_layout, self.parameters.grid(), 
-                        self.refine_buttons, self.lattice_buttons,
+                        self.refine_buttons, 
+                        self.parameters.report_layout(),
+                        self.lattice_buttons,
                         self.close_buttons())
 
         self.parameters.grid_layout.setVerticalSpacing(1)
+        self.layout.setSpacing(2)
                                 
         self.set_title('Refining Lattice')
 
@@ -143,6 +146,14 @@ class RefineLatticeDialog(BaseDialog):
                                              self.refine.xp, self.refine.yp)
         self.refine.write_angles(polar_angles, azimuthal_angles)
         self.refine.write_parameters()
+        root = self.entry.nxroot
+        entries = [entry for entry in root.entries if entry != 'entry' and 
+            'orientation_matrix' not in root[entry]['instrument/detector']]
+        if entries and self.confirm_action(
+            'Copy orientation to other entries? (%s)' % (', '.join(entries))):
+            om = self.entry['instrument/detector/orientation_matrix']
+            for entry in entries:
+                root[entry]['instrument/detector/orientation_matrix'] = om
 
     def get_symmetry(self):
         return self.parameters['symmetry'].value
@@ -273,6 +284,9 @@ class RefineLatticeDialog(BaseDialog):
         pvx.crosshairs(y, z)
 
     def refine_angles(self):
+        self.parameters.status_message.setText('Fitting...')
+        self.parameters.status_message.repaint()
+        self.mainwindow.app.app.processEvents()
         self.parameters['phi_start'].vary = False
         self.parameters.refine_parameters(self.angle_residuals)
         self.update_parameters()
@@ -287,6 +301,9 @@ class RefineLatticeDialog(BaseDialog):
                          for polar_angle in polar_angles])
 
     def refine_hkls(self):
+        self.parameters.status_message.setText('Fitting...')
+        self.parameters.status_message.repaint()
+        self.mainwindow.app.app.processEvents()
         self.parameters.refine_parameters(self.hkl_residuals)
         self.update_parameters()
         if self.peaks_box is None:
@@ -388,6 +405,7 @@ class RefineLatticeDialog(BaseDialog):
         self.table_model.dataChanged.emit(self.table_model.createIndex(0, 0),
                                           self.table_model.createIndex(rows-1, 
                                               columns-1))
+        self.table_view.resizeColumnsToContents()
         self.status_text.setText('Score: %.4f' % self.refine.score())
 
 
@@ -450,9 +468,9 @@ class NXTableModel(QtCore.QAbstractTableModel):
             elif col == 6:
                 return "%5.3g" % value
             elif col == 10:
-                return "%.3f" % value
+                return "%.3g" % value
             else:
-                return "%.2f" % value
+                return "%.2g" % value
         elif role == QtCore.Qt.TextAlignmentRole:
             return int(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         elif role == QtCore.Qt.BackgroundRole:
