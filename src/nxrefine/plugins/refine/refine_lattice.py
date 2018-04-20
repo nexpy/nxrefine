@@ -468,9 +468,9 @@ class NXTableModel(QtCore.QAbstractTableModel):
             elif col == 6:
                 return "%5.3g" % value
             elif col == 10:
-                return "%.3g" % value
+                return "%.3f" % value
             else:
-                return "%.2g" % value
+                return "%.2f" % value
         elif role == QtCore.Qt.TextAlignmentRole:
             return int(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         elif role == QtCore.Qt.BackgroundRole:
