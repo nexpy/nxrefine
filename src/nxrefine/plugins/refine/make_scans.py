@@ -111,10 +111,9 @@ class MakeDialog(BaseDialog):
                     frame_rate = 1.0 / entry['instrument/detector/frame_time']
                 else:
                     frame_rate = 10.0                        
-                scan_file = entry['data/data']._filename
                 scan_parameters.append(
-                    '%s %s/%s %.6g %.6g %.6g %.6g %.6g %.6g %.6g %.6g %.6g'
-                    % (scan_command, self.scan_path, scan_file, 
+                    '%s %s %s %.6g %.6g %.6g %.6g %.6g %.6g %.6g %.6g %.6g'
+                    % (scan_command, self.scan_path, entry.nxname, 
                        dx, dy, temperature, 
                        phi_start, phi_step, phi_end,
                        chi, omega, frame_rate))
