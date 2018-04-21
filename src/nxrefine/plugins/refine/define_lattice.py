@@ -25,18 +25,25 @@ class LatticeDialog(BaseDialog):
         self.refine.read_parameters()
 
         self.parameters = GridParameters()
-        self.parameters.add('symmetry', self.refine.symmetries, 'Symmetry')
-        self.parameters['symmetry'].value = self.refine.symmetry
+        self.parameters.add('symmetry', self.refine.symmetries, 'Symmetry',
+                            slot=self.set_lattice_parameters)
         self.parameters.add('centring', self.refine.centrings, 'Cell Centring')
-        self.parameters['centring'].value = self.refine.centring
-        self.parameters.add('a', self.refine.a, 'Unit Cell - a (Ang)')
-        self.parameters.add('b', self.refine.b, 'Unit Cell - b (Ang)')
-        self.parameters.add('c', self.refine.c, 'Unit Cell - c (Ang)')
+        self.parameters.add('a', self.refine.a, 'Unit Cell - a (Ang)',
+                            slot=self.set_lattice_parameters)
+        self.parameters.add('b', self.refine.b, 'Unit Cell - b (Ang)',
+                            slot=self.set_lattice_parameters)
+        self.parameters.add('c', self.refine.c, 'Unit Cell - c (Ang)',
+                            slot=self.set_lattice_parameters)
         self.parameters.add('alpha', self.refine.alpha, 
-                            'Unit Cell - alpha (deg)')
-        self.parameters.add('beta', self.refine.beta, 'Unit Cell - beta (deg)')
+                            'Unit Cell - alpha (deg)', 
+                            slot=self.set_lattice_parameters)
+        self.parameters.add('beta', self.refine.beta, 'Unit Cell - beta (deg)',
+                            slot=self.set_lattice_parameters)
         self.parameters.add('gamma', self.refine.gamma, 
-                            'Unit Cell - gamma (deg)')
+                            'Unit Cell - gamma (deg)', 
+                            slot=self.set_lattice_parameters)
+        self.parameters['symmetry'].value = self.refine.symmetry
+        self.parameters['centring'].value = self.refine.centring
         action_buttons = self.action_buttons(('Plot', self.plot_lattice),
                                              ('Save', self.write_parameters))
         self.set_layout(self.entry_layout, self.parameters.grid(), 
@@ -70,6 +77,32 @@ class LatticeDialog(BaseDialog):
                 self.parameters['alpha'].value,
                 self.parameters['beta'].value,
                 self.parameters['gamma'].value)
+
+    def set_lattice_parameters(self):
+        symmetry = self.get_symmetry()
+        if symmetry == 'cubic':
+            self.parameters['b'].value = self.parameters['a'].value
+            self.parameters['c'].value = self.parameters['a'].value
+            self.parameters['alpha'].value = 90.0
+            self.parameters['beta'].value = 90.0
+            self.parameters['gamma'].value = 90.0
+        elif symmetry == 'tetragonal':
+            self.parameters['b'].value = self.parameters['a'].value
+            self.parameters['alpha'].value = 90.0
+            self.parameters['beta'].value = 90.0
+            self.parameters['gamma'].value = 90.0
+        elif symmetry == 'orthorhombic':
+            self.parameters['alpha'].value = 90.0
+            self.parameters['beta'].value = 90.0
+            self.parameters['gamma'].value = 90.0
+        elif symmetry == 'hexagonal':
+            self.parameters['b'].value = self.parameters['a'].value
+            self.parameters['alpha'].value = 90.0
+            self.parameters['beta'].value = 90.0
+            self.parameters['gamma'].value = 120.0
+        elif symmetry == 'monoclinic':
+            self.parameters['alpha'].value = 90.0
+            self.parameters['gamma'].value = 90.0
 
     def get_parameters(self):
         (self.refine.a, self.refine.b, self.refine.c, 
