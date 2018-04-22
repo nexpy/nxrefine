@@ -1,7 +1,6 @@
 import numpy as np
 import operator
 from nexpy.gui.pyqt import QtCore, QtGui, QtWidgets
-from scipy.optimize import minimize
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.plotview import NXPlotView, get_plotview, plotview
 from nexpy.gui.utils import report_error
@@ -346,7 +345,7 @@ class RefineLatticeDialog(BaseDialog):
     def hkl_residuals(self, p):
         self.parameters.get_parameters(p)
         self.transfer_parameters()
-        return self.refine.diffs
+        return self.refine.diffs()
 
     def restore_parameters(self):
         self.parameters.restore_parameters()
