@@ -28,42 +28,32 @@ def main():
 
     parser = argparse.ArgumentParser(
         description="Prepare files for a CCTW transform")
-    parser.add_argument('-s', '--sample', help='sample name')
-    parser.add_argument('-l', '--label', help='sample label')
     parser.add_argument('-d', '--directory', default='', help='scan directory')
-    parser.add_argument('-f', '--filenames', default=['f1', 'f2', 'f3'], 
-        nargs='+', help='names of NeXus files to be merged')
+    parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
+                        nargs='+', help='names of data entries to be merged')
     
     args = parser.parse_args()
 
-    sample = args.sample
-    label = args.label
     directory = args.directory.rstrip('/')
-    if sample is None and label is None:
-        sample = os.path.basename(os.path.dirname(os.path.dirname(directory)))   
-        label = os.path.basename(os.path.dirname(directory))
-        scan = os.path.basename(directory)
-    else:
-        scan = directory
+    sample = os.path.basename(os.path.dirname(os.path.dirname(directory)))   
+    label = os.path.basename(os.path.dirname(directory))
+    scan = os.path.basename(directory)
+    wrapper_file = os.path.join(sample, label, '%s_%s.nxs' % (sample, scan))
 
-    filenames = args.filenames
-
-    label_path = '%s/%s' % (sample, label)
-    wrapper_file = '%s/%s_%s.nxs' % (label_path, sample, scan)
+    entries = args.entries
 
     root = nxload(wrapper_file, 'rw')
     entry = root['entry']
 
-    output = os.path.join(scan, 'transform.nxs')
     input = ' '.join([os.path.join(directory, '%s_transform.nxs\#/entry/data'
-                      % f) for f in filenames])
+                      % e) for e in entries])
     output = os.path.join(directory, 'transform.nxs\#/entry/data/v')
     command = 'cctw merge %s -o %s' % (input, output)
     subprocess.call(command, shell=True)
 
-    Qh = root['%s/transform/Qh' % filenames[0]]
-    Qk = root['%s/transform/Qk' % filenames[0]]
-    Ql = root['%s/transform/Ql' % filenames[0]]
+    Qh = root['%s/transform/Qh' % entries[0]]
+    Qk = root['%s/transform/Qk' % entries[0]]
+    Ql = root['%s/transform/Ql' % entries[0]]
     data = NXlink('/entry/data/v', file=os.path.join(scan, 'transform.nxs'),
                   name='data')
     if 'transform' not in entry:

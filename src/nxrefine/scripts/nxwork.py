@@ -9,63 +9,69 @@ def main():
     parser = argparse.ArgumentParser(
         description="Perform workflow for scan")
     parser.add_argument('-d', '--directory', default='', help='scan directory')
-    parser.add_argument('-f', '--filenames', default=['f1', 'f2', 'f3'], 
+    parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
         nargs='+', help='names of NeXus files linked to this file')
     parser.add_argument('-t', '--threshold', type=float,
                         help='peak threshold - defaults to maximum counts/20')
-    parser.add_argument('-s', '--start', default=20, type=int, 
-                        help='starting frame')
-    parser.add_argument('-e', '--end', default=3630, type=int, 
-                        help='ending frame')
+    parser.add_argument('-f', '--first', default=20, type=int, 
+                        help='first frame')
+    parser.add_argument('-l', '--last', default=3630, type=int, 
+                        help='last frame')
     parser.add_argument('-p', '--parent', help='file name of file to copy from')
+    parser.add_argument('-r', '--refine', action='store_false',
+                        help='refine lattice parameters')
+                        
     
     args = parser.parse_args()
 
     directory = args.directory.rstrip('/')
-    sample = os.path.basename(os.path.dirname(directory))  
-    label = os.path.basename(directory)
+    sample = os.path.basename(os.path.dirname(os.path.dirname(directory)))   
+    label = os.path.basename(os.path.dirname(directory))
+    scan = os.path.basename(directory)
+    wrapper_file = os.path.join(sample, label, '%s_%s.nxs' % (sample, scan))
 
-    print("Processing directory '%s'" % directory)
+    print("Processing file '%s'" % wrapper_file)
     
-    files = args.filenames
+    entries = args.entries
     parent = args.parent
     threshold = args.threshold
-    start = args.start
-    end = args.end
-
-    label_path = '%s/%s' % (sample, label)
+    first = args.first
+    last = args.last
+    refine = args.refine
 
     wrapper_files = sorted([os.path.join(directory, filename) 
-                             for filename in os.listdir(label_path) 
-                             if filename.endswith('.nxs')], key=natural_sort)
+                            for filename in os.listdir(os.path.join(sample, label)) 
+                            if filename.endswith('.nxs')], key=natural_sort)
 
     for wrapper_file in wrapper_files:
         print("Processing %s" % wrapper_file)
         root = nxload(wrapper_file)
         scan_label = os.path.splitext(os.path.basename(wrapper_file))[0][len(sample)+1:]
-        path = os.path.join(sample, label, scan_label)        
-        for f in files:
-            print("Processing %s" % f)
-            if 'logs' not in root[f]['instrument']:
-                print("Reading in metadata in %s" % f)
-                subprocess.call('nxingest -d %s -f %s' % (path, f), shell=True)
-            if 'maximum' not in root[f]['data'].attrs and not threshold:
+        for e in entries:
+            print("Processing %s" % e)
+            if 'logs' not in root[e]['instrument']:
+                print("Reading in metadata in %s" % e)
+                subprocess.call('nxingest -d %s -e %s' % (directory, e), shell=True)
+            if 'maximum' not in root[e]['data'].attrs and not threshold:
                 print("Determining maximum counts in %s" % f)
-                subprocess.call('nxmax -f %s -p %s/data'
-                                % (wrapper_file, f), shell=True)
-            if 'peaks' not in root[f]:
-                print("Finding peaks in %s" % f)
+                subprocess.call('nxmax -d %s -e %s'
+                                % (directory, e), shell=True)
+            if 'peaks' not in root[e]:
+                print("Finding peaks in %s" % e)
                 if threshold:
-                    subprocess.call('nxfind -f %s -p %s/data -t %s -s %s -e %s'
-                        % (wrapper_file, f, threshold, start, end), shell=True)
+                    subprocess.call('nxfind -d %s -e %s -t %s -f %s -l %s'
+                        % (directory, e, threshold, first, last), shell=True)
                 else:
-                    subprocess.call('nxfind -f %s -p %s/data -s %s -e %s'
-                                    % (wrapper_file, f, start, end), shell=True)
+                    subprocess.call('nxfind -d %s -e %s -f %s -l %s'
+                                    % (directory, e, first, last), shell=True)
 
         if parent:
             print("Copying parameters from %s" % parent)
-            subprocess.call('nxcopy -f %s -o %s' 
+            subprocess.call('nxcopy -i %s -o %s' 
                             % (parent, wrapper_file), shell=True)
+        if refine and 'orientation_matrix' in root[entries[0]]['instrument/detector']:
+            subprocess.call('nxrefine -d %s' % directory, shell=True)
+            
     
 
 if __name__=="__main__":

@@ -223,21 +223,30 @@ def main():
 
     parser = argparse.ArgumentParser(
         description="Find peaks within the NeXus data")
-    parser.add_argument('-f', '--filename', required=True,
-                        help='NeXus file name')
-    parser.add_argument('-p', '--path', default='/entry/data',
-                        help='path of the NXdata group within the NeXus file')
+    parser.add_argument('-d', '--directory', required=True, 
+                        help='scan directory')
+    parser.add_argument('-e', '--entry', required=True,
+                        help='name of data entry to be searched')
     parser.add_argument('-t', '--threshold', type=float,
                         help='peak threshold - defaults to maximum counts/20')
-    parser.add_argument('-s', '--start', type=int, help='starting frame')
-    parser.add_argument('-e', '--end', type=int, help='ending frame')
+    parser.add_argument('-f', '--first', type=int, help='first frame')
+    parser.add_argument('-l', '--last', type=int, help='last frame')
 
     args = parser.parse_args()
 
+    directory = args.directory.rstrip('/')
+    sample = os.path.basename(os.path.dirname(os.path.dirname(directory)))   
+    label = os.path.basename(os.path.dirname(directory))
+    scan = os.path.basename(directory)
+    wrapper_file = os.path.join(sample, label, '%s_%s.nxs' % (sample, scan))
+    threshold = args.threshold
+    first = args.first
+    last = args.last
+
     tic=timeit.default_timer()
-    root = nxload(args.filename, 'rw')
-    entry = root[args.path].nxentry
-    find_peaks(root[args.path], args.threshold, args.start, args.end)
+    root = nxload(wrapper_file, 'rw')
+    entry = root[args.entry]
+    find_peaks(entry['data'], threshold, first, last)
     note = NXnote('nxfind '+' '.join(sys.argv[1:]), 
                   ('Current machine: %s\n'
                    'Current working directory: %s')
@@ -248,7 +257,7 @@ def main():
                                 note=note)
 
     toc=timeit.default_timer()
-    print(toc-tic, 'seconds for', args.filename)
+    print(toc-tic, 'seconds for', wrapper_file)
 
 
 if __name__=="__main__":

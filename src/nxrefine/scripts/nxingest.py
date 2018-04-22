@@ -25,8 +25,8 @@ def main():
     parser = argparse.ArgumentParser(
         description="Read metadata from Sector 6 scan")
     parser.add_argument('-d', '--directory', default='', help='scan directory')
-    parser.add_argument('-f', '--filenames', default=['f1', 'f2', 'f3'], 
-        nargs='+', help='names of NeXus files to be linked to this file')
+    parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
+        nargs='+', help='names of entries')
 
     args = parser.parse_args()
 
@@ -34,16 +34,15 @@ def main():
     sample = os.path.basename(os.path.dirname(os.path.dirname(directory)))   
     label = os.path.basename(os.path.dirname(directory))
     scan = os.path.basename(directory)
-    files = args.filenames
+    wrapper_file = os.path.join(sample, label, '%s_%s.nxs' % (sample, scan))
 
-    label_path = '%s/%s' % (sample, label)
-    wrapper_file = '%s/%s_%s.nxs' % (label_path, sample, scan)
+    entries = args.entries
 
     root = nxload(wrapper_file, 'rw')    
-    for f in files:
-        head_file = os.path.join(directory, f+'_head.txt')
-        meta_file = os.path.join(directory, f+'_meta.txt')
-        entry = root[f]
+    for e in entries:
+        head_file = os.path.join(directory, e+'_head.txt')
+        meta_file = os.path.join(directory, e+'_meta.txt')
+        entry = root[e]
         if 'logs' in entry['instrument']:
             del entry['instrument/logs']
         entry['instrument/logs'] = NXcollection()

@@ -55,23 +55,28 @@ def main():
 
     parser = argparse.ArgumentParser(
         description="Find maximum counts of the signal in the specified path")
-    parser.add_argument('-d', '--directory', default='./',
-                        help='directory containing the NeXus file')
-    parser.add_argument('-f', '--filename', required=True,
-                         help='NeXus file name')
-    parser.add_argument('-p', '--path', default='/entry/data',
-                        help='path of the NXdata group within the NeXus file')
+    parser.add_argument('-d', '--directory', required=True, 
+                        help='scan directory')
+    parser.add_argument('-e', '--entry', help='entry to be processed')
+
     args = parser.parse_args()
+
+    directory = args.directory.rstrip('/')
+    sample = os.path.basename(os.path.dirname(os.path.dirname(directory)))   
+    label = os.path.basename(os.path.dirname(directory))
+    scan = os.path.basename(directory)
+    wrapper_file = os.path.join(sample, label, '%s_%s.nxs' % (sample, scan))
+    entry = args.entry
+
     tic=timeit.default_timer()
-    name, ext = os.path.splitext(args.filename)
-    if ext == '':
-        args.filename = args.filename + '.nxs'
-    root = nxload(os.path.join(args.directory, args.filename), 'rw')
-    maximum = find_maximum(root[args.path].nxsignal)
+    name, ext = os.path.splitext(wrapper_file)
+    root = nxload(wrapper_file, 'rw')
+    entry = root[entry]
+    maximum = find_maximum(entry['data'].nxsignal)
     print('\nMaximum counts are ', maximum)
-    save_maximum(root[args.path], maximum)
+    save_maximum(entry['data'], maximum)
     toc=timeit.default_timer()
-    print(toc-tic, 'seconds for', args.filename)
+    print(toc-tic, 'seconds for', wrapper_file)
 
 
 if __name__=="__main__":

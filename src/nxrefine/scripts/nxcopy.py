@@ -16,7 +16,7 @@ def main():
 
     parser = argparse.ArgumentParser(
         description="Copy sample and instrument parameters to another file or entry")
-    parser.add_argument('-f', '--filename', required=True,
+    parser.add_argument('-i', '--input', required=True,
                         help='name of the input NeXus file')
     parser.add_argument('-e', '--entry', 
                         help='path of input NXentry group')
@@ -25,7 +25,7 @@ def main():
     
     args = parser.parse_args()
     if args.output:
-        input = nxload(args.filename)
+        input = nxload(args.input)
         input_ref = NXRefine(input['entry'])
         output = nxload(args.output, 'rw')
         output_entry_ref = NXRefine(output['entry'])
