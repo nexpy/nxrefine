@@ -1,10 +1,8 @@
 import argparse, os, subprocess
 import numpy as np
 from nexusformat.nexus import nxload
+from nexpy.gui.utils import natural_sort
 
-def crash(msg):
-    print(msg)
-    exit(1)
 
 def main():
 
@@ -37,14 +35,9 @@ def main():
 
     label_path = '%s/%s' % (sample, label)
 
-    if sample == None:
-        crash('Requires sample!')
-    if not os.path.exists(label_path):
-        crash("Label does not exist: "+label_path)
-
-    wrapper_files = [os.path.join(directory, filename) 
-                     for filename in os.listdir(label_path) 
-                     if filename.endswith('.nxs')]
+    wrapper_files = sorted([os.path.join(directory, filename) 
+                             for filename in os.listdir(label_path) 
+                             if filename.endswith('.nxs')], key=natural_sort)
 
     for wrapper_file in wrapper_files:
         print("Processing %s" % wrapper_file)
