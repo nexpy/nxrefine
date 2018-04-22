@@ -4,7 +4,7 @@ import numpy as np
 import os
 import random
 import six
-from lmfit import minimize, Parameters
+from lmfit import minimize, Parameter, Parameters, fit_report
 
 from nexusformat.nexus import *
 from .unitcell import unitcell
@@ -106,6 +106,8 @@ class NXRefine(object):
         self.grid_step = None
         self.standard = True
         
+        self.parameters = None
+        
         self.grains = None
         
         if self.entry:
@@ -177,7 +179,7 @@ class NXRefine(object):
                         'instrument/detector/orientation_matrix')
         if isinstance(self.polar_angle, np.ndarray):
             try:
-                self.set_polar_max(np.sort(self.polar_angle)[20] + 0.1)
+                self.set_polar_max(np.sort(self.polar_angle)[50] + 0.1)
             except IndexError:
                 self.set_polar_max(self.polar_angle.max())
         else:
@@ -762,7 +764,7 @@ class NXRefine(object):
         return list(np.where(self.polar_angle < self.polar_max)[0])
 
     def score(self, grain=None):
-        diffs = self.diffs
+        diffs = self.diffs()
         weights = self.weights
         return np.sum(weights * diffs) / np.sum(weights)
 
@@ -800,10 +802,9 @@ class NXRefine(object):
         """Return the calculated (hkl) for the specified peak"""
         return self.get_hkl(self.xp[i], self.yp[i], self.zp[i])
 
-    @property
     def diffs(self):
         """Return the set of reciproal space differences for all the peaks"""
-        return np.array(np.array([self.diff(i) for i in self.idx]))
+        return np.array([self.diff(i) for i in self.idx])
 
     @property
     def weights(self):
@@ -872,45 +873,92 @@ class NXRefine(object):
 #        result.shape = (len(self.idx),3)
 #        return result
 
+    def define_hkl_parameters(self, chi=False, omega=False, gonpitch=False, **opts):
+        p = self.define_lattice_parameters()
+        p.add('chi', self.chi, vary=chi)
+        p.add('omega', self.omega, vary=omega)
+        p.add('gonpitch', self.gonpitch, vary=gonpitch)
+        return p
+
+    def get_hkl_parameters(self, p):
+        self.get_lattice_parameters(p)
+        self.chi, self.omega, self.gonpitch = (p['chi'].value, 
+                                               p['omega'].value,
+                                               p['gonpitch'].value)
+        
+    def refine_hkl_parameters(self, **opts):
+        if self.Umat is None:
+            raise NeXusError('No orientation matrix defined')
+        p0 = self.define_hkl_parameters(**opts)
+        if 'method' in opts:
+            opts = {'method': opts['method']}
+        else:
+            opts = {}
+        self.result = minimize(self.hkl_residuals, p0, **opts)
+        self.fit_report = fit_report(self.result)
+        if self.result.success:
+            self.get_hkl_parameters(self.result.params)
+
+    def hkl_residuals(self, p):
+        self.get_hkl_parameters(p)
+        return self.diffs()
+
     def define_lattice_parameters(self):
         p = Parameters()
         if self.symmetry == 'cubic':
             p.add('a', self.a, vary=True)
-        elif self.symmetry == 'tetragonal':
+        elif self.symmetry == 'tetragonal' or self.symmetry == 'hexagonal':
             p.add('a', self.a, vary=True)
             p.add('c', self.c, vary=True)
+        elif self.symmetry == 'orthorhombic':
+            p.add('a', self.a, vary=True)
+            p.add('b', self.b, vary=True)
+            p.add('c', self.c, vary=True)
+        elif self.symmetry == 'monoclinic':
+            p.add('a', self.a, vary=True)
+            p.add('b', self.b, vary=True)
+            p.add('c', self.c, vary=True)
+            p.add('beta', self.beta, vary=True)
         else:
             p.add('a', self.a, vary=True)
             p.add('b', self.b, vary=True)
             p.add('c', self.c, vary=True)
-        self.init_p = self.a, self.b, self.c
+            p.add('alpha', self.alpha, vary=True)
+            p.add('beta', self.beta, vary=True)
+            p.add('gamma', self.gamma, vary=True)
+        self.init_p = self.a, self.b, self.c, self.alpha, self.beta, self.gamma
         return p
 
     def get_lattice_parameters(self, p):
         if self.symmetry == 'cubic':
             self.a = self.b = self.c = p['a'].value
-        elif self.symmetry == 'tetragonal':
+        elif self.symmetry == 'tetragonal' or self.symmetry == 'hexagonal':
             self.a, self.c = p['a'].value, p['c'].value
             self.b = self.a
+        elif self.symmetry == 'orthorhombic':
+            self.a, self.b, self.c = p['a'].value, p['b'].value, p['c'].value
+        elif self.symmetry == 'monoclinic':
+            self.a, self.b, self.c = p['a'].value, p['b'].value, p['c'].value
+            self.beta = p['beta'].value
         else:
             self.a, self.b, self.c = p['a'].value, p['b'].value, p['c'].value
+            self.alpha, self.beta, self.gamma = (p['alpha'].value, 
+                                                 p['beta'].value,
+                                                 p['gamma'].value)
 
-    def refine_lattice_parameters(self, **opts):
+    def refine_lattice_parameters(self, method='nelder', **opts):
         p0 = self.define_lattice_parameters()
-        result = minimize(self.lattice_residuals, p0)
-        if result.success:
-            self.get_lattice_parameters(result.x)
-
-    def restore_lattice_parameters(self):
-        self.a, self.b, self.c = self.init_p
+        self.result = minimize(self.lattice_residuals, p0, method=method, **opts)
+        self.fit_report = fit_report(self.result)
+        if self.result.success:
+            self.get_lattice_parameters(self.result.params)
 
     def lattice_residuals(self, p):
         self.get_lattice_parameters(p)
         polar_angles, _ = self.calculate_angles(self.x, self.y)
         rings = self.calculate_rings()
-        residuals = np.array([find_nearest(rings, polar_angle) - polar_angle 
-                              for polar_angle in polar_angles])
-        return np.sum(residuals**2)
+        return np.array([find_nearest(rings, polar_angle) - polar_angle 
+                         for polar_angle in polar_angles])
 
     def define_orientation_matrix(self):
         p = Parameters()
@@ -927,18 +975,16 @@ class NXRefine(object):
 
     def refine_orientation_matrix(self, **opts):
         p0 = self.define_orientation_matrix()
-        result = minimize(self.orient_residuals, p0)
-        if result.success:
-            self.get_orientation_matrix(result.x)
+        self.result = minimize(self.orient_residuals, p0, **opts)
+        if self.result.success:
+            self.get_orientation_matrix(self.result.params)
 
     def restore_orientation_matrix(self):
         self.Umat = self.init_p
 
     def orient_residuals(self, p):
         self.get_orientation_matrix(p)
-        diffs = np.array([self.diff(i) for i in self.fit_idx])
-        score = np.sum(diffs * self.fit_intensity)
-        return score
+        return self.diffs()
 
 
 class NXpeak(object):
