@@ -4,7 +4,6 @@ import numpy as np
 import os
 import random
 import six
-from lmfit import minimize, Parameter, Parameters, fit_report
 
 from nexusformat.nexus import *
 from .unitcell import unitcell
@@ -244,7 +243,7 @@ class NXRefine(object):
 
     def copy_parameters(self, other, sample=False, instrument=False):
         if sample:
-            if 'sample' not in other.entry.entries:
+            if 'sample' not in other.entry:
                 other.entry['sample'] = NXsample()
             other.write_parameter('sample/unit_cell_group', self.symmetry)
             other.write_parameter('sample/lattice_centring', self.centring)
@@ -255,13 +254,13 @@ class NXRefine(object):
             other.write_parameter('sample/unitcell_beta', self.beta)
             other.write_parameter('sample/unitcell_gamma', self.gamma)
         if instrument:
-            if 'instrument' not in other.entry.entries:
+            if 'instrument' not in other.entry:
                 other.entry['instrument'] = NXinstrument()
-            if 'detector' not in other.entry['instrument'].entries:
+            if 'detector' not in other.entry['instrument']:
                 other.entry['instrument/detector'] = NXdetector()
-            if 'monochromator' not in other.entry['instrument'].entries:
+            if 'monochromator' not in other.entry['instrument']:
                 other.entry['instrument/monochromator'] = NXmonochromator()
-            if 'goniometer' not in other.entry['instrument'].entries:
+            if 'goniometer' not in other.entry['instrument']:
                 other.entry['instrument/goniometer'] = NXgoniometer()
             other.write_parameter('instrument/monochromator/wavelength', 
                                   self.wavelength)
@@ -289,7 +288,7 @@ class NXRefine(object):
                                   self.frame_time)
             if self.Umat is not None:
                 other.write_parameter('instrument/detector/orientation_matrix', 
-                                      np.array(self.Umat))
+                                      np.array(self.Umat))        
 
     def link_sample(self, other):
         if 'sample' in self.entry:
@@ -344,14 +343,14 @@ class NXRefine(object):
         f.close()
 
     def write_angles(self, polar_angles, azimuthal_angles):
-        if 'sample' not in self.entry.entries:
+        if 'sample' not in self.entry:
             self.entry['sample'] = NXsample()
-        if 'peaks' not in self.entry.entries:
+        if 'peaks' not in self.entry:
             self.entry['peaks'] = NXdata()
         else:
-            if 'polar_angle' in self.entry['peaks'].entries:
+            if 'polar_angle' in self.entry['peaks']:
                 del self.entry['peaks/polar_angle']
-            if 'azimuthal_angle' in self.entry['peaks'].entries:
+            if 'azimuthal_angle' in self.entry['peaks']:
                 del self.entry['peaks/azimuthal_angle']
         self.write_parameter('peaks/polar_angle', polar_angles)
         self.write_parameter('peaks/azimuthal_angle', azimuthal_angles)
@@ -887,6 +886,7 @@ class NXRefine(object):
                                                p['gonpitch'].value)
         
     def refine_hkl_parameters(self, **opts):
+        from lmfit import minimize, fit_report
         if self.Umat is None:
             raise NeXusError('No orientation matrix defined')
         p0 = self.define_hkl_parameters(**opts)
@@ -904,6 +904,7 @@ class NXRefine(object):
         return self.diffs()
 
     def define_lattice_parameters(self):
+        from lmfit import Parameters
         p = Parameters()
         if self.symmetry == 'cubic':
             p.add('a', self.a, vary=True)
@@ -947,6 +948,7 @@ class NXRefine(object):
                                                  p['gamma'].value)
 
     def refine_lattice_parameters(self, method='nelder', **opts):
+        from lmfit import minimize, fit_report
         p0 = self.define_lattice_parameters()
         self.result = minimize(self.lattice_residuals, p0, method=method, **opts)
         self.fit_report = fit_report(self.result)
@@ -961,6 +963,7 @@ class NXRefine(object):
                          for polar_angle in polar_angles])
 
     def define_orientation_matrix(self):
+        from lmfit import Parameters
         p = Parameters()
         for i in range(3):
             for j in range(3):
@@ -974,8 +977,10 @@ class NXRefine(object):
                 self.Umat[i,j] = p['U%d%d' % (i,j)].value
 
     def refine_orientation_matrix(self, **opts):
+        from lmfit import minimize, fit_report
         p0 = self.define_orientation_matrix()
         self.result = minimize(self.orient_residuals, p0, **opts)
+        self.fit_report = fit_report(self.result)
         if self.result.success:
             self.get_orientation_matrix(self.result.params)
 
