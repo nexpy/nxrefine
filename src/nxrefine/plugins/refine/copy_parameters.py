@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.optimize import minimize
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.plotview import plotview
 from nexpy.gui.utils import report_error
