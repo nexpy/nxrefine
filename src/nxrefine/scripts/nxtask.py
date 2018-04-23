@@ -18,7 +18,7 @@ def main():
     parser.add_argument('-l', '--last', default=3630, type=int, 
                         help='last frame')
     parser.add_argument('-p', '--parent', help='file name of file to copy from')
-    parser.add_argument('-r', '--refine', action='store_false',
+    parser.add_argument('-r', '--refine', action='store_true',
                         help='refine lattice parameters')
    
     args = parser.parse_args()
@@ -66,8 +66,7 @@ def main():
     if parent:
         subprocess.call('nxtransform -d %s -p %s' % (directory, parent), shell=True)
         subprocess.call('nxcombine -d %s' % directory, shell=True)
-            
-    
+
 
 if __name__=="__main__":
     main()
