@@ -89,7 +89,8 @@ def main():
         node.start()
     
     # Enqueue jobs
-    for command in commands:       
+    for command in commands:
+        print(command)      
         tasks.put(Task(path, command))
     
     # Add a poison pill for each node
