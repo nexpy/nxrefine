@@ -43,7 +43,7 @@ def main():
 
     parser = argparse.ArgumentParser(
         description="Perform workflow for scan")
-    parser.add_argument('-d', '--directory', required, help='scan directory')
+    parser.add_argument('-d', '--directory', help='scan directory')
     parser.add_argument('-t', '--threshold', type=float,
                         help='peak threshold - defaults to maximum counts/20')
     parser.add_argument('-f', '--first', default=20, type=int, 
