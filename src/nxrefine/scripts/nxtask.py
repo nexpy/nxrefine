@@ -60,8 +60,13 @@ def main():
         print("Copying parameters from %s" % parent)
         subprocess.call('nxcopy -i %s -o %s' 
                         % (parent, wrapper_file), shell=True)
-    if refine and 'orientation_matrix' in root[entries[0]]['instrument/detector']:
-        subprocess.call('nxrefine -d %s' % directory, shell=True)        
+    if refine:
+        print("Refining %s" % wrapper_file)
+        subprocess.call('nxrefine -d %s' % directory, shell=True)
+    if parent:
+        subprocess.call('nxtransform -d %s -p %s' % (directory, parent), shell=True)
+        subprocess.call('nxcombine -d %s' % directory, shell=True)
+            
     
 
 if __name__=="__main__":
