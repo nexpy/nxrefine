@@ -73,7 +73,7 @@ def main():
     if 'tasks' not in os.listdir(path):
         os.mkdir(os.path.join(path, 'tasks'))
 
-    scans = sorted([scan for scan in os.listdir(os.path.join(sample, label)) 
+    scans = sorted([scan for scan in os.listdir(directory) 
                     if os.path.isdir(scan)], key=natural_sort)
     parent = os.path.join(sample, label, '%s_%s.nxs' % (sample, scans[0]))
     commands = ['nxtask -d %s -p %s -t %s -f %d -l %d -r' 
