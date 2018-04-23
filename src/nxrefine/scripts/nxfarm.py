@@ -18,10 +18,10 @@ class ProcessNode(Process):
         while True:
             next_task = self.task_queue.get()
             if next_task is None:
-                print '%s: Exiting' % self.node
+                print('%s: Exiting' % self.node)
                 self.task_queue.task_done()
                 break
-            print '%s: %s' % (self.node, next_task)
+            print('%s: %s' % (self.node, next_task))
             next_task.execute(self.node)
             self.task_queue.task_done()
             self.result_queue.put(next_task.command)
@@ -103,7 +103,7 @@ def main():
     num_jobs = len(commands)
     while num_jobs:
         result = results.get()
-        print 'Completed:', result
+        print('Completed:', result)
         num_jobs -= 1 
     
 
