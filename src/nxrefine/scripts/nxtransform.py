@@ -67,11 +67,15 @@ def main():
             raise NeXusError('Transform parameters not defined in '+e)
 
     for e in entries:
-        output = os.path.join(scan, e+'_transform.nxs')
+        output = os.path.join(directory, e+'_transform.nxs')
+        if os.path.exists(output):
+            os.rename(output, output+'~')
         settings = os.path.join(directory, e+'_transform.pars')
+        if os.path.exists(settings):
+            os.rename(settings, settings+'~')
         prepare_transform(root[e], Qh, Qk, Ql, output, settings)
         print(root[e].transform.command)
-        subprocess.call(root[e].transform.command.nxdata, shell=True)
+        subprocess.call(root[e].transform.command.nxvalue, shell=True)
 
 
 if __name__=="__main__":

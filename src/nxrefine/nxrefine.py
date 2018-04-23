@@ -405,6 +405,8 @@ class NXRefine(object):
                     name='Qk')
         l = NXfield(np.linspace(self.l_start, self.l_stop, self.l_shape), 
                     name='Ql')
+        if 'transform' in self.entry:
+            del self.entry['transform']
         self.entry['transform'] = NXdata(NXlink(name = 'data', 
                                          target='/entry/data/v',
                                          file=output_file), [l, k, h])

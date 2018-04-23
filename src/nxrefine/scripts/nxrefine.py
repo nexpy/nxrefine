@@ -36,6 +36,8 @@ def main():
         note = NXnote('nxrefine '+' '.join(sys.argv[1:]), 
                       ('Current machine: %s\n%s')
                        % (socket.gethostname(), refine.fit_report))
+        if 'nxrefine' in entry:
+            del entry['nxrefine']
         entry['nxrefine'] = NXprocess(program='nxrefine', 
                                 sequence_index=len(entry.NXprocess)+1, 
                                 version=__version__, 

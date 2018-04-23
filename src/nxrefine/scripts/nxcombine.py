@@ -27,7 +27,7 @@ def prepare_transform(entry, Qh, Qk, Ql, output, settings):
 def main():
 
     parser = argparse.ArgumentParser(
-        description="Prepare files for a CCTW transform")
+        description="Combine CCTW transforms")
     parser.add_argument('-d', '--directory', default='', help='scan directory')
     parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
                         nargs='+', help='names of data entries to be merged')
@@ -56,10 +56,9 @@ def main():
     Ql = root['%s/transform/Ql' % entries[0]]
     data = NXlink('/entry/data/v', file=os.path.join(scan, 'transform.nxs'),
                   name='data')
-    if 'transform' not in entry:
-        entry['transform'] = NXdata(data, [Ql,Qk,Qh])
-    else:
-        entry['transform_1'] = NXdata(data, [Ql,Qk,Qh])
+    if 'transform' in entry:
+        del entry['transform']
+    entry['transform'] = NXdata(data, [Ql,Qk,Qh])
 
     note = NXnote('nxcombine '+' '.join(sys.argv[1:]), 
                   ('Current machine: %s\n'
