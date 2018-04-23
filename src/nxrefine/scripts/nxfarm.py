@@ -21,7 +21,6 @@ class ProcessNode(Process):
                 print('%s: Exiting' % self.node)
                 self.task_queue.task_done()
                 break
-            print('%s: %s' % (self.node, next_task))
             next_task.execute(self.node)
             self.task_queue.task_done()
             self.result_queue.put(next_task.command)
@@ -35,7 +34,7 @@ class Task(object):
         self.command = command
 
     def execute(self, node):
-        subprocess.call("pdsh -w %s 'source activate nexpy; cd %s; %s > tasks/%s.out'" 
+        subprocess.call("pdsh -w %s 'source activate nexpy; cd %s; %s >> tasks/%s.out 2>&1'" 
                         % (node, self.path, self.command, node), shell=True)
 
 
