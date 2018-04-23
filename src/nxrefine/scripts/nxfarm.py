@@ -55,6 +55,7 @@ def main():
                         help='directory containing GUP directories')
     parser.add_argument('-g', '--gup', default='GUP-57342',
                         help='GUP number, e.g., GUP-57342')
+    parser.add_argument('-n', '--norun', action='store_true', help='dry run')
     
     args = parser.parse_args()
 
@@ -68,6 +69,8 @@ def main():
     first = args.first
     last = args.last
     refine = args.refine
+    dry_run = args.norun
+
     path = os.path.join(args.cwd, args.gup)
     if 'tasks' not in os.listdir(path):
         os.mkdir(os.path.join(path, 'tasks'))
@@ -76,9 +79,15 @@ def main():
                     if os.path.isdir(os.path.join(directory, scan))], 
                     key=natural_sort)
     parent = os.path.join(sample, label, '%s_%s.nxs' % (sample, scans[0]))
-    commands = ['nxtask -d %s -p %s -t %s -f %d -l %d -r' 
-                % (os.path.join(directory, scan), parent, threshold, first, last)
-                for scan in scans[1:]]
+
+    if dry_run:
+        commands = ['nxtask -d %s -p %s -t %s -f %d -l %d -r -n' 
+                    % (os.path.join(directory, scan), parent, threshold, first, last)
+                    for scan in scans[1:]]
+    else:
+        commands = ['nxtask -d %s -p %s -t %s -f %d -l %d -r -n' 
+                    % (os.path.join(directory, scan), parent, threshold, first, last)
+                    for scan in scans[1:]]    
 
     tasks = JoinableQueue()
     results = Queue()
