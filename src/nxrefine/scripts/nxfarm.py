@@ -34,7 +34,7 @@ class Task(object):
         self.command = command
 
     def execute(self, node):
-        subprocess.call("pdsh -w %s 'source activate nexpy; cd %s; %s >> tasks/%s.out 2>&1'" 
+        subprocess.call("pdsh -w %s 'cd %s; %s >> tasks/%s.out'" 
                         % (node, self.path, self.command, node), shell=True)
 
 
@@ -85,7 +85,7 @@ def main():
                     % (os.path.join(directory, scan), parent, threshold, first, last)
                     for scan in scans[1:]]
     else:
-        commands = ['nxtask -d %s -p %s -t %s -f %d -l %d -r -n' 
+        commands = ['nxtask -d %s -p %s -t %s -f %d -l %d -r' 
                     % (os.path.join(directory, scan), parent, threshold, first, last)
                     for scan in scans[1:]]    
 
