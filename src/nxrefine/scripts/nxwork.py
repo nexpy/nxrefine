@@ -25,12 +25,10 @@ def main():
     args = parser.parse_args()
 
     directory = args.directory.rstrip('/')
-    sample = os.path.basename(os.path.dirname(os.path.dirname(directory)))   
-    label = os.path.basename(os.path.dirname(directory))
-    scan = os.path.basename(directory)
-    wrapper_file = os.path.join(sample, label, '%s_%s.nxs' % (sample, scan))
+    sample = os.path.basename(os.path.dirname(directory))
+    label = os.path.basename(directory)
 
-    print("Processing file '%s'" % wrapper_file)
+    print("Processing directory '%s'" % directory)
     
     entries = args.entries
     parent = args.parent
@@ -40,7 +38,7 @@ def main():
     refine = args.refine
 
     wrapper_files = sorted([os.path.join(directory, filename) 
-                            for filename in os.listdir(os.path.join(sample, label)) 
+                            for filename in directory 
                             if filename.endswith('.nxs')], key=natural_sort)
 
     for wrapper_file in wrapper_files:
