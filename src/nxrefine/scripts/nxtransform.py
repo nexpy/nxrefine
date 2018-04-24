@@ -67,7 +67,7 @@ def main():
             raise NeXusError('Transform parameters not defined in '+e)
 
     for e in entries:
-        output = os.path.join(directory, e+'_transform.nxs')
+        output = os.path.join(scan, e+'_transform.nxs')
         if os.path.exists(output):
             os.rename(output, output+'~')
         settings = os.path.join(directory, e+'_transform.pars')
