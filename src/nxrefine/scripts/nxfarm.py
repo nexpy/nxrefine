@@ -4,7 +4,7 @@ import numpy as np
 from nexpy.gui.utils import natural_sort
 from nexusformat.nexus import nxload, NeXusError
 
-orthros_nodes = ['puppy%d' % i for i in range(62,77)]
+orthros_nodes = ['puppy%d' % i for i in range(61,77)]
 
 class ProcessNode(Process):
     
@@ -92,7 +92,6 @@ def main():
     tasks = JoinableQueue()
     results = Queue()
     
-    clusters = range(5)
     nodes = [ProcessNode(node, tasks, results) for node in orthros_nodes]
     for node in nodes:
         node.start()
