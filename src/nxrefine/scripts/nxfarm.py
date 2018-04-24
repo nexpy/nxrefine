@@ -34,7 +34,7 @@ class Task(object):
         self.command = command
 
     def execute(self, node):
-        subprocess.call("pdsh -w %s 'cd %s; %s >> tasks/%s.out'" 
+        subprocess.call("pdsh -w %s 'cd %s; %s &>> tasks/%s.out'" 
                         % (node, self.path, self.command, node), shell=True)
 
 
