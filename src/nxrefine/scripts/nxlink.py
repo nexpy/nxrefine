@@ -128,7 +128,7 @@ def main():
         if logs:
             if 'logs' in root[entry]['instrument']:
                 del root[entry]['instrument/logs']
-            entry['instrument/logs'] = logs
+            root[entry]['instrument/logs'] = logs
             transfer_logs(root[entry])
 
     print('Linking to ', root.nxfilename)
