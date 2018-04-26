@@ -452,7 +452,7 @@ class RefineLatticeDialog(BaseDialog):
         if self.plotview is None:
             self.plotview = NXPlotView('X-Y Projection')
         self.plotview.plot(data[zslab], log=True)
-        self.plotview.crosshairs(x, y)
+        self.plotview.crosshairs(x, y, color='r')
 
     def orient(self):
         self.refine.primary = int(self.primary_box.text())
