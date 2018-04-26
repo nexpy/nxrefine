@@ -15,8 +15,8 @@ from nexusformat.nexus import *
 
 def link_data(directory, entry, path):
     files = [f for f in os.listdir(directory) 
-             if (os.path.splitext(f)[0] == entry and (f.endswith('.nxs') or 
-                                                      f.endswith('.h5')))]
+             if (os.path.splitext(f)[0] == entry.nxname and 
+                 (f.endswith('.nxs') or f.endswith('.h5')))]
     if len(files) == 1:
         data_directory = os.path.basename(os.path.dirname(directory))
         data_file = os.path.join(data_directory, files[0])
@@ -74,16 +74,16 @@ def read_logs(directory, entry):
 
 def transfer_logs(entry):
     logs = entry['instrument/logs']
-    frame_number = entry['data/frame_number'].size
-    if 'MCS1' in logs:
-        data = logs['MCS1'][:frame_number]
+    frames = entry['data/frame_number'].size
+    if 'MCS1' in logs and 'monitor1' not in entry:
+        data = logs['MCS1'][:frames]
         entry['monitor1'] = NXmonitor(NXfield(data, name='MCS1'),
-                                      NXfield(np.arange(frame_number, dtype=np.int32), 
+                                      NXfield(np.arange(frames, dtype=np.int32), 
                                               name='frame_number'))
-    if 'MCS2' in logs:
-        data = logs['MCS2'][:frame_number]
+    if 'MCS2' in logs and 'monitor2' not in entry:
+        data = logs['MCS2'][:frames]
         entry['monitor2'] = NXmonitor(NXfield(data, name='MCS2'),
-                                      NXfield(np.arange(frame_number, dtype=np.int32), 
+                                      NXfield(np.arange(frames, dtype=np.int32), 
                                               name='frame_number'))
     if 'source' not in entry['instrument']:
         entry['instrument/source'] = NXsource()
