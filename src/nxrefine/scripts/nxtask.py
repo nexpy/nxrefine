@@ -31,7 +31,10 @@ def main():
     wrapper_file = os.path.join(sample, label, '%s_%s.nxs' % (sample, scan))
 
     entries = args.entries
-    parent = args.parent
+    if args.parent == wrapper_file:
+        parent = None
+    else:
+        parent = args.parent
     threshold = args.threshold
     first = args.first
     last = args.last
