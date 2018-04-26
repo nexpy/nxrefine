@@ -131,7 +131,7 @@ def main():
             entry['instrument/logs'] = logs
             transfer_logs(root[entry])
 
-    print 'Linking to ', root.nxfilename
+    print('Linking to ', root.nxfilename)
 
 if __name__ == '__main__':
     main()
