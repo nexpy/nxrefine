@@ -13,58 +13,6 @@ import re
 import numpy as np
 from nexusformat.nexus import *
 
-def read_logs(directory, entry):
-    head_file = os.path.join(directory, entry+'_head.txt')
-    meta_file = os.path.join(directory, entry+'_meta.txt')
-    if os.path.exists(head_file) or os.path.exists(meta_file):
-        logs = NXcollection()
-    else:
-        return None
-    if os.path.exists(head_file):
-        with open(head_file) as f:
-            lines = f.readlines()
-        for line in lines:
-            key, value = line.split(', ')
-            value = value.strip('\n')
-            try:
-               value = np.float(value)
-            except:
-                pass
-            logs[key] = value
-    if os.path.exists(meta_file):
-        meta_input = np.genfromtxt(meta_file, delimiter=',', names=True)
-        for i, key in enumerate(meta_input.dtype.names):
-            logs[key] = [array[i] for array in meta_input]
-    return logs
-
-
-def transfer_logs(entry):
-    logs = entry['instrument/logs']
-    frame_number = entry['data/frame_number'].size
-    if 'MCS1' in logs:
-        data = logs['MCS1'][:frame_number]
-        entry['monitor1'] = NXmonitor(NXfield(data, name='MCS1'),
-                                      NXfield(frame_number, name='frame_number'))
-    if 'MCS2' in logs:
-        data = logs['MCS2'][:frame_number]
-        entry['monitor2'] = NXmonitor(NXfield(data, name='MCS2'),
-                                      NXfield(frame_number, name='frame_number'))
-    if 'source' not in entry['instrument']:
-        entry['instrument/source'] = NXsource()
-    entry['instrument/source/name'] = 'Advanced Photon Source'
-    entry['instrument/source/type'] = 'Synchrotron X-ray Source'
-    entry['instrument/source/probe'] = 'x-ray'
-    if 'Storage_Ring_Current' in logs:
-        entry['instrument/source/current'] = logs['Storage_Ring_Current']
-    if 'UndulatorA_gap' in logs:
-        entry['instrument/source/undulator_gap'] = logs['UndulatorA_gap']
-    if 'Calculated_filter_transmission' in logs:
-        if 'attenuator' not in entry['instrument']:
-            entry['instrument/attenuator'] = NXattenuator()
-        entry['instrument/attenuator/attenuator_transmission'] = logs['Calculated_filter_transmission']
-        
-    
-
 def link_data(directory, entry, path):
     files = [f for f in os.listdir(directory) 
              if (os.path.splitext(f)[0] == entry and (f.endswith('.nxs') or 
@@ -99,7 +47,59 @@ def link_data(directory, entry, path):
         print('No raw data file found')
 
 
+def read_logs(directory, entry):
+    head_file = os.path.join(directory, entry+'_head.txt')
+    meta_file = os.path.join(directory, entry+'_meta.txt')
+    if os.path.exists(head_file) or os.path.exists(meta_file):
+        logs = NXcollection()
+    else:
+        return None
+    if os.path.exists(head_file):
+        with open(head_file) as f:
+            lines = f.readlines()
+        for line in lines:
+            key, value = line.split(', ')
+            value = value.strip('\n')
+            try:
+               value = np.float(value)
+            except:
+                pass
+            logs[key] = value
+    if os.path.exists(meta_file):
+        meta_input = np.genfromtxt(meta_file, delimiter=',', names=True)
+        for i, key in enumerate(meta_input.dtype.names):
+            logs[key] = [array[i] for array in meta_input]
+    return logs
 
+
+def transfer_logs(entry):
+    logs = entry['instrument/logs']
+    frame_number = entry['data/frame_number'].size
+    if 'MCS1' in logs:
+        data = logs['MCS1'][:frame_number]
+        entry['monitor1'] = NXmonitor(NXfield(data, name='MCS1'),
+                                      NXfield(np.arange(frame_number, dtype=np.int32), 
+                                              name='frame_number'))
+    if 'MCS2' in logs:
+        data = logs['MCS2'][:frame_number]
+        entry['monitor2'] = NXmonitor(NXfield(data, name='MCS2'),
+                                      NXfield(np.arange(frame_number, dtype=np.int32), 
+                                              name='frame_number'))
+    if 'source' not in entry['instrument']:
+        entry['instrument/source'] = NXsource()
+    entry['instrument/source/name'] = 'Advanced Photon Source'
+    entry['instrument/source/type'] = 'Synchrotron X-ray Source'
+    entry['instrument/source/probe'] = 'x-ray'
+    if 'Storage_Ring_Current' in logs:
+        entry['instrument/source/current'] = logs['Storage_Ring_Current']
+    if 'UndulatorA_gap' in logs:
+        entry['instrument/source/undulator_gap'] = logs['UndulatorA_gap']
+    if 'Calculated_filter_transmission' in logs:
+        if 'attenuator' not in entry['instrument']:
+            entry['instrument/attenuator'] = NXattenuator()
+        entry['instrument/attenuator/attenuator_transmission'] = logs['Calculated_filter_transmission']
+        
+    
 def main():
 
     parser = argparse.ArgumentParser(
