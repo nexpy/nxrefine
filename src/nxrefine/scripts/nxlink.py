@@ -68,7 +68,7 @@ def transfer_logs(entry):
 def link_data(directory, entry, path):
     files = [f for f in os.listdir(directory) 
              if (os.path.splitext(f)[0] == entry and (f.endswith('.nxs') or 
-                                                      f.endswith('.h5'))]
+                                                      f.endswith('.h5')))]
     if len(files) == 1:
         data_directory = os.path.basename(os.path.dirname(directory))
         data_file = os.path.join(data_directory, files[0])
