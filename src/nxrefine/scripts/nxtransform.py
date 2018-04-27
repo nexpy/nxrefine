@@ -72,7 +72,9 @@ def main():
         if os.path.exists(os.path.join(sample, label, output)):
             output_file = os.path.join(sample, label, output)
             os.rename(output_file, output_file+'-%s' % timestamp())
-        settings = os.path.join(scan, e+'_transform.pars')
+        settings = os.path.join(directory, e+'_transform.pars')
+        if os.path.exists(settings):
+            os.rename(settings, settings+'-%s' % timestamp())
         prepare_transform(root[e], Qh, Qk, Ql, output, settings)
         print(root[e].transform.command)
         subprocess.call(root[e].transform.command.nxvalue, shell=True)

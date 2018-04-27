@@ -397,7 +397,7 @@ class NXRefine(object):
         self.grid_shape = [self.h_shape, self.k_shape, self.l_shape]
         self.grid_basis = [[1,0,0],[0,1,0],[0,0,1]]
 
-    def prepare_transform(self, output_file):
+    def prepare_transform(self, output_link):
         command = self.cctw_command()
         h = NXfield(np.linspace(self.h_start, self.h_stop, self.h_shape), 
                     name='Qh')
@@ -409,9 +409,9 @@ class NXRefine(object):
             del self.entry['transform']
         self.entry['transform'] = NXdata(NXlink(name = 'data', 
                                          target='/entry/data/v',
-                                         file=output_file), [l, k, h])
+                                         file=output_link), [l, k, h])
         self.entry['transform/weights'] = NXlink(target='/entry/data/n',
-                                                 file=output_file)
+                                                 file=output_link)
         self.entry['transform/command'] = command
 
     def cctw_command(self):
