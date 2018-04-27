@@ -18,7 +18,7 @@ def link_data(directory, entry, path):
              if (os.path.splitext(f)[0] == entry.nxname and 
                  (f.endswith('.nxs') or f.endswith('.h5')))]
     if len(files) == 1:
-        data_directory = os.path.basename(os.path.dirname(directory))
+        data_directory = os.path.basename(directory)
         data_file = os.path.join(data_directory, files[0])
         data_target = path
         data_root = nxload(os.path.join(directory, files[0]))
@@ -103,10 +103,11 @@ def transfer_logs(entry):
 def main():
 
     parser = argparse.ArgumentParser(
-        description="Link data and metadata to NeXus file")
+        description="Link data and metadata to NeXus file",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-d', '--directory', default='', help='scan directory')
     parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
-        nargs='+', help='names of entries')
+        nargs='+', help='names of entries to be linked')
     parser.add_argument('-p', '--path', default='entry/data/data', 
         help='Path to data in the raw data file')
 
@@ -118,11 +119,14 @@ def main():
     scan = os.path.basename(directory)
     wrapper_file = os.path.join(sample, label, '%s_%s.nxs' % (sample, scan))
 
+    print('Linking to ', wrapper_file)
+
     entries = args.entries
     path = args.path
 
     root = nxload(wrapper_file, 'rw')    
     for entry in entries:
+        print('Linking', entry)
         link_data(directory, root[entry], path)
         logs = read_logs(directory, entry)
         if logs:
@@ -130,8 +134,8 @@ def main():
                 del root[entry]['instrument/logs']
             root[entry]['instrument/logs'] = logs
             transfer_logs(root[entry])
+            print('Adding logs to', entry)
 
-    print('Linking to ', root.nxfilename)
 
 if __name__ == '__main__':
     main()
