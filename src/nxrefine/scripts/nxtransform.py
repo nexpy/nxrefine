@@ -5,7 +5,7 @@ import subprocess
 import numpy as np
 from nexusformat.nexus import *
 from nxrefine.nxrefine import NXRefine
-from nexpy.api.utils import timestamp
+from nexpy.gui.utils import timestamp
 
 
 def prepare_transform(entry, Qh, Qk, Ql, output, settings):
@@ -69,7 +69,7 @@ def main():
 
     for e in entries:
         output = os.path.join(scan, e+'_transform.nxs')
-        if os.path.exists(os.path.join(sample, label, output))
+        if os.path.exists(os.path.join(sample, label, output)):
             output_file = os.path.join(sample, label, output)
             os.rename(output_file, output_file+'-%s' % timestamp())
         settings = os.path.join(scan, e+'_transform.pars')
