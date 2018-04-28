@@ -17,6 +17,8 @@ def main():
     parser.add_argument('-d', '--directory', default='', help='scan directory')
     parser.add_argument('-e', '--entry', default='f1', 
                         help='name of entry to be refined')
+    parser.add_argument('-o', '--overwrite', action='store_true', 
+                        help='overwrite existing refinement')
     
     args = parser.parse_args()
     directory = args.directory.rstrip('/')
@@ -24,24 +26,34 @@ def main():
     label = os.path.basename(os.path.dirname(directory))
     scan = os.path.basename(directory)
     wrapper_file = os.path.join(sample, label, '%s_%s.nxs' % (sample, scan))
-
-    root = nxload(wrapper_file, 'rw')
     entry = root[args.entry]
-    
-    refine = NXRefine(entry)
+    overwrite = args.overwrite
 
-    refine.refine_hkl_parameters()
-    if refine.result.success:
-        refine.write_parameters()
-        note = NXnote('nxrefine '+' '.join(sys.argv[1:]), 
-                      ('Current machine: %s\n%s')
-                       % (socket.gethostname(), refine.fit_report))
-        if 'nxrefine' in entry:
-            del entry['nxrefine']
-        entry['nxrefine'] = NXprocess(program='nxrefine', 
-                                sequence_index=len(entry.NXprocess)+1, 
-                                version=__version__, 
-                                note=note)
+    if not os.path.exists(wrapper_file):
+        print("'%s' does not exist" % wrapper_file)
+        sys.exit(1)
+    else:
+        root = nxload(wrapper_file, 'rw')
+    
+    print('Refining', wrapper_file)
+    
+    if 'nxrefine' in root[entry] and not overwrite:
+        print('HKL values already refined')
+    else:
+        refine = NXRefine(entry)
+        refine.refine_hkl_parameters()
+        if refine.result.success:
+            refine.write_parameters()
+            note = NXnote('nxrefine '+' '.join(sys.argv[1:]), 
+                          ('Current machine: %s\n%s')
+                           % (socket.gethostname(), refine.fit_report))
+            if 'nxrefine' in entry:
+                del entry['nxrefine']
+            entry['nxrefine'] = NXprocess(program='nxrefine', 
+                                    sequence_index=len(entry.NXprocess)+1, 
+                                    version=__version__, 
+                                    note=note)
+            print('Refined HKL values')
 
 
 if __name__=="__main__":

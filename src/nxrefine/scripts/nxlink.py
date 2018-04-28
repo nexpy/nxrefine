@@ -32,13 +32,17 @@ def link_data(directory, entry, path):
             entry['data/y_pixel'] = np.arange(data_shape[1], dtype=np.int32)
             entry['data/frame_number'] = np.arange(data_shape[0], dtype=np.int32)
             entry['data/data'] = NXlink(data_target, data_file)
-        elif entry['data/frame_number'].shape != data_shape[0]:
-            del entry['data/frame_number']
-            entry['data/frame_number'] = np.arange(data_shape[0], dtype=np.int32)
+            print('Created new data group')
+        else:
+            if entry['data/frame_number'].shape != data_shape[0]:
+                del entry['data/frame_number']
+                entry['data/frame_number'] = np.arange(data_shape[0], dtype=np.int32)
+                print('Fixed frame number axis')
             if ('data' in entry['data'] and 
                 entry['data/data']._filename != data_file):
                 del entry['data/data']
                 entry['data/data'] = NXlink(data_target, data_file)
+                print('Fixed path to external data')
         entry['data'].nxsignal = entry['data/data']
         entry['data'].nxaxes = [entry['data/frame_number'], 
                                 entry['data/y_pixel'], 
@@ -53,6 +57,7 @@ def read_logs(directory, entry):
     if os.path.exists(head_file) or os.path.exists(meta_file):
         logs = NXcollection()
     else:
+        print('No metadata files found')
         return None
     if os.path.exists(head_file):
         with open(head_file) as f:
@@ -75,12 +80,16 @@ def read_logs(directory, entry):
 def transfer_logs(entry):
     logs = entry['instrument/logs']
     frames = entry['data/frame_number'].size
-    if 'MCS1' in logs and 'monitor1' not in entry:
+    if 'MCS1' in logs:
+        if 'monitor1' in entry:
+            del entry['monitor1']
         data = logs['MCS1'][:frames]
         entry['monitor1'] = NXmonitor(NXfield(data, name='MCS1'),
                                       NXfield(np.arange(frames, dtype=np.int32), 
                                               name='frame_number'))
-    if 'MCS2' in logs and 'monitor2' not in entry:
+    if 'MCS2' in logs:
+        if 'monitor2' in entry:
+            del entry['monitor2']
         data = logs['MCS2'][:frames]
         entry['monitor2'] = NXmonitor(NXfield(data, name='MCS2'),
                                       NXfield(np.arange(frames, dtype=np.int32), 
@@ -110,6 +119,8 @@ def main():
         nargs='+', help='names of entries to be linked')
     parser.add_argument('-p', '--path', default='entry/data/data', 
         help='Path to data in the raw data file')
+    parser.add_argument('-o', '--overwrite', action='store_true', 
+                        help='overwrite existing logs')
 
     args = parser.parse_args()
 
@@ -118,23 +129,31 @@ def main():
     label = os.path.basename(os.path.dirname(directory))
     scan = os.path.basename(directory)
     wrapper_file = os.path.join(sample, label, '%s_%s.nxs' % (sample, scan))
+    entries = args.entries
+    path = args.path
+    overwrite = args.overwrite
+
+    if not os.path.exists(wrapper_file):
+        print("'%s' does not exist" % wrapper_file)
+        sys.exit(1)
+    else:
+        root = nxload(wrapper_file, 'rw')
 
     print('Linking to ', wrapper_file)
 
-    entries = args.entries
-    path = args.path
-
-    root = nxload(wrapper_file, 'rw')    
     for entry in entries:
         print('Linking', entry)
         link_data(directory, root[entry], path)
-        logs = read_logs(directory, entry)
-        if logs:
-            if 'logs' in root[entry]['instrument']:
-                del root[entry]['instrument/logs']
-            root[entry]['instrument/logs'] = logs
-            transfer_logs(root[entry])
-            print('Adding logs to', entry)
+        if 'logs' in root[entry]['instrument'] and not overwrite:
+            print('Logs already transferred')
+        else:
+            logs = read_logs(directory, entry)
+            if logs:
+                if 'logs' in root[entry]['instrument']:
+                    del root[entry]['instrument/logs']
+                root[entry]['instrument/logs'] = logs
+                transfer_logs(root[entry])
+                print('Added logs to', entry)
 
 
 if __name__ == '__main__':

@@ -13,16 +13,24 @@ from nexusformat.nexus import *
 
 
 def update_progress(i):
-    s = 'Processing %d' % i
+    s = 'Frame %d' % i
     if i > 0:
         s = '\r' + s
     print(s, end='')
 
 
-def find_maximum(field):
+def find_maximum(entry):
+
+    field = entry['data'].nxsignal
+    if not os.path.exists(field.nxfilename):
+        print("'%s' does not exist" % field.nxfilename)
+        return
+
+    tic=timeit.default_timer()
+
     maximum = 0.0
     try:
-        mask = field.nxentry['instrument/detector/pixel_mask'].nxdata
+        mask = entry['instrument/detector/pixel_mask'].nxdata
         if len(mask.shape) > 2:
             mask = mask[0]
     except Exception:
@@ -44,11 +52,13 @@ def find_maximum(field):
             if maximum < v.max():
                 maximum = v.max()
             del v
-    return maximum
 
+    entry['data'].attrs['maximum'] = maximum
+    
+    print('\nMaximum counts in %s are' % entry.nxname, maximum)
 
-def save_maximum(group, maximum):
-    group.attrs['maximum'] = maximum
+    toc=timeit.default_timer()
+    print(toc-tic, 'seconds for', entry.nxname)
 
 
 def main():
@@ -57,7 +67,10 @@ def main():
         description="Find maximum counts of the signal in the specified path")
     parser.add_argument('-d', '--directory', required=True, 
                         help='scan directory')
-    parser.add_argument('-e', '--entry', help='entry to be processed')
+    parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
+        nargs='+', help='names of entries to be processed')
+    parser.add_argument('-o', '--overwrite', action='store_true', 
+                        help='overwrite existing maximum')
 
     args = parser.parse_args()
 
@@ -66,17 +79,23 @@ def main():
     label = os.path.basename(os.path.dirname(directory))
     scan = os.path.basename(directory)
     wrapper_file = os.path.join(sample, label, '%s_%s.nxs' % (sample, scan))
-    entry = args.entry
+    entries = args.entries
+    overwrite = args.overwrite
 
-    tic=timeit.default_timer()
-    name, ext = os.path.splitext(wrapper_file)
-    root = nxload(wrapper_file, 'rw')
-    entry = root[entry]
-    maximum = find_maximum(entry['data'].nxsignal)
-    print('\nMaximum counts are ', maximum)
-    save_maximum(entry['data'], maximum)
-    toc=timeit.default_timer()
-    print(toc-tic, 'seconds for', wrapper_file)
+    if not os.path.exists(wrapper_file):
+        print("'%s' does not exist" % wrapper_file)
+        sys.exit(1)
+    else:
+        root = nxload(wrapper_file, 'rw')
+
+    print('Finding maximum in ', wrapper_file)
+
+    for entry in entries:
+        print('Processing', entry)
+        if 'maximum' in root[entry]['data'].attrs and not overwrite:
+            print('Maximum value already determined')
+        else:
+            find_maximum(root[entry])
 
 
 if __name__=="__main__":

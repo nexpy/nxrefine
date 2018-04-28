@@ -33,6 +33,8 @@ def main():
     parser.add_argument('-qh', nargs=3, help='Qh - min, step, max')
     parser.add_argument('-qk', nargs=3, help='Qk - min, step, max')
     parser.add_argument('-ql', nargs=3, help='Ql - min, step, max')
+    parser.add_argument('-o', '--overwrite', action='store_true', 
+                        help='overwrite existing transforms')
     
     args = parser.parse_args()
 
@@ -41,18 +43,27 @@ def main():
     label = os.path.basename(os.path.dirname(directory))
     scan = os.path.basename(directory)
     wrapper_file = os.path.join(sample, label, '%s_%s.nxs' % (sample, scan))
+    entries = args.entries
+    parent = args.parent
+    overwrite = args.overwrite
 
-    if args.parent:
-        parent = nxload(args.parent)
+    if not os.path.exists(wrapper_file):
+        print("'%s' does not exist" % wrapper_file)
+        sys.exit(1)
+    else:
+        root = nxload(wrapper_file, 'rw')
+
+    if parent:
+        if not os.path.exists(parent):
+            print("'%s' does not exist" % parent)
+            sys.exit(1)
+        else:    
+            parent = nxload(args.parent)
     else:
         parent = None
         Qh = [np.float32(v) for v in args.qh]
         Qk = [np.float32(v) for v in args.qk]
         Ql = [np.float32(v) for v in args.ql]
-
-    entries = args.entries
-
-    root = nxload(wrapper_file, 'rw')
 
     e = entries[0]
     if parent is not None:
@@ -65,19 +76,30 @@ def main():
             Qk = Qk[0], Qk[1]-Qk[0], Qk[-1]
             Ql = Ql[0], Ql[1]-Ql[0], Ql[-1]
         else:
-            raise NeXusError('Transform parameters not defined in '+e)
+            print('Transform parameters not defined in', e)
+            sys.exit(1)
 
-    for e in entries:
-        output = os.path.join(scan, e+'_transform.nxs')
-        if os.path.exists(os.path.join(sample, label, output)):
-            output_file = os.path.join(sample, label, output)
-            os.rename(output_file, output_file+'-%s' % timestamp())
-        settings = os.path.join(directory, e+'_transform.pars')
+    print('Transforming', wrapper_file)
+
+    for entry in entries:
+        print('Processing', entry)
+        output_file = os.path.join(directory, entry+'_transform.nxs')
+        if os.path.exists(output_file):
+            if overwrite:
+                os.rename(output_file, output_file+'-%s' % timestamp())
+            else:
+                print('Transform already exists')
+                continue
+        output = os.path.join(scan, entry+'_transform.nxs')
+        settings = os.path.join(directory, entry+'_transform.pars')
         if os.path.exists(settings):
             os.rename(settings, settings+'-%s' % timestamp())
-        prepare_transform(root[e], Qh, Qk, Ql, output, settings)
-        print(root[e].transform.command)
-        subprocess.call(root[e].transform.command.nxvalue, shell=True)
+        prepare_transform(root[entry], Qh, Qk, Ql, output, settings)
+        print(root[entry].transform.command)
+        if not os.path.exists(root[entry]['data/data'].nxfilename):
+            print("'%s' does not exist" % entry['data/data'].nxfilename)
+            return
+        subprocess.call(root[entry].transform.command.nxvalue, shell=True)
 
 
 if __name__=="__main__":

@@ -31,6 +31,8 @@ def main():
     parser.add_argument('-d', '--directory', default='', help='scan directory')
     parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
                         nargs='+', help='names of data entries to be merged')
+    parser.add_argument('-o', '--overwrite', action='store_true', 
+                        help='overwrite existing transform')
     
     args = parser.parse_args()
 
@@ -39,11 +41,29 @@ def main():
     label = os.path.basename(os.path.dirname(directory))
     scan = os.path.basename(directory)
     wrapper_file = os.path.join(sample, label, '%s_%s.nxs' % (sample, scan))
-
     entries = args.entries
+    overwrite = args.overwrite
 
-    root = nxload(wrapper_file, 'rw')
-    entry = root['entry']
+    if not os.path.exists(wrapper_file):
+        print("'%s' does not exist" % wrapper_file)
+        sys.exit(1)
+    else:
+        root = nxload(wrapper_file, 'rw')
+        entry = root['entry']
+
+    print('Combining entries in', wrapper_file)
+    
+    if os.path.exists(os.path.join(directory, 'transform.nxs')) and not overwrite:
+        print('Transforms already combined')
+        sys.exit()
+    else:
+        input_files = [os.path.join(directory, '%s_transform.nxs' % e)
+                       for e in entries]
+        missing = [f for f in input_files if not os.path.exists(f)]
+        if missing:
+            for f in missing:
+                print("'%s' does not exist" % f)
+            sys.exit(1)
 
     input = ' '.join([os.path.join(directory, '%s_transform.nxs\#/entry/data'
                       % e) for e in entries])
@@ -70,7 +90,6 @@ def main():
                                    sequence_index=len(entry.NXprocess)+1, 
                                    version=__version__, 
                                    note=note)
-
 
 
 if __name__=="__main__":

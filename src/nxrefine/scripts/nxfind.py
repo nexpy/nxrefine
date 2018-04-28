@@ -12,17 +12,22 @@ from nxrefine.labelimage import labelimage, flip1
 
 
 def update_progress(i):
-    s = 'Processing %d' % i
+    s = 'Frame %d' % i
     if i > 0:
         s = '\r' + s
     print(s, end='')
 
 
-def find_peaks(group, threshold=None, z_min=None, z_max=None):
+def find_peaks(entry, threshold=None, z_min=None, z_max=None):
 
-    field = group.nxsignal
+    field = entry['data'].nxsignal
+
+    if not os.path.exists(field.nxfilename):
+        print("'%s' does not exist" % field.nxfilename)
+        return
+
     try:
-        mask = field.nxentry['instrument/detector/pixel_mask'].nxdata
+        mask = entry['instrument/detector/pixel_mask'].nxvalue
         if len(mask.shape) > 2:
             mask = mask[0]
     except Exception:
@@ -36,6 +41,8 @@ def find_peaks(group, threshold=None, z_min=None, z_max=None):
         else:
             raise NeXusError(
                 'Must give threshold if the field maximum is unknown')
+
+    tic=timeit.default_timer()
 
     if z_min == None:
         z_min = 0
@@ -77,10 +84,14 @@ def find_peaks(group, threshold=None, z_min=None, z_max=None):
 
     if not allpeaks:
         raise NeXusError('No peaks found')
+
     allpeaks = sorted(allpeaks)
+    
+    print('\nMerging peaks')
 
     merged_peaks = []
     for z in range(z_min, z_max+1):
+        update_progress(z)
         frame = [peak for peak in allpeaks if peak.z == z]
         if not merged_peaks:
             merged_peaks.extend(frame)
@@ -124,24 +135,36 @@ def find_peaks(group, threshold=None, z_min=None, z_max=None):
     print('\n%s peaks found' % len(peaks))
 
     if len(peaks) > 0:
-        write_peaks(field, peaks)
+        write_peaks(entry, peaks)
+
+    toc=timeit.default_timer()
+    print(toc-tic, 'seconds for', entry.nxname)
 
 
-def write_peaks(field, peaks):
-    entry = field.nxentry
-    if 'peaks' in entry.entries:
+def write_peaks(entry, peaks):
+    if 'peaks' in entry:
         del entry['peaks']
-    entry.peaks = NXdata()
+    entry['peaks'] = NXdata()
     shape = (len(peaks),)
-    entry.peaks.npixels = NXfield([peak.np for peak in peaks], dtype=np.float32)
-    entry.peaks.intensity = NXfield([peak.intensity for peak in peaks], 
+    entry['peaks/npixels'] = NXfield([peak.np for peak in peaks], dtype=np.float32)
+    entry['peaks/intensity'] = NXfield([peak.intensity for peak in peaks], 
                                     dtype=np.float32)
-    entry.peaks.x = NXfield([peak.x for peak in peaks], dtype=np.float32)
-    entry.peaks.y = NXfield([peak.y for peak in peaks], dtype=np.float32)
-    entry.peaks.z = NXfield([peak.z for peak in peaks], dtype=np.float32)
-    entry.peaks.sigx = NXfield([peak.sigx for peak in peaks], dtype=np.float32)
-    entry.peaks.sigy = NXfield([peak.sigy for peak in peaks], dtype=np.float32)
-    entry.peaks.covxy = NXfield([peak.covxy for peak in peaks], dtype=np.float32)
+    entry['peaks/x'] = NXfield([peak.x for peak in peaks], dtype=np.float32)
+    entry['peaks/y'] = NXfield([peak.y for peak in peaks], dtype=np.float32)
+    entry['peaks/z'] = NXfield([peak.z for peak in peaks], dtype=np.float32)
+    entry['peaks/sigx'] = NXfield([peak.sigx for peak in peaks], dtype=np.float32)
+    entry['peaks/sigy'] = NXfield([peak.sigy for peak in peaks], dtype=np.float32)
+    entry['peaks/covxy'] = NXfield([peak.covxy for peak in peaks], dtype=np.float32)
+    note = NXnote('nxfind '+' '.join(sys.argv[1:]), 
+                  ('Current machine: %s\n'
+                   'Current working directory: %s')
+                   % (socket.gethostname(), os.getcwd()))
+    if 'nxfind' in entry:
+        del entry['nxfind']
+    entry['nxfind'] = NXprocess(program='nxfind', 
+                                sequence_index=len(entry.NXprocess)+1, 
+                                version=__version__, 
+                                note=note)
 
 
 class NXpeak(object):
@@ -225,12 +248,14 @@ def main():
         description="Find peaks within the NeXus data")
     parser.add_argument('-d', '--directory', required=True, 
                         help='scan directory')
-    parser.add_argument('-e', '--entry', required=True,
-                        help='name of data entry to be searched')
+    parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
+        nargs='+', help='names of entries to be searched')
     parser.add_argument('-t', '--threshold', type=float,
                         help='peak threshold - defaults to maximum counts/20')
     parser.add_argument('-f', '--first', type=int, help='first frame')
     parser.add_argument('-l', '--last', type=int, help='last frame')
+    parser.add_argument('-o', '--overwrite', action='store_true', 
+                        help='overwrite existing peaks')
 
     args = parser.parse_args()
 
@@ -239,26 +264,26 @@ def main():
     label = os.path.basename(os.path.dirname(directory))
     scan = os.path.basename(directory)
     wrapper_file = os.path.join(sample, label, '%s_%s.nxs' % (sample, scan))
+    entries = args.entries
     threshold = args.threshold
     first = args.first
     last = args.last
+    overwrite = args.overwrite
 
-    tic=timeit.default_timer()
-    root = nxload(wrapper_file, 'rw')
-    entry = root[args.entry]
-    find_peaks(entry['data'], threshold, first, last)
-    note = NXnote('nxfind '+' '.join(sys.argv[1:]), 
-                  ('Current machine: %s\n'
-                   'Current working directory: %s')
-                    % (socket.gethostname(), os.getcwd()))
-    entry['nxfind'] = NXprocess(program='nxfind', 
-                                sequence_index=len(entry.NXprocess)+1, 
-                                version=__version__, 
-                                note=note)
+    if not os.path.exists(wrapper_file):
+        print("'%s' does not exist" % wrapper_file)
+        sys.exit(1)
+    else:
+        root = nxload(wrapper_file, 'rw')
 
-    toc=timeit.default_timer()
-    print(toc-tic, 'seconds for', wrapper_file)
-
+    print('Finding peaks in', wrapper_file)
+    
+    for entry in entries:
+        print('Searching', entry)
+        if 'peaks' in root[entry] and not overwrite:
+            print('Peaks already found')
+        else:
+            find_peaks(root[entry], threshold, first, last)
 
 if __name__=="__main__":
     main()
