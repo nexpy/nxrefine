@@ -58,7 +58,10 @@ class TransformDialog(BaseDialog):
         grid.addWidget(self.start_l_box, 3, 1)
         grid.addWidget(self.step_l_box, 3, 2)
         grid.addWidget(self.stop_l_box, 3, 3)
-        self.set_layout(self.entry_layout, grid, self.close_buttons(save=True))
+        self.set_layout(self.entry_layout, grid, 
+            self.checkboxes(('copy', 'Copy to all entries', True),
+                            ('overwrite', 'Overwrite existing transforms', False)),
+            self.close_buttons(save=True))
         self.setWindowTitle('Transforming Data')
         try:
             self.initialize_grid()
@@ -99,9 +102,9 @@ class TransformDialog(BaseDialog):
         self.step_l_box.setText(str(self.refine.l_step))
         self.stop_l_box.setText(str(self.refine.l_stop))
 
-    def write_parameters(self):
-        self.refine.output_file = self.get_output_file()
-        self.refine.settings_file = self.get_settings_file()
+    def write_parameters(self, output_file, settings_file):
+        self.refine.output_file = output_file
+        self.refine.settings_file = settings_file
         self.refine.h_start, self.refine.h_step, self.refine.h_stop = self.get_h_grid()
         self.refine.k_start, self.refine.k_step, self.refine.k_stop = self.get_k_grid()
         self.refine.l_start, self.refine.l_step, self.refine.l_stop = self.get_l_grid()
@@ -109,9 +112,32 @@ class TransformDialog(BaseDialog):
 
     def accept(self):
         try:
-            self.write_parameters()
-            self.refine.prepare_transform(self.get_output_file())
-            self.refine.write_settings(self.get_settings_file())
+            if ('transform' in self.entry and not
+                self.checkbox['overwrite'].isChecked()):
+                self.display_message('Preparing Transform',
+                    'Transform already exists in %s' % self.entry.nxname)
+                return
+            output_file = self.get_output_file()
+            settings_file = self.get_settings_file()
+            self.write_parameters(output_file, settings_file)
+            self.refine.prepare_transform(output_file)
+            self.refine.write_settings(settings_file)
+            if self.checkbox['copy'].isChecked():
+                root = self.entry.nxroot
+                for entry in [e for e in root 
+                              if e != 'entry' and e != self.entry.nxname]:
+                    if ('transform' in root[entry] and not
+                        self.checkbox['overwrite'].isChecked()):
+                        self.display_message('Preparing Transform',
+                            'Transform already exists in %s' % entry)
+                        return
+                    self.refine = NXRefine(root[entry])
+                    output = output_file.replace(self.entry.nxname, entry)
+                    settings = settings_file.replace(self.entry.nxname, entry)
+                    self.write_parameters(output, settings)
+                    self.refine.prepare_transform(output)
+                    self.refine.write_settings(settings)
+                    
             super(TransformDialog, self).accept()
         except NeXusError as error:
             report_error("Preparing Data Transform", error)
