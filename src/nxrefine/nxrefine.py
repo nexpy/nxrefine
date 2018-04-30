@@ -430,8 +430,6 @@ class NXRefine(object):
             command.append('--mask %s\#/entry/mask' % mask_file)
         except NeXusError:
             pass          
-#        elif 'pixel_mask' in self.entry['instrument/detector']:
-#            command.append('--mask /%s/instrument/detector/pixel_mask' % entry)
         if 'monitor_weight' in self.entry['data']:
             command.append('--weights %s\#/%s/data/monitor_weight' 
                            % (filename, entry))
@@ -538,7 +536,10 @@ class NXRefine(object):
         """Determine the U matrix using the defined UB matrix and B matrix
         calculated from the lattice parameters
         """
-        return self.Umat * self.Bmat
+        if self.Umat is None:
+            return self.Umat * self.Bmat
+        else:
+            return np.matrix(np.eye(3))
 
     @property
     def Bimat(self):
