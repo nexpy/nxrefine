@@ -8,6 +8,21 @@ from nxrefine.nxrefine import NXRefine
 from nexpy.gui.utils import timestamp
 
 
+def read_transform(entry):
+    try:
+        transform = entry['transform']
+        Qh, Qk, Ql = (transform['Qh'].nxvalue,
+                      transform['Qk'].nxvalue,
+                      transform['Ql'].nxvalue)
+        Qh = Qh[0], Qh[1]-Qh[0], Qh[-1]
+        Qk = Qk[0], Qk[1]-Qk[0], Qk[-1]
+        Ql = Ql[0], Ql[1]-Ql[0], Ql[-1]
+        return Qh, Qk, Ql
+    except Exception:
+        print('Transform parameters not defined in', entry)
+        sys.exit(1)
+
+
 def prepare_transform(entry, Qh, Qk, Ql, output, settings):
     refine = NXRefine(entry)
     refine.read_parameters()
@@ -53,31 +68,24 @@ def main():
     else:
         root = nxload(wrapper_file, 'rw')
 
-    if parent:
+    if args.qh or args.qk or args.ql:
+        try:
+            Qh = [np.float32(v) for v in args.qh]
+            Qk = [np.float32(v) for v in args.qk]
+            Ql = [np.float32(v) for v in args.ql]
+        except Exception:
+            print('Invalid HKL values')
+            sys.exit(1)
+    elif parent:
         if not os.path.exists(parent):
             print("'%s' does not exist" % parent)
             sys.exit(1)
         else:    
             parent = nxload(args.parent)
+            Qh, Qk, Ql = read_transform(parent[entries[0]])
     else:
         parent = None
-        Qh = [np.float32(v) for v in args.qh]
-        Qk = [np.float32(v) for v in args.qk]
-        Ql = [np.float32(v) for v in args.ql]
-
-    e = entries[0]
-    if parent is not None:
-        if e in parent and 'transform' in parent[e]:
-            transform = parent[e+'/transform']
-            Qh, Qk, Ql = (transform['Qh'].nxvalue,
-                          transform['Qk'].nxvalue,
-                          transform['Ql'].nxvalue)
-            Qh = Qh[0], Qh[1]-Qh[0], Qh[-1]
-            Qk = Qk[0], Qk[1]-Qk[0], Qk[-1]
-            Ql = Ql[0], Ql[1]-Ql[0], Ql[-1]
-        else:
-            print('Transform parameters not defined in', e)
-            sys.exit(1)
+        Qh, Qk, Ql = read_transform(root[entries[0]])
 
     print('Transforming', wrapper_file)
 
@@ -95,10 +103,10 @@ def main():
         if os.path.exists(settings):
             os.rename(settings, settings+'-%s' % timestamp())
         prepare_transform(root[entry], Qh, Qk, Ql, output, settings)
-        print(root[entry].transform.command)
         if not os.path.exists(root[entry]['data/data'].nxfilename):
-            print("'%s' does not exist" % entry['data/data'].nxfilename)
+            print("'%s' does not exist" % root[entry]['data/data'].nxfilename)
             return
+        print(root[entry].transform.command)
         subprocess.call(root[entry].transform.command.nxvalue, shell=True)
 
 
