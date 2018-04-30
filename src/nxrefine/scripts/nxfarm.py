@@ -43,34 +43,25 @@ def main():
     parser = argparse.ArgumentParser(
         description="Perform workflow for scan")
     parser.add_argument('-d', '--directory', help='scan directory')
-    parser.add_argument('-t', '--threshold', type=float,
-                        help='peak threshold - defaults to maximum counts/20')
-    parser.add_argument('-f', '--first', default=20, type=int, 
-                        help='first frame')
-    parser.add_argument('-l', '--last', default=3630, type=int, 
-                        help='last frame')
     parser.add_argument('-r', '--refine', action='store_false',
                         help='refine lattice parameters')
+    parser.add_argument('-t', '--transform', action='store_true',
+                        help='perform CCTW transforms')
     parser.add_argument('-c', '--cwd', default='/data/user6idd', 
                         help='directory containing GUP directories')
     parser.add_argument('-g', '--gup', default='GUP-57342',
                         help='GUP number, e.g., GUP-57342')
-    parser.add_argument('-n', '--norun', action='store_true', help='dry run')
     
     args = parser.parse_args()
 
     directory = args.directory.rstrip('/')
     sample = os.path.basename(os.path.dirname(directory))  
     label = os.path.basename(directory)
+    refine = args.refine
+    transform = args.transform
 
     print("Processing directory '%s'" % directory)
     
-    threshold = args.threshold
-    first = args.first
-    last = args.last
-    refine = args.refine
-    dry_run = args.norun
-
     path = os.path.join(args.cwd, args.gup)
     if 'tasks' not in os.listdir(path):
         os.mkdir(os.path.join(path, 'tasks'))
@@ -80,14 +71,8 @@ def main():
                     key=natural_sort)
     parent = os.path.join(sample, label, '%s_%s.nxs' % (sample, scans[0]))
 
-    if dry_run:
-        commands = ['nxtask -d %s -p %s -t %s -f %d -l %d -r -n' 
-                    % (os.path.join(directory, scan), parent, threshold, first, last)
-                    for scan in scans[1:]]
-    else:
-        commands = ['nxtask -d %s -p %s -t %s -f %d -l %d -r' 
-                    % (os.path.join(directory, scan), parent, threshold, first, last)
-                    for scan in scans[1:]]    
+    commands = ['nxtask -d %s -p %s' % (os.path.join(directory, scan), parent)
+                for scan in scans]    
 
     tasks = JoinableQueue()
     results = Queue()
