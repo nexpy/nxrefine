@@ -397,8 +397,8 @@ class NXRefine(object):
         self.grid_shape = [self.h_shape, self.k_shape, self.l_shape]
         self.grid_basis = [[1,0,0],[0,1,0],[0,0,1]]
 
-    def prepare_transform(self, output_link):
-        command = self.cctw_command()
+    def prepare_transform(self, output_link, mask=None):
+        command = self.cctw_command(mask)
         h = NXfield(np.linspace(self.h_start, self.h_stop, self.h_shape), 
                     name='Qh')
         k = NXfield(np.linspace(self.k_start, self.k_stop, self.k_shape), 
@@ -414,22 +414,21 @@ class NXRefine(object):
                                                  file=output_link)
         self.entry['transform/command'] = command
 
-    def cctw_command(self):
+    def cctw_command(self, mask=None):
         entry = self.entry.nxname
-        name = entry + '_transform'
+        if mask:
+            name = entry + '_mask_transform'
+        else:
+            name = entry + '_transform'
         dir = os.path.dirname(self.entry['data'].nxsignal.nxfilename)
         filename = self.entry.nxfilename
         command = ['cctw transform --script %s/%s.pars' % (dir, name)]
-        mask_file = '%s/mask_%s.nxs' % (dir, entry)
-        try:
-            if not os.path.exists(mask_file):
-                mask = self.entry['instrument/detector/pixel_mask']
-                mask_root = NXroot(NXentry())
-                mask_root['entry/mask'] = mask
-                mask_root.save(mask_file)
-            command.append('--mask %s\#/entry/mask' % mask_file)
-        except NeXusError:
-            pass          
+        if 'pixel_mask' in self.entry['instrument/detector']:
+            command.append('--mask %s\#/%s/instrument/detector/pixel_mask' 
+                           % (filename, entry))
+        if mask and 'data_mask' in self.entry['data']:
+            command.append('--mask3d %s\#/%s/data/data_mask' 
+                           % (filename, entry))
         if 'monitor_weight' in self.entry['data']:
             command.append('--weights %s\#/%s/data/monitor_weight' 
                            % (filename, entry))

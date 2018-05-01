@@ -23,7 +23,7 @@ def read_transform(entry):
         sys.exit(1)
 
 
-def prepare_transform(entry, Qh, Qk, Ql, output, settings):
+def prepare_transform(entry, Qh, Qk, Ql, output, settings, mask=None):
     refine = NXRefine(entry)
     refine.read_parameters()
     refine.output_file = output
@@ -32,7 +32,7 @@ def prepare_transform(entry, Qh, Qk, Ql, output, settings):
     refine.k_start, refine.k_step, refine.k_stop = Qk
     refine.l_start, refine.l_step, refine.l_stop = Ql
     refine.define_grid()
-    refine.prepare_transform(output)
+    refine.prepare_transform(output, mask)
     refine.write_settings(settings)
     refine.write_parameters()
 
@@ -48,6 +48,8 @@ def main():
     parser.add_argument('-qh', nargs=3, help='Qh - min, step, max')
     parser.add_argument('-qk', nargs=3, help='Qk - min, step, max')
     parser.add_argument('-ql', nargs=3, help='Ql - min, step, max')
+    parser.add_argument('-m', '--mask', action='store_true', 
+                        help='transform with 3D mask')
     parser.add_argument('-o', '--overwrite', action='store_true', 
                         help='overwrite existing transforms')
     
@@ -60,6 +62,7 @@ def main():
     wrapper_file = os.path.join(sample, label, '%s_%s.nxs' % (sample, scan))
     entries = args.entries
     parent = args.parent
+    mask = args.mask
     overwrite = args.overwrite
 
     if not os.path.exists(wrapper_file):
@@ -102,7 +105,7 @@ def main():
         settings = os.path.join(directory, entry+'_transform.pars')
         if os.path.exists(settings):
             os.rename(settings, settings+'-%s' % timestamp())
-        prepare_transform(root[entry], Qh, Qk, Ql, output, settings)
+        prepare_transform(root[entry], Qh, Qk, Ql, output, settings, mask)
         if not os.path.exists(root[entry]['data/data'].nxfilename):
             print("'%s' does not exist" % root[entry]['data/data'].nxfilename)
             return
