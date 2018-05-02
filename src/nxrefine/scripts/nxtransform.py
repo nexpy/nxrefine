@@ -93,24 +93,25 @@ def main():
         parent = None
         Qh, Qk, Ql = read_transform(root[entries[0]])
 
+    if mask:
+        transform = 'masked_transform'
+        transform_file = 'masked_transform.nxs'
+    else:
+        transform = 'transform'
+        transform_file = 'transform.nxs'
+
     print('Transforming', wrapper_file)
 
     for entry in entries:
         print('Processing', entry)
-        if mask:
-            output_file = os.path.join(directory, entry+'masked_transform.nxs')
-        else:
-            output_file = os.path.join(directory, entry+'_transform.nxs')
+        output_file = os.path.join(directory, entry+'_'+transform_file)
         if os.path.exists(output_file):
             if overwrite:
                 os.rename(output_file, output_file+'-%s' % timestamp())
             else:
                 print("Transform '%s' already exists" % output_file)
                 continue
-        if mask:
-            output = os.path.join(scan, entry+'masked_transform.nxs')
-        else:
-            output = os.path.join(scan, entry+'_transform.nxs')
+        output = os.path.join(scan, entry+'_'+transform_file)
         settings = os.path.join(directory, entry+'_transform.pars')
         if os.path.exists(settings):
             os.rename(settings, settings+'-%s' % timestamp())
@@ -118,7 +119,7 @@ def main():
         if not os.path.exists(root[entry]['data/data'].nxfilename):
             print("'%s' does not exist" % root[entry]['data/data'].nxfilename)
             return
-        print(root[entry].transform.command)
+        print(root[entry][transform].command)
         subprocess.call(root[entry].transform.command.nxvalue, shell=True)
 
 
