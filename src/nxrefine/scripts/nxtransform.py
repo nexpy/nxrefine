@@ -110,7 +110,7 @@ def main():
                 print("Transform '%s' already exists" % output_file)
                 continue
         output = os.path.join(scan, entry+'_'+transform+'.nxs')
-        settings = os.path.join(directory, entry+'_'+transform_'.pars')
+        settings = os.path.join(directory, entry+'_'+transform+'.pars')
         if os.path.exists(settings):
             os.rename(settings, settings+'-%s' % timestamp())
         prepare_transform(root[entry], Qh, Qk, Ql, output, settings, mask)
