@@ -95,24 +95,22 @@ def main():
 
     if mask:
         transform = 'masked_transform'
-        transform_file = 'masked_transform.nxs'
     else:
         transform = 'transform'
-        transform_file = 'transform.nxs'
 
     print('Transforming', wrapper_file)
 
     for entry in entries:
         print('Processing', entry)
-        output_file = os.path.join(directory, entry+'_'+transform_file)
+        output_file = os.path.join(directory, entry+'_'+transform+'.nxs')
         if os.path.exists(output_file):
             if overwrite:
                 os.rename(output_file, output_file+'-%s' % timestamp())
             else:
                 print("Transform '%s' already exists" % output_file)
                 continue
-        output = os.path.join(scan, entry+'_'+transform_file)
-        settings = os.path.join(directory, entry+'_transform.pars')
+        output = os.path.join(scan, entry+'_'+transform+'.nxs')
+        settings = os.path.join(directory, entry+'_'+transform_'.pars')
         if os.path.exists(settings):
             os.rename(settings, settings+'-%s' % timestamp())
         prepare_transform(root[entry], Qh, Qk, Ql, output, settings, mask)
