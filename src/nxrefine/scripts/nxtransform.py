@@ -120,7 +120,7 @@ def main():
             print("'%s' does not exist" % root[entry]['data/data'].nxfilename)
             return
         print(root[entry][transform].command)
-        subprocess.call(root[entry].transform.command.nxvalue, shell=True)
+        subprocess.call(root[entry][transform].command.nxvalue, shell=True)
 
 
 if __name__=="__main__":
