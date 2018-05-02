@@ -61,13 +61,13 @@ def main():
         transform_file = 'masked_transform.nxs'
     else:
         transform = 'transform'
-        transform_file = 'transform.nxs
-'    
+        transform_file = 'transform.nxs'
+
     if os.path.exists(os.path.join(directory, transform_file)) and not overwrite:
         print('Transforms already combined')
         sys.exit()
     else:
-        input_files = [os.path.join(directory, '%s_%s' % (e, transform_file)
+        input_files = [os.path.join(directory, '%s_%s' % (e, transform_file))
                        for e in entries]
         missing = [f for f in input_files if not os.path.exists(f)]
         if missing:
@@ -76,7 +76,7 @@ def main():
             sys.exit(1)
 
     input = ' '.join([os.path.join(directory, 
-                                   '%s_%s\#/entry/data' % (e, transform_file) 
+                                   '%s_%s\#/entry/data' % (e, transform_file))
                       for e in entries])
     output = os.path.join(directory, '%s\#/entry/data/v' % transform_file)
     command = 'cctw merge %s -o %s' % (input, output)
