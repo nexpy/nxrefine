@@ -31,6 +31,8 @@ def main():
     parser.add_argument('-d', '--directory', default='', help='scan directory')
     parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
                         nargs='+', help='names of data entries to be merged')
+    parser.add_argument('-m', '--mask', action='store_true', 
+                        help='transform with 3D mask')
     parser.add_argument('-o', '--overwrite', action='store_true', 
                         help='overwrite existing transform')
     
@@ -42,6 +44,7 @@ def main():
     scan = os.path.basename(directory)
     wrapper_file = os.path.join(sample, label, '%s_%s.nxs' % (sample, scan))
     entries = args.entries
+    mask = args.mask
     overwrite = args.overwrite
 
     if not os.path.exists(wrapper_file):
@@ -52,12 +55,19 @@ def main():
         entry = root['entry']
 
     print('Combining entries in', wrapper_file)
-    
-    if os.path.exists(os.path.join(directory, 'transform.nxs')) and not overwrite:
+
+    if mask:
+        transform = 'masked_transform'
+        transform_file = 'masked_transform.nxs'
+    else:
+        transform = 'transform'
+        transform_file = 'transform.nxs
+'    
+    if os.path.exists(os.path.join(directory, transform_file)) and not overwrite:
         print('Transforms already combined')
         sys.exit()
     else:
-        input_files = [os.path.join(directory, '%s_transform.nxs' % e)
+        input_files = [os.path.join(directory, '%s_%s' % (e, transform_file)
                        for e in entries]
         missing = [f for f in input_files if not os.path.exists(f)]
         if missing:
@@ -65,20 +75,21 @@ def main():
                 print("'%s' does not exist" % f)
             sys.exit(1)
 
-    input = ' '.join([os.path.join(directory, '%s_transform.nxs\#/entry/data'
-                      % e) for e in entries])
-    output = os.path.join(directory, 'transform.nxs\#/entry/data/v')
+    input = ' '.join([os.path.join(directory, 
+                                   '%s_%s\#/entry/data' % (e, transform_file) 
+                      for e in entries])
+    output = os.path.join(directory, '%s\#/entry/data/v' % transform_file)
     command = 'cctw merge %s -o %s' % (input, output)
     subprocess.call(command, shell=True)
 
     Qh = root['%s/transform/Qh' % entries[0]]
     Qk = root['%s/transform/Qk' % entries[0]]
     Ql = root['%s/transform/Ql' % entries[0]]
-    data = NXlink('/entry/data/v', file=os.path.join(scan, 'transform.nxs'),
+    data = NXlink('/entry/data/v', file=os.path.join(scan, transform_file),
                   name='data')
-    if 'transform' in entry:
-        del entry['transform']
-    entry['transform'] = NXdata(data, [Ql,Qk,Qh])
+    if transform in entry:
+        del entry[transform]
+    entry[transform] = NXdata(data, [Ql,Qk,Qh])
 
     note = NXnote('nxcombine '+' '.join(sys.argv[1:]), 
                   ('Current machine: %s\n'

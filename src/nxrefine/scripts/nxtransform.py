@@ -10,7 +10,10 @@ from nexpy.gui.utils import timestamp
 
 def read_transform(entry):
     try:
-        transform = entry['transform']
+        if 'transform' in entry:
+            transform = entry['transform']
+        elif 'masked_transform' in entry:
+            transform = entry['masked_transform']
         Qh, Qk, Ql = (transform['Qh'].nxvalue,
                       transform['Qk'].nxvalue,
                       transform['Ql'].nxvalue)
@@ -94,14 +97,20 @@ def main():
 
     for entry in entries:
         print('Processing', entry)
-        output_file = os.path.join(directory, entry+'_transform.nxs')
+        if mask:
+            output_file = os.path.join(directory, entry+'masked_transform.nxs')
+        else:
+            output_file = os.path.join(directory, entry+'_transform.nxs')
         if os.path.exists(output_file):
             if overwrite:
                 os.rename(output_file, output_file+'-%s' % timestamp())
             else:
-                print('Transform already exists')
+                print("Transform '%s' already exists" % output_file)
                 continue
-        output = os.path.join(scan, entry+'_transform.nxs')
+        if mask:
+            output = os.path.join(scan, entry+'masked_transform.nxs')
+        else:
+            output = os.path.join(scan, entry+'_transform.nxs')
         settings = os.path.join(directory, entry+'_transform.pars')
         if os.path.exists(settings):
             os.rename(settings, settings+'-%s' % timestamp())

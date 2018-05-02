@@ -405,19 +405,26 @@ class NXRefine(object):
                     name='Qk')
         l = NXfield(np.linspace(self.l_start, self.l_stop, self.l_shape), 
                     name='Ql')
-        if 'transform' in self.entry:
-            del self.entry['transform']
-        self.entry['transform'] = NXdata(NXlink(name = 'data', 
-                                         target='/entry/data/v',
-                                         file=output_link), [l, k, h])
-        self.entry['transform/weights'] = NXlink(target='/entry/data/n',
-                                                 file=output_link)
-        self.entry['transform/command'] = command
+        if mask:
+            transform = 'masked_transform'
+        else:
+            transform = 'transform'
+        
+        if transform in self.entry:
+            del self.entry[transform]
+            
+        
+        self.entry[transform] = NXdata(NXlink(name = 'data', 
+                                       target='/entry/data/v',
+                                       file=output_link), [l, k, h])
+        self.entry[transform+'/weights'] = NXlink(target='/entry/data/n',
+                                                  file=output_link)
+        self.entry[transform+'/command'] = command
 
     def cctw_command(self, mask=None):
         entry = self.entry.nxname
         if mask:
-            name = entry + '_mask_transform'
+            name = entry + '_masked_transform'
         else:
             name = entry + '_transform'
         dir = os.path.dirname(self.entry['data'].nxsignal.nxfilename)
