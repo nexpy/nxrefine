@@ -542,7 +542,7 @@ class NXRefine(object):
         """Determine the U matrix using the defined UB matrix and B matrix
         calculated from the lattice parameters
         """
-        if self.Umat is None:
+        if self.Umat is not None:
             return self.Umat * self.Bmat
         else:
             return np.matrix(np.eye(3))
