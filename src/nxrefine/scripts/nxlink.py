@@ -10,6 +10,7 @@
 import argparse
 import os
 import re
+import sys
 import numpy as np
 from nexusformat.nexus import *
 
