@@ -101,6 +101,8 @@ class RefineLatticeDialog(BaseDialog):
     def choose_entry(self):
         self.refine = NXRefine(self.entry)
         self.update_parameters()
+        if self.peaks_box:
+            self.update_table()
 
     def update_parameters(self):
         self.parameters['a'].value = self.refine.a
@@ -429,16 +431,21 @@ class RefineLatticeDialog(BaseDialog):
         self.plotview = None
 
     def update_table(self):
+        if self.peaks_box is None:
+            self.list_peaks()
         self.transfer_parameters()
         self.refine.hkl_tolerance = self.get_hkl_tolerance()
         self.table_model.peak_list = self.refine.get_peaks()
+        self.refine.assign_rings()
+        self.rings = self.refine.get_ring_hkls()
         rows, columns = len(self.table_model.peak_list), 11
         self.table_model.dataChanged.emit(self.table_model.createIndex(0, 0),
                                           self.table_model.createIndex(rows-1, 
                                               columns-1))
         self.table_view.resizeColumnsToContents()
         self.status_text.setText('Score: %.4f' % self.refine.score())
-
+        self.peaks_box.setWindowTitle('%s Peak Table' % self.entry.nxtitle)
+        self.peaks_box.setVisible(True)
 
     def plot_peak(self):
         row = self.table_view.currentIndex().row()
