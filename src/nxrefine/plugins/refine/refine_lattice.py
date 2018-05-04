@@ -240,8 +240,8 @@ class RefineLatticeDialog(BaseDialog):
         return self.parameters['xc'].value, self.parameters['yc'].value
 
     def get_phi(self):
-        return = (self.parameters['phi_start'].value, 
-                  self.parameters['phi_step'].value)
+        return (self.parameters['phi_start'].value, 
+                self.parameters['phi_step'].value)
 
     def get_angles(self):
         return (self.parameters['chi'].value,
