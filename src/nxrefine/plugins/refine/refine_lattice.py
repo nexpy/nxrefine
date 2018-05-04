@@ -53,8 +53,7 @@ class RefineLatticeDialog(BaseDialog):
         self.parameters.add('roll', self.refine.roll, 'Roll (deg)')
         self.parameters.add('xc', self.refine.xc, 'Beam Center - x', False)
         self.parameters.add('yc', self.refine.yc, 'Beam Center - y', False)
-        self.parameters.add('phi_start', self.refine.phi_start, 
-                            'Phi Start (deg)', False)
+        self.parameters.add('phi_start', self.refine.phi, 'Phi Start (deg)', False)
         self.parameters.add('phi_step', self.refine.phi_step, 'Phi Step (deg)')
         self.parameters.add('chi', self.refine.chi, 'Chi (deg)', False)
         self.parameters.add('omega', self.refine.omega, 'Omega (deg)', False)
@@ -68,7 +67,6 @@ class RefineLatticeDialog(BaseDialog):
                             'Polar Angle Tolerance')
         self.parameters.add('peak_tolerance', self.refine.peak_tolerance, 
                             'Peak Angle Tolerance')
-        self.phi = self.refine.phi
 
         self.refine_buttons = self.action_buttons(
                                   ('Refine Angles', self.refine_angles),
@@ -118,7 +116,7 @@ class RefineLatticeDialog(BaseDialog):
         self.parameters['roll'].value = self.refine.roll
         self.parameters['xc'].value = self.refine.xc
         self.parameters['yc'].value = self.refine.yc
-        self.parameters['phi_start'].value = self.refine.phi_start
+        self.parameters['phi_start'].value = self.refine.phi
         self.parameters['phi_step'].value = self.refine.phi_step
         self.parameters['chi'].value = self.refine.chi
         self.parameters['omega'].value = self.refine.omega
@@ -141,7 +139,7 @@ class RefineLatticeDialog(BaseDialog):
         self.refine.distance = self.get_distance()
         self.refine.yaw, self.refine.pitch, self.refine.roll = self.get_tilts()
         self.refine.xc, self.refine.yc = self.get_centers()
-        self.refine.phi = self.get_phi()
+        self.refine.phi, self.refine.phi_step = self.get_phi()
         self.refine.chi, self.refine.omega, self.refine.twotheta, \
             self.refine.gonpitch = self.get_angles()
         self.refine.polar_max = self.get_polar_max()
@@ -242,11 +240,8 @@ class RefineLatticeDialog(BaseDialog):
         return self.parameters['xc'].value, self.parameters['yc'].value
 
     def get_phi(self):
-        start, step = (self.parameters['phi_start'].value, 
-                       self.parameters['phi_step'].value)
-        self.phi[0] = start
-        self.phi[1] = start + step
-        return self.phi
+        return = (self.parameters['phi_start'].value, 
+                  self.parameters['phi_step'].value)
 
     def get_angles(self):
         return (self.parameters['chi'].value,

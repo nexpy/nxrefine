@@ -70,7 +70,8 @@ class NXRefine(object):
         self.twotheta = 0.0
         self.chi = 0.0
         self.omega = 0.0
-        self.phi = np.array((0.0, 0.1), dtype=np.float32)
+        self.phi = 0.0
+        self.phi_step = 0.1
         self.xc = 256.0
         self.yc = 256.0
         self.xd = 0.0
@@ -112,10 +113,12 @@ class NXRefine(object):
         if self.entry:
             self.read_parameters()
 
-    def read_parameter(self, path, default=None):
+    def read_parameter(self, path, default=None, attr=None):
         try:
-            field = self.entry[path]
-            return field.nxdata
+            if attr:
+                return self.entry[path].attrs[attr]
+            else:
+                return self.entry[path].nxvalue
         except NeXusError:
             return default
 
@@ -147,7 +150,17 @@ class NXRefine(object):
                                       self.yd)
         self.frame_time = self.read_parameter('instrument/detector/frame_time', 
                                               self.frame_time)
-        self.phi = self.read_parameter('instrument/goniometer/phi', self.phi)
+        phi = self.read_parameter('instrument/goniometer/phi', self.phi)
+        if isinstance(phi, np.ndarray) and len(phi) > 1:
+            self.phi = phi[0]
+            self.phi_step = phi[1] - phi[0]
+        else:
+            self.phi = phi
+            try:
+                self.phi_step = self.read_parameter('instrument/goniometer/phi', 
+                                                    self.phi, attr='step')
+            except Exception:
+                pass
         self.chi = self.read_parameter('instrument/goniometer/chi', self.chi)
         self.omega = self.read_parameter('instrument/goniometer/omega', 
                                          self.omega)
@@ -184,11 +197,13 @@ class NXRefine(object):
         else:
             self.set_polar_max(10.0)
 
-    def write_parameter(self, path, value):
+    def write_parameter(self, path, value, attr=None):
         if value is not None:
-            if path in self.entry:
+            if attr and path in self.entry:
+                self.entry[path].attrs[attr] = value
+            elif path in self.entry:
                 self.entry[path].replace(value)
-            else:
+            elif attr is None:
                 self.entry[path] = value
 
     def write_parameters(self, entry=None):
@@ -231,6 +246,8 @@ class NXRefine(object):
             self.write_parameter('instrument/detector/orientation_matrix', 
                                  np.array(self.Umat))
         self.write_parameter('instrument/goniometer/phi', self.phi)
+        self.write_parameter('instrument/goniometer/phi', self.phi_step, 
+                             attr='step')
         self.write_parameter('instrument/goniometer/chi', self.chi)
         self.write_parameter('instrument/goniometer/omega', self.omega)
         self.write_parameter('instrument/goniometer/two_theta', self.twotheta)
@@ -239,7 +256,7 @@ class NXRefine(object):
         self.write_parameter('peaks/primary_reflection', self.primary)
         self.write_parameter('peaks/secondary_reflection', self.secondary)        
         if isinstance(self.z, np.ndarray):
-            self.rotation_angle = self.phi_start + (self.phi_step * self.z)
+            self.rotation_angle = self.phi + (self.phi_step * self.z)
 
     def copy_parameters(self, other, sample=False, instrument=False):
         if sample:
@@ -265,6 +282,8 @@ class NXRefine(object):
             other.write_parameter('instrument/monochromator/wavelength', 
                                   self.wavelength)
             other.write_parameter('instrument/goniometer/phi', self.phi)
+            other.write_parameter('instrument/goniometer/phi', self.phi_step,
+                                  attr='step')
             other.write_parameter('instrument/goniometer/chi', self.chi)
             other.write_parameter('instrument/goniometer/omega', self.omega)
             other.write_parameter('instrument/goniometer/two_theta', self.twotheta)
@@ -322,7 +341,7 @@ class NXRefine(object):
         lines.append('parameters.chiCorrection = 0;')
         lines.append('parameters.chiNom = %s;' % (self.chi*radians))
         lines.append('parameters.phiCorrection = 0;')
-        lines.append('parameters.phiNom = %s;' % (self.phi_start*radians))
+        lines.append('parameters.phiNom = %s;' % (self.phi*radians))
         lines.append('parameters.phiStep = %s;' % (self.phi_step*radians))
         lines.append('parameters.gridOrigin = %s;' % self.grid_origin)
         lines.append('parameters.gridBasis = %s;' % self.grid_basis)
@@ -500,17 +519,7 @@ class NXRefine(object):
 
     @property
     def phi_start(self):
-        try:
-            return self.phi[0]
-        except Exception:
-            return 0.0
-
-    @property
-    def phi_step(self):
-        try:
-            return self.phi[1] - self.phi[0] 
-        except Exception:
-            return 0.1
+        return self.phi
 
     @property
     def ds_max(self):
@@ -621,7 +630,7 @@ class NXRefine(object):
         return vec(1.0 / self.wavelength)
 
     def Gvec(self, x, y, z):
-        phi = self.phi_start + self.phi_step * z
+        phi = self.phi + self.phi_step * z
         v1 = vec(x, y)
         v2 = self.pixel_size * inv(self.Omat) * (v1 - self.Cvec)
         v3 = inv(self.Dmat) * v2 - self.Dvec(phi)

@@ -93,15 +93,16 @@ class MakeDialog(BaseDialog):
     def make_scans(self):
         scans = [scan.label.text() for scan in self.scan_list]  
         scan_command = self.textbox['Scan Command'].text()
-        scan_parameters = ['#command path detx dety temperature ' + 
+        scan_parameters = ['#command path filename temperature detx dety ' + 
                            'phi_start phi_step phi_end chi omega frame_rate']
         for scan in self.scan_list:
             nexus_file = scan.label.text()
             root = nxload(os.path.join(self.sample_directory, nexus_file))
             temperature = root.entry.sample.temperature
             for entry in [root[e] for e in root if e != 'entry']:
-                phi = entry['instrument/goniometer/phi']
-                phi_start, phi_step, phi_end = phi[0], phi[1]-phi[0], phi[-1]
+                phi_start = entry['instrument/goniometer/phi']
+                phi_step = entry['instrument/goniometer/phi'].attrs['step']
+                phi_end = entry['instrument/goniometer/phi'].attrs['end']
                 chi = entry['instrument/goniometer/chi']
                 omega = entry['instrument/goniometer/omega']
                 dx = entry['instrument/detector/translation_x']
@@ -111,10 +112,11 @@ class MakeDialog(BaseDialog):
                     frame_rate = 1.0 / entry['instrument/detector/frame_time']
                 else:
                     frame_rate = 10.0                        
+                scan_file = entry.nxname
                 scan_parameters.append(
                     '%s %s %s %.6g %.6g %.6g %.6g %.6g %.6g %.6g %.6g %.6g'
-                    % (scan_command, self.scan_path, entry.nxname, 
-                       dx, dy, temperature, 
+                    % (scan_command, self.scan_path, scan_file, 
+                       temperature, dx, dy, 
                        phi_start, phi_step, phi_end,
                        chi, omega, frame_rate))
         if not os.path.exists(self.macro_directory):
@@ -122,6 +124,6 @@ class MakeDialog(BaseDialog):
         macro_filter = ';;'.join(("SPEC Macro (*.mac)", "Any Files (*.* *)"))
         macro = getSaveFileName(self, 'Open Macro', self.macro_directory,
                                 macro_filter)
-        with open(macro, 'w') as f:
-            f.write('\n'.join(scan_parameters))
-        f.close()
+        if macro:
+            with open(macro, 'w') as f:
+                f.write('\n'.join(scan_parameters))

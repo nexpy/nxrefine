@@ -155,7 +155,7 @@ class ScanDialog(BaseDialog):
 
     def setup_position(self, position):
         self.entries[position] = GridParameters()
-        self.entries[position].add('chi', 0.0, 'Chi (deg)')
+        self.entries[position].add('chi', -90.0, 'Chi (deg)')
         self.entries[position].add('omega', 0.0, 'Omega (deg)')
         self.entries[position].add('x', 0.0, 'Translation - x (mm)')
         self.entries[position].add('y', 0.0, 'Translation - y (mm)')
@@ -196,13 +196,14 @@ class ScanDialog(BaseDialog):
             phi_start = self.scan['phi_start'].value
             phi_end = self.scan['phi_end'].value
             phi_step = self.scan['phi_step'].value
-            phi = np.linspace(phi_start, phi_end, int((phi_end-phi_start)/phi_step)+1)
             chi = self.entries[position]['chi'].value
             omega = self.entries[position]['omega'].value
             frame_rate = self.scan['frame_rate'].value
             if 'goniometer' not in entry['instrument']:
                 entry['instrument/goniometer'] = NXgoniometer()
-            entry['instrument/goniometer/phi'] = phi
+            entry['instrument/goniometer/phi'] = phi_start
+            entry['instrument/goniometer/phi'].attrs['step'] = phi_step
+            entry['instrument/goniometer/phi'].attrs['end'] = phi_end
             entry['instrument/goniometer/chi'] = chi
             entry['instrument/goniometer/omega'] = omega
             if frame_rate > 0.0:
@@ -213,7 +214,8 @@ class ScanDialog(BaseDialog):
             entry['data'].nxsignal = NXlink(linkpath, linkfile) 
             entry['data/x_pixel'] = np.arange(x_size, dtype=np.int32)
             entry['data/y_pixel'] = np.arange(y_size, dtype=np.int32)
-            entry['data/frame_number'] = np.arange(len(phi)-1, dtype=np.int32)
+            entry['data/frame_number'] = np.arange(
+                (phi_end-phi_start)/phi_step, dtype=np.int32)
             entry['data'].nxaxes = [entry['data/frame_number'],
                                     entry['data/y_pixel'],
                                     entry['data/x_pixel']]

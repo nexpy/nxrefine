@@ -29,8 +29,7 @@ class OrientationDialog(BaseDialog):
         self.refine.read_parameters()
 
         self.parameters = GridParameters()
-        self.parameters.add('phi_start', self.refine.phi_start, 
-                            'Phi Start (deg)')
+        self.parameters.add('phi_start', self.refine.phi, 'Phi Start (deg)')
         self.parameters.add('phi_step', self.refine.phi_step, 'Phi Step (deg)')
         self.parameters.add('chi', self.refine.chi, 'Chi (deg)')
         self.parameters.add('omega', self.refine.omega, 'Omega (deg)')
@@ -65,7 +64,7 @@ class OrientationDialog(BaseDialog):
         self.update_parameters()
 
     def update_parameters(self):
-        self.parameters['phi_start'].value = self.refine.phi_start
+        self.parameters['phi_start'].value = self.refine.phi
         self.parameters['phi_step'].value = self.refine.phi_step
         self.parameters['chi'].value = self.refine.chi
         self.parameters['omega'].value = self.refine.omega
