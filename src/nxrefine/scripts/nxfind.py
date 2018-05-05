@@ -35,9 +35,9 @@ def find_peaks(entry, threshold=None, z_min=None, z_max=None):
 
     if threshold is None:
         if 'maximum' in field.nxgroup.attrs:        
-            threshold = np.float32(field.nxgroup.maximum) / 20
+            threshold = np.float32(field.nxgroup.maximum) / 10
         elif 'maximum' in field.attrs:
-            threshold = np.float32(field.maximum) / 20
+            threshold = np.float32(field.maximum) / 10
         else:
             raise NeXusError(
                 'Must give threshold if the field maximum is unknown')
