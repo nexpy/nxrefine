@@ -785,6 +785,12 @@ class NXRefine(object):
         weights = self.weights
         return np.sum(weights * diffs) / np.sum(weights)
 
+    def unitarity(self):
+        if self.Umat is not None:
+            return np.matrix(self.Umat) * np.matrix(self.Umat.T)
+        else:
+            return None
+
     def get_UBmat(self, i, j):
         """Determine a UBmatrix using the specified peaks"""
         ring1 = np.abs(self.polar_angle[i] - self.rings).argmin()
@@ -890,8 +896,8 @@ class NXRefine(object):
 #        result.shape = (len(self.idx),3)
 #        return result
 
-    def define_hkl_parameters(self, chi=False, omega=False, gonpitch=False, **opts):
-        p = self.define_lattice_parameters()
+    def define_hkl_parameters(self, lattice=True, chi=False, omega=False, gonpitch=False, **opts):
+        p = self.define_lattice_parameters(lattice)
         p.add('chi', self.chi, vary=chi)
         p.add('omega', self.omega, vary=omega)
         p.add('gonpitch', self.gonpitch, vary=gonpitch)
@@ -921,30 +927,30 @@ class NXRefine(object):
         self.get_hkl_parameters(p)
         return self.diffs()
 
-    def define_lattice_parameters(self):
+    def define_lattice_parameters(self, lattice=True):
         from lmfit import Parameters
         p = Parameters()
         if self.symmetry == 'cubic':
-            p.add('a', self.a, vary=True)
+            p.add('a', self.a, vary=lattice)
         elif self.symmetry == 'tetragonal' or self.symmetry == 'hexagonal':
-            p.add('a', self.a, vary=True)
-            p.add('c', self.c, vary=True)
+            p.add('a', self.a, vary=lattice)
+            p.add('c', self.c, vary=lattice)
         elif self.symmetry == 'orthorhombic':
-            p.add('a', self.a, vary=True)
-            p.add('b', self.b, vary=True)
-            p.add('c', self.c, vary=True)
+            p.add('a', self.a, vary=lattice)
+            p.add('b', self.b, vary=lattice)
+            p.add('c', self.c, vary=lattice)
         elif self.symmetry == 'monoclinic':
-            p.add('a', self.a, vary=True)
-            p.add('b', self.b, vary=True)
-            p.add('c', self.c, vary=True)
-            p.add('beta', self.beta, vary=True)
+            p.add('a', self.a, vary=lattice)
+            p.add('b', self.b, vary=lattice)
+            p.add('c', self.c, vary=lattice)
+            p.add('beta', self.beta, vary=lattice)
         else:
-            p.add('a', self.a, vary=True)
-            p.add('b', self.b, vary=True)
-            p.add('c', self.c, vary=True)
-            p.add('alpha', self.alpha, vary=True)
-            p.add('beta', self.beta, vary=True)
-            p.add('gamma', self.gamma, vary=True)
+            p.add('a', self.a, vary=lattice)
+            p.add('b', self.b, vary=lattice)
+            p.add('c', self.c, vary=lattice)
+            p.add('alpha', self.alpha, vary=lattice)
+            p.add('beta', self.beta, vary=lattice)
+            p.add('gamma', self.gamma, vary=lattice)
         self.init_p = self.a, self.b, self.c, self.alpha, self.beta, self.gamma
         return p
 
