@@ -24,10 +24,16 @@ def main():
     parser.add_argument('-o', '--output', help='output NeXus file (if different)')
     
     args = parser.parse_args()
-    if args.output:
-        input = nxload(args.input)
+    
+    input_file = args.input
+    output_file = args.output
+    entry = args.entry
+    target = args.target    
+    
+    if output_file:
+        input = nxload(input_file)
         input_ref = NXRefine(input['entry'])
-        output = nxload(args.output, 'rw')
+        output = nxload(output_file, 'rw')
         output_entry_ref = NXRefine(output['entry'])
         input_ref.copy_parameters(output_entry_ref, sample=True)
         for name in [entry for entry in input if entry != 'entry']:
@@ -35,13 +41,14 @@ def main():
                 input_ref = NXRefine(input[name])
                 output_ref = NXRefine(output[name])
                 input_ref.copy_parameters(output_ref, instrument=True)
-                output_entry_ref.link_sample(output_ref)
+                if 'sample' not in output[name] and 'sample' in input['entry']:
+                    output_entry_ref.link_sample(output_ref)
     else:
-        input = nxload(args.filename, 'rw')
-        input_ref = NXRefine(input[args.entry])
-        output_ref = NXRefine(input[args.target])
+        input = nxload(input_file, 'rw')
+        input_ref = NXRefine(input[entry])
+        output_ref = NXRefine(input[target])
         input_ref.copy_parameters(output_ref, instrument=True)
-        if 'sample' not in input[args.target] and 'sample' in input['entry']:
+        if 'sample' not in input[target] and 'sample' in input['entry']:
             input_ref = NXRefine(input['entry'])
             input_ref.link_sample(output_ref)
     
