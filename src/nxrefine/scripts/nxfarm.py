@@ -73,7 +73,8 @@ def main():
         os.mkdir(os.path.join(path, 'tasks'))
 
     scans = sorted([scan for scan in os.listdir(directory) 
-                    if os.path.isdir(os.path.join(directory, scan))], 
+                    if (os.path.isdir(os.path.join(directory, scan))
+                        and not scan.endswith('_1'))], 
                     key=natural_sort)
     parent = os.path.join(sample, label, '%s_%s.nxs' % (sample, scans[0]))
 
