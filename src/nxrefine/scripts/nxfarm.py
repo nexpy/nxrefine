@@ -4,7 +4,7 @@ import numpy as np
 from nexpy.gui.utils import natural_sort
 from nexusformat.nexus import nxload, NeXusError
 
-orthros_nodes = ['puppy%d' % i for i in range(61,77)]
+orthros_nodes = ['puppy%d' % i for i in range(61,77) if i != 75]
 
 class ProcessNode(Process):
     
