@@ -57,8 +57,14 @@ def main():
     directory = args.directory.rstrip('/')
     sample = os.path.basename(os.path.dirname(directory))  
     label = os.path.basename(directory)
-    refine = args.refine
-    transform = args.transform
+    if args.refine:
+        refine = '-r'
+    else:
+        refine = ''
+    if args.transform:
+        transform = '-t'
+    else:
+        transform = ''
 
     print("Processing directory '%s'" % directory)
     
@@ -71,7 +77,8 @@ def main():
                     key=natural_sort)
     parent = os.path.join(sample, label, '%s_%s.nxs' % (sample, scans[0]))
 
-    commands = ['nxtask -d %s -p %s' % (os.path.join(directory, scan), parent)
+    commands = ['nxtask -d %s -p %s %s %s' 
+                % (os.path.join(directory, scan), parent, refine, transform)
                 for scan in scans]    
 
     tasks = JoinableQueue()
