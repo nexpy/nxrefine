@@ -62,7 +62,6 @@ def main():
     if refine and 'orientation_matrix' in root[entries[0]]['instrument/detector']:
         subprocess.call('nxrefine -d %s' % directory, shell=True)
     if transform and parent:
-        print("Transforming", wrapper_file)
         subprocess.call('nxtransform -d %s -p %s' % (directory, parent), shell=True)
         subprocess.call('nxcombine -d %s' % directory, shell=True)
 
