@@ -4,9 +4,7 @@ import os
 import time
 from multiprocessing import Process, Queue, JoinableQueue
 
-orthros_nodes = ['puppy%d' % i for i in range(61,77) if i != 75]
-
-class ProcessNode(Process):
+class Worker(Process):
     
     def __init__(self, node, task_queue, result_queue):
         Process.__init__(self)
@@ -30,11 +28,17 @@ class Task(object):
         self.command = command
 
     def execute(self, node):
-        subprocess.call("pdsh -w %s $'cd %s; echo \'%s\' >> tasks/%s.out'" 
-                        % (node, self.path, self.command, node), shell=True)
+        print("pdsh -w %s 'cd %s; %s >> tasks/%s.out'"
+              % (node, self.path, self.command, node))
 #        subprocess.call("pdsh -w %s 'cd %s; %s >> tasks/%s.out'" 
 #                        % (node, self.path, self.command, node), shell=True)
 
+
+def read_nodes(node_file):
+    """Read available nodes"""
+    with open('nodefile') as f:
+        nodes = [line.strip() for line in f.readlines()]
+    return nodes
 
 def initialize_logs(log_file):
     """Initialize the nxserver logger."""
@@ -57,22 +61,25 @@ def main():
                         help='GUP number, e.g., GUP-57342')
     
     args = parser.parse_args()
+    cwd = args.cwd
+    gup = args.gup
 
-    path = os.path.join(args.cwd, args.gup)
+    path = os.path.join(cwd, gup)
     if 'tasks' not in os.listdir(path):
         os.mkdir(os.path.join(path, 'tasks'))
     task_list = os.path.join(path, 'tasks', 'task_list')
     if not os.path.exists(task_list):
         os.mkfifo(task_list)  
 
+    nodes = read_nodes(os.path.join(cwd, 'nodefile'))
     initialize_logs(os.path.join(path, 'tasks', 'nxserver.log'))
 
     tasks = JoinableQueue()
     results = Queue()
     
-    nodes = [ProcessNode(node, tasks, results) for node in orthros_nodes]
-    for node in nodes:
-        node.start()
+    workers = [Workers(node, tasks, results) for node in nodes]
+    for worker in workers:
+        worker.start()
 
     task_fifo = open(task_list, 'r')    
     while True:
