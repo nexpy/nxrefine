@@ -616,7 +616,8 @@ class NXRefine(object):
     def Cvec(self):
         return vec(self.xc, self.yc)
 
-    def Dvec(self, phi):
+    @property
+    def Dvec(self):
         """Define the vector from the detector center to the sample position.
         
         Svec is the vector from the goniometer center to the sample position, 
@@ -633,7 +634,7 @@ class NXRefine(object):
         phi = self.phi + self.phi_step * z
         v1 = vec(x, y)
         v2 = self.pixel_size * inv(self.Omat) * (v1 - self.Cvec)
-        v3 = inv(self.Dmat) * v2 - self.Dvec(phi)
+        v3 = inv(self.Dmat) * v2 - self.Dvec
         return (inv(self.Gmat(phi)) * 
                 ((norm_vec(v3) / self.wavelength) - self.Evec))
 
