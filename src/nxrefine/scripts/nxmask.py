@@ -41,7 +41,8 @@ def create_mask(entry, radius=200):
     for i in range(len(xp)):
         update_progress(int(zp[i]))
         inside = (x[None,:]-int(xp[i]))**2+(y[:,None]-int(yp[i]))**2 < radius**2
-        mask[int(zp[i])] = mask[int(zp[i])] | inside
+        frame = int(zp[i])
+        mask[frame-1:frame+2] = mask[frame-1:frame+2] | inside
 
     print('\nAll Bragg peaks in %s processed' % entry.nxname)
 
