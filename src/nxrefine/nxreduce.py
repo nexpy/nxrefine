@@ -1,10 +1,11 @@
+import logging
+import logging.handlers
 import os
-import socket
+import platform
 import sys
+import time
 import timeit
 import numpy as np
-
-import portalocker
 
 from nexusformat.nexus import *
 
@@ -14,25 +15,90 @@ from .labelimage import labelimage, flip1
 from .nxserver import NXServer
 
 
+class LockException(Exception):
+    LOCK_FAILED = 1
+
+
+class Lock(object):
+
+    def __init__(self, filename, timeout=30, check_interval=1):
+        self.filename = os.path.realpath(filename)
+        self.lock_file = self.filename+'.lock'
+        self.timeout = timeout
+        self.check_interval = check_interval
+    
+    def acquire(self, timeout=None, check_interval=None):
+        if timeout is None:
+            timeout = self.timeout
+        if timeout is None:
+            timeout = 0
+
+        if check_interval is None:
+            check_interval = self.check_interval
+
+        def _get_lock():
+            if os.path.exists(self.lock_file):
+                raise LockException('Lock file already exists')
+            else:
+                open(self.lock_file, 'w').write("%s" % os.getpid())
+        try:
+            _get_lock()
+        except LockException as exception:
+            timeoutend = timeit.default_timer() + timeout
+            while timeoutend > timeit.default_timer():
+                time.sleep(check_interval)
+                try:
+                    _get_lock()
+                    break
+                except LockException:
+                    pass
+            else:
+                raise LockException('Lock file already exists')
+
+    def release(self):
+        if os.path.exists(self.lock_file):
+            os.remove(self.lock_file)
+
+    def __enter__(self):
+        return self.acquire()
+
+    def __exit__(self, type_, value, tb):
+        self.release()
+
+    def __delete__(self, instance):
+        instance.release()
+
+
 class NXReduce(object):
 
     def __init__(self, directory, entry='f1', data='data/data', parent=None,
                  extension='.h5', path='/entry/data/data',
                  threshold=None, first=None, last=None, 
-                 refine=False, overwrite=False):
+                 refine=False, transform=False, mask3D=False, 
+                 overwrite=False, gui=False):
 
         self.directory = directory.rstrip('/')
-        self.sample = os.path.basename(os.path.dirname(os.path.dirname(directory)))   
-        self.label = os.path.basename(os.path.dirname(directory))
-        self.scan = os.path.basename(directory)
+        self.root_directory = os.path.realpath(
+                                os.path.dirname(
+                                  os.path.dirname(
+                                    os.path.dirname(self.directory))))
+        self.sample = os.path.basename(os.path.dirname(os.path.dirname(self.directory)))   
+        self.label = os.path.basename(os.path.dirname(self.directory))
+        self.scan = os.path.basename(self.directory)
+        self.task_directory = os.path.join(self.root_directory, 'tasks')
+        if 'tasks' not in os.listdir(self.root_directory):
+            os.mkdir(self.task_directory)
+        self.log_file = os.path.join(self.task_directory, 'nxlogger.log')
         
-        self.wrapper_file = os.path.join(self.sample, self.label, 
+        self.wrapper_file = os.path.join(self.root_directory, 
+                                         self.sample, self.label, 
                                          '%s_%s.nxs' % (self.sample, self.scan))
         self._root = None 
         self._entry = entry
         self._data = data
+        self._field = None
         self._mask = None
-        self._parent = None
+        self._parent = parent
         
         self.extension = extension
         self.path = path
@@ -42,7 +108,30 @@ class NXReduce(object):
         self.first = first
         self.last = last
         self.refine = refine
+        self.transform = transform
+        self.mask3D = mask3D
         self.overwrite = overwrite
+        self.gui = gui
+        self.progress_bar = None
+        
+        self.logger = logging.getLogger("%s_%s['%s']" 
+                                        % (self.sample, self.scan, self._entry))
+        self.logger.setLevel(logging.DEBUG)
+        formatter = logging.Formatter(
+                        '%(asctime)s %(name)-12s: %(message)s',
+                        datefmt='%Y-%m-%d %H:%M:%S')
+        if os.path.exists(os.path.join(self.task_directory, 'nxlogger.pid')):
+            socketHandler = logging.handlers.SocketHandler('localhost',
+                                logging.handlers.DEFAULT_TCP_LOGGING_PORT)
+            self.logger.addHandler(socketHandler)
+        else:
+            fileHandler = logging.FileHandler(self.log_file)
+            fileHandler.setFormatter(formatter)
+            self.logger.addHandler(fileHandler)
+        if not self.gui:
+            streamHandler = logging.StreamHandler()
+            self.logger.addHandler(streamHandler)
+            
 
     @property
     def command(self):
@@ -51,12 +140,12 @@ class NXReduce(object):
             switches += ' -r'
         if self.overwrite:
             switches += ' -o'
-        return 'nxtask ' + switches
+        return 'nxreduce ' + switches
 
     @property
     def root(self):
         if self._root is None:
-            with portalocker.Lock(self.wrapper_file, timeout=30):
+            with Lock(self.wrapper_file):
                 self._root = nxload(self.wrapper_file, 'r+')
         return self._root
 
@@ -66,13 +155,13 @@ class NXReduce(object):
 
     @property
     def data(self):
-        if self._data is None:
-            try:
-                with portalocker.Lock(self.data_file, timeout=30):
-                    self._data = nxload(self.data_file, 'r')[self.data_target]
-            except Exception as error:
-                pass
-        return self._data
+        return self.entry['data']
+
+    @property
+    def field(self):
+        if self._field is None:
+            self._field = nxload(self.data_file, 'r')[self.data_target]
+        return self._field
 
     @property
     def data_file(self):
@@ -104,41 +193,87 @@ class NXReduce(object):
                 self._maximum = self.entry['peaks'].attrs['maximum']
         return self._maximum
 
-    def peaks_done(self):
-        return 'peaks' in self.entry
+    def is_incomplete(self, program):
+        return program not in self.entry or self.overwrite
+
+    def start_progress(self, start=None, stop=None):
+        if self.progress_bar and start and stop:
+            self.progress_bar.setRange(start, stop)
+            self.progress_bar.setVisible(True)
+        else:
+            self.progress_bar = None
+            print('Frame', end='')
+        return timeit.default_timer()
 
     def update_progress(self, i):
-        s = 'Frame %d' % i
-        if i > 0:
-            s = '\r' + s
-        logging.infos, end='')
+        if self.progress_bar is not None:
+            self.progress_bar.setValue(i)
+        else:
+            print('\rFrame %d' % i, end='')
+
+    def stop_progress(self):
+        if self.progress_bar:
+            self.progress_bar.setVisible(False)
+        else:
+            print('')
+        return timeit.default_timer()
+
+    def record(self, program, **kwds):
+        parameters = '\n'.join(
+            [('%s: %s' % (k, v)).replace('_', ' ').capitalize()
+             for (k,v) in kwds.items()])
+        note = NXnote(program, ('Current machine: %s\n' % platform.node() + 
+                                'Current directory: %s\n' % self.directory +
+                                parameters))
+        if program in self.entry:
+            del self.entry[program]
+        self.entry[program] = NXprocess(program='%s' % program, 
+                                sequence_index=len(self.entry.NXprocess)+1, 
+                                version='nxrefine v'+__version__, 
+                                note=note)
+
+    def nxlink(self):
+        if self.is_incomplete('nxlink'):
+            with Lock(self.wrapper_file):
+                self.link_data()
+                logs = self.read_logs()
+                if logs:
+                    if 'logs' in self.entry:
+                        del self.entry['logs']
+                    self.entry['logs'] = logs
+                    self.transfer_logs()
+                    self.record('nxlink', logs='Transferred')
+                else:
+                    self.record('nxlink')
+        else:
+            self.logger.info('Data already linked')             
 
     def link_data(self):
-        if self.data:
-            with portalocker.Lock(self.wrapper_file, timeout=30):
-                data_shape = self.data.shape
-                if 'data' not in self.entry:
-                    self.entry['data'] = NXdata()
-                    self.entry['data/x_pixel'] = np.arange(data_shape[2], dtype=np.int32)
-                    self.entry['data/y_pixel'] = np.arange(data_shape[1], dtype=np.int32)
-                    self.entry['data/frame_number'] = np.arange(data_shape[0], dtype=np.int32)
-                    self.entry['data/data'] = NXlink(self.data_target, self.data_file)
-                else:
-                    if self.entry['data/frame_number'].shape != data_shape[0]:
-                        del self.entry['data/frame_number']
-                        self.entry['data/frame_number'] = np.arange(data_shape[0], dtype=np.int32)
-                        logging.info('Fixed frame number axis')
-                    if ('data' in entry['data'] and 
-                        entry['data/data']._filename != data_file):
-                        del entry['data/data']
-                        entry['data/data'] = NXlink(data_target, data_file)
-                        logging.info('Fixed path to external data')
-                self.entry['data'].nxsignal = self.entry['data/data']
-                self.entry['data'].nxaxes = [self.entry['data/frame_number'], 
-                                             self.entry['data/y_pixel'], 
-                                             self.entry['data/x_pixel']] 
+        if self.field:
+            shape = self.field.shape
+            if 'data' not in self.entry:
+                self.entry['data'] = NXdata()
+                self.entry['data/x_pixel'] = np.arange(shape[2], dtype=np.int32)
+                self.entry['data/y_pixel'] = np.arange(shape[1], dtype=np.int32)
+                self.entry['data/frame_number'] = np.arange(shape[0], dtype=np.int32)
+                self.entry['data/data'] = NXlink(self.data_target, self.data_file)
+                self.logger.info('Data group created and linked to external data')
+            else:
+                if self.entry['data/frame_number'].shape != shape[0]:
+                    del self.entry['data/frame_number']
+                    self.entry['data/frame_number'] = np.arange(shape[0], dtype=np.int32)
+                    self.logger.info('Fixed frame number axis')
+                if ('data' in entry['data'] and 
+                    entry['data/data']._filename != data_file):
+                    del entry['data/data']
+                    entry['data/data'] = NXlink(data_target, data_file)
+                    self.logger.info('Fixed path to external data')
+            self.entry['data'].nxsignal = self.entry['data/data']
+            self.entry['data'].nxaxes = [self.entry['data/frame_number'], 
+                                         self.entry['data/y_pixel'], 
+                                         self.entry['data/x_pixel']]
         else:
-            logging.info('No raw data file found')
+            self.logger.info('No raw data loaded')
 
     def read_logs(self):
         head_file = os.path.join(self.directory, entry+'_head.txt')
@@ -146,7 +281,7 @@ class NXReduce(object):
         if os.path.exists(head_file) or os.path.exists(meta_file):
             logs = NXcollection()
         else:
-            logging.info('No metadata files found')
+            self.logger.info('No metadata files found')
             return None
         if os.path.exists(head_file):
             with open(head_file) as f:
@@ -168,89 +303,115 @@ class NXReduce(object):
     def transfer_logs(self):
         logs = self.entry['instrument/logs']
         frames = self.entry['data/frame_number'].size
-        with portalocker.Lock(self.wrapper_file, timeout=30):
-           if 'MCS1' in logs:
-                if 'monitor1' in self.entry:
-                    del self.entry['monitor1']
-                data = logs['MCS1'][:frames]
-                self.entry['monitor1'] = NXmonitor(NXfield(data, name='MCS1'),
-                                                   NXfield(np.arange(frames, 
-                                                                     dtype=np.int32), 
-                                                           name='frame_number'))
-            if 'MCS2' in logs:
-                if 'monitor2' in self.entry:
-                    del self.entry['monitor2']
-                data = logs['MCS2'][:frames]
-                self.entry['monitor2'] = NXmonitor(NXfield(data, name='MCS2'),
-                                                        NXfield(np.arange(frames, 
-                                                                          dtype=np.int32), 
-                                                                name='frame_number'))
-            if 'source' not in self.entry['instrument']:
-                self.entry['instrument/source'] = NXsource()
-            self.entry['instrument/source/name'] = 'Advanced Photon Source'
-            self.entry['instrument/source/type'] = 'Synchrotron X-ray Source'
-            self.entry['instrument/source/probe'] = 'x-ray'
-            if 'Storage_Ring_Current' in logs:
-                self.entry['instrument/source/current'] = logs['Storage_Ring_Current']
-            if 'UndulatorA_gap' in logs:
-                self.entry['instrument/source/undulator_gap'] = logs['UndulatorA_gap']
-            if 'Calculated_filter_transmission' in logs:
-                if 'attenuator' not in self.entry['instrument']:
-                    self.entry['instrument/attenuator'] = NXattenuator()
-                self.entry['instrument/attenuator/attenuator_transmission'] = logs['Calculated_filter_transmission']
+        if 'MCS1' in logs:
+            if 'monitor1' in self.entry:
+                del self.entry['monitor1']
+            data = logs['MCS1'][:frames]
+            self.entry['monitor1'] = NXmonitor(NXfield(data, name='MCS1'),
+                                               NXfield(np.arange(frames, 
+                                                                 dtype=np.int32), 
+                                                       name='frame_number'))
+        if 'MCS2' in logs:
+            if 'monitor2' in self.entry:
+                del self.entry['monitor2']
+            data = logs['MCS2'][:frames]
+            self.entry['monitor2'] = NXmonitor(NXfield(data, name='MCS2'),
+                                               NXfield(np.arange(frames, 
+                                                                 dtype=np.int32), 
+                                                       name='frame_number'))
+        if 'source' not in self.entry['instrument']:
+            self.entry['instrument/source'] = NXsource()
+        self.entry['instrument/source/name'] = 'Advanced Photon Source'
+        self.entry['instrument/source/type'] = 'Synchrotron X-ray Source'
+        self.entry['instrument/source/probe'] = 'x-ray'
+        if 'Storage_Ring_Current' in logs:
+            self.entry['instrument/source/current'] = logs['Storage_Ring_Current']
+        if 'UndulatorA_gap' in logs:
+            self.entry['instrument/source/undulator_gap'] = logs['UndulatorA_gap']
+        if 'Calculated_filter_transmission' in logs:
+            if 'attenuator' not in self.entry['instrument']:
+                self.entry['instrument/attenuator'] = NXattenuator()
+            self.entry['instrument/attenuator/attenuator_transmission'] = logs['Calculated_filter_transmission']
+
+    def nxmax(self):
+        if self.is_incomplete('nxmax'):
+            self.logger.info('Finding maximum counts')
+            with Lock(self.data_file):
+                maximum = self.find_maximum()
+            if maximum:
+                with Lock(self.wrapper_file):
+                    self.entry['data'].attrs['maximum'] = maximum
+                    self.record('nxmax', maximum=maximum)
+        else:
+            self.logger.info('Maximum counts already found')             
 
     def find_maximum(self):
         maximum = 0.0
-        if len(self.data.shape) == 2:
-            maximum = self.data[:,:].max()
-        else:
-            nframes = self.data.shape[0]
-            chunk_size = self.data.chunks[0]
-            for i in range(0, nframes, chunk_size):
-                try:
-                    update_progress(i)
-                    v = self.data[i:i+chunk_size,:,:]
-                except IndexError as error:
-                    pass
-                if self.mask is not None:
-                    v = np.ma.masked_array(v)
-                    v.mask = self.mask
-                if maximum < v.max():
-                    maximum = v.max()
-                del v
+        nframes = self.field.shape[0]
+        chunk_size = self.field.chunks[0]
+        tic = self.start_progress(0, nframes)
+        for i in range(0, nframes, chunk_size):
+            try:
+                self.update_progress(i)
+                v = self.field[i:i+chunk_size,:,:]
+            except IndexError as error:
+                pass
+            if self.mask is not None:
+                v = np.ma.masked_array(v)
+                v.mask = self.mask
+            if maximum < v.max():
+                maximum = v.max()
+            del v
+        toc = self.stop_progress()
+        self.logger.info('Maximum counts: %s (%g seconds)' % (maximum, toc-tic))
         return maximum
 
-    @lock_file(self.data_file)
+    def nxfind(self):
+        if self.is_incomplete('nxfind'):
+            self.logger.info("Finding peaks")
+            with Lock(self.data_file):
+                peaks = self.find_peaks()
+            if peaks:
+                with Lock(self.wrapper_file):
+                    self.write_peaks(peaks)
+                    self.record('nxfind', threshold=self.threshold,
+                                first_frame=self.first, last_frame=self.last, 
+                                peak_number=len(peaks))                    
+        else:
+            self.logger.info('Peaks already found')             
+
     def find_peaks(self):
         if self.threshold is None:
             if self.maximum is None:
-                self._maximum = self.find_maximum()     
+                self.nxmax()     
             self.threshold = self.maximum / 10
 
+        if self.first == None:
+            self.first = 0
+        if self.last == None:
+            self.last = self.field.shape[0]
         z_min, z_max = self.first, self.last
-        if z_min == None:
-            z_min = 0
-        if z_max == None:
-            z_max = self.data.shape[0]
+        
+        tic = self.start_progress(z_min, z_max)
 
-        lio = labelimage(self.data.shape[-2:], flipper=flip1)
+        lio = labelimage(self.field.shape[-2:], flipper=flip1)
         allpeaks = []
-        if len(self.data.shape) == 2:
+        if len(self.field.shape) == 2:
             res = None
         else:
-            chunk_size = self.data.chunks[0]
+            chunk_size = self.field.chunks[0]
             pixel_tolerance = 50
             frame_tolerance = 10
-            nframes = self.data.shape[0]
+            nframes = z_max
             for i in range(0, nframes, chunk_size):
                 try:
                     if i + chunk_size > z_min and i < z_max:
-                        update_progress(i)
-                        v = self.data[i:i+chunk_size,:,:].nxvalue
+                        self.update_progress(i)
+                        v = self.field[i:i+chunk_size,:,:].nxvalue
                         for j in range(chunk_size):
                             if i+j >= z_min and i+j <= z_max:
                                 omega = np.float32(i+j)
-                                lio.peaksearch(v[j], threshold, omega)
+                                lio.peaksearch(v[j], self.threshold, omega)
                                 if lio.res is not None:
                                     blob_moments(lio.res)
                                     for k in range(lio.res.shape[0]):
@@ -258,7 +419,7 @@ class NXReduce(object):
                                         peak = NXpeak(res[0], res[22],
                                             res[23], res[24], omega,
                                             res[27], res[26], res[29],
-                                            threshold,
+                                            self.threshold,
                                             pixel_tolerance,
                                             frame_tolerance)
                                         if peak.isvalid(self.mask):
@@ -267,15 +428,15 @@ class NXReduce(object):
                     pass
 
         if not allpeaks:
-            raise NeXusError('No peaks found')
+            toc = self.stop_progress()
+            self.logger.info('No peaks found (%g seconds)' % (toc-tic))
+            return None
 
         allpeaks = sorted(allpeaks)
-        
-        logging.info('\nMerging peaks')
 
         merged_peaks = []
         for z in range(z_min, z_max+1):
-            update_progress(z)
+            self.update_progress(z)
             frame = [peak for peak in allpeaks if peak.z == z]
             if not merged_peaks:
                 merged_peaks.extend(frame)
@@ -315,8 +476,12 @@ class NXReduce(object):
 
         merged_peaks = sorted(merged_peaks)
         peaks = merged_peaks
-        
-        group = NXdata()
+        toc = self.stop_progress()
+        self.logger.info('%s peaks found (%g seconds)' % (len(peaks), toc-tic))
+        return peaks
+ 
+    def write_peaks(self, peaks):
+        group = NXreflections()
         shape = (len(peaks),)
         group['npixels'] = NXfield([peak.np for peak in peaks], dtype=np.float32)
         group['intensity'] = NXfield([peak.intensity for peak in peaks], 
@@ -327,48 +492,84 @@ class NXReduce(object):
         group['sigx'] = NXfield([peak.sigx for peak in peaks], dtype=np.float32)
         group['sigy'] = NXfield([peak.sigy for peak in peaks], dtype=np.float32)
         group['covxy'] = NXfield([peak.covxy for peak in peaks], dtype=np.float32)
-        note = NXnote('nxfind '+' '.join(sys.argv[1:]), 
-                      ('Current machine: %s\n'
-                       'Current working directory: %s')
-                       % (socket.gethostname(), os.getcwd()))
-        group['nxfind'] = NXprocess(program='nxfind', 
-                                    sequence_index=len(entry.NXprocess)+1, 
-                                    version=__version__, 
-                                    note=note)
-        return group
+        if 'peaks' in self.entry:
+            del self.entry['peaks']
+        self.entry['peaks'] = group
+
+    def nxcopy(self):
+        if self.is_incomplete('nxcopy'):
+            if self.parent:
+                self.copy()
+                self.record('nxcopy', parent=self.parent)
+            else:
+                self.logger.info('No parent defined')               
+        else:
+            self.logger.info('Data already copied')             
 
     def copy(self):
-        if self.parent:
+        with Lock(self.parent):
             input = nxload(self.parent)
             input_ref = NXRefine(input[self._entry])
-            output = nxload(output_file, 'rw')
-            output_entry_ref = NXRefine(output['entry'])
-            input_ref.copy_parameters(output_entry_ref, sample=True)
-            for name in [entry for entry in input if entry != 'entry']:
-                if name in output: 
-                    input_ref = NXRefine(input[name])
-                    output_ref = NXRefine(output[name])
-                    input_ref.copy_parameters(output_ref, instrument=True)
-                    if 'sample' not in output[name] and 'sample' in input['entry']:
-                        output_entry_ref.link_sample(output_ref)
+        with Lock(self.wrapper_file):
+            output_ref = NXRefine(self.entry)
+            input_ref.copy_parameters(output_ref, instrument=True)
+        self.logger.info("Parameters copied from '%s'", self.parent)
+
+    def nxrefine(self):
+        if self.is_incomplete('nxrefine') and self.refine:
+            self.refine()
+            self.record('nxrefine')
+        else:
+            self.logger.info('HKL values already refined')             
+
+    def refine(self):
+        with Lock(self.wrapper_file):
+            refine = NXRefine(self.entry)
+            if i == 0:
+                refine.refine_hkl_parameters(chi=True,omega=True)
+                fit_report=refine.fit_report
+                refine.refine_hkl_parameters(chi=True, omega=True, gonpitch=True)                
+            else:
+                refine.refine_hkl_parameters(
+                    lattice=False, chi=True, omega=True)
+                fit_report=refine.fit_report
+                refine.refine_hkl_parameters(
+                    lattice=False, chi=True, omega=True, gonpitch=True)
+            fit_report = fit_report + '\n' + refine.fit_report
+            refine.refine_orientation_matrix()
+            fit_report = fit_report + '\n' + refine.fit_report
+            if refine.result.success:
+                refine.write_parameters()
+                self.record('nxrefine', fit_report=fit_report)
+                self.logger.info('Refined HKL values')
+            else:
+                self.logger.info('HKL refinement not successful')
+    
+    def transform(self):
+        pass
+
+    def run(self):
+        self.nxlink()
+        self.nxmax()
+        self.nxfind()
+        self.nxcopy()
+        self.nxrefine()
+        self.nxtransform()
+
+
+class NXMultiReduce(object):
+
+    def __init__(self, directory, entries=['f1', 'f2', 'f3'], *kwds):
+
+        self.directory = directory.rstrip('/')
+        self.entries = entries   
+        self.kwds = kwds
+        self.server = NXServer()
 
     def reduce(self):
-        subprocess.call('nxlink -d %s -e %s' % (directory, entry), shell=True)
-        subprocess.call('nxmax -d %s -e %s' % (directory, entry), shell=True)
-        subprocess.call('nxfind -d %s -e %s -f %s -l %s'
-                        % (directory, entry, first, last), shell=True)
-
-    if parent:
-        subprocess.call('nxcopy -i %s -o %s' % (parent, wrapper_file), shell=True)
-    if refine and 'orientation_matrix' in root[entries[0]]['instrument/detector']:
-        subprocess.call('nxrefine -d %s' % directory, shell=True)
-    if transform:
-        if parent:
-            subprocess.call('nxtransform -d %s -p %s' % (directory, parent), shell=True)
-        else:
-            subprocess.call('nxtransform -d %s' % directory, shell=True)
-        subprocess.call('nxcombine -d %s' % directory, shell=True)
-
+        for entry in self.entries:
+            reduce = NXReduce(self.directory, entry, *self.kwds)
+            self.server.add_task(reduce.command())
 
 
 class NXpeak(object):
