@@ -71,30 +71,52 @@ class Lock(object):
 
 class NXReduce(object):
 
-    def __init__(self, directory, entry='f1', data='data/data', parent=None,
+    def __init__(self, entry='f1', directory=None, data='data/data', parent=None,
                  extension='.h5', path='/entry/data/data',
                  threshold=None, first=None, last=None, 
                  refine=False, transform=False, mask3D=False, 
-                 overwrite=False, gui=False):
+                 overwrite=False, gui=None):
 
-        self.directory = directory.rstrip('/')
-        self.root_directory = os.path.realpath(
-                                os.path.dirname(
-                                  os.path.dirname(
-                                    os.path.dirname(self.directory))))
-        self.sample = os.path.basename(os.path.dirname(os.path.dirname(self.directory)))   
-        self.label = os.path.basename(os.path.dirname(self.directory))
-        self.scan = os.path.basename(self.directory)
+        if isinstance(entry, NXentry):
+            self._entry = entry.nxname
+            self.wrapper_file = entry.nxfilename
+            self.sample = os.path.basename(
+                            os.path.dirname(
+                              os.path.dirname(self.wrapper_file)))
+            self.label = os.path.basename(os.path.dirname(self.wrapper_file))
+            base_name = os.path.basename(os.path.splitext(self.wrapper_file)[0])
+            self.scan = base_name.replace(self.sample+'_', '')
+            self.directory = os.path.realpath(
+                               os.path.join(
+                                 os.path.dirname(self.wrapper_file), self.scan))
+            self.root_directory = os.path.realpath(
+                                    os.path.dirname(
+                                      os.path.dirname(
+                                        os.path.dirname(self.directory))))
+        elif directory is None:
+            raise NeXusError('Directory not specified')
+        else:
+            self.directory = directory.rstrip('/')
+            self.root_directory = os.path.realpath(
+                                    os.path.dirname(
+                                      os.path.dirname(
+                                        os.path.dirname(self.directory))))
+            self.sample = os.path.basename(
+                            os.path.dirname(
+                              os.path.dirname(self.directory)))   
+            self.label = os.path.basename(os.path.dirname(self.directory))
+            self.scan = os.path.basename(self.directory)
+            self.wrapper_file = os.path.join(self.root_directory, 
+                                             self.sample, self.label, 
+                                             '%s_%s.nxs' % 
+                                             (self.sample, self.scan))
+            self._entry = entry
         self.task_directory = os.path.join(self.root_directory, 'tasks')
         if 'tasks' not in os.listdir(self.root_directory):
             os.mkdir(self.task_directory)
         self.log_file = os.path.join(self.task_directory, 'nxlogger.log')
         
-        self.wrapper_file = os.path.join(self.root_directory, 
-                                         self.sample, self.label, 
-                                         '%s_%s.nxs' % (self.sample, self.scan))
         self._root = None 
-        self._entry = entry
         self._data = data
         self._field = None
         self._mask = None
@@ -112,7 +134,6 @@ class NXReduce(object):
         self.mask3D = mask3D
         self.overwrite = overwrite
         self.gui = gui
-        self.progress_bar = None
         
         self.logger = logging.getLogger("%s_%s['%s']" 
                                         % (self.sample, self.scan, self._entry))
@@ -128,9 +149,10 @@ class NXReduce(object):
             fileHandler = logging.FileHandler(self.log_file)
             fileHandler.setFormatter(formatter)
             self.logger.addHandler(fileHandler)
-        if not self.gui:
+        if self.gui is None:
             streamHandler = logging.StreamHandler()
             self.logger.addHandler(streamHandler)
+        self.logger.info('GUI is %s' % self.gui)
             
 
     @property
@@ -193,27 +215,31 @@ class NXReduce(object):
                 self._maximum = self.entry['peaks'].attrs['maximum']
         return self._maximum
 
-    def is_incomplete(self, program):
+    def not_complete(self, program):
         return program not in self.entry or self.overwrite
 
-    def start_progress(self, start=None, stop=None):
-        if self.progress_bar and start and stop:
-            self.progress_bar.setRange(start, stop)
-            self.progress_bar.setVisible(True)
+    def start_progress(self, start, stop):
+        if self.gui:
+            self.gui.progress_bar.setVisible(True)
+            self.gui.progress_bar.setRange(0, 50)
+            self._step = (stop - start) / 50
+            self._value = int(start)
         else:
-            self.progress_bar = None
             print('Frame', end='')
         return timeit.default_timer()
 
     def update_progress(self, i):
-        if self.progress_bar is not None:
-            self.progress_bar.setValue(i)
+        if self.gui:
+            _value = int(i/self._step)
+            if  _value > self._value:
+                self.update.emit(_value)
+                self._value = _value
         else:
             print('\rFrame %d' % i, end='')
 
     def stop_progress(self):
-        if self.progress_bar:
-            self.progress_bar.setVisible(False)
+        if self.gui:
+            self.gui.progress_bar.setVisible(False)
         else:
             print('')
         return timeit.default_timer()
@@ -233,7 +259,7 @@ class NXReduce(object):
                                 note=note)
 
     def nxlink(self):
-        if self.is_incomplete('nxlink'):
+        if self.not_complete('nxlink'):
             with Lock(self.wrapper_file):
                 self.link_data()
                 logs = self.read_logs()
@@ -334,26 +360,28 @@ class NXReduce(object):
             self.entry['instrument/attenuator/attenuator_transmission'] = logs['Calculated_filter_transmission']
 
     def nxmax(self):
-        if self.is_incomplete('nxmax'):
-            self.logger.info('Finding maximum counts')
+        if self.not_complete('nxmax'):
             with Lock(self.data_file):
                 maximum = self.find_maximum()
             if maximum:
                 with Lock(self.wrapper_file):
-                    self.entry['data'].attrs['maximum'] = maximum
-                    self.record('nxmax', maximum=maximum)
+                    self.write_maximum(maximum)
         else:
             self.logger.info('Maximum counts already found')             
 
     def find_maximum(self):
+        self.logger.info('Finding maximum counts')
         maximum = 0.0
         nframes = self.field.shape[0]
         chunk_size = self.field.chunks[0]
+        if chunk_size < 20:
+            chunk_size = 50
+        data = self.field.nxfile[self.path]
         tic = self.start_progress(0, nframes)
         for i in range(0, nframes, chunk_size):
+            self.update_progress(i)
             try:
-                self.update_progress(i)
-                v = self.field[i:i+chunk_size,:,:]
+                v = data[i:i+chunk_size,:,:]
             except IndexError as error:
                 pass
             if self.mask is not None:
@@ -366,17 +394,18 @@ class NXReduce(object):
         self.logger.info('Maximum counts: %s (%g seconds)' % (maximum, toc-tic))
         return maximum
 
+    def write_maximum(self, maximum):
+        self.entry['data'].attrs['maximum'] = maximum
+        self.record('nxmax', maximum=maximum)
+
     def nxfind(self):
-        if self.is_incomplete('nxfind'):
+        if self.not_complete('nxfind'):
             self.logger.info("Finding peaks")
             with Lock(self.data_file):
                 peaks = self.find_peaks()
             if peaks:
                 with Lock(self.wrapper_file):
                     self.write_peaks(peaks)
-                    self.record('nxfind', threshold=self.threshold,
-                                first_frame=self.first, last_frame=self.last, 
-                                peak_number=len(peaks))                    
         else:
             self.logger.info('Peaks already found')             
 
@@ -403,11 +432,12 @@ class NXReduce(object):
             pixel_tolerance = 50
             frame_tolerance = 10
             nframes = z_max
+            data = self.field.nxfile[self.path]
             for i in range(0, nframes, chunk_size):
                 try:
                     if i + chunk_size > z_min and i < z_max:
                         self.update_progress(i)
-                        v = self.field[i:i+chunk_size,:,:].nxvalue
+                        v = data[i:i+chunk_size,:,:]
                         for j in range(chunk_size):
                             if i+j >= z_min and i+j <= z_max:
                                 omega = np.float32(i+j)
@@ -495,9 +525,12 @@ class NXReduce(object):
         if 'peaks' in self.entry:
             del self.entry['peaks']
         self.entry['peaks'] = group
+        self.record('nxfind', threshold=self.threshold,
+                    first_frame=self.first, last_frame=self.last, 
+                    peak_number=len(peaks))                    
 
     def nxcopy(self):
-        if self.is_incomplete('nxcopy'):
+        if self.not_complete('nxcopy'):
             if self.parent:
                 self.copy()
                 self.record('nxcopy', parent=self.parent)
@@ -516,7 +549,7 @@ class NXReduce(object):
         self.logger.info("Parameters copied from '%s'", self.parent)
 
     def nxrefine(self):
-        if self.is_incomplete('nxrefine') and self.refine:
+        if self.not_complete('nxrefine') and self.refine:
             self.refine()
             self.record('nxrefine')
         else:

@@ -49,7 +49,7 @@ class NXHandler(FileSystemEventHandler):
             if event.src_path in self.watch_files:
                 now = time.time()
                 if now - self.watch_files[event.src_path] > 120.0:
-                    reduce = NXReduce(os.path.dirname(event.src_path), entry)
+                    reduce = NXReduce(entry, os.path.dirname(event.src_path))
                     self.server.add_task('nxtask ')
                     del self.watch_files[event.src_path]
                 else:

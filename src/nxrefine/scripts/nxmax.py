@@ -27,7 +27,7 @@ def main():
     args = parser.parse_args()
 
     for entry in args.entries:
-        reduce = NXReduce(args.directory, entry, overwrite=args.overwrite)
+        reduce = NXReduce(entry, args.directory, overwrite=args.overwrite)
         reduce.nxmax()
 
 
