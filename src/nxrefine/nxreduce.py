@@ -38,7 +38,7 @@ class Lock(object):
 
         def _get_lock():
             if os.path.exists(self.lock_file):
-                raise LockException('Lock file already exists')
+                raise LockException("'%s' already locked" % self.filename)
             else:
                 open(self.lock_file, 'w').write("%s" % os.getpid())
         try:
@@ -53,7 +53,7 @@ class Lock(object):
                 except LockException:
                     pass
             else:
-                raise LockException('Lock file already exists')
+                raise LockException("'%s' already locked" % self.filename)
 
     def release(self):
         if os.path.exists(self.lock_file):
