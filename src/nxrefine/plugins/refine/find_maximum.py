@@ -1,8 +1,9 @@
-from nexpy.gui.pyqt import QtWidgets 
+from nexpy.gui.pyqt import QtCore, QtWidgets 
 import numpy as np
 from nexpy.gui.datadialogs import BaseDialog
 from nexpy.gui.utils import report_error
 from nexusformat.nexus import NeXusError, NXfield
+from nxrefine.nxreduce import Lock, LockException, NXReduce
 
 
 def show_dialog():
@@ -21,53 +22,56 @@ class MaximumDialog(BaseDialog):
         self.select_entry(self.choose_entry)
 
         self.output = QtWidgets.QLabel('Maximum Value:')
-        action_buttons = self.action_buttons(('Find Maximum', self.find_maximum))
         self.set_layout(self.entry_layout, self.output, 
-                        action_buttons, self.progress_layout(save=True))
+                        self.action_buttons(('Find Maximum', self.find_maximum)),
+                        self.checkboxes(('overwrite', 'Overwrite', True)),
+                        self.progress_layout(save=True))
         self.progress_bar.setVisible(False)
+        self.progress_bar.setValue(0)
         self.set_title('Find Maximum Value')
+        self.checkbox['overwrite'].setVisible(False)
+        self.reduce = None
 
     def choose_entry(self):
-        try:
-            self.output_maximum(self.entry['data'].attrs['maximum'])
-        except Exception:
-            self.output_maximum('')
+        self.reduce = NXReduce(self.entry, gui=self)
+        self.maximum = self.reduce.maximum
+        if self.reduce.not_complete('nxmax'):
+            self.checkbox['overwrite'].setVisible(False)
+        else:
+            self.checkbox['overwrite'].setVisible(True)
 
-    def output_maximum(self, maximum):
-        self.output.setText('Maximum Value: %s' % maximum)
+    @property
+    def maximum(self):
+        return np.float(self.output.text().split()[-1])
+
+    @maximum.setter
+    def maximum(self, value):
+        self.output.setText('Maximum Value: %s' % value)
 
     def find_maximum(self):
-        if 'data' not in self.entry:
-            raise NeXusError('There must be a group named "data" in the entry')
-        self.maximum = 0.0
-        try:
-            mask = self.entry['instrument/detector/pixel_mask']
-            if len(mask.shape) > 2:
-                mask = mask[0]
-        except Exception:
-            mask = None
-        signal = self.entry['data'].nxsignal
-        if len(signal.shape) == 2:
-            self.maximum = signal[:,:].max()
-        else:
-            self.progress_bar.setVisible(True)
-            self.progress_bar.setRange(0, signal.shape[0])
-            chunk_size = signal.chunks[0]
-            for i in range(0, signal.shape[0], chunk_size):
-                try:
-                    self.progress_bar.setValue(i)
-                    self.update_progress()
-                    v = signal[i:i+chunk_size,:,:]
-                except IndexError as error:
-                    pass
-                if mask is not None:
-                    v = np.ma.masked_array(v)
-                    v.mask = mask.nxdata
-                if self.maximum < v.max():
-                    self.maximum = v.max()
-            self.progress_bar.setVisible(False)
-        self.output_maximum(self.maximum)
+        self.thread = MaximumThread(self.reduce)
+        self.reduce.update.connect(self.update_progress)
+        self.thread.start()
 
     def accept(self):
-        self.entry['data'].attrs['maximum'] = self.maximum
+        self.reduce.write_maximum(self.maximum)
         super(MaximumDialog, self).accept()
+
+class MaximumThread(QtCore.QThread):
+
+    update = QtCore.Signal(object)
+
+    def __init__(self, reduce):
+        super(MaximumThread, self).__init__()
+        self.reduce = reduce
+        self.reduce.update = self.update
+
+    def run(self):
+        try:
+            with Lock(self.reduce.data_file, timeout=10):
+                maximum = self.reduce.find_maximum()
+            self.maximum = maximum
+        except LockException as error:
+            if self.confirm_action('Clear lock?', str(error)):
+                Lock(self.reduce.data_file).release()
+
