@@ -50,12 +50,22 @@ class MaximumDialog(BaseDialog):
 
     def find_maximum(self):
         self.thread = MaximumThread(self.reduce)
-        self.reduce.update.connect(self.update_progress)
+        self.thread.update.connect(self.update_progress)
+        self.thread.finished.connect(self.get_maximum)
         self.thread.start()
 
+    def get_maximum(self):
+        self.maximum = self.thread.maximum
+
     def accept(self):
-        self.reduce.write_maximum(self.maximum)
+        try:
+            with Lock(self.reduce.wrapper_file):
+                self.reduce.write_maximum(self.maximum)
+        except LockException as error:
+            if self.confirm_action('Clear lock?', str(error)):
+                Lock(self.reduce.wrapper_file).release()
         super(MaximumDialog, self).accept()
+
 
 class MaximumThread(QtCore.QThread):
 
@@ -69,8 +79,7 @@ class MaximumThread(QtCore.QThread):
     def run(self):
         try:
             with Lock(self.reduce.data_file, timeout=10):
-                maximum = self.reduce.find_maximum()
-            self.maximum = maximum
+                self.maximum = self.reduce.find_maximum()
         except LockException as error:
             if self.confirm_action('Clear lock?', str(error)):
                 Lock(self.reduce.data_file).release()
