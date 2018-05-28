@@ -9,6 +9,8 @@ import numpy as np
 
 from nexusformat.nexus import *
 
+from nexpy.gui.pyqt import QtCore
+
 from . import blobcorrector, __version__
 from .connectedpixels import blob_moments
 from .labelimage import labelimage, flip1
@@ -69,13 +71,15 @@ class Lock(object):
         instance.release()
 
 
-class NXReduce(object):
+class NXReduce(QtCore.QObject):
 
     def __init__(self, entry='f1', directory=None, data='data/data', parent=None,
                  extension='.h5', path='/entry/data/data',
                  threshold=None, first=None, last=None, 
                  refine=False, transform=False, mask3D=False, 
-                 overwrite=False, gui=None):
+                 overwrite=False, gui=False):
+
+        super(NXReduce, self).__init__()
 
         if isinstance(entry, NXentry):
             self._entry = entry.nxname
@@ -135,6 +139,8 @@ class NXReduce(object):
         self.overwrite = overwrite
         self.gui = gui
         
+        self._stopped = False
+        
         self.logger = logging.getLogger("%s_%s['%s']" 
                                         % (self.sample, self.scan, self._entry))
         self.logger.setLevel(logging.DEBUG)
@@ -151,11 +157,14 @@ class NXReduce(object):
             fileHandler = logging.FileHandler(self.log_file)
             fileHandler.setFormatter(formatter)
             self.logger.addHandler(fileHandler)
-        if self.gui is None:
+        if not self.gui:
             streamHandler = logging.StreamHandler()
             self.logger.addHandler(streamHandler)
-        self.logger.info('GUI is %s' % self.gui)
-            
+
+    start = QtCore.Signal(object)
+    update = QtCore.Signal(object)
+    result = QtCore.Signal(object)
+    stop = QtCore.Signal()            
 
     @property
     def command(self):
@@ -222,12 +231,12 @@ class NXReduce(object):
 
     def start_progress(self, start, stop):
         if self.gui:
-            self.gui.progress_bar.setVisible(True)
-            self.gui.progress_bar.setRange(0, 50)
-            self._step = (stop - start) / 50
+            self._step = (stop - start) / 100
             self._value = int(start)
+            self.start.emit((0, 100))
         else:
             print('Frame', end='')
+        self.stopped = False
         return timeit.default_timer()
 
     def update_progress(self, i):
@@ -240,11 +249,18 @@ class NXReduce(object):
             print('\rFrame %d' % i, end='')
 
     def stop_progress(self):
-        if self.gui:
-            self.gui.progress_bar.setVisible(False)
-        else:
+        if not self.gui:
             print('')
+        self.stopped = True
         return timeit.default_timer()
+
+    @property
+    def stopped(self):
+        return self._stopped
+
+    @stopped.setter
+    def stopped(self, value):
+        self._stopped = value
 
     def record(self, program, **kwds):
         parameters = '\n'.join(
@@ -365,7 +381,11 @@ class NXReduce(object):
         if self.not_complete('nxmax'):
             with Lock(self.data_file):
                 maximum = self.find_maximum()
-            if maximum:
+            if self.gui:
+                if maximum:
+                    self.result.emit(maximum)
+                self.stop.emit()
+            else:
                 with Lock(self.wrapper_file):
                     self.write_maximum(maximum)
         else:
@@ -381,6 +401,8 @@ class NXReduce(object):
         data = self.field.nxfile[self.path]
         tic = self.start_progress(0, nframes)
         for i in range(0, nframes, chunk_size):
+            if self.stopped:
+                return None
             self.update_progress(i)
             try:
                 v = data[i:i+chunk_size,:,:]
@@ -402,16 +424,20 @@ class NXReduce(object):
 
     def nxfind(self):
         if self.not_complete('nxfind'):
-            self.logger.info("Finding peaks")
             with Lock(self.data_file):
                 peaks = self.find_peaks()
-            if peaks:
+            if self.gui:
+                if peaks:
+                    self.result.emit(peaks)
+                self.stop.emit()
+            else:
                 with Lock(self.wrapper_file):
                     self.write_peaks(peaks)
         else:
             self.logger.info('Peaks already found')             
 
     def find_peaks(self):
+        self.logger.info("Finding peaks")
         if self.threshold is None:
             if self.maximum is None:
                 self.nxmax()     
@@ -436,6 +462,8 @@ class NXReduce(object):
             nframes = z_max
             data = self.field.nxfile[self.path]
             for i in range(0, nframes, chunk_size):
+                if self.stopped:
+                    return None
                 try:
                     if i + chunk_size > z_min and i < z_max:
                         self.update_progress(i)
@@ -468,6 +496,8 @@ class NXReduce(object):
 
         merged_peaks = []
         for z in range(z_min, z_max+1):
+            if self.stopped:
+                return None
             self.update_progress(z)
             frame = [peak for peak in allpeaks if peak.z == z]
             if not merged_peaks:
