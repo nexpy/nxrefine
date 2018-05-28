@@ -141,6 +141,8 @@ class NXReduce(object):
         formatter = logging.Formatter(
                         '%(asctime)s %(name)-12s: %(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S')
+        for handler in self.logger.handlers:
+            self.logger.removeHandler(handler)
         if os.path.exists(os.path.join(self.task_directory, 'nxlogger.pid')):
             socketHandler = logging.handlers.SocketHandler('localhost',
                                 logging.handlers.DEFAULT_TCP_LOGGING_PORT)
