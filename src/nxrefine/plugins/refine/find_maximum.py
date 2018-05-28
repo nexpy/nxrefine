@@ -23,22 +23,17 @@ class MaximumDialog(BaseDialog):
 
         self.output = QtWidgets.QLabel('Maximum Value:')
         self.set_layout(self.entry_layout, self.output, 
-                        self.action_buttons(('Find Maximum', self.find_maximum)),
-                        self.checkboxes(('overwrite', 'Overwrite', True)),
+                        self.action_buttons(('Find Maximum', self.find_maximum),
+                                            ('Stop', self.stop)),
                         self.progress_layout(save=True))
         self.progress_bar.setVisible(False)
         self.progress_bar.setValue(0)
         self.set_title('Find Maximum Value')
-        self.checkbox['overwrite'].setVisible(False)
         self.reduce = None
 
     def choose_entry(self):
         self.reduce = NXReduce(self.entry, gui=self)
         self.maximum = self.reduce.maximum
-        if self.reduce.not_complete('nxmax'):
-            self.checkbox['overwrite'].setVisible(False)
-        else:
-            self.checkbox['overwrite'].setVisible(True)
 
     @property
     def maximum(self):
@@ -49,13 +44,33 @@ class MaximumDialog(BaseDialog):
         self.output.setText('Maximum Value: %s' % value)
 
     def find_maximum(self):
-        self.thread = MaximumThread(self.reduce)
-        self.thread.update.connect(self.update_progress)
-        self.thread.finished.connect(self.get_maximum)
-        self.thread.start()
+        self.check_lock(self.reduce.data_file)
+        self.thread = QtCore.QThread()
+        self.reduce = NXReduce(self.entry, overwrite=True, gui=True)
+        self.reduce.moveToThread(self.thread)
+        self.reduce.start.connect(self.start_progress)
+        self.reduce.update.connect(self.update_progress)
+        self.reduce.result.connect(self.get_maximum)
+        self.reduce.stop.connect(self.stop)
+        self.thread.started.connect(self.reduce.nxmax)
+        self.thread.start(QtCore.QThread.LowestPriority)
 
-    def get_maximum(self):
-        self.maximum = self.thread.maximum
+    def check_lock(self, file_name):
+        try:
+            with Lock(file_name, timeout=2):
+                pass
+        except LockException as error:
+            if self.confirm_action('Clear lock?', str(error)):
+                Lock(file_name).release()
+
+    def get_maximum(self, maximum):
+        self.maximum = maximum
+
+    def stop(self):
+        self.stop_progress()
+        if self.thread and self.thread.isRunning():
+            self.reduce.stopped = True
+            self.thread.exit()
 
     def accept(self):
         try:
@@ -64,23 +79,11 @@ class MaximumDialog(BaseDialog):
         except LockException as error:
             if self.confirm_action('Clear lock?', str(error)):
                 Lock(self.reduce.wrapper_file).release()
+        if self.thread:
+            self.stop()
         super(MaximumDialog, self).accept()
 
-
-class MaximumThread(QtCore.QThread):
-
-    update = QtCore.Signal(object)
-
-    def __init__(self, reduce):
-        super(MaximumThread, self).__init__()
-        self.reduce = reduce
-        self.reduce.update = self.update
-
-    def run(self):
-        try:
-            with Lock(self.reduce.data_file, timeout=10):
-                self.maximum = self.reduce.find_maximum()
-        except LockException as error:
-            if self.confirm_action('Clear lock?', str(error)):
-                Lock(self.reduce.data_file).release()
-
+    def reject(self):
+        if self.thread:
+            self.stop()
+        super(MaximumDialog, self).reject()
