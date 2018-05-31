@@ -43,7 +43,7 @@ def main():
                 status = status + ' nxtransform'
             summary.append(status)            
             
-    summary_file = os.path.join(directory, 'nxsummary.log'
+    summary_file = os.path.join(directory, 'nxsummary.log')
     with open(summary_file, 'w') as f:
         f.write('\n'.join(summary))
     print("Results summarized in '%s'" % summary_file)  
