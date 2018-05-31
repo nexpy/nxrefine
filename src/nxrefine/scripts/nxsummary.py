@@ -9,6 +9,8 @@ def main():
     parser = argparse.ArgumentParser(
         description="Perform workflow for scan")
     parser.add_argument('-d', '--directory', default='', help='scan directory')
+    parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
+        nargs='+', help='names of entries to be processed')
                         
     
     args = parser.parse_args()
@@ -18,18 +20,16 @@ def main():
     print("Processing directory '%s'" % directory)
     
     wrapper_files = sorted([os.path.join(directory, filename) 
-                            for filename in directory 
+                            for filename in os.listdir(directory) 
                             if filename.endswith('.nxs')], key=natural_sort)
-
     summary = []
     for wrapper_file in wrapper_files:
         print("Processing %s" % wrapper_file)
         root = nxload(wrapper_file)
-        scan_label = os.path.splitext(os.path.basename(wrapper_file))[0][len(sample)+1:]
-        for e in entries:        
+        for e in args.entries:        
             print("Processing %s" % e)
             status = '%s[%s]:' % (wrapper_file, e)
-            if 'nxlink' in root[e] or logs in root[e]['instrument']:
+            if 'nxlink' in root[e] or 'logs' in root[e]['instrument']:
                 status = status + ' nxlink'
             if 'nxmax' in root[e] or 'maximum' in root[e]['data'].attrs:
                 status = status + ' nxmax'
