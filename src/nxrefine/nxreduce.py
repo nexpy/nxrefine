@@ -11,10 +11,11 @@ from nexusformat.nexus import *
 
 from nexpy.gui.pyqt import QtCore
 
+from .nxrefine import NXRefine
+from .nxserver import NXServer
 from . import blobcorrector, __version__
 from .connectedpixels import blob_moments
 from .labelimage import labelimage, flip1
-from .nxserver import NXServer
 
 
 class LockException(Exception):
@@ -75,7 +76,7 @@ class NXReduce(QtCore.QObject):
 
     def __init__(self, entry='f1', directory=None, data='data/data', parent=None,
                  extension='.h5', path='/entry/data/data',
-                 threshold=None, first=None, last=None, 
+                 threshold=None, first=None, last=None, radius=200, width=3,
                  refine=False, transform=False, mask3D=False, 
                  overwrite=False, gui=False):
 
@@ -115,6 +116,7 @@ class NXReduce(QtCore.QObject):
                                              '%s_%s.nxs' % 
                                              (self.sample, self.scan))
             self._entry = entry
+        self.base_directory = os.path.dirname(self.wrapper_file)
         self.task_directory = os.path.join(self.root_directory, 'tasks')
         if 'tasks' not in os.listdir(self.root_directory):
             os.mkdir(self.task_directory)
@@ -133,6 +135,8 @@ class NXReduce(QtCore.QObject):
         self._maximum = None
         self.first = first
         self.last = last
+        self.radius = 200
+        self.width = 3
         self.refine = refine
         self.transform = transform
         self.mask3D = mask3D
@@ -215,7 +219,26 @@ class NXReduce(QtCore.QObject):
 
     @property
     def parent(self):
+        if (self._parent is None and 
+            os.path.exists(os.path.join(self.base_directory, 
+                                        self.sample+'_parent.nxs'))):
+            _parent = os.path.join(self.base_directory, 
+                                   self.sample+'_parent.nxs')
+            if os.path.realpath(_parent) != self.wrapper_file:
+                self._parent = _parent
         return self._parent
+
+    def make_parent(self):
+        _parent = os.path.join(self.base_directory, self.sample+'_parent.nxs')
+        if os.path.exists(_parent):
+            if self.overwrite:
+                os.remove(_parent)
+            else:
+                raise NeXusError("'%s' already set as parent" 
+                                 % os.path.realpath(_parent))
+        os.symlink(self.wrapper_file, _parent)
+        self._parent = None
+        self.logger.info("'%s' set as parent" % os.path.realpath(_parent))
 
     @property
     def maximum(self):
@@ -561,6 +584,46 @@ class NXReduce(QtCore.QObject):
                     first_frame=self.first, last_frame=self.last, 
                     peak_number=len(peaks))                    
 
+    def nxmask(self):
+        if self.not_complete('nxmask'):
+            with Lock(self.wrapper_file):
+                mask = self.calculate_mask()
+                if self.gui:
+                    if mask:
+                        self.result.emit(mask)
+                    self.stop.emit()
+                else:
+                    self.write_mask(mask)
+        else:
+            self.logger.info('Mask already produced')             
+
+    def calculate_mask(self):
+        self.logger.info("Calculating 3D mask")
+        data_shape = self.entry['data/data'].shape
+        mask = NXfield(shape=data_shape, dtype=np.int8, fillvalue=0)
+        x, y = np.arange(data_shape[2]), np.arange(data_shape[1])
+        xp, yp, zp = self.entry['peaks/x'], self.entry['peaks/y'], self.entry['peaks/z']
+        tic = self.start_progress(0, len(xp))    
+        for i in range(len(xp)):
+            if self.stopped:
+                return None
+            self.update_progress(int(zp[i]))
+            inside = (x[None,:]-int(xp[i]))**2+(y[:,None]-int(yp[i]))**2 < self.radius**2
+            frame = int(zp[i])
+            if self.width == 3:
+                mask[frame-1:frame+2] = mask[frame-1:frame+2] | inside
+            else:
+                mask[frame] = mask[frame] | inside
+        toc = self.stop_progress()
+        self.logger.info('3D Mask calculated (%g seconds)' % (toc-tic))
+        return mask
+ 
+    def write_mask(self, mask):
+        if 'data_mask' in entry['data']:
+            del self.entry['data/data_mask']
+        self.entry['data/data_mask'] = mask
+        self.record('nxmask', radius=self.radius, width=self.width)                    
+
     def nxcopy(self):
         if self.not_complete('nxcopy'):
             if self.parent:
@@ -582,34 +645,39 @@ class NXReduce(QtCore.QObject):
 
     def nxrefine(self):
         if self.not_complete('nxrefine') and self.refine:
-            self.refine()
-            self.record('nxrefine')
+            with Lock(self.wrapper_file):
+                result = self.refine()
+                if not self.gui:
+                    self.write_refinement(result)
         else:
             self.logger.info('HKL values already refined')             
 
     def refine(self):
-        with Lock(self.wrapper_file):
-            refine = NXRefine(self.entry)
-            if i == 0:
-                refine.refine_hkl_parameters(chi=True,omega=True)
-                fit_report=refine.fit_report
-                refine.refine_hkl_parameters(chi=True, omega=True, gonpitch=True)                
-            else:
-                refine.refine_hkl_parameters(
-                    lattice=False, chi=True, omega=True)
-                fit_report=refine.fit_report
-                refine.refine_hkl_parameters(
-                    lattice=False, chi=True, omega=True, gonpitch=True)
-            fit_report = fit_report + '\n' + refine.fit_report
-            refine.refine_orientation_matrix()
-            fit_report = fit_report + '\n' + refine.fit_report
-            if refine.result.success:
-                refine.write_parameters()
-                self.record('nxrefine', fit_report=fit_report)
-                self.logger.info('Refined HKL values')
-            else:
-                self.logger.info('HKL refinement not successful')
+        refine = NXRefine(self.entry)
+        if i == 0:
+            refine.refine_hkl_parameters(chi=True,omega=True)
+            fit_report=refine.fit_report
+            refine.refine_hkl_parameters(chi=True, omega=True, gonpitch=True)                
+        else:
+            refine.refine_hkl_parameters(lattice=False, chi=True, omega=True)
+            fit_report=refine.fit_report
+            refine.refine_hkl_parameters(
+                lattice=False, chi=True, omega=True, gonpitch=True)
+        fit_report = fit_report + '\n' + refine.fit_report
+        refine.refine_orientation_matrix()
+        fit_report = fit_report + '\n' + refine.fit_report
+        if refine.result.success:
+            refine.fit_report = fit_report
+            self.logger.info('Refined HKL values')
+            return refine
+        else:
+            self.logger.info('HKL refinement not successful')
+            return None
     
+    def write_refinement(self, refine):
+        refine.write_parameters()
+        self.record('nxrefine', fit_report=refine.fit_report)
+
     def transform(self):
         pass
 
@@ -617,6 +685,7 @@ class NXReduce(QtCore.QObject):
         self.nxlink()
         self.nxmax()
         self.nxfind()
+        self.nxmask()
         self.nxcopy()
         self.nxrefine()
         self.nxtransform()
