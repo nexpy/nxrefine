@@ -44,6 +44,7 @@ setup (name = nxrefine.__package_name__,
             # create & install scripts in <python>/bin
             'console_scripts': ['nxparent=nxrefine.scripts.nxparent:main',
                                 'nxcopy=nxrefine.scripts.nxcopy:main',
+                                'nxparent=nxrefine.scripts.nxparent:main',
                                 'nxlink=nxrefine.scripts.nxlink:main',
                                 'nxfind=nxrefine.scripts.nxfind:main',
                                 'nxmask=nxrefine.scripts.nxmask:main',
