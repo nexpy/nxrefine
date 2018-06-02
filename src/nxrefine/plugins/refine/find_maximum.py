@@ -23,8 +23,7 @@ class MaximumDialog(BaseDialog):
 
         self.output = QtWidgets.QLabel('Maximum Value:')
         self.set_layout(self.entry_layout, self.output, 
-                        self.action_buttons(('Find Maximum', self.find_maximum),
-                                            ('Stop', self.stop)),
+                        self.action_buttons(('Find Maximum', self.find_maximum)),
                         self.progress_layout(save=True))
         self.progress_bar.setVisible(False)
         self.progress_bar.setValue(0)
@@ -32,7 +31,7 @@ class MaximumDialog(BaseDialog):
         self.reduce = None
 
     def choose_entry(self):
-        self.reduce = NXReduce(self.entry, gui=self)
+        self.reduce = NXReduce(self.entry)
         self.maximum = self.reduce.maximum
 
     @property
@@ -45,7 +44,7 @@ class MaximumDialog(BaseDialog):
 
     def find_maximum(self):
         self.check_lock(self.reduce.data_file)
-        self.thread = QtCore.QThread()
+        self.start_thread()
         self.reduce = NXReduce(self.entry, overwrite=True, gui=True)
         self.reduce.moveToThread(self.thread)
         self.reduce.start.connect(self.start_progress)
@@ -53,6 +52,7 @@ class MaximumDialog(BaseDialog):
         self.reduce.result.connect(self.get_maximum)
         self.reduce.stop.connect(self.stop)
         self.thread.started.connect(self.reduce.nxmax)
+        self.thread.finished.connect(self.stop)
         self.thread.start(QtCore.QThread.LowestPriority)
 
     def check_lock(self, file_name):
@@ -70,7 +70,7 @@ class MaximumDialog(BaseDialog):
         self.stop_progress()
         if self.thread and self.thread.isRunning():
             self.reduce.stopped = True
-            self.thread.exit()
+        self.stop_thread()
 
     def accept(self):
         try:
@@ -79,11 +79,9 @@ class MaximumDialog(BaseDialog):
         except LockException as error:
             if self.confirm_action('Clear lock?', str(error)):
                 Lock(self.reduce.wrapper_file).release()
-        if self.thread:
-            self.stop()
+        self.stop()
         super(MaximumDialog, self).accept()
 
     def reject(self):
-        if self.thread:
-            self.stop()
+        self.stop()
         super(MaximumDialog, self).reject()

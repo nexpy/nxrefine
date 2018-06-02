@@ -33,8 +33,6 @@ class FindDialog(BaseDialog):
         self.parameters.add('threshold', threshold, 'Threshold')
         self.parameters.add('min', 0, 'First Frame')
         self.parameters.add('max', max_frame, 'Last Frame')
-        self.parameters.add('pixel_tolerance', 50, 'Pixel Tolerance')
-        self.parameters.add('frame_tolerance', 10, 'Frame Tolerance')
         find_layout = QtWidgets.QHBoxLayout()
         self.find_button = QtWidgets.QPushButton('Find Peaks')
         self.find_button.clicked.connect(self.find_peaks)
@@ -61,26 +59,24 @@ class FindDialog(BaseDialog):
         except Exception:
             pass
 
-    def get_threshold(self):
+    @property
+    def threshold(self):
         return self.parameters['threshold'].value
 
-    def get_limits(self):
-        return np.int32(self.parameters['min'].value), np.int32(self.parameters['max'].value)
+    @property
+    def first(self):
+        return np.int32(self.parameters['min'].value)
 
-    def get_tolerance(self):
-        """
-        Return pixel and frame tolerances from the text boxes.
-        
-        Note that the pixel tolerance is squared to save square-root 
-        calculations in peak comparisons.
-        """
-        return (self.parameters['pixel_tolerance'].value,
-                self.parameters['frame_tolerance'].value)
+    @property
+    def last(self):
+        return np.int32(self.parameters['max'].value)
 
     def find_peaks(self):
         self.check_lock(self.reduce.data_file)
-        self.thread = QtCore.QThread()
-        self.reduce = NXReduce(self.entry, overwrite=True, gui=True)
+        self.start_thread()
+        self.reduce = NXReduce(self.entry, threshold=self.threshold, 
+                               first=self.first, last=self.last,
+                               overwrite=True, gui=True)
         self.reduce.moveToThread(self.thread)
         self.reduce.start.connect(self.start_progress)
         self.reduce.update.connect(self.update_progress)
@@ -106,7 +102,7 @@ class FindDialog(BaseDialog):
         self.stop_progress()
         if self.thread and self.thread.isRunning():
             self.reduce.stopped = True
-            self.thread.exit()
+        self.stop_thread()
 
     def accept(self):
         try:
@@ -115,11 +111,9 @@ class FindDialog(BaseDialog):
         except LockException as error:
             if self.confirm_action('Clear lock?', str(error)):
                 Lock(self.reduce.wrapper_file).release()
-        if self.thread:
-            self.stop()
+        self.stop()
         super(FindDialog, self).accept()
 
     def reject(self):
-        if self.thread:
-            self.stop()
+        self.stop()
         super(FindDialog, self).reject()
