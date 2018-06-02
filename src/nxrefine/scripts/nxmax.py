@@ -1,15 +1,12 @@
 #!/usr/bin/env python
 #-----------------------------------------------------------------------------
-# Copyright (c) 2013, NeXpy Development Team.
+# Copyright (c) 2018, NeXpy Development Team.
 #
 # Distributed under the terms of the Modified BSD License.
 #
 # The full license is in the file COPYING, distributed with this software.
 #-----------------------------------------------------------------------------
-from __future__ import print_function
-import argparse, os, sys, timeit
-import numpy as np
-from nexusformat.nexus import *
+import argparse
 from nxrefine.nxreduce import NXReduce
 
 

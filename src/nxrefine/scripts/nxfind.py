@@ -1,10 +1,4 @@
-from __future__ import print_function
-from math import sqrt
-import argparse, glob, os, socket, sys, timeit
-
-import numpy as np
-
-from nexusformat.nexus import *
+import argparse
 from nxrefine.nxreduce import NXReduce
 
 
