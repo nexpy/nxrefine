@@ -24,7 +24,7 @@ class ServerDialog(BaseDialog):
                         self.checkboxes(('server', 'Server', False),
                                         ('watcher', 'Watcher', False),
                                         ('logger', 'Logger', False)),
-                        self.labels(('Nodes')),
+                        self.labels(('List of Nodes'), header=True),
                         self.node_editor,
                         self.close_buttons())
         self.node_editor.setFocus()
