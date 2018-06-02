@@ -67,8 +67,8 @@ class NXDaemon:
     
         if pid:
             message = "pidfile {0} already exists. " + \
-                    "Daemon already running?\n"
-            sys.stderr.write(message.format(self.pidfile))
+                      "Daemon already running?\n"
+            logging.debug(message.format(self.pidfile))
             sys.exit(1)
         
         # Start the daemon
@@ -88,8 +88,8 @@ class NXDaemon:
         if not pid:
             message = "pidfile {0} does not exist. " + \
                     "Daemon not running?\n"
-            sys.stderr.write(message.format(self.pidfile))
-            return # not an error in a restart
+            logging.debug(message.format(self.pidfile))
+            return
 
         if os.path.exists(self.pidfile):
             os.remove(self.pidfile)
