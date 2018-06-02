@@ -120,6 +120,8 @@ class NXReduce(QtCore.QObject):
         self.task_directory = os.path.join(self.root_directory, 'tasks')
         if 'tasks' not in os.listdir(self.root_directory):
             os.mkdir(self.task_directory)
+        self.mask_file = os.path.join(self.base_directory, 
+                                      self.sample+'_mask.nxs')
         self.log_file = os.path.join(self.task_directory, 'nxlogger.log')
         
         self._root = None 
@@ -588,11 +590,12 @@ class NXReduce(QtCore.QObject):
         if self.not_complete('nxmask'):
             with Lock(self.wrapper_file):
                 mask = self.calculate_mask()
-                if self.gui:
-                    if mask:
-                        self.result.emit(mask)
-                    self.stop.emit()
-                else:
+            if self.gui:
+                if mask:
+                    self.result.emit(mask)
+                self.stop.emit()
+            else:
+                with Lock(self.mask_file):
                     self.write_mask(mask)
         else:
             self.logger.info('Mask already produced')             
@@ -615,7 +618,8 @@ class NXReduce(QtCore.QObject):
             else:
                 mask[frame] = mask[frame] | inside
         toc = self.stop_progress()
-        self.logger.info('3D Mask calculated (%g seconds)' % (toc-tic))
+        self.logger.info("3D Mask stored in '%s' (%g seconds)" 
+                         % (self.mask_file, toc-tic))
         return mask
  
     def write_mask(self, mask):
@@ -681,7 +685,7 @@ class NXReduce(QtCore.QObject):
     def transform(self):
         pass
 
-    def run(self):
+    def nxreduce(self):
         self.nxlink()
         self.nxmax()
         self.nxfind()
