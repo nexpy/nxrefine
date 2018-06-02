@@ -27,7 +27,6 @@ def main():
         print("Processing %s" % wrapper_file)
         root = nxload(wrapper_file)
         for e in args.entries:        
-            print("Processing %s" % e)
             status = '%s[%s]:' % (wrapper_file, e)
             if e in root and 'data' in root[e] and 'instrument' in root[e]:
                 if 'nxlink' in root[e] or 'logs' in root[e]['instrument']:
@@ -46,6 +45,7 @@ def main():
                     status = status + ' nxtransform'
             else:
                 status = status + ' file incomplete'
+            print(status)
             summary.append(status)            
             
     summary_file = os.path.join(directory, 'nxsummary.log')
