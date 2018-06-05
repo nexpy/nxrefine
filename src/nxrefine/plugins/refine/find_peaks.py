@@ -22,17 +22,10 @@ class FindDialog(BaseDialog):
 
         self.select_entry(self.choose_entry)
 
-        try:
-            threshold = np.float32(self.entry.data.attrs['maximum']) / 20
-            max_frame = np.int32(len(self.entry.data.nxaxes[0]))
-        except Exception:
-            threshold = 5000
-            max_frame = 0
-
         self.parameters = GridParameters()
-        self.parameters.add('threshold', threshold, 'Threshold')
-        self.parameters.add('min', 0, 'First Frame')
-        self.parameters.add('max', max_frame, 'Last Frame')
+        self.parameters.add('threshold', '', 'Threshold')
+        self.parameters.add('first', '', 'First Frame')
+        self.parameters.add('last', '', 'Last Frame')
         find_layout = QtWidgets.QHBoxLayout()
         self.find_button = QtWidgets.QPushButton('Find Peaks')
         self.find_button.clicked.connect(self.find_peaks)
@@ -53,23 +46,50 @@ class FindDialog(BaseDialog):
 
     def choose_entry(self):
         self.reduce = NXReduce(self.entry)
-        try:
-            self.parameters['threshold'].value = self.entry['data'].attrs['maximum'] / 10
-            self.parameters['max'].value = len(self.entry.data.nxaxes[0])
-        except Exception:
-            pass
+        if self.reduce.first:
+            self.parameters['first'].value = self.reduce.first
+        if self.reduce.last:
+            self.parameters['last'].value = self.reduce.last
+        else:
+            try:
+                self.parameters['last'].value = len(self.entry.data.nxaxes[0])
+            except Exception:
+                pass
+        if self.reduce.threshold:
+            self.parameters['threshold'].value = self.reduce.threshold
 
     @property
     def threshold(self):
-        return self.parameters['threshold'].value
+        try:
+            _threshold = np.int32(self.parameters['threshold'].value)
+            if _threshold > 0.0:
+                return _threshold
+            else:
+                return None
+        except Exception:
+            return None
 
     @property
     def first(self):
-        return np.int32(self.parameters['min'].value)
+        try:
+            _first = np.int32(self.parameters['first'].value)
+            if _first >= 0:
+                return _first
+            else:
+                return None
+        except Exception as error:
+            return None
 
     @property
     def last(self):
-        return np.int32(self.parameters['max'].value)
+        try:
+            _last = np.int32(self.parameters['last'].value)
+            if _last > 0:
+                return _last
+            else:
+                return None
+        except Exception as error:
+            return None
 
     def find_peaks(self):
         self.check_lock(self.reduce.data_file)

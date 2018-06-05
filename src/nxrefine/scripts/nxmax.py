@@ -18,13 +18,17 @@ def main():
                         help='scan directory')
     parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
         nargs='+', help='names of entries to be processed')
+    parser.add_argument('-f', '--first', type=int, help='first frame')
+    parser.add_argument('-l', '--last', type=int, help='last frame')
     parser.add_argument('-o', '--overwrite', action='store_true', 
                         help='overwrite existing maximum')
 
     args = parser.parse_args()
 
     for entry in args.entries:
-        reduce = NXReduce(entry, args.directory, overwrite=args.overwrite)
+        reduce = NXReduce(entry, args.directory, 
+                          first=args.first, last=args.last, 
+                          overwrite=args.overwrite)
         reduce.nxmax()
 
 

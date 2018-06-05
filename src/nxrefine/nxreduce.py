@@ -133,10 +133,10 @@ class NXReduce(QtCore.QObject):
         self.extension = extension
         self.path = path
 
-        self.threshold = threshold
+        self._threshold = threshold
         self._maximum = None
-        self.first = first
-        self.last = last
+        self._first = first
+        self._last = last
         self.radius = 200
         self.width = 3
         self.refine = refine
@@ -243,12 +243,71 @@ class NXReduce(QtCore.QObject):
         self.logger.info("'%s' set as parent" % os.path.realpath(_parent))
 
     @property
+    def first(self):
+        _first = self._first
+        if _first is None:
+            if 'first' in self.entry['peaks'].attrs:
+                _first = np.int32(self.entry['peaks'].attrs['first'])
+            elif 'first' in self.entry['data'].attrs:
+                _first = np.int32(self.entry['data'].attrs['first'])
+            elif self.parent:
+                with Lock(self.parent):
+                    root = nxload(self.parent)
+                    if 'first' in self.entry['peaks'].attrs:
+                        _first = np.int32(self.entry['peaks'].attrs['first'])
+                    elif 'first' in root[self._entry].attrs:
+                        _first = np.int32(root[self._entry].attrs['first'])
+        self._first = _first
+        return _first            
+
+    @first.setter
+    def first(self, value):
+        try:
+            self._first = np.int(value)
+        except ValueError:
+            pass
+
+    @property
+    def last(self):
+        _last = self._last
+        if _last is None:
+            if 'last' in self.entry['peaks'].attrs:
+                _last = np.int32(self.entry['peaks'].attrs['last'])
+            elif 'last' in self.entry['data'].attrs:
+                _last = np.int32(self.entry['data'].attrs['last'])
+            elif self.parent:
+                with Lock(self.parent):
+                    root = nxload(self.parent)
+                    if 'last' in self.entry['peaks'].attrs:
+                        _last = np.int32(self.entry['peaks'].attrs['last'])
+                    elif 'last' in root[self._entry].attrs:
+                        _last = np.int32(root[self._entry].attrs['last'])
+        self._last = _last
+        return _last            
+
+    @last.setter
+    def last(self, value):
+        try:
+            self._last = np.int(value)
+        except ValueError:
+            pass
+
+    @property
+    def threshold(self):
+        if self._threshold is None:
+            if self.maximum is not None:
+                self._threshold = self.maximum / 10
+        return self._threshold
+
+    @threshold.setter
+    def threshold(value):
+        self._threshold = value
+
+    @property
     def maximum(self):
         if self._maximum is None:
             if 'maximum' in self.entry['data'].attrs:
                 self._maximum = self.entry['data'].attrs['maximum']
-            elif 'maximum' in self.entry['peaks'].attrs:
-                self._maximum = self.entry['peaks'].attrs['maximum']
         return self._maximum
 
     def not_complete(self, program):
@@ -424,8 +483,12 @@ class NXReduce(QtCore.QObject):
         if chunk_size < 20:
             chunk_size = 50
         data = self.field.nxfile[self.path]
-        tic = self.start_progress(0, nframes)
-        for i in range(0, nframes, chunk_size):
+        if self.first == None:
+            self.first = 0
+        if self.last == None:
+            self.last = self.field.shape[0]
+        tic = self.start_progress(self.first, self.last)
+        for i in range(self.first, self.last, chunk_size):
             if self.stopped:
                 return None
             self.update_progress(i)
@@ -445,7 +508,10 @@ class NXReduce(QtCore.QObject):
 
     def write_maximum(self, maximum):
         self.entry['data'].attrs['maximum'] = maximum
-        self.record('nxmax', maximum=maximum)
+        self.entry['data'].attrs['first'] = self.first
+        self.entry['data'].attrs['last'] = self.last
+        self.record('nxmax', maximum=maximum, 
+                    first_frame=self.first, last_frame=self.last)
 
     def nxfind(self):
         if self.not_complete('nxfind'):
@@ -519,6 +585,8 @@ class NXReduce(QtCore.QObject):
 
         allpeaks = sorted(allpeaks)
 
+        self.start_progress(z_min, z_max)
+
         merged_peaks = []
         for z in range(z_min, z_max+1):
             if self.stopped:
@@ -579,6 +647,9 @@ class NXReduce(QtCore.QObject):
         group['sigx'] = NXfield([peak.sigx for peak in peaks], dtype=np.float32)
         group['sigy'] = NXfield([peak.sigy for peak in peaks], dtype=np.float32)
         group['covxy'] = NXfield([peak.covxy for peak in peaks], dtype=np.float32)
+        group.attrs['first'] = self.first
+        group.attrs['last'] = self.last
+        group.attrs['threshold'] = self.threshold
         if 'peaks' in self.entry:
             del self.entry['peaks']
         self.entry['peaks'] = group
