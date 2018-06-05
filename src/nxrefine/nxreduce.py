@@ -391,10 +391,10 @@ class NXReduce(QtCore.QObject):
                     del self.entry['data/frame_number']
                     self.entry['data/frame_number'] = np.arange(shape[0], dtype=np.int32)
                     self.logger.info('Fixed frame number axis')
-                if ('data' in entry['data'] and 
-                    entry['data/data']._filename != data_file):
-                    del entry['data/data']
-                    entry['data/data'] = NXlink(data_target, data_file)
+                if ('data' in self.entry['data'] and 
+                    self.entry['data/data']._filename != data_file):
+                    del self.entry['data/data']
+                    self.entry['data/data'] = NXlink(data_target, data_file)
                     self.logger.info('Fixed path to external data')
             self.entry['data'].nxsignal = self.entry['data/data']
             self.entry['data'].nxaxes = [self.entry['data/frame_number'], 
@@ -404,8 +404,8 @@ class NXReduce(QtCore.QObject):
             self.logger.info('No raw data loaded')
 
     def read_logs(self):
-        head_file = os.path.join(self.directory, entry+'_head.txt')
-        meta_file = os.path.join(self.directory, entry+'_meta.txt')
+        head_file = os.path.join(self.directory, self.entry+'_head.txt')
+        meta_file = os.path.join(self.directory, self.entry+'_meta.txt')
         if os.path.exists(head_file) or os.path.exists(meta_file):
             logs = NXcollection()
         else:
@@ -694,7 +694,7 @@ class NXReduce(QtCore.QObject):
         return mask
  
     def write_mask(self, mask):
-        if 'data_mask' in entry['data']:
+        if 'data_mask' in self.entry['data']:
             del self.entry['data/data_mask']
         self.entry['data/data_mask'] = mask
         self.record('nxmask', radius=self.radius, width=self.width)                    
