@@ -1,9 +1,7 @@
-import numpy as np
-from nexpy.gui.datadialogs import BaseDialog, GridParameters
-from nexpy.gui.plotview import plotview
+from nexpy.gui.datadialogs import BaseDialog
 from nexpy.gui.utils import report_error
 from nexusformat.nexus import NeXusError
-from nxrefine.nxrefine import NXRefine, find_nearest
+from nxrefine.nxreduce import NXReduce
 
 
 def show_dialog():
@@ -19,46 +17,34 @@ class CopyDialog(BaseDialog):
     def __init__(self, parent=None):
         super(CopyDialog, self).__init__(parent)
 
-        self.select_entry(text='Select Input Entry')
-        self.select_entry(text='Select Output Entry', other=True)
-        copy_buttons = self.action_buttons(('Copy Root', self.copy_root),
-                                           ('Copy Entry', self.copy_entry))
-
-        self.set_layout(self.entry_layout, self.other_entry_layout, 
-                        copy_buttons, self.close_buttons())
+        self.select_root(self.choose_root, text='Select Output File')
+        self.set_layout(self.root_layout,
+                        self.checkboxes(('overwrite', 'Overwrite', True)),
+                        self.close_buttons(save=True))
+        self.checkbox['overwrite'].setVisible(False)
         self.set_title('Copying Parameters')
+        self._selected = False
 
-    def copy_root(self):
-        root = self.entry.nxroot
-        other_root = self.other_entry.nxroot
-        if root is other_root:
-            raise NeXusError('Cannot copy to the same root')
-        input = NXRefine(root['entry'])
-        output_main = NXRefine(other_root['entry'])
-        input.copy_parameters(output_main, sample=True)
-        for name in [entry for entry in root if entry != 'entry']:
-            if name in other_root: 
-                input = NXRefine(root[name])
-                output = NXRefine(other_root[name])
-                input.copy_parameters(output, instrument=True)
-                output_main.link_sample(output)
+    def choose_root(self):
+        self.checkbox['overwrite'].setVisible(False)
+        for entry in [e for e in self.root if e != 'entry']:
+            reduce = NXReduce(self.root[entry])
+            if not reduce.not_complete('nxcopy'):
+                self.checkbox['overwrite'].setVisible(True)
+        self._selected = True
 
-    def copy_entry(self):
-        if self.entry is self.other_entry:
-            raise NeXusError('Cannot copy to the same entry')
-        input = NXRefine(self.entry)
-        output = NXRefine(self.other_entry)
-        if 'instrument' in self.entry:
-            input.copy_parameters(output, instrument=True)
-        if 'sample' not in self.other_entry and 'sample' in self.entry:
-            if self.entry.nxname == 'entry' and self.other_entry.nxname == 'entry':
-                input.copy_parameters(output, sample=True)
-            elif self.entry.nxname == 'entry' and \
-                 self.other_entry.nxname != 'entry' and \
-                 self.entry.nxroot is self.other_entry.nxroot:
-                input.link_sample(output)
-            else:
-                try:
-                    self.other_entry.makelink(self.other_entry.nxroot['entry/sample'])
-                except Exception:
-                    pass
+    @property
+    def overwrite(self):
+        return (self.checkbox['overwrite'].isChecked() or
+                not self.checkbox['overwrite'].isVisible)
+
+    def accept(self):
+        if not self._selected:
+            raise NeXusError('Need to select output file before saving')
+        if self.overwrite:
+            for entry in [e for e in self.root if e != 'entry']:
+                reduce = NXReduce(self.root[entry], overwrite=True)
+                reduce.nxcopy()
+        else:
+            raise NeXusError("Much check 'overwrite' to save parameters")
+        super(CopyDialog, self).accept()
