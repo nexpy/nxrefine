@@ -392,9 +392,9 @@ class NXReduce(QtCore.QObject):
                     self.entry['data/frame_number'] = np.arange(shape[0], dtype=np.int32)
                     self.logger.info('Fixed frame number axis')
                 if ('data' in self.entry['data'] and 
-                    self.entry['data/data']._filename != data_file):
+                    self.entry['data/data']._filename != self.data_file):
                     del self.entry['data/data']
-                    self.entry['data/data'] = NXlink(data_target, data_file)
+                    self.entry['data/data'] = NXlink(self.data_target, self.data_file)
                     self.logger.info('Fixed path to external data')
             self.entry['data'].nxsignal = self.entry['data/data']
             self.entry['data'].nxaxes = [self.entry['data/frame_number'], 
