@@ -202,16 +202,12 @@ class NXReduce(QtCore.QObject):
     @property
     def field(self):
         if self._field is None:
-            self._field = nxload(self.data_file, 'r')[self.data_target]
+            self._field = nxload(self.data_file, 'r')[self.path]
         return self._field
 
     @property
-    def data_target(self):
-        return self.path
-
-    @property
     def data_file(self):
-        return os.path.join(self.directory, self._entry+self.extension)
+        return self.entry[self._data].nxfilename
 
     @property
     def mask(self):
@@ -387,19 +383,14 @@ class NXReduce(QtCore.QObject):
                 self.entry['data/x_pixel'] = np.arange(shape[2], dtype=np.int32)
                 self.entry['data/y_pixel'] = np.arange(shape[1], dtype=np.int32)
                 self.entry['data/frame_number'] = np.arange(shape[0], dtype=np.int32)
-                self.entry['data/data'] = NXlink(self.data_target, self.data_file)
+                self.entry['data/data'] = NXlink(self.path, self.data_file)
+                self.entry['data'].nxsignal = self.entry['data/data']
                 self.logger.info('Data group created and linked to external data')
             else:
                 if self.entry['data/frame_number'].shape != shape[0]:
                     del self.entry['data/frame_number']
                     self.entry['data/frame_number'] = np.arange(shape[0], dtype=np.int32)
                     self.logger.info('Fixed frame number axis')
-                if ('data' in self.entry['data'] and 
-                    self.entry['data/data']._filename != self.data_file):
-                    del self.entry['data/data']
-                    self.entry['data/data'] = NXlink(self.data_target, self.data_file)
-                    self.logger.info('Fixed path to external data')
-            self.entry['data'].nxsignal = self.entry['data/data']
             self.entry['data'].nxaxes = [self.entry['data/frame_number'], 
                                          self.entry['data/y_pixel'], 
                                          self.entry['data/x_pixel']]
