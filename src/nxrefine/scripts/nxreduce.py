@@ -18,6 +18,8 @@ def main():
                         help='scan directory')
     parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
         nargs='+', help='names of entries to be processed')
+    parser.add_argument('-l', '--link', action='store_true',
+                        help='link wrapper file to raw data')
     parser.add_argument('-m', '--max', action='store_true',
                         help='find maximum counts')
     parser.add_argument('-f', '--find', action='store_true',
@@ -34,7 +36,7 @@ def main():
     args = parser.parse_args()
 
     for entry in args.entries:
-        reduce = NXReduce(entry, args.directory, 
+        reduce = NXReduce(entry, args.directory, link=args.link,
                           maxcount=args.max, find=args.find, copy=args.copy,
                           refine=args.refine, transform=args.transform, 
                           overwrite=args.overwrite)
