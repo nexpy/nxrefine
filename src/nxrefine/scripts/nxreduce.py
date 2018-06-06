@@ -18,10 +18,12 @@ def main():
                         help='scan directory')
     parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
         nargs='+', help='names of entries to be processed')
-    parser.add_argument('-t', '--threshold', type=float,
-                        help='peak threshold - defaults to maximum counts/10')
-    parser.add_argument('-f', '--first', type=int, help='first frame')
-    parser.add_argument('-l', '--last', type=int, help='last frame')
+    parser.add_argument('-m', '--max', action='store_true',
+                        help='find maximum counts')
+    parser.add_argument('-f', '--find', action='store_true',
+                        help='find peaks')
+    parser.add_argument('-c', '--copy', action='store_true',
+                        help='copy parameters')
     parser.add_argument('-r', '--refine', action='store_true',
                         help='refine lattice parameters')
     parser.add_argument('-t', '--transform', action='store_true',
@@ -32,8 +34,8 @@ def main():
     args = parser.parse_args()
 
     for entry in args.entries:
-        reduce = NXReduce(entry, args.directory, threshold=args.threshold, 
-                          first=args.first, last=args.last,
+        reduce = NXReduce(entry, args.directory, 
+                          maxcount=args.max, find=args.find, copy=args.copy,
                           refine=args.refine, transform=args.transform, 
                           overwrite=args.overwrite)
         reduce.nxreduce()

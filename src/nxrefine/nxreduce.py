@@ -185,12 +185,12 @@ class NXReduce(QtCore.QObject):
     @property
     def command(self):
         switches = '-d %s -e %s' % (self.directory, self._entry)
-        if self.first:
-            switches += ' -f %s' % self.first
-        if self.last:
-            switches += ' -l %s' % self.last
-        if self.threshold:
-            switches += ' -t %s' % self.threshold
+        if self.maxcount:
+            switches += ' -m'
+        if self.find:
+            switches += ' -f'
+        if self.copy:
+            switches += ' -c'
         if self.refine:
             switches += ' -r'
         if self.transform:
