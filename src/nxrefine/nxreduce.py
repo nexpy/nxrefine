@@ -245,16 +245,17 @@ class NXReduce(QtCore.QObject):
     def first(self):
         _first = self._first
         if _first is None:
-            if 'first' in self.entry['peaks'].attrs:
+            if 'peaks' in self.entry and 'first' in self.entry['peaks'].attrs:
                 _first = np.int32(self.entry['peaks'].attrs['first'])
             elif 'first' in self.entry['data'].attrs:
                 _first = np.int32(self.entry['data'].attrs['first'])
             elif self.parent:
                 with Lock(self.parent):
                     root = nxload(self.parent)
-                    if 'first' in self.entry['peaks'].attrs:
-                        _first = np.int32(self.entry['peaks'].attrs['first'])
-                    elif 'first' in root[self._entry].attrs:
+                    if ('peaks' in root[self._entry] and 
+                        'first' in root[self._entry]['peaks'].attrs):
+                        _first = np.int32(root[self._entry]['peaks'].attrs['first'])
+                    elif 'first' in root[self._entry]['data'].attrs:
                         _first = np.int32(root[self._entry].attrs['first'])
         self._first = _first
         return _first            
@@ -270,17 +271,18 @@ class NXReduce(QtCore.QObject):
     def last(self):
         _last = self._last
         if _last is None:
-            if 'last' in self.entry['peaks'].attrs:
+            if 'peaks' in self.entry and 'last' in self.entry['peaks'].attrs:
                 _last = np.int32(self.entry['peaks'].attrs['last'])
             elif 'last' in self.entry['data'].attrs:
                 _last = np.int32(self.entry['data'].attrs['last'])
             elif self.parent:
                 with Lock(self.parent):
                     root = nxload(self.parent)
-                    if 'last' in self.entry['peaks'].attrs:
-                        _last = np.int32(self.entry['peaks'].attrs['last'])
-                    elif 'last' in root[self._entry].attrs:
-                        _last = np.int32(root[self._entry].attrs['last'])
+                    if ('peaks' in root[self._entry] and
+                        'last' in root[self._entry]['peaks'].attrs:
+                        _last = np.int32(root[self._entry]['peaks'].attrs['last'])
+                    elif 'last' in root[self._entry]['data'].attrs:
+                        _last = np.int32(root[self._entry]['data'].attrs['last'])
         self._last = _last
         return _last            
 
