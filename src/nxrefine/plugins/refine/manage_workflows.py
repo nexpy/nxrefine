@@ -6,7 +6,6 @@ from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.utils import report_error, natural_sort
 
 from nxrefine.nxreduce import Lock, NXReduce
-from nxrefine.nxserver import NXServer
 
 
 def show_dialog():
@@ -41,7 +40,6 @@ class WorkflowDialog(BaseDialog):
         else:
             self.filename.setText('')
         self.root_directory = os.path.dirname(os.path.dirname(self.sample_directory))
-        self.server = NXServer(self.root_directory)    
         self.mainwindow.default_directory = self.sample_directory
         if self.grid:
             self.delete_grid(self.grid)
@@ -203,29 +201,21 @@ class WorkflowDialog(BaseDialog):
             if self.scans[scan]['reduce'].isChecked():
                 for entry in ['f1', 'f2', 'f3']:
                     reduce = NXReduce(entry, scan)
-                    if (self.scans[scan]['nxlink'].isEnabled() and 
-                        self.scans[scan]['nxlink'].isChecked()):
-                        reduce.link = True
-                    else:
+                    if (not self.scans[scan]['nxlink'].isEnabled() or
+                        not self.scans[scan]['nxlink'].isChecked()):
                         reduce.link = False
-                    if (self.scans[scan]['nxmax'].isEnabled() and 
-                        self.scans[scan]['nxmax'].isChecked()):
-                        reduce.maxcount = True
-                    else:
+                    if (not self.scans[scan]['nxmax'].isEnabled() or
+                        not self.scans[scan]['nxmax'].isChecked()):
                         reduce.maxcount = False
-                    if (self.scans[scan]['nxfind'].isEnabled() and 
-                        self.scans[scan]['nxfind'].isChecked()):
-                        reduce.find = True
-                    else:
+                    if (not self.scans[scan]['nxfind'].isEnabled() or 
+                        not self.scans[scan]['nxfind'].isChecked()):
                         reduce.find = False
-                    if (self.scans[scan]['nxcopy'].isEnabled() and 
-                        self.scans[scan]['nxcopy'].isChecked()):
-                        reduce.copy = True
-                    else:
+                    if (not self.scans[scan]['nxcopy'].isEnabled() or 
+                        not self.scans[scan]['nxcopy'].isChecked()):
                         reduce.copy = False
                     if (self.scans[scan]['nxrefine'].isEnabled() and 
                         self.scans[scan]['nxrefine'].isChecked()):
                         reduce.refine = True
                     if self.scans[scan]['overwrite'].isChecked():
                         reduce.overwrite=True
-                    self.server.add_task(reduce.command())                            
+                    reduce.queue()                            
