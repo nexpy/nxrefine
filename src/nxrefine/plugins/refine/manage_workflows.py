@@ -208,4 +208,4 @@ class WorkflowDialog(BaseDialog):
                         reduce.refine = True
                     if self.scans[scan]['overwrite'].isChecked():
                         reduce.overwrite=True
-                    self.server.add_task(reduce.command)                            
+                    self.server.add_task(reduce.command())                            
