@@ -369,9 +369,9 @@ class NXReduce(QtCore.QObject):
                 self.link_data()
                 logs = self.read_logs()
                 if logs:
-                    if 'logs' in self.entry:
-                        del self.entry['logs']
-                    self.entry['logs'] = logs
+                    if 'logs' in self.entry['instrument']:
+                        del self.entry['instrument']['logs']
+                    self.entry['instrument']['logs'] = logs
                     self.transfer_logs()
                     self.record('nxlink', logs='Transferred')
                 else:
