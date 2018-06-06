@@ -203,6 +203,26 @@ class WorkflowDialog(BaseDialog):
             if self.scans[scan]['reduce'].isChecked():
                 for entry in ['f1', 'f2', 'f3']:
                     reduce = NXReduce(entry, scan)
+                    if (self.scans[scan]['nxlink'].isEnabled() and 
+                        self.scans[scan]['nxlink'].isChecked()):
+                        reduce.link = True
+                    else:
+                        reduce.link = False
+                    if (self.scans[scan]['nxmax'].isEnabled() and 
+                        self.scans[scan]['nxmax'].isChecked()):
+                        reduce.maxcount = True
+                    else:
+                        reduce.maxcount = False
+                    if (self.scans[scan]['nxfind'].isEnabled() and 
+                        self.scans[scan]['nxfind'].isChecked()):
+                        reduce.find = True
+                    else:
+                        reduce.find = False
+                    if (self.scans[scan]['nxcopy'].isEnabled() and 
+                        self.scans[scan]['nxcopy'].isChecked()):
+                        reduce.copy = True
+                    else:
+                        reduce.copy = False
                     if (self.scans[scan]['nxrefine'].isEnabled() and 
                         self.scans[scan]['nxrefine'].isChecked()):
                         reduce.refine = True

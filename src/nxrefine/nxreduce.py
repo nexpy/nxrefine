@@ -77,7 +77,7 @@ class NXReduce(QtCore.QObject):
     def __init__(self, entry='f1', directory=None, data='data/data', parent=None,
                  extension='.h5', path='/entry/data/data',
                  threshold=None, first=None, last=None, radius=200, width=3,
-                 maxcount=True, find=True, copy=True, mask3D=False, 
+                 link=True, maxcount=True, find=True, copy=True, mask3D=False, 
                  refine=False, transform=False, combine=True,
                  overwrite=False, gui=False):
 
@@ -143,6 +143,7 @@ class NXReduce(QtCore.QObject):
         self._last = last
         self.radius = 200
         self.width = 3
+        self.link = link
         self.maxcount = maxcount
         self.find = find
         self.copy = copy
@@ -185,6 +186,8 @@ class NXReduce(QtCore.QObject):
     @property
     def command(self):
         switches = '-d %s -e %s' % (self.directory, self._entry)
+        if self.link:
+            switches += ' -l'
         if self.maxcount:
             switches += ' -m'
         if self.find:
@@ -377,7 +380,7 @@ class NXReduce(QtCore.QObject):
                                 note=note)
 
     def nxlink(self):
-        if self.not_complete('nxlink'):
+        if self.not_complete('nxlink') and self.link:
             with Lock(self.wrapper_file):
                 self.link_data()
                 logs = self.read_logs()
