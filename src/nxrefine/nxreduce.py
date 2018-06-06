@@ -77,7 +77,8 @@ class NXReduce(QtCore.QObject):
     def __init__(self, entry='f1', directory=None, data='data/data', parent=None,
                  extension='.h5', path='/entry/data/data',
                  threshold=None, first=None, last=None, radius=200, width=3,
-                 refine=False, transform=False, mask3D=False, 
+                 maxcount=True, find=True, copy=True, mask3D=False, 
+                 refine=False, transform=False, combine=True,
                  overwrite=False, gui=False):
 
         super(NXReduce, self).__init__()
@@ -142,8 +143,12 @@ class NXReduce(QtCore.QObject):
         self._last = last
         self.radius = 200
         self.width = 3
+        self.maxcount = maxcount
+        self.find = find
+        self.copy = copy
         self.refine = refine
         self.transform = transform
+        self.combine = combine
         self.mask3D = mask3D
         self.overwrite = overwrite
         self.gui = gui
@@ -468,7 +473,7 @@ class NXReduce(QtCore.QObject):
             self.entry['instrument/attenuator/attenuator_transmission'] = logs['Calculated_filter_transmission']
 
     def nxmax(self):
-        if self.not_complete('nxmax'):
+        if self.not_complete('nxmax') and self.maxcount:
             with Lock(self.data_file):
                 maximum = self.find_maximum()
             if self.gui:
@@ -520,7 +525,7 @@ class NXReduce(QtCore.QObject):
                     first_frame=self.first, last_frame=self.last)
 
     def nxfind(self):
-        if self.not_complete('nxfind'):
+        if self.not_complete('nxfind') and self.find:
             with Lock(self.data_file):
                 peaks = self.find_peaks()
             if self.gui:
@@ -706,7 +711,7 @@ class NXReduce(QtCore.QObject):
         self.record('nxmask', radius=self.radius, width=self.width)                    
 
     def nxcopy(self):
-        if self.not_complete('nxcopy'):
+        if self.not_complete('nxcopy') and self.copy:
             if self.parent:
                 self.copy()
                 self.record('nxcopy', parent=self.parent)
@@ -759,7 +764,7 @@ class NXReduce(QtCore.QObject):
         refine.write_parameters()
         self.record('nxrefine', fit_report=refine.fit_report)
 
-    def transform(self):
+    def nxtransform(self):
         pass
 
     def nxreduce(self):
