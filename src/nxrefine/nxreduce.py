@@ -129,8 +129,11 @@ class NXReduce(QtCore.QObject):
         self._field = None
         self._mask = None
         self._parent = parent
-        
-        self.extension = extension
+
+        if extension.startswith('.'):        
+            self.extension = extension
+        else:
+            self.extension = '.' + extension
         self.path = path
 
         self._threshold = threshold
@@ -203,12 +206,12 @@ class NXReduce(QtCore.QObject):
         return self._field
 
     @property
-    def data_file(self):
-        return self.entry[self._data].nxfilename
+    def data_target(self):
+        return self.path
 
     @property
-    def data_target(self):
-        return self.entry[self._data].nxtarget
+    def data_file(self):
+        return os.path.join(self.directory, self._entry+self.extension)
 
     @property
     def mask(self):
