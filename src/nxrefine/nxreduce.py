@@ -279,7 +279,7 @@ class NXReduce(QtCore.QObject):
                 with Lock(self.parent):
                     root = nxload(self.parent)
                     if ('peaks' in root[self._entry] and
-                        'last' in root[self._entry]['peaks'].attrs:
+                        'last' in root[self._entry]['peaks'].attrs):
                         _last = np.int32(root[self._entry]['peaks'].attrs['last'])
                     elif 'last' in root[self._entry]['data'].attrs:
                         _last = np.int32(root[self._entry]['data'].attrs['last'])
