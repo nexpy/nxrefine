@@ -407,8 +407,8 @@ class NXReduce(QtCore.QObject):
             self.logger.info('No raw data loaded')
 
     def read_logs(self):
-        head_file = os.path.join(self.directory, self.entry+'_head.txt')
-        meta_file = os.path.join(self.directory, self.entry+'_meta.txt')
+        head_file = os.path.join(self.directory, self._entry+'_head.txt')
+        meta_file = os.path.join(self.directory, self._entry+'_meta.txt')
         if os.path.exists(head_file) or os.path.exists(meta_file):
             logs = NXcollection()
         else:
