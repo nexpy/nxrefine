@@ -780,7 +780,7 @@ class NXReduce(QtCore.QObject):
         self.nxtransform()
     
     def queue(self):
-        self.server.add_task(self.command())
+        self.server.add_task(self.command)
 
 
 class NXMultiReduce(object):
@@ -795,7 +795,7 @@ class NXMultiReduce(object):
     def reduce(self):
         for entry in self.entries:
             reduce = NXReduce(self.directory, entry, *self.kwds)
-            self.server.add_task(reduce.command())
+            self.server.add_task(reduce.command)
 
 
 class NXpeak(object):
