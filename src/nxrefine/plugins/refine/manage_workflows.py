@@ -196,26 +196,25 @@ class WorkflowDialog(BaseDialog):
                     self.scans[scan][status].setCheckState(
                         self.all_scans[status].checkState())                
 
+    def selected(self, scan, command):
+        return (self.scans[scan][command].isEnabled() and 
+                self.scans[scan][command].isChecked())
+    
     def add_tasks(self):
         for scan in self.scans:
             if self.scans[scan]['reduce'].isChecked():
                 for entry in ['f1', 'f2', 'f3']:
                     reduce = NXReduce(entry, scan)
-                    if (not self.scans[scan]['nxlink'].isEnabled() or
-                        not self.scans[scan]['nxlink'].isChecked()):
+                    if not self.selected(scan, 'nxlink'):
                         reduce.link = False
-                    if (not self.scans[scan]['nxmax'].isEnabled() or
-                        not self.scans[scan]['nxmax'].isChecked()):
+                    if not self.selected(scan, 'nxmax'):
                         reduce.maxcount = False
-                    if (not self.scans[scan]['nxfind'].isEnabled() or 
-                        not self.scans[scan]['nxfind'].isChecked()):
+                    if not self.selected(scan, 'nxfind'):
                         reduce.find = False
-                    if (not self.scans[scan]['nxcopy'].isEnabled() or 
-                        not self.scans[scan]['nxcopy'].isChecked()):
+                    if not self.selected(scan, 'nxcopy'):
                         reduce.copy = False
-                    if (self.scans[scan]['nxrefine'].isEnabled() and 
-                        self.scans[scan]['nxrefine'].isChecked()):
+                    if self.selected(scan, 'nxrefine'):
                         reduce.refine = True
-                    if self.scans[scan]['overwrite'].isChecked():
+                    if self.selected(scan, 'overwrite'):
                         reduce.overwrite=True
                     reduce.queue()                            
