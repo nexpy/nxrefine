@@ -1,4 +1,5 @@
 import os
+import subprocess
 import time
 from multiprocessing import Process, Queue, JoinableQueue
 from .daemon import NXDaemon
@@ -99,6 +100,9 @@ class NXServer(NXDaemon):
         for worker in self.workers:
             self.tasks.put(None)
         self.tasks.join()
+        for worker in self.workers:
+            worker.terminate()
+            worker.join()
         self.log("Stopping server")
         super(NXServer, self).stop()
 
