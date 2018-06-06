@@ -169,6 +169,8 @@ class NXReduce(QtCore.QObject):
         if not self.gui:
             streamHandler = logging.StreamHandler()
             self.logger.addHandler(streamHandler)
+        
+        self.server = NXServer(self.root_directory)
 
     start = QtCore.Signal(object)
     update = QtCore.Signal(object)
@@ -178,8 +180,16 @@ class NXReduce(QtCore.QObject):
     @property
     def command(self):
         switches = '-d %s -e %s' % (self.directory, self._entry)
+        if self.first:
+            switches += '-f %s' % self.first
+        if self.last:
+            switches += '-l %s' % self.last
+        if self.threshold:
+            switches += '-t %s' % self.threshold
         if self.refine:
             switches += ' -r'
+        if self.transform:
+            switches += ' -t'
         if self.overwrite:
             switches += ' -o'
         return 'nxreduce ' + switches
@@ -256,7 +266,7 @@ class NXReduce(QtCore.QObject):
                         'first' in root[self._entry]['peaks'].attrs):
                         _first = np.int32(root[self._entry]['peaks'].attrs['first'])
                     elif 'first' in root[self._entry]['data'].attrs:
-                        _first = np.int32(root[self._entry].attrs['first'])
+                        _first = np.int32(root[self._entry]['data'].attrs['first'])
         self._first = _first
         return _first            
 
@@ -760,6 +770,9 @@ class NXReduce(QtCore.QObject):
         self.nxcopy()
         self.nxrefine()
         self.nxtransform()
+    
+    def queue(self):
+        self.server.add_task(self.command())
 
 
 class NXMultiReduce(object):
