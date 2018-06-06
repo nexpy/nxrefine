@@ -8,7 +8,7 @@ def main():
 
     parser = argparse.ArgumentParser(
         description="Launch server for data reduction workflow")
-    parser.add_argument('-c', '--cwd', default='/data/user6idd', 
+    parser.add_argument('-c', '--cwd', default='/data/user6idd/dm', 
                         help='directory containing GUP directories')
     parser.add_argument('-g', '--gup', default='GUP-58981',
                         help='GUP number, e.g., GUP-58981')
