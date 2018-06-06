@@ -16,6 +16,7 @@ class NXWorker(Process):
     def run(self):
         while True:
             next_task = self.task_queue.get()
+            self.log("%s: Receiving '%s'" % (self.node, next_task.command))
             if next_task is None:
                 self.log('%s: Exiting' % self.node)
                 self.task_queue.task_done()
@@ -89,9 +90,11 @@ class NXServer(NXDaemon):
         while True:
             time.sleep(5)
             command = task_fifo.readline()[:-1]
+            self.log("Reading '%s'" % command)
             if command == 'stop':
                 break
             elif command:
+                self.log("Sending '%s'" % command)
                 self.tasks.put(NXTask(self.directory, command))
         for worker in self.workers:
             self.tasks.put(None)
