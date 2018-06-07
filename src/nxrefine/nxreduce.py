@@ -316,7 +316,7 @@ class NXReduce(QtCore.QObject):
         _threshold = self._threshold
         if _threshold is None:
             if 'peaks' in self.entry and 'threshold' in self.entry['peaks'].attrs:
-                _threshold = np.int32(self.entry['peaks'].attrs['last'])
+                _threshold = np.int32(self.entry['peaks'].attrs['threshold'])
             elif self.parent:
                 with Lock(self.parent):
                     root = nxload(self.parent)
