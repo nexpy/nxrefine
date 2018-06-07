@@ -727,14 +727,14 @@ class NXReduce(QtCore.QObject):
     def nxcopy(self):
         if self.not_complete('nxcopy') and self.copy:
             if self.parent:
-                self.copy()
+                self.copy_parameters()
                 self.record('nxcopy', parent=self.parent)
             else:
                 self.logger.info('No parent defined')               
         else:
             self.logger.info('Data already copied')             
 
-    def copy(self):
+    def copy_parameters(self):
         with Lock(self.parent):
             input = nxload(self.parent)
             input_ref = NXRefine(input[self._entry])
@@ -746,13 +746,13 @@ class NXReduce(QtCore.QObject):
     def nxrefine(self):
         if self.not_complete('nxrefine') and self.refine:
             with Lock(self.wrapper_file):
-                result = self.refine()
+                result = self.refine_parameters()
                 if not self.gui:
                     self.write_refinement(result)
         else:
             self.logger.info('HKL values already refined')             
 
-    def refine(self):
+    def refine_parameters(self):
         refine = NXRefine(self.entry)
         if i == 0:
             refine.refine_hkl_parameters(chi=True,omega=True)
