@@ -231,7 +231,10 @@ class NXReduce(QtCore.QObject):
     def make_parent(self):
         _parent = os.path.join(self.base_directory, self.sample+'_parent.nxs')
         if os.path.exists(_parent):
-            if self.overwrite:
+            if os.path.realpath(_parent) == self.wrapper_file:
+                self.logger.info("'%s' already set as parent" % self.wrapper_file)
+                return
+            elif self.overwrite:
                 os.remove(_parent)
             else:
                 raise NeXusError("'%s' already set as parent" 
