@@ -184,25 +184,6 @@ class NXReduce(QtCore.QObject):
     stop = QtCore.Signal()            
 
     @property
-    def command(self):
-        switches = '-d %s -e %s' % (self.directory, self._entry)
-        if self.link:
-            switches += ' -l'
-        if self.maxcount:
-            switches += ' -m'
-        if self.find:
-            switches += ' -f'
-        if self.copy:
-            switches += ' -c'
-        if self.refine:
-            switches += ' -r'
-        if self.transform:
-            switches += ' -t'
-        if self.overwrite:
-            switches += ' -o'
-        return 'nxreduce ' + switches
-
-    @property
     def root(self):
         if self._root is None:
             with Lock(self.wrapper_file):
@@ -789,23 +770,31 @@ class NXReduce(QtCore.QObject):
         self.nxrefine()
         self.nxtransform()
     
-    def queue(self):
-        self.server.add_task(self.command)
-
-
-class NXMultiReduce(object):
-
-    def __init__(self, directory, entries=['f1', 'f2', 'f3'], *kwds):
-
-        self.directory = directory.rstrip('/')
-        self.entries = entries   
-        self.kwds = kwds
-        self.server = NXServer()
-
-    def reduce(self):
-        for entry in self.entries:
-            reduce = NXReduce(self.directory, entry, *self.kwds)
-            self.server.add_task(reduce.command)
+    def queue(self, parent=False):
+        switches = '-d %s -e %s' % (self.directory, self._entry)
+        if parent:
+            command = 'nxparent '
+            switches += ' -f %s -l %s -t %s -r %s -w %s' % (
+                        self.first, self.last, self.threshold,
+                        self.radius, self.width)
+        else:
+            command = 'nxreduce '
+            if self.link:
+                switches += ' -l'
+            if self.maxcount:
+                switches += ' -m'
+            if self.find:
+                switches += ' -f'
+            if self.copy:
+                switches += ' -c'
+            if self.refine:
+                switches += ' -r'
+            if self.transform:
+                switches += ' -t'
+            if self.overwrite:
+                switches += ' -o'
+        
+        self.server.add_task(command+switches)
 
 
 class NXpeak(object):
