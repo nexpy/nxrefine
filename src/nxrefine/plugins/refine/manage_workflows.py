@@ -115,10 +115,8 @@ class WorkflowDialog(BaseDialog):
                         'nxfind' in root[e] or 'peaks' in root[e])
                     self.update_checkbox(status['nxcopy'], i, 
                         'nxcopy' in root[e] or self.is_parent(wrapper_file))
-                    self.update_checkbox(status['nxrefine'], i,
-                        'nxrefine' in root[e] or 
-                        ('detector' in root[e]['instrument'] and 
-                         'orientation_matrix' in root[e]['instrument/detector']))
+                    self.update_checkbox(status['nxrefine'], i, 
+                        'nxrefine' in root[e])
                     self.update_checkbox(status['nxtransform'], i,
                         'nxtransform' in root[e] or 'transform' in root[e])
                 else:
