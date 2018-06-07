@@ -313,9 +313,20 @@ class NXReduce(QtCore.QObject):
 
     @property
     def threshold(self):
-        if self._threshold is None:
+        _threshold = self._threshold
+        if _threshold is None:
+            if 'peaks' in self.entry and 'threshold' in self.entry['peaks'].attrs:
+                _threshold = np.int32(self.entry['peaks'].attrs['last'])
+            elif self.parent:
+                with Lock(self.parent):
+                    root = nxload(self.parent)
+                    if ('peaks' in root[self._entry] and
+                        'threshold' in root[self._entry]['peaks'].attrs):
+                        _threshold = np.int32(root[self._entry]['peaks'].attrs['threshold'])
+        if _threshold is None:
             if self.maximum is not None:
-                self._threshold = self.maximum / 10
+                _threshold = self.maximum / 10
+        self._threshold = _threshold
         return self._threshold
 
     @threshold.setter
