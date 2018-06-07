@@ -9,10 +9,11 @@ from nxrefine.nxreduce import Lock, NXReduce
 
 
 def show_dialog():
-    dialog = ParentDialog()
-    dialog.show()
-#    except NeXusError as error:
-#        report_error("Defining New Experiment", error)
+    try:
+        dialog = ParentDialog()
+        dialog.show()
+    except NeXusError as error:
+        report_error("Choosing Parent", error)
 
 
 class ParentDialog(BaseDialog):
@@ -30,7 +31,7 @@ class ParentDialog(BaseDialog):
         self.set_layout(self.directorybox('Choose Sample Directory'),
                         self.filebox('Choose Parent File'),
                         self.parameters.grid(),
-                        self.action_buttons(('Queue Recution', self.add_tasks)),
+                        self.action_buttons(('Queue Reduction', self.add_tasks)),
                         self.close_buttons(close=True))
         self.set_title('Choose Parent')
         self.sample_directory = None
