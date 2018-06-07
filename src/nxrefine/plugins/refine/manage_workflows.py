@@ -28,6 +28,7 @@ class WorkflowDialog(BaseDialog):
         self.set_title('Manage Workflows')
         self.grid = None
         self.sample_directory = None
+        self.entries = []
 
     def choose_directory(self):
         super(WorkflowDialog, self).choose_directory()
@@ -56,10 +57,6 @@ class WorkflowDialog(BaseDialog):
         reduce = NXReduce(directory=os.path.join(self.sample_directory, _scan), 
                           overwrite=True)
         reduce.make_parent()
-        if _parent:
-            return _parent
-        else:
-            return None
 
     def is_parent(self, wrapper_file):
         parent_file = os.path.join(self.sample_directory, 
@@ -95,72 +92,71 @@ class WorkflowDialog(BaseDialog):
             status = {}
             with Lock(wrapper_file):
                 root = nxload(wrapper_file)
+                self.entries = [e for e in root.entries if e != 'entry']
             grid.addWidget(QtWidgets.QLabel(scan_label), row, 0, QtCore.Qt.AlignHCenter)
-            status['nxlink'] = self.new_checkbox()
-            status['nxmax'] = self.new_checkbox()
-            status['nxfind'] = self.new_checkbox()
-            status['nxcopy'] = self.new_checkbox()
-            status['nxrefine'] = self.new_checkbox()
-            status['nxtransform'] = self.new_checkbox()
-            status['nxcombine'] = self.new_checkbox()
+            status['link'] = self.new_checkbox()
+            status['max'] = self.new_checkbox()
+            status['find'] = self.new_checkbox()
+            status['copy'] = self.new_checkbox()
+            status['refine'] = self.new_checkbox()
+            status['transform'] = self.new_checkbox()
+            status['combine'] = self.new_checkbox()
             status['overwrite'] = self.new_checkbox() 
             status['reduce'] = self.new_checkbox() 
-            for i,e in enumerate([entry for entry in root.entries if entry != 'entry']):
+            for i,e in enumerate(self.entries):
                 if e in root and 'data' in root[e] and 'instrument' in root[e]:
-                    self.update_checkbox(status['nxlink'], i,
+                    self.update_checkbox(status['link'], i,
                         'nxlink' in root[e] or 'logs' in root[e]['instrument'])
-                    self.update_checkbox(status['nxmax'], i,
+                    self.update_checkbox(status['max'], i,
                         'nxmax' in root[e] or 'maximum' in root[e]['data'].attrs)
-                    self.update_checkbox(status['nxfind'], i,
+                    self.update_checkbox(status['find'], i,
                         'nxfind' in root[e] or 'peaks' in root[e])
-                    self.update_checkbox(status['nxcopy'], i, 
+                    self.update_checkbox(status['copy'], i, 
                         'nxcopy' in root[e] or self.is_parent(wrapper_file))
-                    self.update_checkbox(status['nxrefine'], i, 
+                    self.update_checkbox(status['refine'], i, 
                         'nxrefine' in root[e])
-                    self.update_checkbox(status['nxtransform'], i,
-                        'nxtransform' in root[e] or 'transform' in root[e])
+                    self.update_checkbox(status['transform'], i,
+                        'nxtransform' in root[e])
                 else:
-                    status['nxlink'].setEnabled(False)
-                    status['nxmax'].setEnabled(False)
-                    status['nxfind'].setEnabled(False)
-                    status['nxcopy'].setEnabled(False)
-                    status['nxrefine'].setEnabled(False)
-                    status['nxtransform'].setEnabled(False)
+                    status['link'].setEnabled(False)
+                    status['max'].setEnabled(False)
+                    status['find'].setEnabled(False)
+                    status['copy'].setEnabled(False)
+                    status['refine'].setEnabled(False)
+                    status['transform'].setEnabled(False)
                     status['reduce'].setEnabled(False)
                     status['overwrite'].setEnabled(False)
-            self.update_checkbox(status['nxcombine'], 0,
-                'nxcombine' in root['entry'] or 
-                'transform' in root['entry'] or
-                'masked_transform' in root['entry'])
-            grid.addWidget(status['nxlink'], row, 1, QtCore.Qt.AlignHCenter)                   
-            grid.addWidget(status['nxmax'], row, 2, QtCore.Qt.AlignHCenter)                   
-            grid.addWidget(status['nxfind'], row, 3, QtCore.Qt.AlignHCenter)                   
-            grid.addWidget(status['nxcopy'], row, 4, QtCore.Qt.AlignHCenter)                   
-            grid.addWidget(status['nxrefine'], row, 5, QtCore.Qt.AlignHCenter)                   
-            grid.addWidget(status['nxtransform'], row, 6, QtCore.Qt.AlignHCenter)                   
-            grid.addWidget(status['nxcombine'], row, 7, QtCore.Qt.AlignHCenter)                   
+            self.update_checkbox(status['combine'], 0, 
+                                 'combine' in root['entry'])
+            grid.addWidget(status['link'], row, 1, QtCore.Qt.AlignHCenter)                   
+            grid.addWidget(status['max'], row, 2, QtCore.Qt.AlignHCenter)                   
+            grid.addWidget(status['find'], row, 3, QtCore.Qt.AlignHCenter)                   
+            grid.addWidget(status['copy'], row, 4, QtCore.Qt.AlignHCenter)                   
+            grid.addWidget(status['refine'], row, 5, QtCore.Qt.AlignHCenter)                   
+            grid.addWidget(status['transform'], row, 6, QtCore.Qt.AlignHCenter)                   
+            grid.addWidget(status['combine'], row, 7, QtCore.Qt.AlignHCenter)                   
             grid.addWidget(status['overwrite'], row, 8, QtCore.Qt.AlignHCenter)                  
             grid.addWidget(status['reduce'], row, 9, QtCore.Qt.AlignHCenter)                  
             self.scans[directory] = status
         row += 1
         grid.addWidget(QtWidgets.QLabel('All'), row, 0, QtCore.Qt.AlignHCenter)
         all_boxes = {}
-        all_boxes['nxlink'] = self.new_checkbox(self.choose_all_scans)
-        all_boxes['nxmax'] = self.new_checkbox(self.choose_all_scans)
-        all_boxes['nxfind'] = self.new_checkbox(self.choose_all_scans)
-        all_boxes['nxcopy'] = self.new_checkbox(self.choose_all_scans)
-        all_boxes['nxrefine'] = self.new_checkbox(self.choose_all_scans)
-        all_boxes['nxtransform'] = self.new_checkbox(self.choose_all_scans)
-        all_boxes['nxcombine'] = self.new_checkbox(self.choose_all_scans)
+        all_boxes['link'] = self.new_checkbox(self.choose_all_scans)
+        all_boxes['max'] = self.new_checkbox(self.choose_all_scans)
+        all_boxes['find'] = self.new_checkbox(self.choose_all_scans)
+        all_boxes['copy'] = self.new_checkbox(self.choose_all_scans)
+        all_boxes['refine'] = self.new_checkbox(self.choose_all_scans)
+        all_boxes['transform'] = self.new_checkbox(self.choose_all_scans)
+        all_boxes['combine'] = self.new_checkbox(self.choose_all_scans)
         all_boxes['overwrite'] = self.new_checkbox(self.choose_all_scans)        
         all_boxes['reduce'] = self.new_checkbox(self.choose_all_scans)        
-        grid.addWidget(all_boxes['nxlink'], row, 1, QtCore.Qt.AlignHCenter)                   
-        grid.addWidget(all_boxes['nxmax'], row, 2, QtCore.Qt.AlignHCenter)                   
-        grid.addWidget(all_boxes['nxfind'], row, 3, QtCore.Qt.AlignHCenter)                   
-        grid.addWidget(all_boxes['nxcopy'], row, 4, QtCore.Qt.AlignHCenter)                   
-        grid.addWidget(all_boxes['nxrefine'], row, 5, QtCore.Qt.AlignHCenter)                   
-        grid.addWidget(all_boxes['nxtransform'], row, 6, QtCore.Qt.AlignHCenter)                   
-        grid.addWidget(all_boxes['nxcombine'], row, 7, QtCore.Qt.AlignHCenter)                   
+        grid.addWidget(all_boxes['link'], row, 1, QtCore.Qt.AlignHCenter)                   
+        grid.addWidget(all_boxes['max'], row, 2, QtCore.Qt.AlignHCenter)                   
+        grid.addWidget(all_boxes['find'], row, 3, QtCore.Qt.AlignHCenter)                   
+        grid.addWidget(all_boxes['copy'], row, 4, QtCore.Qt.AlignHCenter)                   
+        grid.addWidget(all_boxes['refine'], row, 5, QtCore.Qt.AlignHCenter)                   
+        grid.addWidget(all_boxes['transform'], row, 6, QtCore.Qt.AlignHCenter)                   
+        grid.addWidget(all_boxes['combine'], row, 7, QtCore.Qt.AlignHCenter)                   
         grid.addWidget(all_boxes['overwrite'], row, 8, QtCore.Qt.AlignHCenter)
         grid.addWidget(all_boxes['reduce'], row, 9, QtCore.Qt.AlignHCenter)
         self.all_scans = all_boxes
@@ -174,6 +170,7 @@ class WorkflowDialog(BaseDialog):
         checkbox = QtWidgets.QCheckBox()
         checkbox.setCheckState(QtCore.Qt.Unchecked)
         checkbox.setEnabled(True)
+        checkbox.setFixedWidth(200)
         if slot:
             checkbox.stateChanged.connect(slot)
         return checkbox
@@ -201,17 +198,17 @@ class WorkflowDialog(BaseDialog):
     def add_tasks(self):
         for scan in self.scans:
             if self.scans[scan]['reduce'].isChecked():
-                for entry in ['f1', 'f2', 'f3']:
+                for entry in self.entries:
                     reduce = NXReduce(entry, scan)
-                    if not self.selected(scan, 'nxlink'):
-                        reduce.link = False
-                    if not self.selected(scan, 'nxmax'):
-                        reduce.maxcount = False
-                    if not self.selected(scan, 'nxfind'):
-                        reduce.find = False
-                    if not self.selected(scan, 'nxcopy'):
-                        reduce.copy = False
-                    if self.selected(scan, 'nxrefine'):
+                    if self.selected(scan, 'link'):
+                        reduce.link = True
+                    if self.selected(scan, 'max'):
+                        reduce.maxcount = True
+                    if self.selected(scan, 'find'):
+                        reduce.find = True
+                    if self.selected(scan, 'copy'):
+                        reduce.copy = True
+                    if self.selected(scan, 'refine'):
                         reduce.refine = True
                     if self.selected(scan, 'overwrite'):
                         reduce.overwrite=True
