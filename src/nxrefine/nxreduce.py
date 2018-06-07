@@ -256,8 +256,11 @@ class NXReduce(QtCore.QObject):
                         _first = np.int32(root[self._entry]['peaks'].attrs['first'])
                     elif 'first' in root[self._entry]['data'].attrs:
                         _first = np.int32(root[self._entry]['data'].attrs['first'])
-        self._first = _first
-        return _first            
+        try:
+            self._first = np.int(_first)
+        except ValueError:
+            self._first = None
+        return self._first            
 
     @first.setter
     def first(self, value):
@@ -282,8 +285,11 @@ class NXReduce(QtCore.QObject):
                         _last = np.int32(root[self._entry]['peaks'].attrs['last'])
                     elif 'last' in root[self._entry]['data'].attrs:
                         _last = np.int32(root[self._entry]['data'].attrs['last'])
-        self._last = _last
-        return _last            
+        try:
+            self._last = np.int(_last)
+        except ValueError:
+            self._last = None
+        return self._last            
 
     @last.setter
     def last(self, value):
@@ -307,7 +313,10 @@ class NXReduce(QtCore.QObject):
         if _threshold is None:
             if self.maximum is not None:
                 _threshold = self.maximum / 10
-        self._threshold = _threshold
+        try:
+            self._threshold = np.float(_threshold)
+        except ValueError:
+            self._threshold = None
         return self._threshold
 
     @threshold.setter
@@ -774,15 +783,15 @@ class NXReduce(QtCore.QObject):
         switches = '-d %s -e %s' % (self.directory, self._entry)
         if parent:
             command = 'nxparent '
-            if self.first:
+            if self.first is not None:
                 switches += ' -f %s' % self.first
-            if self.last:
+            if self.last is not None:
                 switches += ' -l %s' % self.last
-            if self.threshold:
+            if self.threshold is not None:
                 switches += ' -t %s' % self.threshold
-            if self.radius:
+            if self.radius is not None:
                 switches += ' -r %s' % self.radius
-            if self.width:
+            if self.width is not None:
                 switches += ' -w %s' % self.width
         else:
             command = 'nxreduce '

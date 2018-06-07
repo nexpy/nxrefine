@@ -72,36 +72,15 @@ class ParentDialog(BaseDialog):
 
     @property
     def threshold(self):
-        try:
-            _threshold = np.int32(self.parameters['threshold'].value)
-            if _threshold > 0.0:
-                return _threshold
-            else:
-                return None
-        except Exception:
-            return None
+        return self.parameters['threshold'].value
 
     @property
     def first(self):
-        try:
-            _first = np.int32(self.parameters['first'].value)
-            if _first >= 0:
-                return _first
-            else:
-                return None
-        except Exception as error:
-            return None
+        return self.parameters['first'].value
 
     @property
     def last(self):
-        try:
-            _last = np.int32(self.parameters['last'].value)
-            if _last > 0:
-                return _last
-            else:
-                return None
-        except Exception as error:
-            return None
+        return self.parameters['last'].value
 
     @property
     def radius(self):
