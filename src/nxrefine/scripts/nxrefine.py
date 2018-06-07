@@ -16,7 +16,8 @@ def main():
     args = parser.parse_args()
 
     for entry in args.entries:
-        reduce = NXReduce(entry, args.directory, overwrite=args.overwrite)
+        reduce = NXReduce(entry, args.directory, refine=True,
+                          overwrite=args.overwrite)
         reduce.nxrefine()
 
 

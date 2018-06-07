@@ -20,7 +20,8 @@ def main():
     args = parser.parse_args()
 
     for entry in args.entries:
-        reduce = NXReduce(entry, args.directory, threshold=args.threshold, 
+        reduce = NXReduce(entry, args.directory, find=True,
+                          threshold=args.threshold, 
                           first=args.first, last=args.last, 
                           overwrite=args.overwrite)
         reduce.nxfind()

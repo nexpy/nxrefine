@@ -29,7 +29,7 @@ def main():
     args = parser.parse_args()
 
     for entry in args.entries:
-        reduce = NXReduce(entry, args.directory, 
+        reduce = NXReduce(entry, args.directory, mask3D=True,
                           radius=args.radius, width=args.width,
                           overwrite=args.overwrite)
         reduce.nxmask()

@@ -77,7 +77,7 @@ class NXReduce(QtCore.QObject):
     def __init__(self, entry='f1', directory=None, data='data/data', parent=None,
                  extension='.h5', path='/entry/data/data',
                  threshold=None, first=None, last=None, radius=200, width=3,
-                 link=True, maxcount=True, find=True, copy=True, mask3D=False, 
+                 link=False, maxcount=False, find=False, copy=False, mask3D=False, 
                  refine=False, transform=False, combine=True,
                  overwrite=False, gui=False):
 
