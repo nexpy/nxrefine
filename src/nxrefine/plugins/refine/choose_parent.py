@@ -35,6 +35,7 @@ class ParentDialog(BaseDialog):
                         self.close_buttons(close=True))
         self.set_title('Choose Parent')
         self.sample_directory = None
+        self.old_parent = None
 
     def choose_directory(self):
         super(ParentDialog, self).choose_directory()
@@ -111,6 +112,8 @@ class ParentDialog(BaseDialog):
         return self.parameters['width'].value
 
     def add_tasks(self):
+        if self.parent == self.old_parent:
+            return
         with Lock(self.parent):
             root = nxload(self.parent)
         for entry in [e for e in root.entries if e != 'entry']:
@@ -118,4 +121,5 @@ class ParentDialog(BaseDialog):
                               mask3D=True, first=self.first, last=self.last, 
                               threshold=self.threshold, 
                               radius=self.radius, width=self.width)
-            reduce.queue(parent=True)                            
+            reduce.queue(parent=True)
+        self.old_parent = self.parent                          
