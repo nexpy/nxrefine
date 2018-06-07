@@ -91,7 +91,6 @@ class NXServer(NXDaemon):
         while True:
             time.sleep(5)
             command = task_fifo.readline()[:-1]
-            self.log("Reading '%s'" % command)
             if command == 'stop':
                 break
             elif command:
