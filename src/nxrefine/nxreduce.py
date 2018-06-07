@@ -783,7 +783,7 @@ class NXReduce(QtCore.QObject):
         self.nxtransform()
     
     def queue(self, parent=False):
-        switches = '-d %s -e %s' % (self.directory, self._entry)
+        switches = '-d %s -e %s -s' % (self.directory, self._entry)
         if parent:
             command = 'nxparent '
             if self.first is not None:
