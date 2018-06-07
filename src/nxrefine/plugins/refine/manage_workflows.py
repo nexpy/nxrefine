@@ -70,12 +70,13 @@ class WorkflowDialog(BaseDialog):
         grid = QtWidgets.QGridLayout()
         grid.setSpacing(1)
         row = 0
-        columns = ['Scan', 'nxlink', 'nxmax', 'nxfind', 'nxcopy', 'nxrefine', 
-                   'nxtransform', 'nxcombine', 'overwrite', 'reduce']
+        columns = ['Scan', 'data', 'link', 'max', 'find', 'copy', 'refine', 
+                   'transform', 'combine', 'overwrite', 'reduce']
         header = {}
         for col, column in enumerate(columns):
             header[column] = QtWidgets.QLabel(column)
             header[column].setFont(self.bold_font)
+            header[column].setFixedWidth(75)
             header[column].setAlignment(QtCore.Qt.AlignHCenter)
             grid.addWidget(header[column], row, col)
         wrapper_files = sorted([os.path.join(self.sample_directory, filename) 
@@ -86,7 +87,7 @@ class WorkflowDialog(BaseDialog):
             row += 1
             base_name = os.path.basename(os.path.splitext(wrapper_file)[0])
             scan_label = base_name.replace(self.sample+'_', '')
-            if scan_label == 'parent':
+            if scan_label == 'parent' or scan_label == 'mask':
                 break
             directory = os.path.join(self.sample_directory, scan_label)
             status = {}
@@ -94,6 +95,7 @@ class WorkflowDialog(BaseDialog):
                 root = nxload(wrapper_file)
                 self.entries = [e for e in root.entries if e != 'entry']
             grid.addWidget(QtWidgets.QLabel(scan_label), row, 0, QtCore.Qt.AlignHCenter)
+            status['data'] = self.new_checkbox()
             status['link'] = self.new_checkbox()
             status['max'] = self.new_checkbox()
             status['find'] = self.new_checkbox()
@@ -105,6 +107,8 @@ class WorkflowDialog(BaseDialog):
             status['reduce'] = self.new_checkbox() 
             for i,e in enumerate(self.entries):
                 if e in root and 'data' in root[e] and 'instrument' in root[e]:
+                    self.update_checkbox(status['data'], i,
+                        'data' in root[e]['data'] and root[e]['data/data'].exists())
                     self.update_checkbox(status['link'], i,
                         'nxlink' in root[e] or 'logs' in root[e]['instrument'])
                     self.update_checkbox(status['max'], i,
@@ -126,20 +130,22 @@ class WorkflowDialog(BaseDialog):
                     status['transform'].setEnabled(False)
                     status['reduce'].setEnabled(False)
                     status['overwrite'].setEnabled(False)
+                status['data'].setEnabled(False)
             self.update_checkbox(status['combine'], 0, 
                                  'combine' in root['entry'])
-            grid.addWidget(status['link'], row, 1, QtCore.Qt.AlignHCenter)                   
-            grid.addWidget(status['max'], row, 2, QtCore.Qt.AlignHCenter)                   
-            grid.addWidget(status['find'], row, 3, QtCore.Qt.AlignHCenter)                   
-            grid.addWidget(status['copy'], row, 4, QtCore.Qt.AlignHCenter)                   
-            grid.addWidget(status['refine'], row, 5, QtCore.Qt.AlignHCenter)                   
-            grid.addWidget(status['transform'], row, 6, QtCore.Qt.AlignHCenter)                   
-            grid.addWidget(status['combine'], row, 7, QtCore.Qt.AlignHCenter)                   
-            grid.addWidget(status['overwrite'], row, 8, QtCore.Qt.AlignHCenter)                  
-            grid.addWidget(status['reduce'], row, 9, QtCore.Qt.AlignHCenter)                  
+            grid.addWidget(status['data'], row, 1, QtCore.Qt.AlignCenter)                   
+            grid.addWidget(status['link'], row, 2, QtCore.Qt.AlignCenter)                   
+            grid.addWidget(status['max'], row, 3, QtCore.Qt.AlignCenter)                   
+            grid.addWidget(status['find'], row, 4, QtCore.Qt.AlignCenter)
+            grid.addWidget(status['copy'], row, 5, QtCore.Qt.AlignCenter)
+            grid.addWidget(status['refine'], row, 6, QtCore.Qt.AlignCenter)
+            grid.addWidget(status['transform'], row, 7, QtCore.Qt.AlignCenter)                   
+            grid.addWidget(status['combine'], row, 8, QtCore.Qt.AlignCenter)                   
+            grid.addWidget(status['overwrite'], row, 9, QtCore.Qt.AlignCenter)                  
+            grid.addWidget(status['reduce'], row, 10, QtCore.Qt.AlignCenter)                  
             self.scans[directory] = status
         row += 1
-        grid.addWidget(QtWidgets.QLabel('All'), row, 0, QtCore.Qt.AlignHCenter)
+        grid.addWidget(QtWidgets.QLabel('All'), row, 0, QtCore.Qt.AlignCenter)
         all_boxes = {}
         all_boxes['link'] = self.new_checkbox(self.choose_all_scans)
         all_boxes['max'] = self.new_checkbox(self.choose_all_scans)
@@ -150,15 +156,15 @@ class WorkflowDialog(BaseDialog):
         all_boxes['combine'] = self.new_checkbox(self.choose_all_scans)
         all_boxes['overwrite'] = self.new_checkbox(self.choose_all_scans)        
         all_boxes['reduce'] = self.new_checkbox(self.choose_all_scans)        
-        grid.addWidget(all_boxes['link'], row, 1, QtCore.Qt.AlignHCenter)                   
-        grid.addWidget(all_boxes['max'], row, 2, QtCore.Qt.AlignHCenter)                   
-        grid.addWidget(all_boxes['find'], row, 3, QtCore.Qt.AlignHCenter)                   
-        grid.addWidget(all_boxes['copy'], row, 4, QtCore.Qt.AlignHCenter)                   
-        grid.addWidget(all_boxes['refine'], row, 5, QtCore.Qt.AlignHCenter)                   
-        grid.addWidget(all_boxes['transform'], row, 6, QtCore.Qt.AlignHCenter)                   
-        grid.addWidget(all_boxes['combine'], row, 7, QtCore.Qt.AlignHCenter)                   
-        grid.addWidget(all_boxes['overwrite'], row, 8, QtCore.Qt.AlignHCenter)
-        grid.addWidget(all_boxes['reduce'], row, 9, QtCore.Qt.AlignHCenter)
+        grid.addWidget(all_boxes['link'], row, 2, QtCore.Qt.AlignCenter)                   
+        grid.addWidget(all_boxes['max'], row, 3, QtCore.Qt.AlignCenter)                   
+        grid.addWidget(all_boxes['find'], row, 4, QtCore.Qt.AlignCenter)                   
+        grid.addWidget(all_boxes['copy'], row, 5, QtCore.Qt.AlignCenter)                   
+        grid.addWidget(all_boxes['refine'], row, 6, QtCore.Qt.AlignCenter)                   
+        grid.addWidget(all_boxes['transform'], row, 7, QtCore.Qt.AlignCenter)                   
+        grid.addWidget(all_boxes['combine'], row, 8, QtCore.Qt.AlignCenter)                   
+        grid.addWidget(all_boxes['overwrite'], row, 9, QtCore.Qt.AlignCenter)
+        grid.addWidget(all_boxes['reduce'], row, 10, QtCore.Qt.AlignCenter)
         self.all_scans = all_boxes
         if self.grid:
             self.delete_grid(self.grid)
@@ -170,7 +176,6 @@ class WorkflowDialog(BaseDialog):
         checkbox = QtWidgets.QCheckBox()
         checkbox.setCheckState(QtCore.Qt.Unchecked)
         checkbox.setEnabled(True)
-        checkbox.setFixedWidth(200)
         if slot:
             checkbox.stateChanged.connect(slot)
         return checkbox
