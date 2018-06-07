@@ -719,9 +719,8 @@ class NXReduce(QtCore.QObject):
         return mask
  
     def write_mask(self, mask):
-        if 'data_mask' in self.entry['data']:
-            del self.entry['data/data_mask']
-        self.entry['data/data_mask'] = mask
+        root = nxload(self.mask_file, 'r+')
+        root[self._entry] = NXentry(mask=mask)
         self.record('nxmask', radius=self.radius, width=self.width)                    
 
     def nxcopy(self):
