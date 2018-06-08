@@ -737,7 +737,8 @@ class NXReduce(QtCore.QObject):
         with Lock(self.wrapper_file):
             output_ref = NXRefine(self.entry)
             input_ref.copy_parameters(output_ref, sample=True, instrument=True)
-        self.logger.info("Parameters copied from '%s'", self.parent)
+        self.logger.info("Parameters copied from '%s'" %
+                         os.path.basename(os.path.realpath(self.parent)))
 
     def nxrefine(self):
         if self.not_complete('nxrefine') and self.refine:
