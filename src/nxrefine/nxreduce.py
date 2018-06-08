@@ -676,7 +676,7 @@ class NXReduce(QtCore.QObject):
                     peak_number=len(peaks))                    
 
     def nxmask(self):
-        if self.not_complete('nxmask'):
+        if self.not_complete('nxmask') and self.mask3D:
             with Lock(self.wrapper_file):
                 mask = self.calculate_mask()
             if self.gui:
