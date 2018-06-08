@@ -90,6 +90,7 @@ class WorkflowDialog(BaseDialog):
             if scan_label == 'parent' or scan_label == 'mask':
                 break
             directory = os.path.join(self.sample_directory, scan_label)
+            files = os.listdir(directory)
             status = {}
             with Lock(wrapper_file):
                 root = nxload(wrapper_file)
@@ -108,7 +109,7 @@ class WorkflowDialog(BaseDialog):
             for i,e in enumerate(self.entries):
                 if e in root and 'data' in root[e] and 'instrument' in root[e]:
                     self.update_checkbox(status['data'], i,
-                        'data' in root[e]['data'] and root[e]['data/data'].exists())
+                        e+'.h5' in files or e+'.nxs' in files)
                     self.update_checkbox(status['link'], i,
                         'nxlink' in root[e] or 'logs' in root[e]['instrument'])
                     self.update_checkbox(status['max'], i,
@@ -120,7 +121,7 @@ class WorkflowDialog(BaseDialog):
                     self.update_checkbox(status['refine'], i, 
                         'nxrefine' in root[e])
                     self.update_checkbox(status['transform'], i,
-                        'nxtransform' in root[e])
+                        'nxtransform' in root[e] or e+'_transform.nxs' in files)
                 else:
                     status['link'].setEnabled(False)
                     status['max'].setEnabled(False)
@@ -132,7 +133,9 @@ class WorkflowDialog(BaseDialog):
                     status['overwrite'].setEnabled(False)
                 status['data'].setEnabled(False)
             self.update_checkbox(status['combine'], 0, 
-                                 'combine' in root['entry'])
+                ('nxcombine' in root['entry'] or 
+                 'transform.nxs' in files or
+                 'masked_transform.nxs' in files))
             grid.addWidget(status['data'], row, 1, QtCore.Qt.AlignCenter)                   
             grid.addWidget(status['link'], row, 2, QtCore.Qt.AlignCenter)                   
             grid.addWidget(status['max'], row, 3, QtCore.Qt.AlignCenter)                   
