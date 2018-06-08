@@ -83,6 +83,7 @@ class WorkflowDialog(BaseDialog):
                             for filename in os.listdir(self.sample_directory) 
                             if filename.endswith('.nxs')], key=natural_sort)
         self.scans = {}
+        self.scans_backup = {}
         for wrapper_file in wrapper_files:
             row += 1
             base_name = os.path.basename(os.path.splitext(wrapper_file)[0])
@@ -107,7 +108,7 @@ class WorkflowDialog(BaseDialog):
             status['refine'] = self.new_checkbox()
             status['transform'] = self.new_checkbox()
             status['combine'] = self.new_checkbox()
-            status['overwrite'] = self.new_checkbox() 
+            status['overwrite'] = self.new_checkbox(self.enable_overwrite) 
             status['reduce'] = self.new_checkbox() 
             for i,e in enumerate(self.entries):
                 if e in root and 'data' in root[e] and 'instrument' in root[e]:
@@ -150,6 +151,7 @@ class WorkflowDialog(BaseDialog):
             grid.addWidget(status['overwrite'], row, 9, QtCore.Qt.AlignCenter)                  
             grid.addWidget(status['reduce'], row, 10, QtCore.Qt.AlignCenter)                  
             self.scans[directory] = status
+            self.scans_backup[directory] = []
         row += 1
         grid.addWidget(QtWidgets.QLabel('All'), row, 0, QtCore.Qt.AlignCenter)
         all_boxes = {}
@@ -160,7 +162,7 @@ class WorkflowDialog(BaseDialog):
         all_boxes['refine'] = self.new_checkbox(self.choose_all_scans)
         all_boxes['transform'] = self.new_checkbox(self.choose_all_scans)
         all_boxes['combine'] = self.new_checkbox(self.choose_all_scans)
-        all_boxes['overwrite'] = self.new_checkbox(self.choose_all_scans)        
+        all_boxes['overwrite'] = self.new_checkbox(self.enable_all_overwrite)
         all_boxes['reduce'] = self.new_checkbox(self.choose_all_scans)        
         grid.addWidget(all_boxes['link'], row, 2, QtCore.Qt.AlignCenter)                   
         grid.addWidget(all_boxes['max'], row, 3, QtCore.Qt.AlignCenter)                   
@@ -194,6 +196,31 @@ class WorkflowDialog(BaseDialog):
               (not status and checkbox.checkState() == QtCore.Qt.Checked)):                    
             checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
             checkbox.setEnabled(True)
+
+    def enable_overwrite(self):
+        for scan in self.scans_backup:
+            if not self.scans[scan]['overwrite'].isChecked():
+                for status in self.scans_backup[scan][:]:
+                    self.scans[scan][status].setChecked(True)
+                    self.scans[scan][status].setEnabled(False)
+                    self.scans_backup[scan].remove(status)
+        for scan in self.scans:
+            if self.scans[scan]['overwrite'].isChecked():
+                for status in ['link', 'max', 'find', 'copy', 'refine',
+                               'transform', 'combine']:
+                    if not self.scans[scan][status].isEnabled():
+                        self.scans_backup[scan].append(status)
+                    self.scans[scan][status].setEnabled(True)
+
+    def enable_all_overwrite(self):
+        for scan in self.scans:
+            self.scans[scan]['overwrite'].blockSignals(True)
+            for status in self.scans[scan]:
+                self.scans[scan]['overwrite'].setChecked(
+                    self.all_scans['overwrite'].isChecked())
+        self.enable_overwrite()
+        for scan in self.scans:
+            self.scans[scan]['overwrite'].blockSignals(False)
 
     def choose_all_scans(self):
         for status in self.all_scans:
