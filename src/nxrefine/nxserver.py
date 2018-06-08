@@ -41,7 +41,7 @@ class NXTask(object):
         self.command = command
 
     def execute(self, node):
-        subprocess.call("pdsh -w %s 'cd %s; %s >> tasks/%s.out'" 
+        subprocess.run("pdsh -w %s 'cd %s; %s'" 
                         % (node, self.path, self.command, node), shell=True)
 
 
@@ -94,7 +94,6 @@ class NXServer(NXDaemon):
             if command == 'stop':
                 break
             elif command:
-                self.log("Sending '%s'" % command)
                 self.tasks.put(NXTask(self.directory, command))
         for worker in self.workers:
             self.tasks.put(None)
