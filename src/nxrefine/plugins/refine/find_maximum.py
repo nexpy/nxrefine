@@ -77,7 +77,7 @@ class MaximumDialog(BaseDialog):
         self.check_lock(self.reduce.data_file)
         self.start_thread()
         self.reduce = NXReduce(self.entry, first=self.first, last=self.last,
-                               overwrite=True, gui=True)
+                               maxcount=True, overwrite=True, gui=True)
         self.reduce.moveToThread(self.thread)
         self.reduce.start.connect(self.start_progress)
         self.reduce.update.connect(self.update_progress)

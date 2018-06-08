@@ -96,7 +96,7 @@ class FindDialog(BaseDialog):
         self.start_thread()
         self.reduce = NXReduce(self.entry, threshold=self.threshold, 
                                first=self.first, last=self.last,
-                               overwrite=True, gui=True)
+                               find=True, overwrite=True, gui=True)
         self.reduce.moveToThread(self.thread)
         self.reduce.start.connect(self.start_progress)
         self.reduce.update.connect(self.update_progress)
