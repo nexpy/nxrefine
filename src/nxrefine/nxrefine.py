@@ -373,8 +373,6 @@ class NXRefine(object):
                 del self.entry['peaks/azimuthal_angle']
         self.write_parameter('peaks/polar_angle', polar_angles)
         self.write_parameter('peaks/azimuthal_angle', azimuthal_angles)
-        self.entry['peaks'].nxsignal = self.entry['peaks/azimuthal_angle']
-        self.entry['peaks'].nxaxes = self.entry['peaks/polar_angle']
 
     def initialize_peaks(self):
         peaks=zip(self.xp,  self.yp, self.zp, self.intensity)
@@ -430,8 +428,7 @@ class NXRefine(object):
             transform = 'transform'
         
         if transform in self.entry:
-            del self.entry[transform]
-            
+            del self.entry[transform]            
         
         self.entry[transform] = NXdata(NXlink(name = 'data', 
                                        target='/entry/data/v',

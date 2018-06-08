@@ -671,6 +671,10 @@ class NXReduce(QtCore.QObject):
         if 'peaks' in self.entry:
             del self.entry['peaks']
         self.entry['peaks'] = group
+        refine = NXRefine(self.entry)
+        polar_angles, azimuthal_angles = refine.calculate_angles(refine.xp, 
+                                                                 refine.yp)
+        refine.write_angles(polar_angles, azimuthal_angles)
         self.record('nxfind', threshold=self.threshold,
                     first_frame=self.first, last_frame=self.last, 
                     peak_number=len(peaks))                    
