@@ -17,7 +17,6 @@ class NXWorker(Process):
     def run(self):
         while True:
             next_task = self.task_queue.get()
-            self.log("%s: Receiving '%s'" % (self.node, next_task.command))
             if next_task is None:
                 self.log('%s: Exiting' % self.node)
                 self.task_queue.task_done()
