@@ -396,7 +396,7 @@ class NXReduce(QtCore.QObject):
                     self.record('nxlink', logs='Transferred')
                 else:
                     self.record('nxlink')
-        else:
+        elif self.link:
             self.logger.info('Data already linked')             
 
     def link_data(self):
@@ -490,7 +490,7 @@ class NXReduce(QtCore.QObject):
             else:
                 with Lock(self.wrapper_file):
                     self.write_maximum(maximum)
-        else:
+        elif self.maxcount:
             self.logger.info('Maximum counts already found')             
 
     def find_maximum(self):
@@ -542,7 +542,7 @@ class NXReduce(QtCore.QObject):
             else:
                 with Lock(self.wrapper_file):
                     self.write_peaks(peaks)
-        else:
+        elif self.find:
             self.logger.info('Peaks already found')             
 
     def find_peaks(self):
@@ -686,7 +686,7 @@ class NXReduce(QtCore.QObject):
             else:
                 with Lock(self.mask_file):
                     self.write_mask(mask)
-        else:
+        elif self.mask3D:
             self.logger.info('Mask already produced')             
 
     def calculate_mask(self):
@@ -723,7 +723,7 @@ class NXReduce(QtCore.QObject):
                 self.record('nxcopy', parent=self.parent)
             else:
                 self.logger.info('No parent defined')               
-        else:
+        elif self.copy:
             self.logger.info('Data already copied')             
 
     def copy_parameters(self):
@@ -741,7 +741,7 @@ class NXReduce(QtCore.QObject):
                 result = self.refine_parameters()
                 if not self.gui:
                     self.write_refinement(result)
-        else:
+        elif self.refine:
             self.logger.info('HKL values already refined')             
 
     def refine_parameters(self):
