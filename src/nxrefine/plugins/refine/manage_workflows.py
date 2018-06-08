@@ -90,7 +90,10 @@ class WorkflowDialog(BaseDialog):
             if scan_label == 'parent' or scan_label == 'mask':
                 break
             directory = os.path.join(self.sample_directory, scan_label)
-            files = os.listdir(directory)
+            try:
+                files = os.listdir(directory)
+            except Exception as error:
+                files = []
             status = {}
             with Lock(wrapper_file):
                 root = nxload(wrapper_file)
