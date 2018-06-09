@@ -10,14 +10,20 @@ def main():
                         help='scan directory')
     parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
         nargs='+', help='names of entries to be processed')
+    parser.add_argument('-l', '--lattice', action='store_true',
+                        help='refine lattice parameters')
     parser.add_argument('-o', '--overwrite', action='store_true', 
                         help='overwrite existing maximum')
 
     args = parser.parse_args()
 
-    for entry in args.entries:
+    for i, entry in enumerate(args.entries):
+        if i == 0:
+            lattice = args.lattice
+        else:
+            lattice = False
         reduce = NXReduce(entry, args.directory, refine=True,
-                          overwrite=args.overwrite)
+                          lattice=lattice, overwrite=args.overwrite)
         reduce.nxrefine()
 
 

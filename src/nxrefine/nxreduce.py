@@ -78,7 +78,7 @@ class NXReduce(QtCore.QObject):
                  extension='.h5', path='/entry/data/data',
                  threshold=None, first=None, last=None, radius=200, width=3,
                  link=False, maxcount=False, find=False, copy=False, mask3D=False, 
-                 refine=False, transform=False, combine=True,
+                 refine=False, lattice=False, transform=False, combine=True,
                  overwrite=False, gui=False):
 
         super(NXReduce, self).__init__()
@@ -148,6 +148,7 @@ class NXReduce(QtCore.QObject):
         self.find = find
         self.copy = copy
         self.refine = refine
+        self.lattice = lattice
         self.transform = transform
         self.combine = combine
         self.mask3D = mask3D
@@ -193,6 +194,10 @@ class NXReduce(QtCore.QObject):
     @property
     def entry(self):
         return self.root[self._entry]
+
+    @property
+    def first_entry(self):
+        return self._entry == [e for e in self.root.entries if e != 'entry'][0]
 
     @property
     def data(self):
@@ -743,23 +748,22 @@ class NXReduce(QtCore.QObject):
     def nxrefine(self):
         if self.not_complete('nxrefine') and self.refine:
             with Lock(self.wrapper_file):
-                result = self.refine_parameters()
+                if self.lattice or self.first_entry:
+                    lattice = True
+                else:
+                    lattice = False
+                result = self.refine_parameters(lattice=lattice)
                 if not self.gui:
                     self.write_refinement(result)
         elif self.refine:
             self.logger.info('HKL values already refined')             
 
-    def refine_parameters(self):
+    def refine_parameters(self, lattice=False):
         refine = NXRefine(self.entry)
-        if i == 0:
-            refine.refine_hkl_parameters(chi=True,omega=True)
-            fit_report=refine.fit_report
-            refine.refine_hkl_parameters(chi=True, omega=True, gonpitch=True)                
-        else:
-            refine.refine_hkl_parameters(lattice=False, chi=True, omega=True)
-            fit_report=refine.fit_report
-            refine.refine_hkl_parameters(
-                lattice=False, chi=True, omega=True, gonpitch=True)
+        refine.refine_hkl_parameters(lattice=lattice, chi=True,omega=True)
+        fit_report=refine.fit_report
+        refine.refine_hkl_parameters(lattice=lattice,
+                                     chi=True, omega=True, gonpitch=True)                
         fit_report = fit_report + '\n' + refine.fit_report
         refine.refine_orientation_matrix()
         fit_report = fit_report + '\n' + refine.fit_report
