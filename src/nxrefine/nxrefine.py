@@ -894,35 +894,34 @@ class NXRefine(object):
 #        result.shape = (len(self.idx),3)
 #        return result
 
-    def define_hkl_parameters(self, lattice=True, chi=False, omega=False, gonpitch=False, **opts):
-        p = self.define_lattice_parameters(lattice)
-        p.add('chi', self.chi, vary=chi)
-        p.add('omega', self.omega, vary=omega)
-        p.add('gonpitch', self.gonpitch, vary=gonpitch)
-        return p
+    def define_parameters(self, lattice=True, **opts):
+        self.parameters = self.define_lattice_parameters(lattice)
+        for opt in opts:
+            self.parameters.add(opt, vars(self)[opt], vary=opts[opt])
+        return self.parameters
 
-    def get_hkl_parameters(self, p):
-        self.get_lattice_parameters(p)
-        self.chi, self.omega, self.gonpitch = (p['chi'].value, 
-                                               p['omega'].value,
-                                               p['gonpitch'].value)
+    def get_parameters(self, parameters):
+        self.get_lattice_parameters(parameters)
+        for p in [p for p in parameters 
+                  if p not in ['a', 'b', 'c', 'alpha', 'beta', 'gamma']]:
+            vars(self)[p] = parameters[p].value
         
-    def refine_hkl_parameters(self, **opts):
+    def restore_parameters(self):
+        for p in self.parameters:
+            vars(self)[p] = self.parameters[p].init_value
+
+    def refine_hkls(self, method='leastsq', **opts):
         from lmfit import minimize, fit_report
         if self.Umat is None:
             raise NeXusError('No orientation matrix defined')
-        p0 = self.define_hkl_parameters(**opts)
-        if 'method' in opts:
-            opts = {'method': opts['method']}
-        else:
-            opts = {}
-        self.result = minimize(self.hkl_residuals, p0, **opts)
+        p0 = self.define_parameters(**opts)
+        self.result = minimize(self.hkl_residuals, p0, method=method)
         self.fit_report = fit_report(self.result)
         if self.result.success:
-            self.get_hkl_parameters(self.result.params)
+            self.get_parameters(self.result.params)
 
-    def hkl_residuals(self, p):
-        self.get_hkl_parameters(p)
+    def hkl_residuals(self, parameters):
+        self.get_parameters(parameters)
         return self.diffs()
 
     def define_lattice_parameters(self, lattice=True):
@@ -969,16 +968,16 @@ class NXRefine(object):
                                                  p['beta'].value,
                                                  p['gamma'].value)
 
-    def refine_lattice_parameters(self, method='nelder', **opts):
+    def refine_angles(self, method='nelder', lattice=True, **opts):
         from lmfit import minimize, fit_report
-        p0 = self.define_lattice_parameters()
-        self.result = minimize(self.lattice_residuals, p0, method=method, **opts)
+        p0 = self.define_parameters(lattice=lattice, **opts)
+        self.result = minimize(self.angle_residuals, p0, method=method)
         self.fit_report = fit_report(self.result)
         if self.result.success:
-            self.get_lattice_parameters(self.result.params)
+            self.get_parameters(self.result.params)
 
-    def lattice_residuals(self, p):
-        self.get_lattice_parameters(p)
+    def angle_residuals(self, p):
+        self.get_parameters(p)
         polar_angles, _ = self.calculate_angles(self.x, self.y)
         rings = self.calculate_rings()
         return np.array([find_nearest(rings, polar_angle) - polar_angle 

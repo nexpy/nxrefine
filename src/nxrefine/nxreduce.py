@@ -763,9 +763,9 @@ class NXReduce(QtCore.QObject):
 
     def refine_parameters(self, lattice=False):
         refine = NXRefine(self.entry)
-        refine.refine_hkl_parameters(lattice=lattice, chi=True,omega=True)
+        refine.refine_hkls(lattice=lattice, chi=True, omega=True)
         fit_report=refine.fit_report
-        refine.refine_hkl_parameters(lattice=lattice,
+        refine.refine_hkls(lattice=lattice,
                                      chi=True, omega=True, gonpitch=True)                
         fit_report = fit_report + '\n' + refine.fit_report
         refine.refine_orientation_matrix()

@@ -6,6 +6,7 @@ from nexpy.gui.plotview import NXPlotView, get_plotview, plotview
 from nexpy.gui.utils import report_error
 from nexusformat.nexus import *
 from nxrefine.nxrefine import NXRefine, find_nearest
+from nxrefine.nxreduce import NXReduce
 
 
 def show_dialog():
@@ -57,8 +58,7 @@ class RefineLatticeDialog(BaseDialog):
         self.parameters.add('phi_step', self.refine.phi_step, 'Phi Step (deg)')
         self.parameters.add('chi', self.refine.chi, 'Chi (deg)', False)
         self.parameters.add('omega', self.refine.omega, 'Omega (deg)', False)
-        self.parameters.add('twotheta', self.refine.twotheta, 
-                            'Two Theta (deg)', False)
+        self.parameters.add('twotheta', self.refine.twotheta, 'Two Theta (deg)')
         self.parameters.add('gonpitch', self.refine.gonpitch, 
                             'Goniometer Pitch (deg)', False)
         self.parameters.add('polar', self.refine.polar_max, 
@@ -151,6 +151,8 @@ class RefineLatticeDialog(BaseDialog):
                                              self.refine.xp, self.refine.yp)
         self.refine.write_angles(polar_angles, azimuthal_angles)
         self.refine.write_parameters()
+        reduce = NXReduce(self.entry)
+        reduce.record('nxrefine', fit_report=self.refine.fit_report)
         root = self.entry.nxroot
         entries = [entry for entry in root.entries if entry != 'entry' and 
             'orientation_matrix' not in root[entry]['instrument/detector']]
@@ -311,42 +313,43 @@ class RefineLatticeDialog(BaseDialog):
         pvx.plot(data[xslab], log=True)
         pvx.crosshairs(y, z)
 
+    @property
+    def refined(self):
+        refined = {}
+        for p in self.parameters:
+            if self.parameters[p].vary:
+                refined[p] = True
+        return refined
+
+
     def refine_angles(self):
         self.parameters.status_message.setText('Fitting...')
         self.parameters.status_message.repaint()
         self.mainwindow.app.app.processEvents()
         self.parameters['phi_start'].vary = False
-        self.parameters.refine_parameters(self.angle_residuals)
-        self.update_parameters()
-
-    def angle_residuals(self, p):
-        self.parameters.get_parameters(p)
         self.transfer_parameters()
-        polar_angles, _ = self.refine.calculate_angles(self.refine.x, 
-                                                       self.refine.y)
-        rings = self.refine.calculate_rings()
-        return np.array([find_nearest(rings, polar_angle) - polar_angle 
-                         for polar_angle in polar_angles])
+        self.refine.refine_angles(**self.refined)
+        self.parameters.result = self.refine.result
+        self.parameters.fit_report = self.refine.fit_report
+        self.update_parameters()
+        self.parameters.status_message.setText(self.parameters.result.message)
 
     def refine_hkls(self):
         self.parameters.status_message.setText('Fitting...')
         self.parameters.status_message.repaint()
         self.mainwindow.app.app.processEvents()
-        self.parameters.refine_parameters(self.hkl_residuals)
+        self.transfer_parameters()
+        self.refine.refine_hkls(**self.refined)
+        self.parameters.result = self.refine.result
+        self.parameters.fit_report = self.refine.fit_report
         self.update_parameters()
-        if self.peaks_box is None:
-            self.list_peaks()
-        else:
+        self.parameters.status_message.setText(self.parameters.result.message)
+        if self.peaks_box:
             self.update_table()
 
-    def hkl_residuals(self, p):
-        self.parameters.get_parameters(p)
-        self.transfer_parameters()
-        return self.refine.diffs()
-
     def restore_parameters(self):
-        self.parameters.restore_parameters()
-        self.transfer_parameters()
+        self.refine.restore_parameters()
+        self.update_parameters()
 
     def reset_parameters(self):
         self.refine.read_parameters()
