@@ -191,7 +191,7 @@ class NXRefine(object):
                         'instrument/detector/orientation_matrix')
         if isinstance(self.polar_angle, np.ndarray):
             try:
-                self.set_polar_max(np.sort(self.polar_angle)[50] + 0.1)
+                self.set_polar_max(np.sort(self.polar_angle)[200] + 0.1)
             except IndexError:
                 self.set_polar_max(self.polar_angle.max())
         else:
