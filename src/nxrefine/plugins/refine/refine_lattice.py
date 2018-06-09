@@ -73,6 +73,9 @@ class RefineLatticeDialog(BaseDialog):
                                   ('Refine HKLs', self.refine_hkls),
                                   ('Restore', self.restore_parameters),
                                   ('Reset', self.reset_parameters))
+        
+        self.orientation_button = self.action_buttons(
+            ('Refine Orientation Matrix', self.refine_orientation))
 
         self.lattice_buttons = self.action_buttons(
                                    ('Plot', self.plot_lattice),
@@ -80,7 +83,8 @@ class RefineLatticeDialog(BaseDialog):
                                    ('Save', self.write_parameters))
 
         self.set_layout(self.entry_layout, self.parameters.grid(), 
-                        self.refine_buttons, 
+                        self.refine_buttons,
+                        self.orientation_button,
                         self.parameters.report_layout(),
                         self.lattice_buttons,
                         self.close_buttons())
@@ -95,6 +99,7 @@ class RefineLatticeDialog(BaseDialog):
 
         self.peaks_box = None
         self.table_model = None
+        self.fit_report = []
         
     def choose_entry(self):
         self.refine = NXRefine(self.entry)
@@ -152,7 +157,7 @@ class RefineLatticeDialog(BaseDialog):
         self.refine.write_angles(polar_angles, azimuthal_angles)
         self.refine.write_parameters()
         reduce = NXReduce(self.entry)
-        reduce.record('nxrefine', fit_report=self.refine.fit_report)
+        reduce.record('nxrefine', fit_report='\n'.join(self.fit_report))
         root = self.entry.nxroot
         entries = [entry for entry in root.entries if entry != 'entry' and 
             'orientation_matrix' not in root[entry]['instrument/detector']]
@@ -331,8 +336,11 @@ class RefineLatticeDialog(BaseDialog):
         self.refine.refine_angles(**self.refined)
         self.parameters.result = self.refine.result
         self.parameters.fit_report = self.refine.fit_report
+        self.fit_report.append(self.refine.fit_report)
         self.update_parameters()
         self.parameters.status_message.setText(self.parameters.result.message)
+        if self.peaks_box and self.peaks_box.isVisible():
+            self.update_table()
 
     def refine_hkls(self):
         self.parameters.status_message.setText('Fitting...')
@@ -342,18 +350,41 @@ class RefineLatticeDialog(BaseDialog):
         self.refine.refine_hkls(**self.refined)
         self.parameters.result = self.refine.result
         self.parameters.fit_report = self.refine.fit_report
+        self.fit_report.append(self.refine.fit_report)
         self.update_parameters()
         self.parameters.status_message.setText(self.parameters.result.message)
-        if self.peaks_box:
+        if self.peaks_box and self.peaks_box.isVisible():
+            self.update_table()
+
+    def refine_orientation(self):
+        self.parameters.status_message.setText('Fitting...')
+        self.parameters.status_message.repaint()
+        self.mainwindow.app.app.processEvents()
+        self.transfer_parameters()
+        self.refine.refine_orientation_matrix()
+        self.parameters.result = self.refine.result
+        self.parameters.fit_report = self.refine.fit_report
+        self.fit_report.append(self.refine.fit_report)
+        self.update_parameters()
+        self.parameters.status_message.setText(self.parameters.result.message)
+        if self.peaks_box and self.peaks_box.isVisible():
             self.update_table()
 
     def restore_parameters(self):
         self.refine.restore_parameters()
         self.update_parameters()
+        try:
+            self.fit_report.pop()
+        except IndexError:
+            pass
 
     def reset_parameters(self):
         self.refine.read_parameters()
         self.update_parameters()
+        try:
+            self.fit_report.pop()
+        except IndexError:
+            pass
 
     def list_peaks(self):
         if self.peaks_box is not None and self.table_model is not None:
