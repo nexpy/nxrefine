@@ -176,8 +176,11 @@ class NXReduce(QtCore.QObject):
         if not self.gui:
             streamHandler = logging.StreamHandler()
             self.logger.addHandler(streamHandler)
-        
-        self.server = NXServer(self.root_directory)
+
+        try:        
+            self.server = NXServer(self.root_directory)
+        except Exception as error:
+            self.server = None
 
     start = QtCore.Signal(object)
     update = QtCore.Signal(object)
@@ -792,6 +795,9 @@ class NXReduce(QtCore.QObject):
         self.nxtransform()
     
     def queue(self, parent=False):
+        if self.server is None:
+            raise NeXusError("NXServer not running")
+
         switches = '-d %s -e %s' % (self.directory, self._entry)
         if parent:
             command = 'nxparent '
