@@ -261,7 +261,7 @@ class NXReduce(QtCore.QObject):
                         _first = np.int32(root[self._entry]['data'].attrs['first'])
         try:
             self._first = np.int(_first)
-        except ValueError:
+        except Exception as error:
             self._first = None
         return self._first            
 
@@ -290,7 +290,7 @@ class NXReduce(QtCore.QObject):
                         _last = np.int32(root[self._entry]['data'].attrs['last'])
         try:
             self._last = np.int(_last)
-        except ValueError:
+        except Exception as error:
             self._last = None
         return self._last            
 
@@ -318,7 +318,7 @@ class NXReduce(QtCore.QObject):
                 _threshold = self.maximum / 10
         try:
             self._threshold = np.float(_threshold)
-        except ValueError:
+        except Exception as error:
             self._threshold = None
         return self._threshold
 
