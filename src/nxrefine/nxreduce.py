@@ -2,6 +2,7 @@ import logging
 import logging.handlers
 import os
 import platform
+import subprocess
 import sys
 import time
 import timeit
@@ -11,6 +12,7 @@ from h5py import is_hdf5
 from nexusformat.nexus import *
 
 from nexpy.gui.pyqt import QtCore
+from nexpy.gui.utils import timestamp
 
 from .nxrefine import NXRefine
 from .nxserver import NXServer
@@ -78,6 +80,7 @@ class NXReduce(QtCore.QObject):
     def __init__(self, entry='f1', directory=None, data='data/data', parent=None,
                  extension='.h5', path='/entry/data/data',
                  threshold=None, first=None, last=None, radius=200, width=3,
+                 Qh=None, Qk=None, Ql=None,
                  link=False, maxcount=False, find=False, copy=False, mask3D=False, 
                  refine=False, lattice=False, transform=False, combine=True,
                  overwrite=False, gui=False):
@@ -125,6 +128,10 @@ class NXReduce(QtCore.QObject):
         self.mask_file = os.path.join(self.base_directory, 
                                       self.sample+'_mask.nxs')
         self.log_file = os.path.join(self.task_directory, 'nxlogger.log')
+        self.transform_file = os.path.join(self.directory, 
+                                           self._entry+'_transform.nxs')
+        self.settings_file = os.path.join(self.directory, 
+                                           self._entry+'_transform.pars')
         
         self._root = None 
         self._data = data
@@ -144,6 +151,10 @@ class NXReduce(QtCore.QObject):
         self._last = last
         self.radius = 200
         self.width = 3
+        self.Qh = Qh
+        self.Qk = Qk
+        self.Ql = Ql
+
         self.link = link
         self.maxcount = maxcount
         self.find = find
@@ -792,7 +803,57 @@ class NXReduce(QtCore.QObject):
         self.record('nxrefine', fit_report=refine.fit_report)
 
     def nxtransform(self):
-        pass
+        if self.not_complete('nxrefine'):
+            self.logger.info('Cannot transform until the orientation is complete')
+         elif self.not_complete('nxtransform') and self.transform:
+            with Lock(self.wrapper_file):
+                cctw_command = self.prepare_transform()
+            if cctw_command:
+                subprocess.run(cctw_command, shell=True)
+        elif self.transform:
+            self.logger.info('Data already transformed')             
+
+    def get_transform_grid(self):
+        if self.Qh and self.Qk and self.Ql:
+            try:
+                self.Qh = [np.float32(v) for v in self.Qh]
+                self.Qk = [np.float32(v) for v in self.Qk]
+                self.Ql = [np.float32(v) for v in self.Ql]
+            except Exception:
+                self.Qh = self.Qk = self.Ql = None
+        else:
+            if 'transform' in self.entry:
+                transform = self.entry['transform']
+            elif self.parent:
+                with Lock(self.parent):
+                    root = nxload(self.parent)
+                    if 'transform' in root[self._entry]:
+                        transform = root[self._entry]['transform']
+            try:
+                Qh, Qk, Ql = (transform['Qh'].nxvalue,
+                              transform['Qk'].nxvalue,
+                              transform['Ql'].nxvalue)
+                self.Qh = Qh[0], Qh[1]-Qh[0], Qh[-1]
+                self.Qk = Qk[0], Qk[1]-Qk[0], Qk[-1]
+                self.Ql = Ql[0], Ql[1]-Ql[0], Ql[-1]
+            except Exception:
+                self.Qh = self.Qk = self.Ql = None                
+
+    def prepare_transform(self):
+        self.get_transform_grid()
+        if self.Qh and self.Qk and self.Ql:
+            refine = NXRefine(self.entry)
+            refine.read_parameters()
+            refine.h_start, refine.h_step, refine.h_stop = self.Qh
+            refine.k_start, refine.k_step, refine.k_stop = self.Qk
+            refine.l_start, refine.l_step, refine.l_stop = self.Ql
+            refine.define_grid()
+            refine.prepare_transform(self.transform_file)
+            refine.write_settings(self.settings_file)
+            return refine.cctw_command()
+        else:
+            self.logger.info('Invalid HKL grid')
+            return None
 
     def nxreduce(self):
         self.nxlink()
