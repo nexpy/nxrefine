@@ -816,7 +816,12 @@ class NXReduce(QtCore.QObject):
             with Lock(self.wrapper_file):
                 cctw_command = self.prepare_transform()
             if cctw_command:
+                self.logger.info('Transform process launched')
                 subprocess.run(cctw_command, shell=True)
+                self.logger.info('Transform completed')
+            else:
+                self.logger.info('CCTW command invalid')
+                
         elif self.transform:
             self.logger.info('Data already transformed')             
 
