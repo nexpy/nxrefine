@@ -123,8 +123,6 @@ class NXReduce(QtCore.QObject):
             self._entry = entry
         self.base_directory = os.path.dirname(self.wrapper_file)
         self.task_directory = os.path.join(self.root_directory, 'tasks')
-        if 'tasks' not in os.listdir(self.root_directory):
-            os.mkdir(self.task_directory)
         self.mask_file = os.path.join(self.base_directory, 
                                       self.sample+'_mask.nxs')
         self.log_file = os.path.join(self.task_directory, 'nxlogger.log')
@@ -169,26 +167,8 @@ class NXReduce(QtCore.QObject):
         
         self._stopped = False
         
-        self.logger = logging.getLogger("%s_%s['%s']" 
-                                        % (self.sample, self.scan, self._entry))
-        self.logger.setLevel(logging.DEBUG)
-        formatter = logging.Formatter(
-                        '%(asctime)s %(name)-12s: %(message)s',
-                        datefmt='%Y-%m-%d %H:%M:%S')
-        for handler in self.logger.handlers:
-            self.logger.removeHandler(handler)
-        if os.path.exists(os.path.join(self.task_directory, 'nxlogger.pid')):
-            socketHandler = logging.handlers.SocketHandler('localhost',
-                                logging.handlers.DEFAULT_TCP_LOGGING_PORT)
-            self.logger.addHandler(socketHandler)
-        else:
-            fileHandler = logging.FileHandler(self.log_file)
-            fileHandler.setFormatter(formatter)
-            self.logger.addHandler(fileHandler)
-        if not self.gui:
-            streamHandler = logging.StreamHandler()
-            self.logger.addHandler(streamHandler)
-
+        self.init_logs()
+        
         try:        
             self.server = NXServer(self.root_directory)
         except Exception as error:
@@ -198,6 +178,28 @@ class NXReduce(QtCore.QObject):
     update = QtCore.Signal(object)
     result = QtCore.Signal(object)
     stop = QtCore.Signal()            
+
+    def init_logs(self):
+        self.logger = logging.getLogger("%s_%s['%s']" 
+                                        % (self.sample, self.scan, self._entry))
+        self.logger.setLevel(logging.DEBUG)
+        formatter = logging.Formatter(
+                        '%(asctime)s %(name)-12s: %(message)s',
+                        datefmt='%Y-%m-%d %H:%M:%S')
+        for handler in self.logger.handlers:
+            self.logger.removeHandler(handler)
+        if os.path.exists(self.task_directory):
+            if os.path.exists(os.path.join(self.task_directory, 'nxlogger.pid')):
+                socketHandler = logging.handlers.SocketHandler('localhost',
+                                    logging.handlers.DEFAULT_TCP_LOGGING_PORT)
+                self.logger.addHandler(socketHandler)
+            else:
+                fileHandler = logging.FileHandler(self.log_file)
+                fileHandler.setFormatter(formatter)
+                self.logger.addHandler(fileHandler)
+        if not self.gui:
+            streamHandler = logging.StreamHandler()
+            self.logger.addHandler(streamHandler)
 
     @property
     def root(self):
