@@ -6,6 +6,7 @@ import sys
 import time
 import timeit
 import numpy as np
+from h5py import is_hdf5
 
 from nexusformat.nexus import *
 
@@ -392,7 +393,9 @@ class NXReduce(QtCore.QObject):
                                 note=note)
 
     def nxlink(self):
-        if self.not_complete('nxlink') and self.link:
+        if not is_hdf5(self.data_file):
+            self.logger.info('Data file not available')
+        elif self.not_complete('nxlink') and self.link:
             with Lock(self.wrapper_file):
                 self.link_data()
                 logs = self.read_logs()
@@ -405,7 +408,7 @@ class NXReduce(QtCore.QObject):
                 else:
                     self.record('nxlink')
         elif self.link:
-            self.logger.info('Data already linked')             
+            self.logger.info('Data already linked')           
 
     def link_data(self):
         if self.field:
@@ -488,7 +491,9 @@ class NXReduce(QtCore.QObject):
             self.entry['instrument/attenuator/attenuator_transmission'] = logs['Calculated_filter_transmission']
 
     def nxmax(self):
-        if self.not_complete('nxmax') and self.maxcount:
+        if not is_hdf5(self.data_file):
+            self.logger.info('Data file not available')
+        elif self.not_complete('nxmax') and self.maxcount:
             with Lock(self.data_file):
                 maximum = self.find_maximum()
             if self.gui:
@@ -540,7 +545,9 @@ class NXReduce(QtCore.QObject):
                     first_frame=self.first, last_frame=self.last)
 
     def nxfind(self):
-        if self.not_complete('nxfind') and self.find:
+        if not is_hdf5(self.data_file):
+            self.logger.info('Data file not available')
+        elif self.not_complete('nxfind') and self.find:
             with Lock(self.data_file):
                 peaks = self.find_peaks()
             if self.gui:
@@ -749,7 +756,9 @@ class NXReduce(QtCore.QObject):
                          os.path.basename(os.path.realpath(self.parent)))
 
     def nxrefine(self):
-        if self.not_complete('nxrefine') and self.refine:
+        if self.not_complete('nxfind'):
+            self.logger.info('Cannot refine until peak search is completed')
+        elif self.not_complete('nxrefine') and self.refine:
             with Lock(self.wrapper_file):
                 if self.lattice or self.first_entry:
                     lattice = True
