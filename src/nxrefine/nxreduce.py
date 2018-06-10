@@ -404,9 +404,10 @@ class NXReduce(QtCore.QObject):
                                 note=note)
 
     def nxlink(self):
-        if not is_hdf5(self.data_file):
-            self.logger.info('Data file not available')
-        elif self.not_complete('nxlink') and self.link:
+        if self.not_complete('nxlink') and self.link:
+            if not is_hdf5(self.data_file):
+                self.logger.info('Data file not available')
+                return
             with Lock(self.wrapper_file):
                 self.link_data()
                 logs = self.read_logs()
@@ -502,9 +503,10 @@ class NXReduce(QtCore.QObject):
             self.entry['instrument/attenuator/attenuator_transmission'] = logs['Calculated_filter_transmission']
 
     def nxmax(self):
-        if not is_hdf5(self.data_file):
-            self.logger.info('Data file not available')
-        elif self.not_complete('nxmax') and self.maxcount:
+        if self.not_complete('nxmax') and self.maxcount:
+            if not is_hdf5(self.data_file):
+                self.logger.info('Data file not available')
+                return
             with Lock(self.data_file):
                 maximum = self.find_maximum()
             if self.gui:
@@ -556,9 +558,10 @@ class NXReduce(QtCore.QObject):
                     first_frame=self.first, last_frame=self.last)
 
     def nxfind(self):
-        if not is_hdf5(self.data_file):
-            self.logger.info('Data file not available')
-        elif self.not_complete('nxfind') and self.find:
+        if self.not_complete('nxfind') and self.find:
+            if not is_hdf5(self.data_file):
+                self.logger.info('Data file not available')
+                return
             with Lock(self.data_file):
                 peaks = self.find_peaks()
             if self.gui:
@@ -767,9 +770,10 @@ class NXReduce(QtCore.QObject):
                          os.path.basename(os.path.realpath(self.parent)))
 
     def nxrefine(self):
-        if self.not_complete('nxfind'):
-            self.logger.info('Cannot refine until peak search is completed')
-        elif self.not_complete('nxrefine') and self.refine:
+        if self.not_complete('nxrefine') and self.refine:
+            if self.not_complete('nxfind'):
+                self.logger.info('Cannot refine until peak search is completed')
+                return
             with Lock(self.wrapper_file):
                 if self.lattice or self.first_entry:
                     lattice = True
@@ -803,9 +807,10 @@ class NXReduce(QtCore.QObject):
         self.record('nxrefine', fit_report=refine.fit_report)
 
     def nxtransform(self):
-        if self.not_complete('nxrefine'):
-            self.logger.info('Cannot transform until the orientation is complete')
-        elif self.not_complete('nxtransform') and self.transform:
+        if self.not_complete('nxtransform') and self.transform:
+            if self.not_complete('nxrefine'):
+                self.logger.info('Cannot transform until the orientation is complete')
+                return
             with Lock(self.wrapper_file):
                 cctw_command = self.prepare_transform()
             if cctw_command:
