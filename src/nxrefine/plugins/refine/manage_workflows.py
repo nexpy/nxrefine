@@ -231,7 +231,7 @@ class WorkflowDialog(BaseDialog):
 
     def selected(self, scan, command):
         return (self.scans[scan][command].isEnabled() and 
-                self.scans[scan][command].isChecked())
+                self.scans[scan][command].checkState()==QtCore.Qt.Checked)
     
     def add_tasks(self):
         for scan in self.scans:
