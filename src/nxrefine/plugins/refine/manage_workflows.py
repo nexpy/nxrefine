@@ -248,6 +248,8 @@ class WorkflowDialog(BaseDialog):
                         reduce.copy = True
                     if self.selected(scan, 'refine'):
                         reduce.refine = True
+                    if self.selected(scan, 'transform'):
+                        reduce.transform = True
                     if self.selected(scan, 'overwrite'):
                         reduce.overwrite=True
-                    reduce.queue()                            
+                    reduce.queue()
