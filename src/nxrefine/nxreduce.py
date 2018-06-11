@@ -230,6 +230,9 @@ class NXReduce(QtCore.QObject):
     def data_file(self):
         return self.entry[self._data].nxfilename
 
+    def data_exists(self):
+        return is_hdf5(self.data_file)
+
     @property
     def mask(self):
         if self._mask is None:
@@ -407,7 +410,7 @@ class NXReduce(QtCore.QObject):
 
     def nxlink(self):
         if self.not_complete('nxlink') and self.link:
-            if not is_hdf5(self.data_file):
+            if not self.data_exists():
                 self.logger.info('Data file not available')
                 return
             with Lock(self.wrapper_file):
@@ -506,7 +509,7 @@ class NXReduce(QtCore.QObject):
 
     def nxmax(self):
         if self.not_complete('nxmax') and self.maxcount:
-            if not is_hdf5(self.data_file):
+            if not self.data_exists():
                 self.logger.info('Data file not available')
                 return
             with Lock(self.data_file):
@@ -561,7 +564,7 @@ class NXReduce(QtCore.QObject):
 
     def nxfind(self):
         if self.not_complete('nxfind') and self.find:
-            if not is_hdf5(self.data_file):
+            if not self.data_exists():
                 self.logger.info('Data file not available')
                 return
             with Lock(self.data_file):
@@ -829,7 +832,8 @@ class NXReduce(QtCore.QObject):
                     self.logger.info('Transform complete - errors reported (%g seconds)' 
                                      % (toc-tic))
                 self.record('nxtransform', command=cctw_command,
-                            output=process.stdout, errors=process.stderr)
+                            output=process.stdout.decode(), 
+                            errors=process.stderr.decode())
             else:
                 self.logger.info('CCTW command invalid')                
         elif self.transform:
