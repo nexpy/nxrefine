@@ -817,11 +817,17 @@ class NXReduce(QtCore.QObject):
                 cctw_command = self.prepare_transform()
             if cctw_command:
                 self.logger.info('Transform process launched')
-                subprocess.run(cctw_command, shell=True)
-                self.logger.info('Transform completed')
+                process = subprocess.run(cctw_command, shell=True,
+                                         stdout=subprocess.PIPE,
+                                         stderr=subprocess.PIPE)
+                if process.returncode == 0:
+                    self.logger.info('Transform completed')
+                else:
+                    self.logger.info('Transform complete - errors reported')
+                self.record('nxtransform', output=process.stdout, 
+                            errors=process.stderr)
             else:
-                self.logger.info('CCTW command invalid')
-                
+                self.logger.info('CCTW command invalid')                
         elif self.transform:
             self.logger.info('Data already transformed')             
 
