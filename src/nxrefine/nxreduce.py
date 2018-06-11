@@ -27,7 +27,7 @@ class LockException(Exception):
 
 class Lock(object):
 
-    def __init__(self, filename, timeout=30, check_interval=1):
+    def __init__(self, filename, timeout=600, check_interval=1):
         self.filename = os.path.realpath(filename)
         self.lock_file = self.filename+'.lock'
         self.timeout = timeout
