@@ -824,8 +824,8 @@ class NXReduce(QtCore.QObject):
                     self.logger.info('Transform completed')
                 else:
                     self.logger.info('Transform complete - errors reported')
-                self.record('nxtransform', output=process.stdout, 
-                            errors=process.stderr)
+                self.record('nxtransform', command=cctw_command,
+                            output=process.stdout, errors=process.stderr)
             else:
                 self.logger.info('CCTW command invalid')                
         elif self.transform:
