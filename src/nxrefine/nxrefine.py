@@ -894,17 +894,43 @@ class NXRefine(object):
 #        result.shape = (len(self.idx),3)
 #        return result
 
-    def define_parameters(self, lattice=True, **opts):
-        self.parameters = self.define_lattice_parameters(lattice)
+    def define_parameters(self, **opts):
+        from lmfit import Parameters
+        self.parameters = Parameters()
+        if 'lattice' in opts:
+            self.define_lattice_parameters()
+            del opts['lattice']
         for opt in opts:
             self.parameters.add(opt, vars(self)[opt], vary=opts[opt])
         return self.parameters
 
+    def define_lattice_parameters(self, lattice=True):
+        if self.symmetry == 'cubic':
+            self.parameters.add('a', self.a, vary=lattice)
+        elif self.symmetry == 'tetragonal' or self.symmetry == 'hexagonal':
+            self.parameters.add('a', self.a, vary=lattice)
+            self.parameters.add('c', self.c, vary=lattice)
+        elif self.symmetry == 'orthorhombic':
+            self.parameters.add('a', self.a, vary=lattice)
+            self.parameters.add('b', self.b, vary=lattice)
+            self.parameters.add('c', self.c, vary=lattice)
+        elif self.symmetry == 'monoclinic':
+            self.parameters.add('a', self.a, vary=lattice)
+            self.parameters.add('b', self.b, vary=lattice)
+            self.parameters.add('c', self.c, vary=lattice)
+            self.parameters.add('beta', self.beta, vary=lattice)
+        else:
+            self.parameters.add('a', self.a, vary=lattice)
+            self.parameters.add('b', self.b, vary=lattice)
+            self.parameters.add('c', self.c, vary=lattice)
+            self.parameters.add('alpha', self.alpha, vary=lattice)
+            self.parameters.add('beta', self.beta, vary=lattice)
+            self.parameters.add('gamma', self.gamma, vary=lattice)
+
     def get_parameters(self, parameters):
-        self.get_lattice_parameters(parameters)
-        for p in [p for p in parameters 
-                  if p not in ['a', 'b', 'c', 'alpha', 'beta', 'gamma']]:
+        for p in parameters:
             vars(self)[p] = parameters[p].value
+        self.set_symmetry()
         
     def restore_parameters(self):
         for p in self.parameters:
@@ -924,51 +950,7 @@ class NXRefine(object):
         self.get_parameters(parameters)
         return self.diffs()
 
-    def define_lattice_parameters(self, lattice=True):
-        from lmfit import Parameters
-        p = Parameters()
-        if self.symmetry == 'cubic':
-            p.add('a', self.a, vary=lattice)
-        elif self.symmetry == 'tetragonal' or self.symmetry == 'hexagonal':
-            p.add('a', self.a, vary=lattice)
-            p.add('c', self.c, vary=lattice)
-        elif self.symmetry == 'orthorhombic':
-            p.add('a', self.a, vary=lattice)
-            p.add('b', self.b, vary=lattice)
-            p.add('c', self.c, vary=lattice)
-        elif self.symmetry == 'monoclinic':
-            p.add('a', self.a, vary=lattice)
-            p.add('b', self.b, vary=lattice)
-            p.add('c', self.c, vary=lattice)
-            p.add('beta', self.beta, vary=lattice)
-        else:
-            p.add('a', self.a, vary=lattice)
-            p.add('b', self.b, vary=lattice)
-            p.add('c', self.c, vary=lattice)
-            p.add('alpha', self.alpha, vary=lattice)
-            p.add('beta', self.beta, vary=lattice)
-            p.add('gamma', self.gamma, vary=lattice)
-        self.init_p = self.a, self.b, self.c, self.alpha, self.beta, self.gamma
-        return p
-
-    def get_lattice_parameters(self, p):
-        if self.symmetry == 'cubic':
-            self.a = self.b = self.c = p['a'].value
-        elif self.symmetry == 'tetragonal' or self.symmetry == 'hexagonal':
-            self.a, self.c = p['a'].value, p['c'].value
-            self.b = self.a
-        elif self.symmetry == 'orthorhombic':
-            self.a, self.b, self.c = p['a'].value, p['b'].value, p['c'].value
-        elif self.symmetry == 'monoclinic':
-            self.a, self.b, self.c = p['a'].value, p['b'].value, p['c'].value
-            self.beta = p['beta'].value
-        else:
-            self.a, self.b, self.c = p['a'].value, p['b'].value, p['c'].value
-            self.alpha, self.beta, self.gamma = (p['alpha'].value, 
-                                                 p['beta'].value,
-                                                 p['gamma'].value)
-
-    def refine_angles(self, method='nelder', lattice=True, **opts):
+    def refine_angles(self, method='nelder', **opts):
         from lmfit import minimize, fit_report
         p0 = self.define_parameters(lattice=lattice, **opts)
         self.result = minimize(self.angle_residuals, p0, method=method)
