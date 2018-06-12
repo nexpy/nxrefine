@@ -794,8 +794,7 @@ class NXReduce(QtCore.QObject):
         refine = NXRefine(self.entry)
         refine.refine_hkls(lattice=lattice, chi=True, omega=True)
         fit_report=refine.fit_report
-        refine.refine_hkls(lattice=lattice,
-                                     chi=True, omega=True, gonpitch=True)                
+        refine.refine_hkls(chi=True, omega=True, gonpitch=True)                
         fit_report = fit_report + '\n' + refine.fit_report
         refine.refine_orientation_matrix()
         fit_report = fit_report + '\n' + refine.fit_report
@@ -829,8 +828,9 @@ class NXReduce(QtCore.QObject):
                     self.logger.info('Transform completed (%g seconds)' 
                                      % (toc-tic))
                 else:
-                    self.logger.info('Transform complete - errors reported (%g seconds)' 
-                                     % (toc-tic))
+                    self.logger.info(
+                        'Transform complete - errors reported (%g seconds)' 
+                        % (toc-tic))
                 self.record('nxtransform', command=cctw_command,
                             output=process.stdout.decode(), 
                             errors=process.stderr.decode())
