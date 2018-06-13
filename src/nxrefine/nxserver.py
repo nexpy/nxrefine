@@ -71,7 +71,7 @@ class NXServer(NXDaemon):
     def read_nodes(self, node_file):
         """Read available nodes"""
         with open(node_file) as f:
-            nodes = [line.strip() for line in f.readlines()]
+            nodes = [line.strip() for line in f.readlines() if line.strip() != '']            
         return nodes
 
     def log(self, message):
