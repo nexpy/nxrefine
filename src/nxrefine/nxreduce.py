@@ -929,7 +929,7 @@ class NXReduce(QtCore.QObject):
     def prepare_combine(self):
         try:
             Qh, Qk, Ql = (self.entry['transform']['Qh'],
-                          self.entry['transform']['Qk']e,
+                          self.entry['transform']['Qk'],
                           self.entry['transform']['Ql'])
             data = NXlink('/entry/data/v', 
                           file=os.path.join(scan, 'transform.nxs'), name='data')
