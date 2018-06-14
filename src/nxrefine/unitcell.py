@@ -24,7 +24,7 @@
 #
 #
 
-import numpy 
+import numpy
 
 from numpy.linalg import inv
 
@@ -45,7 +45,7 @@ def cross(a,b):
     a x b has length |a||b|sin(theta)
     """
     return numpy.array([ a[1]*b[2]-a[2]*b[1] ,
-                         a[2]*b[0]-b[2]*a[0] , 
+                         a[2]*b[0]-b[2]*a[0] ,
                          a[0]*b[1]-b[0]*a[1] ],numpy.float)
 
 
@@ -87,7 +87,7 @@ def I(h,k,l):
 
 def F(h,k,l):
     return (h+k)%2!=0 or (h+l)%2!=0 or (k+l)%2!=0
-                                                                                
+
 def R(h,k,l):
     return (-h+k+l)%3 != 0
 
@@ -137,12 +137,12 @@ class unitcell:
         ca= math.cos(radians(self.lattice_parameters[3]))
         cb= math.cos(radians(self.lattice_parameters[4]))
         cg= math.cos(radians(self.lattice_parameters[5]))
-        if verbose==1: 
+        if verbose==1:
             print("Unit cell", self.lattice_parameters)
         self.g = numpy.array( [[ a*a    ,  a*b*cg, a*c*cb ],
                                [ a*b*cg ,  b*b   , b*c*ca ],
                                [ a*c*cb ,  b*c*ca, c*c    ]],numpy.float)
-        if verbose==1: 
+        if verbose==1:
             print("Metric tensor\n", self.g)
         try:
             self.gi = inv(self.g)
@@ -158,31 +158,31 @@ class unitcell:
         self.betas =degrees(math.acos(self.gi[0,2]/self.astar/self.cstar))
         self.gammas=degrees(math.acos(self.gi[0,1]/self.astar/self.bstar))
         if verbose==1: print("Reciprocal cell")
-        if verbose==1: 
-            print(self.astar, self.bstar, self.cstar, 
+        if verbose==1:
+            print(self.astar, self.bstar, self.cstar,
                   self.alphas, self.betas, self.gammas)
         # Equation 3 from Busing and Levy
-        self.B = numpy.array ( 
-            [ [ self.astar , 
-                self.bstar*math.cos(radians(self.gammas)) , 
+        self.B = numpy.array (
+            [ [ self.astar ,
+                self.bstar*math.cos(radians(self.gammas)) ,
                 self.cstar*math.cos(radians(self.betas)) ] ,
-              [ 0 , 
-                self.bstar*math.sin(radians(self.gammas)) , 
+              [ 0 ,
+                self.bstar*math.sin(radians(self.gammas)) ,
                 -self.cstar*math.sin(radians(self.betas))*ca ],
               [ 0 , 0  ,
                 1./c ] ] , numpy.float)
         if verbose == 1: print(self.B)
-        if verbose == 1: 
+        if verbose == 1:
             print(numpy.dot(numpy.transpose(self.B),
                                self.B)-self.gi) # this should be zero
         self.hkls = None
         self.peaks = None
         self.limit = 0
-        
+
         # used for caching
         self.anglehkl_rings = None
         self.anglehkl_cache = None
-        self.ringtol = 0.001        
+        self.ringtol = 0.001
 
     def tostring(self):
         """
@@ -368,7 +368,7 @@ class unitcell:
                   self.ds(h1)-math.sqrt(numpy.dot(g1,g1)))
             print("Cos angle calc",self.anglehkls(h1,h2),"obs",costheta)
         try:
-            h1c=numpy.dot(self.B,h1)    
+            h1c=numpy.dot(self.B,h1)
             h2c=numpy.dot(self.B,h2)
             t1c=unit(h1c)
             t3c=unit(cross(h1c,h2c))
