@@ -10,8 +10,10 @@ from .nxreduce import NXReduce
 
 class NXWatcher(NXDaemon):
 
-    def __init__(self, directory):
+    def __init__(self, directory, entries=['f1', 'f2', 'f3'], timeout=120):
         self.directory = directory
+        self.entries = entries
+        self.timeout = timeout
         self.task_directory = os.path.join(self.directory, 'tasks')
         if 'tasks' not in os.listdir(self.directory):
             os.mkdir(self.task_directory)
@@ -22,7 +24,7 @@ class NXWatcher(NXDaemon):
         super(NXWatcher, self).__init__(self.pid_file)
 
     def run(self):
-        event_handler = NXHandler(self.server)
+        event_handler = NXHandler(self.server, self.entries, self.timeout)
         self.observer.schedule(event_handler, self.directory, recursive=True)
         self.observer.start()
         try:
@@ -35,7 +37,7 @@ class NXWatcher(NXDaemon):
 
 class NXHandler(FileSystemEventHandler):
 
-    def __init__(self, server, entries=['f1', 'f2', 'f3'], timeout=120):
+    def __init__(self, server, entries, timeout):
         self.server = server
         self.entries = entries
         self.timeout = timeout
