@@ -32,10 +32,22 @@ session = sessionmaker(bind=engine)()
 #     print(inst)
 
 """ Update database entry for filename """
-def update_db(filename, column, status):
-    row = session.query(File).filter(File.filename==filename).scalar()
+def update_db(filename, task, status):
+    #Make sure we're only getting one result
+    row = session.query(File).filter(File.filename == filename).scalar()
     if row is None:
         print("No file by that name exists")
         return
-    setattr(row, column, status)
+    setattr(row, task, status)
     session.commit()
+
+""" Return database entry for task in filename """
+def get_status(filename, task):
+    status = session.query(File.filename, getattr(File, task)).filter(
+            File.filename == filename).scalar()
+    return scalar[0]
+
+""" Populate the database based on local files. Will overwrite current
+    database contents """ 
+def sync_db():
+    return None

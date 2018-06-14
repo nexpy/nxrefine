@@ -9,6 +9,9 @@ import timeit
 import numpy as np
 from h5py import is_hdf5
 
+#### DEBUGGING ####
+import ipdb; ipdb.set_trace()
+
 from nexusformat.nexus import *
 
 from nexpy.gui.pyqt import QtCore
@@ -19,7 +22,7 @@ from .nxserver import NXServer
 from . import blobcorrector, __version__
 from .connectedpixels import blob_moments
 from .labelimage import labelimage, flip1
-from .database.nxdatabase import update_db
+from .nxdatabase import update_db, get_status
 
 
 class LockException(Exception):
@@ -395,6 +398,7 @@ class NXReduce(QtCore.QObject):
     def stopped(self, value):
         self._stopped = value
 
+    """ Record that a task has finished. Update NeXus file and DB """
     def record(self, program, **kwds):
         parameters = '\n'.join(
             [('%s: %s' % (k, v)).replace('_', ' ').capitalize()
@@ -404,11 +408,17 @@ class NXReduce(QtCore.QObject):
                                 parameters))
         if program in self.entry:
             del self.entry[program]
+
+        #TODO: check if all 3 entries are done
+        # update_db(self.wrapper_file, program, 'done')
         self.entry[program] = NXprocess(program='%s' % program,
                                 sequence_index=len(self.entry.NXprocess)+1,
                                 version='nxrefine v'+__version__,
                                 note=note)
 
+    """ Record that a task has started. Update DB """
+    def record_start(self, program):
+        update_db(self.wrapper_file, program, 'in progress')
 
     def nxlink(self):
         if self.not_complete('nxlink') and self.link:
@@ -416,6 +426,7 @@ class NXReduce(QtCore.QObject):
                 self.logger.info('Data file not available')
                 return
             with Lock(self.wrapper_file):
+                self.record_start('nxlink')
                 self.link_data()
                 logs = self.read_logs()
                 if logs:

@@ -12,8 +12,7 @@ class File(Base):
     __tablename__ = 'files'
     _progress = Enum('not started', 'queued', 'in progress', 'done')
 
-    id = Column(Integer, primary_key=True) #Might not need ID b/c filenames are unique
-    filename = Column(String(255), nullable=False)
+    filename = Column(String(255), nullable=False, primary_key=True)
     nxlink = Column(_progress, server_default='not started')
     nxmax = Column(_progress, server_default='not started')
     nxfind = Column(_progress, server_default='not started')

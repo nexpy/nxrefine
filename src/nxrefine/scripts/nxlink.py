@@ -9,17 +9,17 @@
 
 import argparse
 from nxrefine.nxreduce import NXReduce
-
+import pdb
 
 def main():
 
     parser = argparse.ArgumentParser(
         description="Link data and metadata to NeXus file")
-    parser.add_argument('-d', '--directory', required=True, 
+    parser.add_argument('-d', '--directory', required=True,
                         help='scan directory')
-    parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
+    parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'],
         nargs='+', help='names of entries to be searched')
-    parser.add_argument('-o', '--overwrite', action='store_true', 
+    parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing peaks')
 
     args = parser.parse_args()
@@ -28,7 +28,7 @@ def main():
         reduce = NXReduce(entry, args.directory, link=True,
                           overwrite=args.overwrite)
         reduce.nxlink()
-    
+
 
 if __name__=="__main__":
     main()
