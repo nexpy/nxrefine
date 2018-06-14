@@ -147,6 +147,7 @@ class NXReduce(QtCore.QObject):
 
         self._threshold = threshold
         self._maximum = None
+        self.summed_data = None
         self._first = first
         self._last = last
         self.radius = 200
@@ -434,6 +435,7 @@ class NXReduce(QtCore.QObject):
                     self.entry['instrument']['logs'] = logs
                     self.transfer_logs()
                     self.record('nxlink', logs='Transferred')
+                    self.logger.info('Entry linked to raw data')
                 else:
                     self.record('nxlink')
         elif self.link:
@@ -562,6 +564,10 @@ class NXReduce(QtCore.QObject):
                 v.mask = self.mask
             if maximum < v.max():
                 maximum = v.max()
+            if i == self.first:
+                self.summed_data = NXfield(v.sum(0), name='summed_data')
+            else:
+                self.summed_data = self.summed_data + v.sum(0)
             del v
         toc = self.stop_progress()
         self.logger.info('Maximum counts: %s (%g seconds)' % (maximum, toc-tic))
@@ -571,6 +577,10 @@ class NXReduce(QtCore.QObject):
         self.entry['data'].attrs['maximum'] = maximum
         self.entry['data'].attrs['first'] = self.first
         self.entry['data'].attrs['last'] = self.last
+        if 'summed_data' in self.entry:
+            del self.entry['summed_data']
+        self.entry['summed_data'] = NXdata(self.summed_data, 
+                                           self.entry['data'].nxaxes[-2:])
         self.record('nxmax', maximum=maximum, 
                     first_frame=self.first, last_frame=self.last)
 
