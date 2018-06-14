@@ -77,8 +77,8 @@ class Lock(object):
 
 class NXReduce(QtCore.QObject):
 
-    def __init__(self, entry='f1', directory=None, data='data/data', parent=None,
-                 extension='.h5', path='/entry/data/data',
+    def __init__(self, entry='f1', directory=None, parent=None, entries=None,
+                 data='data/data', extension='.h5', path='/entry/data/data',
                  threshold=None, first=None, last=None, radius=200, width=3,
                  Qh=None, Qk=None, Ql=None,
                  link=False, maxcount=False, find=False, copy=False, mask3D=False, 
@@ -130,12 +130,14 @@ class NXReduce(QtCore.QObject):
                                            self._entry+'_transform.nxs')
         self.settings_file = os.path.join(self.directory, 
                                            self._entry+'_transform.pars')
+        self.combine_file = os.path.join(self.directory, 'transform.nxs')
         
         self._root = None 
         self._data = data
         self._field = None
         self._mask = None
         self._parent = parent
+        self._entries = entries
 
         if extension.startswith('.'):        
             self.extension = extension
@@ -213,8 +215,15 @@ class NXReduce(QtCore.QObject):
         return self.root[self._entry]
 
     @property
+    def entries(self):
+        if self._entries:
+            return self._entries
+        else:
+            return [entry for entry in self.root.entries if entry != 'entry']
+
+    @property
     def first_entry(self):
-        return self._entry == [e for e in self.root.entries if e != 'entry'][0]
+        return self._entry == self.entries[0]
 
     @property
     def data(self):
@@ -357,6 +366,9 @@ class NXReduce(QtCore.QObject):
             if 'maximum' in self.entry['data'].attrs:
                 self._maximum = self.entry['data'].attrs['maximum']
         return self._maximum
+
+    def complete(self, program):
+        return program in self.entry
 
     def not_complete(self, program):
         return program not in self.entry or self.overwrite
@@ -820,16 +832,17 @@ class NXReduce(QtCore.QObject):
             if cctw_command:
                 self.logger.info('Transform process launched')
                 tic = timeit.default_timer()
-                process = subprocess.run(cctw_command, shell=True,
-                                         stdout=subprocess.PIPE,
-                                         stderr=subprocess.PIPE)
+                with Lock(self.data_file):
+                    process = subprocess.run(cctw_command, shell=True,
+                                             stdout=subprocess.PIPE,
+                                             stderr=subprocess.PIPE)
                 toc = timeit.default_timer()
                 if process.returncode == 0:
                     self.logger.info('Transform completed (%g seconds)' 
                                      % (toc-tic))
                 else:
                     self.logger.info(
-                        'Transform complete - errors reported (%g seconds)' 
+                        'Transform completed - errors reported (%g seconds)' 
                         % (toc-tic))
                 self.record('nxtransform', command=cctw_command,
                             output=process.stdout.decode(), 
@@ -881,6 +894,57 @@ class NXReduce(QtCore.QObject):
             self.logger.info('Invalid HKL grid')
             return None
 
+    def nxcombine(self):
+        if ('nxcombine' not in self.root['entry'] or self.overwrite) and self.combine:
+            transform_complete = ['nxtransform' in entry for entry in self.entries]
+            if not transform_complete:
+                self.logger.info('Cannot combine until the transforms are complete')
+                return
+            with Lock(self.wrapper_file):
+                cctw_command = self.prepare_combine()
+            if cctw_command:
+                self.logger.info('Combining transforms (%s)' 
+                                 % ', '.join(self.entries))
+                tic = timeit.default_timer()
+                process = subprocess.run(cctw_command, shell=True,
+                                         stdout=subprocess.PIPE,
+                                         stderr=subprocess.PIPE)
+                toc = timeit.default_timer()
+                if process.returncode == 0:
+                    self.logger.info('Combine completed (%g seconds)' 
+                                     % (toc-tic))
+                else:
+                    self.logger.info(
+                        'Combine completed - errors reported (%g seconds)' 
+                        % (toc-tic))
+                self._entry = 'entry'
+                self.record('nxcombine', command=cctw_command,
+                            output=process.stdout.decode(), 
+                            errors=process.stderr.decode())
+            else:
+                self.logger.info('CCTW command invalid')                
+        elif self.combine:
+            self.logger.info('Data already combined')             
+
+    def prepare_combine(self):
+        try:
+            Qh, Qk, Ql = (self.entry['transform']['Qh'],
+                          self.entry['transform']['Qk']e,
+                          self.entry['transform']['Ql'])
+            data = NXlink('/entry/data/v', 
+                          file=os.path.join(scan, 'transform.nxs'), name='data')
+            if transform in self.root['entry']:
+                del self.root['entry/transform']
+            self.root['entry']['transform'] = NXdata(data, [Ql,Qk,Qh])
+        except Exception as error:
+            self.logger.info('Unable to initialize transform group')
+            return None
+        input = ' '.join([os.path.join(self.directory, 
+                                       '%s_transform.nxs\#/entry/data' % entry)
+                          for entry in self.entries])
+        output = os.path.join(directory, 'transform.nxs\#/entry/data/v')
+        return 'cctw merge %s -o %s' % (input, output)
+
     def nxreduce(self):
         self.nxlink()
         self.nxmax()
@@ -894,38 +958,40 @@ class NXReduce(QtCore.QObject):
         if self.server is None:
             raise NeXusError("NXServer not running")
 
-        switches = '-d %s -e %s' % (self.directory, self._entry)
+        switches = ['-d %s' % self.directory, '-e %s' % self._entry]
         if parent:
             command = 'nxparent '
             if self.first is not None:
-                switches += ' -f %s' % self.first
+                switches.append('-f %s' % self.first)
             if self.last is not None:
-                switches += ' -l %s' % self.last
+                switches.append('-l %s' % self.last)
             if self.threshold is not None:
-                switches += ' -t %s' % self.threshold
+                switches.append('-t %s' % self.threshold)
             if self.radius is not None:
-                switches += ' -r %s' % self.radius
+                switches.append('-r %s' % self.radius)
             if self.width is not None:
-                switches += ' -w %s' % self.width
-            switches += ' -s'
+                switches.append('-w %s' % self.width)
+            switches.append('-s')
         else:
             command = 'nxreduce '
             if self.link:
-                switches += ' -l'
+                switches.append('-l')
             if self.maxcount:
-                switches += ' -m'
+                switches.append('-m')
             if self.find:
-                switches += ' -f'
+                switches.append('-f')
             if self.copy:
-                switches += ' -c'
+                switches.append('-c')
             if self.refine:
-                switches += ' -r'
+                switches.append('-r')
             if self.transform:
-                switches += ' -t'
+                switches.append('-t')
+            if len(switches) == 2:
+                return
         if self.overwrite:
-            switches += ' -o'
+            switches.append('-o')
         
-        self.server.add_task(command+switches)
+        self.server.add_task(command+' '.join(switches))
 
 
 class NXpeak(object):
