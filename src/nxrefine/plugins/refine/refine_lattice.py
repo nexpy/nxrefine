@@ -54,7 +54,7 @@ class RefineLatticeDialog(BaseDialog):
         self.parameters.add('roll', self.refine.roll, 'Roll (deg)')
         self.parameters.add('xc', self.refine.xc, 'Beam Center - x', False)
         self.parameters.add('yc', self.refine.yc, 'Beam Center - y', False)
-        self.parameters.add('phi_start', self.refine.phi, 'Phi Start (deg)', False)
+        self.parameters.add('phi', self.refine.phi, 'Phi Start (deg)', False)
         self.parameters.add('phi_step', self.refine.phi_step, 'Phi Step (deg)')
         self.parameters.add('chi', self.refine.chi, 'Chi (deg)', False)
         self.parameters.add('omega', self.refine.omega, 'Omega (deg)', False)
@@ -121,7 +121,7 @@ class RefineLatticeDialog(BaseDialog):
         self.parameters['roll'].value = self.refine.roll
         self.parameters['xc'].value = self.refine.xc
         self.parameters['yc'].value = self.refine.yc
-        self.parameters['phi_start'].value = self.refine.phi
+        self.parameters['phi'].value = self.refine.phi
         self.parameters['phi_step'].value = self.refine.phi_step
         self.parameters['chi'].value = self.refine.chi
         self.parameters['omega'].value = self.refine.omega
@@ -247,7 +247,7 @@ class RefineLatticeDialog(BaseDialog):
         return self.parameters['xc'].value, self.parameters['yc'].value
 
     def get_phi(self):
-        return (self.parameters['phi_start'].value, 
+        return (self.parameters['phi'].value, 
                 self.parameters['phi_step'].value)
 
     def get_angles(self):
@@ -331,7 +331,7 @@ class RefineLatticeDialog(BaseDialog):
         self.parameters.status_message.setText('Fitting...')
         self.parameters.status_message.repaint()
         self.mainwindow.app.app.processEvents()
-        self.parameters['phi_start'].vary = False
+        self.parameters['phi'].vary = False
         self.transfer_parameters()
         self.refine.refine_angles(**self.refined)
         self.parameters.result = self.refine.result
