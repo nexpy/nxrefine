@@ -161,7 +161,7 @@ class NXReduce(QtCore.QObject):
         self.lattice = lattice
         self.transform = transform
         self.combine = combine
-        self.mask3D = mask3D
+        self.mask3D = False #Temporary halt until code fixed
         self.overwrite = overwrite
         self.gui = gui
         
