@@ -958,6 +958,7 @@ class NXMultiReduce(NXReduce):
     def __init__(self, directory, entries=['f1', 'f2', 'f3'], overwrite=False):
         super(NXMultiReduce, self).__init__(entry='entry', directory=directory, 
                                             entries=entries, overwrite=overwrite)
+        self.combine = True
 
     def complete(self, program):
         complete = True
@@ -967,8 +968,10 @@ class NXMultiReduce(NXReduce):
         return complete
 
     def nxcombine(self):
-        if (('nxcombine' not in self.root['entry'] or self.overwrite) and
-            self.complete('nxtransform')):
+        if self.not_complete('nxcombine') and self.combine:
+            if not self.complete('nxtransform'):
+                self.logger.info('Cannot combine until transforms complete')
+                return
             with Lock(self.wrapper_file):
                 cctw_command = self.prepare_combine()
             if cctw_command:
