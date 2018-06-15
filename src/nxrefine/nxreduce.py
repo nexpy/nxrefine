@@ -955,8 +955,9 @@ class NXReduce(QtCore.QObject):
 
 class NXMultiReduce(NXReduce):
 
-    def __init__(self, directory, entries):
-        super(NXReduce, self).__init__('entry', directory, entries=entries)
+    def __init__(self, directory, entries, overwrite=False):
+        super(NXReduce, self).__init__('entry', directory, entries=entries,
+                                       overwrite=overwrite)
 
     def complete(self, program):
         complete = True
