@@ -6,7 +6,7 @@ import sys
 
 import numpy as np
 from nexusformat.nexus import *
-from nxrefine.nxrefine import NXRefine
+from nxrefine.nxreduce import NXMultiReduce
 from nxrefine import __version__
 
 
