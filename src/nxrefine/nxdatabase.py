@@ -1,9 +1,14 @@
+import os
+
 from sqlalchemy import create_engine, Column, Integer, String, Enum
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import sessionmaker
 
+from nxrefine.nxreduce import Lock
+
+
 engine = create_engine('mysql+cymysql://python:pythonpa^ss@18.219.38.132/test',
-        echo=True)
+        echo=False)
 
 Base = automap_base()
 
@@ -48,6 +53,28 @@ def get_status(filename, task):
     return scalar[0]
 
 """ Populate the database based on local files. Will overwrite current
-    database contents """ 
-def sync_db():
-    return None
+    database contents """
+def sync_db(sample_dir):
+
+    # Get a list of all the .nxs wrapper files
+    wrapper_files = ( os.path.join(sample_dir, filename) for filename in
+                    os.listdir(sample_dir) if filename.endswith('.nxs')
+                    and all(x not in filename for x in ('parent', 'mask')) )
+
+    for w in wrapper_files:
+        base_name = os.path.basename(os.path.splitext(wrapper_file)[0])
+        scan_label = base_name.replace(self.sample+'_', '')
+        scan_dir = os.path.join(sample_dir, scan_label)
+        try:
+            scan_files = os.listdir(scan_dir)
+        except OSError:
+            scan_files = []
+        with Lock(w):
+            root = nxload(w)
+            entries = (e for e in root.entries if e != 'entry')
+        # Track how many entries have finished each task
+        tasks = { t: 0 for t in ('data', 'nxlink', 'nxmax', 'nxfind', 'nxcopy', 'nxrefine',
+                'nxtransform', 'nxcombine') }
+        for t in tasks:
+            for e in entries:
+                # TODO: create dictionary of lambdas to check task completion conditions?

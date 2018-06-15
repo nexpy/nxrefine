@@ -9,7 +9,6 @@
 
 import argparse
 from nxrefine.nxreduce import NXReduce
-import pdb
 
 def main():
 

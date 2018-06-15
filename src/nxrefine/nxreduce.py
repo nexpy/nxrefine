@@ -10,7 +10,7 @@ import numpy as np
 from h5py import is_hdf5
 
 #### DEBUGGING ####
-import ipdb; ipdb.set_trace()
+# import ipdb; ipdb.set_trace()
 
 from nexusformat.nexus import *
 
@@ -125,6 +125,7 @@ class NXReduce(QtCore.QObject):
                                              '%s_%s.nxs' %
                                              (self.sample, self.scan))
             self._entry = entry
+
         self.base_directory = os.path.dirname(self.wrapper_file)
         self.task_directory = os.path.join(self.root_directory, 'tasks')
         self.mask_file = os.path.join(self.base_directory,
@@ -375,6 +376,14 @@ class NXReduce(QtCore.QObject):
     def complete(self, program):
         return program in self.entry
 
+    """ Check that all entries for this temperature (ie in self.root) are done """
+    def all_complete(self, program):
+        complete = True
+        for entry in self.entries:
+            if program not in self.root[entry]:
+                complete = False
+        return complete
+
     def not_complete(self, program):
         return program not in self.entry or self.overwrite
 
@@ -422,8 +431,10 @@ class NXReduce(QtCore.QObject):
         if program in self.entry:
             del self.entry[program]
 
-        #TODO: check if all 3 entries are done
-        # update_db(self.wrapper_file, program, 'done')
+        # check if all 3 entries are done
+        if self.all_complete(program):
+            update_db(self.wrapper_file, program, 'done')
+
         self.entry[program] = NXprocess(program='%s' % program,
                                 sequence_index=len(self.entry.NXprocess)+1,
                                 version='nxrefine v'+__version__,
@@ -973,16 +984,9 @@ class NXMultiReduce(NXReduce):
                                             entries=entries, overwrite=overwrite)
         self.combine = True
 
-    def complete(self, program):
-        complete = True
-        for entry in self.entries:
-            if program not in self.root[entry]:
-                complete = False
-        return complete
-
     def nxcombine(self):
         if self.not_complete('nxcombine') and self.combine:
-            if not self.complete('nxtransform'):
+            if not self.all_complete('nxtransform'):
                 self.logger.info('Cannot combine until transforms complete')
                 return
             with Lock(self.wrapper_file):

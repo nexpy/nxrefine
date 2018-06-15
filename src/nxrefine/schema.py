@@ -10,9 +10,12 @@ Base = declarative_base();
 
 class File(Base):
     __tablename__ = 'files'
+    # Records files that have: not been processed, queued on the NXserver
+        # but not started, started processing, finished processing
     _progress = Enum('not started', 'queued', 'in progress', 'done')
 
     filename = Column(String(255), nullable=False, primary_key=True)
+    data = Column(_progress, server_default='not started')
     nxlink = Column(_progress, server_default='not started')
     nxmax = Column(_progress, server_default='not started')
     nxfind = Column(_progress, server_default='not started')
