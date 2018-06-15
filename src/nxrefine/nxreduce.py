@@ -996,9 +996,10 @@ class NXMultiReduce(NXReduce):
 
     def prepare_combine(self):
         try:
-            Qh, Qk, Ql = (self.root[self.first_entry]['transform']['Qh'],
-                          self.root[self.first_entry]['transform']['Qk'],
-                          self.root[self.first_entry]['transform']['Ql'])
+            entry = self.entries[0]
+            Qh, Qk, Ql = (self.root[entry]['transform']['Qh'],
+                          self.root[entry]['transform']['Qk'],
+                          self.root[entry]['transform']['Ql'])
             data = NXlink('/entry/data/v', 
                           file=os.path.join(self.scan, 'transform.nxs'), name='data')
             if transform in self.entry:
@@ -1010,7 +1011,7 @@ class NXMultiReduce(NXReduce):
         input = ' '.join([os.path.join(self.directory, 
                                        '%s_transform.nxs\#/entry/data' % entry)
                           for entry in self.entries])
-        output = os.path.join(directory, 'transform.nxs\#/entry/data/v')
+        output = os.path.join(self.directory, 'transform.nxs\#/entry/data/v')
         return 'cctw merge %s -o %s' % (input, output)
 
     def queue(self):
