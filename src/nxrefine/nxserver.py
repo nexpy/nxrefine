@@ -40,8 +40,8 @@ class NXTask(object):
         self.command = command
 
     def execute(self, node):
-        subprocess.run("pdsh -w %s 'cd %s; %s >> tasks/%s.out'"
-                        % (node, self.path, self.command, node), shell=True)
+        subprocess.run("pdsh -w %s 'cd %s; %s'"
+                        % (node, self.path, self.command), shell=True)
 
 
 class NXServer(NXDaemon):
