@@ -1002,7 +1002,7 @@ class NXMultiReduce(NXReduce):
                           self.root[entry]['transform']['Ql'])
             data = NXlink('/entry/data/v', 
                           file=os.path.join(self.scan, 'transform.nxs'), name='data')
-            if transform in self.entry:
+            if 'transform' in self.entry:
                 del self.entry['transform']
             self.entry['transform'] = NXdata(data, [Ql,Qk,Qh])
         except Exception as error:
