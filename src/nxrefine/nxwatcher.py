@@ -59,7 +59,8 @@ class NXHandler(FileSystemEventHandler):
 
     @staticmethod
     def on_any_event(event):
-        filename = event.src_path
+        file_name = event.src_path
+        self.log('watcher: Monitoring %s' % file_name)
         if event.is_directory:
             return None
         elif event.event_type == 'created':
@@ -72,7 +73,7 @@ class NXHandler(FileSystemEventHandler):
                     directory = os.path.dirname(file_name)
                     if entry in self.entries:
                         if file_name.endswith('.h5'):
-                            self.log('Treating %s' % file_name)
+                            self.log('watcher: Queuing %s' % file_name)
                             reduce = NXReduce(entry, directory,
                                               link=True, maxcount=True)
                             if reduce.parent:
@@ -83,7 +84,7 @@ class NXHandler(FileSystemEventHandler):
                             reduce.queue()
                             del self.watch_files[file_name]
                         elif '_transform' in file_name:
-                            self.log('Treating %s' % file_name)
+                            self.log('Queuing %s' % file_name)
                             if (True not in 
                                 [NXReduce(e, directory).not_complete('nxtransform')
                                  for e in self.entries]):
