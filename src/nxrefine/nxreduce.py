@@ -904,57 +904,6 @@ class NXReduce(QtCore.QObject):
             self.logger.info('Invalid HKL grid')
             return None
 
-    def nxcombine(self):
-        if ('nxcombine' not in self.root['entry'] or self.overwrite) and self.combine:
-            transform_complete = ['nxtransform' in entry for entry in self.entries]
-            if not transform_complete:
-                self.logger.info('Cannot combine until the transforms are complete')
-                return
-            with Lock(self.wrapper_file):
-                cctw_command = self.prepare_combine()
-            if cctw_command:
-                self.logger.info('Combining transforms (%s)' 
-                                 % ', '.join(self.entries))
-                tic = timeit.default_timer()
-                process = subprocess.run(cctw_command, shell=True,
-                                         stdout=subprocess.PIPE,
-                                         stderr=subprocess.PIPE)
-                toc = timeit.default_timer()
-                if process.returncode == 0:
-                    self.logger.info('Combine completed (%g seconds)' 
-                                     % (toc-tic))
-                else:
-                    self.logger.info(
-                        'Combine completed - errors reported (%g seconds)' 
-                        % (toc-tic))
-                self._entry = 'entry'
-                self.record('nxcombine', command=cctw_command,
-                            output=process.stdout.decode(), 
-                            errors=process.stderr.decode())
-            else:
-                self.logger.info('CCTW command invalid')                
-        elif self.combine:
-            self.logger.info('Data already combined')             
-
-    def prepare_combine(self):
-        try:
-            Qh, Qk, Ql = (self.entry['transform']['Qh'],
-                          self.entry['transform']['Qk'],
-                          self.entry['transform']['Ql'])
-            data = NXlink('/entry/data/v', 
-                          file=os.path.join(scan, 'transform.nxs'), name='data')
-            if transform in self.root['entry']:
-                del self.root['entry/transform']
-            self.root['entry']['transform'] = NXdata(data, [Ql,Qk,Qh])
-        except Exception as error:
-            self.logger.info('Unable to initialize transform group')
-            return None
-        input = ' '.join([os.path.join(self.directory, 
-                                       '%s_transform.nxs\#/entry/data' % entry)
-                          for entry in self.entries])
-        output = os.path.join(directory, 'transform.nxs\#/entry/data/v')
-        return 'cctw merge %s -o %s' % (input, output)
-
     def nxreduce(self):
         self.nxlink()
         self.nxmax()
@@ -1003,6 +952,77 @@ class NXReduce(QtCore.QObject):
         
         self.server.add_task(command+' '.join(switches))
 
+
+class NXMultiReduce(NXReduce):
+
+    def __init__(self, directory, entries):
+        super(NXReduce, self).__init__('entry', directory, entries=entries)
+
+    def complete(self, program):
+        complete = True
+        for entry in self.entries:
+            if program not in self.root[entry]:
+                complete = False
+        return complete
+
+    def nxcombine(self):
+        if (('nxcombine' not in self.root['entry'] or self.overwrite) and
+            self.complete('nxtransform'):
+            with Lock(self.wrapper_file):
+                cctw_command = self.prepare_combine()
+            if cctw_command:
+                self.logger.info('Combining transforms (%s)' 
+                                 % ', '.join(self.entries))
+                tic = timeit.default_timer()
+                process = subprocess.run(cctw_command, shell=True,
+                                         stdout=subprocess.PIPE,
+                                         stderr=subprocess.PIPE)
+                toc = timeit.default_timer()
+                if process.returncode == 0:
+                    self.logger.info('Combine completed (%g seconds)' 
+                                     % (toc-tic))
+                else:
+                    self.logger.info(
+                        'Combine completed - errors reported (%g seconds)' 
+                        % (toc-tic))
+                self.record('nxcombine', command=cctw_command,
+                            output=process.stdout.decode(), 
+                            errors=process.stderr.decode())
+            else:
+                self.logger.info('CCTW command invalid')                
+        elif self.combine:
+            self.logger.info('Data already combined')             
+
+    def prepare_combine(self):
+        try:
+            Qh, Qk, Ql = (self.root[self.first_entry]['transform']['Qh'],
+                          self.root[self.first_entry]['transform']['Qk'],
+                          self.root[self.first_entry]['transform']['Ql'])
+            data = NXlink('/entry/data/v', 
+                          file=os.path.join(scan, 'transform.nxs'), name='data')
+            if transform in self.entry:
+                del self.entry['transform']
+            self.entry['transform'] = NXdata(data, [Ql,Qk,Qh])
+        except Exception as error:
+            self.logger.info('Unable to initialize transform group')
+            return None
+        input = ' '.join([os.path.join(self.directory, 
+                                       '%s_transform.nxs\#/entry/data' % entry)
+                          for entry in self.entries])
+        output = os.path.join(directory, 'transform.nxs\#/entry/data/v')
+        return 'cctw merge %s -o %s' % (input, output)
+
+    def queue(self):
+        if self.server is None:
+            raise NeXusError("NXServer not running")
+
+        command = 'nxcombine '
+        switches = ['-d %s' %  self.directory, '-e %s' % ' '.join(self.entries)]
+        if self.overwrite:
+            switches.append('-o')
+        
+        self.server.add_task(command+' '.join(switches))
+        
 
 class NXpeak(object):
 

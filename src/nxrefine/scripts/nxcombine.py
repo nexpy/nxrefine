@@ -16,7 +16,7 @@ def main():
         description="Combine CCTW transforms")
     parser.add_argument('-d', '--directory', default='', help='scan directory')
     parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
-                        nargs='+', help='names of data entries to be merged')
+        nargs='+', help='names of entries to be searched')
     parser.add_argument('-m', '--mask', action='store_true', 
                         help='transform with 3D mask')
     parser.add_argument('-o', '--overwrite', action='store_true', 
@@ -24,8 +24,8 @@ def main():
     
     args = parser.parse_args()
 
-    reduce = NXReduce(args.directory, combine=True, entries=args.entries,
-                      overwrite=args.overwrite)
+    reduce = NXMultiReduce(args.directory, entries=args.entries, 
+                           overwrite=args.overwrite)
     reduce.nxcombine()
 
 
