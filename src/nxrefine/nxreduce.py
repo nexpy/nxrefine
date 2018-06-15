@@ -1000,7 +1000,7 @@ class NXMultiReduce(NXReduce):
                           self.root[self.first_entry]['transform']['Qk'],
                           self.root[self.first_entry]['transform']['Ql'])
             data = NXlink('/entry/data/v', 
-                          file=os.path.join(scan, 'transform.nxs'), name='data')
+                          file=os.path.join(self.scan, 'transform.nxs'), name='data')
             if transform in self.entry:
                 del self.entry['transform']
             self.entry['transform'] = NXdata(data, [Ql,Qk,Qh])
