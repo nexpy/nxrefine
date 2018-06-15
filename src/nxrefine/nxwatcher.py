@@ -29,12 +29,17 @@ class NXWatcher(NXDaemon):
                                   self.log_file)
         self.observer.schedule(event_handler, self.directory, recursive=True)
         self.observer.start()
+        self.log('watcher: Watching %s' % self.directory)
         try:
             while True:
                 time.sleep(10)
         except:
             self.observer.stop()
         self.observer.join()
+
+    def log(self, message):
+        with open(self.log_file, 'a') as f:
+            f.write(message+'\n')
 
 
 class NXHandler(FileSystemEventHandler):
@@ -44,6 +49,7 @@ class NXHandler(FileSystemEventHandler):
         self.entries = entries
         self.timeout = timeout
         self.log_file = log_file
+        self.log('Starting handler')
         super(NXHandler, self).__init__()
 
     def log(self, message):
