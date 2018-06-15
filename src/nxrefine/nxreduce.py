@@ -967,9 +967,7 @@ class NXMultiReduce(NXReduce):
 
     def nxcombine(self):
         if (('nxcombine' not in self.root['entry'] or self.overwrite) and
-            if not self.complete('nxtransform'):
-                self.logger.info('Transforms not complete')
-                return
+            self.complete('nxtransform')):
             with Lock(self.wrapper_file):
                 cctw_command = self.prepare_combine()
             if cctw_command:
