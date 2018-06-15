@@ -24,7 +24,7 @@ def main():
     
     args = parser.parse_args()
 
-    reduce = NXMultiReduce(args.directory, entries=args.entries, 
+    reduce = NXMultiReduce(args.directory, entries=args.entries,
                            overwrite=args.overwrite)
     reduce.nxcombine()
 
