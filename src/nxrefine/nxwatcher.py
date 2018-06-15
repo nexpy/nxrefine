@@ -19,12 +19,14 @@ class NXWatcher(NXDaemon):
             os.mkdir(self.task_directory)
         self.server = NXServer(self.directory)
         self.watch_files = {}
+        self.log_file = os.path.join(self.task_directory, 'nxserver.log')
         self.pid_file = os.path.join(self.task_directory, 'nxwatcher.pid')
         self.observer = Observer()
         super(NXWatcher, self).__init__(self.pid_file)
 
     def run(self):
-        event_handler = NXHandler(self.server, self.entries, self.timeout)
+        event_handler = NXHandler(self.server, self.entries, self.timeout,
+                                  self.log_file)
         self.observer.schedule(event_handler, self.directory, recursive=True)
         self.observer.start()
         try:
@@ -37,11 +39,16 @@ class NXWatcher(NXDaemon):
 
 class NXHandler(FileSystemEventHandler):
 
-    def __init__(self, server, entries, timeout):
+    def __init__(self, server, entries, timeout, log_file):
         self.server = server
         self.entries = entries
         self.timeout = timeout
+        self.log_file = log_file
         super(NXHandler, self).__init__()
+
+    def log(self, message):
+        with open(self.log_file, 'a') as f:
+            f.write(message+'\n')
 
     def static(self, file_name):
         now = time.time()
@@ -65,6 +72,7 @@ class NXHandler(FileSystemEventHandler):
                     directory = os.path.dirname(file_name)
                     if entry in self.entries:
                         if file_name.endswith('.h5'):
+                            self.log('Treating %s' % file_name)
                             reduce = NXReduce(entry, directory,
                                               link=True, maxcount=True)
                             if reduce.parent:
@@ -75,9 +83,14 @@ class NXHandler(FileSystemEventHandler):
                             reduce.queue()
                             del self.watch_files[file_name]
                         elif '_transform' in file_name:
+                            self.log('Treating %s' % file_name)
                             if (True not in 
                                 [NXReduce(e, directory).not_complete('nxtransform')
                                  for e in self.entries]):
                                 self.server.add_task('nxcombine -d %s' % directory)
                 else:
                     self.watch_files[file_name] = time.time()
+
+    def log(self, message):
+        with open(self.log_file, 'a') as f:
+            f.write(message+'\n')
