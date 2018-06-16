@@ -98,7 +98,8 @@ class ScanDialog(BaseDialog):
 
     def get_configurations(self):
         home_directory = self.get_directory()
-        if 'configurations' in os.listdir(home_directory):
+        if (os.path.exists(home_directory) and 
+            'configurations' in os.listdir(home_directory)):
             return [f for f in 
                     os.listdir(os.path.join(home_directory, 'configurations'))
                     if f.endswith('.nxs')]
@@ -123,13 +124,14 @@ class ScanDialog(BaseDialog):
         
     def get_samples(self):
         home_directory = self.get_directory()
-        if 'configurations' in os.listdir(home_directory):
+        if (os.path.exists(home_directory) and 
+            'configurations' in os.listdir(home_directory)):
             sample_directories = [f for f in os.listdir(home_directory)
                                   if (not f.startswith('.') and
                                       os.path.isdir(
                                         os.path.join(home_directory, f)))]
         else:
-            sample_directories = []
+            return []
         samples = []
         for sample_directory in sample_directories:
             label_directories = [f for f in 
