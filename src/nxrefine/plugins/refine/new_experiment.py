@@ -97,6 +97,8 @@ class ExperimentDialog(BaseDialog):
             entry['instrument/detector/translation_x'].attrs['units'] = 'mm'
             entry['instrument/detector/translation_y'] = self.detectors[position]['y'].value
             entry['instrument/detector/translation_y'].attrs['units'] = 'mm'
+            entry['instrument/detector/frame_time'] = 0.1
+            entry['instrument/detector/frame_time'].attrs['units'] = 'seconds'
 
     def accept(self):
         try:
@@ -108,6 +110,12 @@ class ExperimentDialog(BaseDialog):
                 os.makedirs(configuration_directory)
             self.experiment_file.save(os.path.join(configuration_directory,
                                                    self.instrument['experiment'].value+'.nxs'))
+            task_directory = os.path.join(home_directory, 'tasks')
+            if not os.path.exists(task_directory):
+                os.makedirs(task_directory)
+            calibration_directory = os.path.join(home_directory, 'calibrations')
+            if not os.path.exists(calibration_directory):
+                os.makedirs(calibration_directory)
             self.treeview.tree.load(self.experiment_file.nxfilename, 'rw')
             super(ExperimentDialog, self).accept()
         except Exception as error:
