@@ -55,6 +55,8 @@ class NXRefine(object):
     def __init__(self, node=None):
         if node is not None:
             self.entry = node.nxentry
+        else:
+            self.entry = None
         self.a = 4.0
         self.b = 4.0
         self.c = 4.0
