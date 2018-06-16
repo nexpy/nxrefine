@@ -25,10 +25,10 @@ class ParentDialog(BaseDialog):
         self.parameters.add('threshold', '', 'Threshold')
         self.parameters.add('first', '', 'First Frame')
         self.parameters.add('last', '', 'Last Frame')
-        self.parameters.add('radius', 200, 'Radius')
-        self.parameters.add('width', 3, 'Frame Width')
+        self.parameters.add('radius', '', 'Radius')
+        self.parameters.add('width', '', 'Frame Width')
 
-        self.set_layout(self.directorybox('Choose Sample Directory'),
+        self.set_layout(self.directorybox('Choose Sample Directory', default=False),
                         self.filebox('Choose Parent File'),
                         self.parameters.grid(),
                         self.action_buttons(('Add to Queue', self.add_tasks)),

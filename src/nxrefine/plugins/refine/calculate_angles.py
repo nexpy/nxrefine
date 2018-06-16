@@ -21,8 +21,7 @@ class CalculateDialog(BaseDialog):
         
         self.select_entry(self.choose_entry)
 
-        self.refine = NXRefine(self.entry)
-        self.refine.read_parameters()
+        self.refine = NXRefine()
 
         self.parameters = GridParameters()
         self.parameters.add('wavelength', self.refine.wavelength, 'Wavelength (Ang)')

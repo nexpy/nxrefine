@@ -24,7 +24,8 @@ class ScanDialog(BaseDialog):
         self.entries = {}
 
         self.directory_box = self.directorybox('Choose Experiment Directory',
-                                               self.choose_directory)
+                                               self.choose_directory,
+                                               default=False)
         self.configuration_box = self.select_configuration()
         self.configuration_layout = self.make_layout(
             self.action_buttons(('Choose Experiment Configuration', 

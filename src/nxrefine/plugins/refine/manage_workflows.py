@@ -20,7 +20,7 @@ class WorkflowDialog(BaseDialog):
     def __init__(self, parent=None):
         super(WorkflowDialog, self).__init__(parent)
 
-        self.set_layout(self.directorybox('Choose Sample Directory'),
+        self.set_layout(self.directorybox('Choose Sample Directory', default=False),
                         self.filebox('Choose Parent File'),
                         self.action_buttons(('Update Status', self.update),
                                             ('Add to Queue', self.add_tasks)),

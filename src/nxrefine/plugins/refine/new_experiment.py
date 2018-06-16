@@ -29,7 +29,7 @@ class ExperimentDialog(BaseDialog):
 
         self.setup_instrument()
 
-        self.set_layout(self.directorybox('Choose Experiment Directory'), 
+        self.set_layout(self.directorybox('Choose Experiment Directory', default=False), 
                         self.instrument.grid(header=False))
         self.set_title('New Experiment')
 
