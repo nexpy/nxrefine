@@ -559,16 +559,20 @@ class NXReduce(QtCore.QObject):
                 v = data[i:i+chunk_size,:,:]
             except IndexError as error:
                 pass
+            if i == self.first:
+                vsum = v.sum(0)
+            else:
+                vsum += v.sum(0)
             if self.mask is not None:
                 v = np.ma.masked_array(v)
                 v.mask = self.mask
             if maximum < v.max():
                 maximum = v.max()
-            if i == self.first:
-                self.summed_data = NXfield(v.sum(0), name='summed_data')
-            else:
-                self.summed_data = self.summed_data + v.sum(0)
             del v
+        if self.mask is not None:
+            vsum = np.ma.masked_array(vsum)
+            vsum.mask = self.mask
+        self.summed_data = NXfield(vsum, name='summed_data')
         toc = self.stop_progress()
         self.logger.info('Maximum counts: %s (%g seconds)' % (maximum, toc-tic))
         return maximum
