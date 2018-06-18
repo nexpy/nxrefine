@@ -9,8 +9,8 @@ import timeit
 import numpy as np
 from h5py import is_hdf5
 
-#### DEBUGGING ####
-# import ipdb; ipdb.set_trace()
+### DEBUGGING ####
+import ipdb
 
 from nexusformat.nexus import *
 
@@ -22,7 +22,7 @@ from .nxserver import NXServer
 from . import blobcorrector, __version__
 from .connectedpixels import blob_moments
 from .labelimage import labelimage, flip1
-from .nxdatabase import update_db, get_status
+from .nxdatabase import update_db, get_status, sync_db
 
 
 class LockException(Exception):
@@ -420,8 +420,9 @@ class NXReduce(QtCore.QObject):
     def stopped(self, value):
         self._stopped = value
 
-    """ Record that a task has finished. Update NeXus file and DB """
+    """ Record that a task has finished. Update NeXus file and database """
     def record(self, program, **kwds):
+        # ipdb.set_trace()
         parameters = '\n'.join(
             [('%s: %s' % (k, v)).replace('_', ' ').capitalize()
              for (k,v) in kwds.items()])
@@ -431,14 +432,13 @@ class NXReduce(QtCore.QObject):
         if program in self.entry:
             del self.entry[program]
 
-        # check if all 3 entries are done
-        if self.all_complete(program):
-            update_db(self.wrapper_file, program, 'done')
-
         self.entry[program] = NXprocess(program='%s' % program,
                                 sequence_index=len(self.entry.NXprocess)+1,
                                 version='nxrefine v'+__version__,
                                 note=note)
+        # check if all 3 entries are done
+        if self.all_complete(program):
+            update_db(self.wrapper_file, program, 'done')
 
     """ Record that a task has started. Update DB """
     def record_start(self, program):
@@ -449,8 +449,8 @@ class NXReduce(QtCore.QObject):
             if not self.data_exists():
                 self.logger.info('Data file not available')
                 return
+            self.record_start('nxlink')
             with Lock(self.wrapper_file):
-                self.record_start('nxlink')
                 self.link_data()
                 logs = self.read_logs()
                 if logs:
@@ -546,10 +546,12 @@ class NXReduce(QtCore.QObject):
             self.entry['instrument/attenuator/attenuator_transmission'] = logs['Calculated_filter_transmission']
 
     def nxmax(self):
+        # ipdb.set_trace()
         if self.not_complete('nxmax') and self.maxcount:
             if not self.data_exists():
                 self.logger.info('Data file not available')
                 return
+            self.record_start('nxmax')
             with Lock(self.data_file):
                 maximum = self.find_maximum()
             if self.gui:
@@ -613,6 +615,7 @@ class NXReduce(QtCore.QObject):
             if not self.data_exists():
                 self.logger.info('Data file not available')
                 return
+            self.record_start('nxfind')
             with Lock(self.data_file):
                 peaks = self.find_peaks()
             if self.gui:
@@ -803,6 +806,7 @@ class NXReduce(QtCore.QObject):
     def nxcopy(self):
         if self.not_complete('nxcopy') and self.copy:
             if self.parent:
+                self.record_start('nxcopy')
                 self.copy_parameters()
                 self.record('nxcopy', parent=self.parent)
             else:
@@ -825,6 +829,7 @@ class NXReduce(QtCore.QObject):
             if self.not_complete('nxfind'):
                 self.logger.info('Cannot refine until peak search is completed')
                 return
+            self.record_start('nxrefine')
             with Lock(self.wrapper_file):
                 if self.lattice or self.first_entry:
                     lattice = True
@@ -861,6 +866,7 @@ class NXReduce(QtCore.QObject):
             if self.not_complete('nxrefine'):
                 self.logger.info('Cannot transform until the orientation is complete')
                 return
+            self.record_start('nxtransform')
             with Lock(self.wrapper_file):
                 cctw_command = self.prepare_transform()
             if cctw_command:
@@ -985,10 +991,12 @@ class NXMultiReduce(NXReduce):
         self.combine = True
 
     def nxcombine(self):
+        # ipdb.set_trace()
         if self.not_complete('nxcombine') and self.combine:
             if not self.all_complete('nxtransform'):
                 self.logger.info('Cannot combine until transforms complete')
                 return
+            self.record_start('nxcombine')
             with Lock(self.wrapper_file):
                 cctw_command = self.prepare_combine()
             if cctw_command:
