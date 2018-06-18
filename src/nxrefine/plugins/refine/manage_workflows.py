@@ -5,7 +5,7 @@ from nexpy.gui.pyqt import QtCore, QtWidgets
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.utils import report_error, natural_sort
 
-from nxrefine.nxreduce import Lock, NXReduce
+from nxrefine.nxreduce import Lock, NXReduce, NXMultiReduce
 
 
 def show_dialog():
@@ -261,5 +261,11 @@ class WorkflowDialog(BaseDialog):
                 if self.selected(scan, 'transform'):
                     reduce.transform = True
                 if self.selected(scan, 'overwrite'):
-                    reduce.overwrite=True
+                    reduce.overwrite = True
                 reduce.queue()
+            if self.selected(scan, 'combine'):
+                reduce = NXMultiReduce(scan, self.entries)
+                if self.selected(scan, 'overwrite'):
+                    reduce.overwrite = True
+                reduce.queue()
+                

@@ -1024,16 +1024,17 @@ class NXMultiReduce(NXReduce):
         output = os.path.join(self.directory, 'transform.nxs\#/entry/data/v')
         return 'cctw merge %s -o %s' % (input, output)
 
-    def queue(self):
-        if self.server is None:
-            raise NeXusError("NXServer not running")
-
+    def command(self):
         command = 'nxcombine '
         switches = ['-d %s' %  self.directory, '-e %s' % ' '.join(self.entries)]
         if self.overwrite:
             switches.append('-o')
-        
-        self.server.add_task(command+' '.join(switches))
+        return command+' '.join(switches)
+    
+    def queue(self):
+        if self.server is None:
+            raise NeXusError("NXServer not running")        
+        self.server.add_task(self.command())
         
 
 class NXpeak(object):
