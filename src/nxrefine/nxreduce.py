@@ -917,10 +917,7 @@ class NXReduce(QtCore.QObject):
         self.nxrefine()
         self.nxtransform()
     
-    def queue(self, parent=False):
-        if self.server is None:
-            raise NeXusError("NXServer not running")
-
+    def command(self, parent=False):
         switches = ['-d %s' % self.directory, '-e %s' % self._entry]
         if parent:
             command = 'nxparent '
@@ -950,12 +947,18 @@ class NXReduce(QtCore.QObject):
             if self.transform:
                 switches.append('-t')
             if len(switches) == 2:
-                return
+                return None
         if self.overwrite:
             switches.append('-o')
-        
-        self.server.add_task(command+' '.join(switches))
 
+        return command+' '.join(switches)
+
+    def queue(self, parent=False):
+        if self.server is None:
+            raise NeXusError("NXServer not running")
+        command = self.command(parent)
+        if command:
+            self.server.add_task(self.command(parent))
 
 class NXMultiReduce(NXReduce):
 
