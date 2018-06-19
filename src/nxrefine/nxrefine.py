@@ -657,13 +657,6 @@ class NXRefine(object):
             pass
         self.polar_max = polar_max
 
-    def polar(self, x, y):
-        Oimat = inv(self.Omat)
-        Mat = self.pixel_size * inv(self.Dmat) * Oimat
-        peak = Oimat * (vec(x, y) - self.Cvec)
-        v = norm(Mat * peak)
-        return np.arctan(v / self.distance) * degrees
-
     def calculate_angles(self, x, y):
         """Calculate the polar and azimuthal angles of the specified pixels"""
         Oimat = inv(self.Omat)
@@ -776,15 +769,6 @@ class NXRefine(object):
             self.Umat = (self.get_UBmat(self.primary, self.secondary) 
                          * self.Bimat)
 
-    @property
-    def idx(self):
-        return list(np.where(self.polar_angle < self.polar_max)[0])
-
-    def score(self, grain=None):
-        diffs = self.diffs()
-        weights = self.weights
-        return np.sum(weights * diffs) / np.sum(weights)
-
     def unitarity(self):
         if self.Umat is not None:
             return np.matrix(self.Umat) * np.matrix(self.Umat.T)
@@ -825,13 +809,30 @@ class NXRefine(object):
         """Return the calculated (hkl) for the specified peak"""
         return self.get_hkl(self.xp[i], self.yp[i], self.zp[i])
 
-    def diffs(self):
-        """Return the set of reciproal space differences for all the peaks"""
-        return np.array([self.diff(i) for i in self.idx])
+    def polar(self, i):
+        """Return the polar angle for the specified peak"""
+        Oimat = inv(self.Omat)
+        Mat = self.pixel_size * inv(self.Dmat) * Oimat
+        peak = Oimat * (vec(self.xp[i], self.yp[i]) - self.Cvec)
+        v = norm(Mat * peak)
+        return np.arctan(v / self.distance)
+
+    @property
+    def idx(self):
+        return list(np.where(self.polar_angle < self.polar_max)[0])
 
     @property
     def weights(self):
         return np.array(self.intensity[self.idx])
+
+    def score(self, grain=None):
+        diffs = self.diffs()
+        weights = self.weights
+        return np.sum(weights * diffs) / np.sum(weights)
+
+    def diffs(self):
+        """Return the set of reciproal space differences for all the peaks"""
+        return np.array([self.diff(i) for i in self.idx])
 
     def diff(self, i):
         """Determine the reciprocal space difference between the calculated 
@@ -840,6 +841,18 @@ class NXRefine(object):
         Q = np.matrix((h, k, l)).T
         Q0 = np.matrix((np.rint(h), np.rint(k), np.rint(l))).T
         return norm(self.Bmat * (Q - Q0))
+
+    def angle_diffs(self):
+        """Return the set of reciproal space differences for all the peaks"""
+        return np.array([self.angle_diff(i) for i in self.idx])
+
+    def angle_diff(self, i):
+        """Determine the reciprocal space difference between the calculated 
+        (hkl) and the closest integer (hkl) of the specified peak"""
+        h, k, l = self.hkl(i)
+        (h0, k0, l0) = (np.rint(h), np.rint(k), np.rint(l))
+        polar0 = 2 * np.arcsin(self.unitcell.ds((h0,k0,l0))*self.wavelength/2)
+        return np.abs(self.polar(i) - polar0)
 
     def xyz(self, i):
         """Return the pixel coordinates of the specified peak"""
@@ -937,6 +950,7 @@ class NXRefine(object):
     def restore_parameters(self):
         for p in self.parameters:
             vars(self)[p] = self.parameters[p].init_value
+        self.set_symmetry()
 
     def refine_hkls(self, method='leastsq', **opts):
         from lmfit import minimize, fit_report
@@ -954,18 +968,15 @@ class NXRefine(object):
 
     def refine_angles(self, method='nelder', **opts):
         from lmfit import minimize, fit_report
-        p0 = self.define_parameters(lattice=lattice, **opts)
+        p0 = self.define_parameters(lattice=True, **opts)
         self.result = minimize(self.angle_residuals, p0, method=method)
         self.fit_report = fit_report(self.result)
         if self.result.success:
             self.get_parameters(self.result.params)
 
-    def angle_residuals(self, p):
-        self.get_parameters(p)
-        polar_angles, _ = self.calculate_angles(self.x, self.y)
-        rings = self.calculate_rings()
-        return np.array([find_nearest(rings, polar_angle) - polar_angle 
-                         for polar_angle in polar_angles])
+    def angle_residuals(self, parameters):
+        self.get_parameters(parameters)
+        return self.angle_diffs()
 
     def define_orientation_matrix(self):
         from lmfit import Parameters
