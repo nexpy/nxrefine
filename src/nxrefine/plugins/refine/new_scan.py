@@ -237,4 +237,4 @@ class ScanDialog(BaseDialog):
         self.copy_configuration()
         self.get_parameters()
         self.scan_file.save(os.path.join(label_directory, scan_name+'.nxs'))
-        self.treeview.tree.load(self.scan_file.nxfilename, 'rw')
+        self.treeview.tree.load(self.scan_file.nxfilename, 'r')
