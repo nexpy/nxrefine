@@ -8,6 +8,9 @@ from nexusformat.nexus import nxload
 
 import nxrefine.nxreduce
 
+###  DEBUGGING ###
+import ipdb;
+
 engine = create_engine('mysql+cymysql://python:pythonpa^ss@18.219.38.132/test',
         echo=False)
 
@@ -54,9 +57,9 @@ def get_status(filename, task):
     return scalar[0]
 
 """ Populate the database based on local files. Will overwrite current
-    database contents """
+    database contents. sample_dir should be NXreduce.base_directory """
 def sync_db(sample_dir):
-    import ipdb; ipdb.set_trace()
+    # ipdb.set_trace()
     # Get a list of all the .nxs wrapper files
     wrapper_files = ( os.path.join(sample_dir, filename) for filename in
                     os.listdir(sample_dir) if filename.endswith('.nxs')
@@ -105,7 +108,8 @@ def sync_db(sample_dir):
         session.add(f)
     session.commit()
 
-""" Sample_dir should be the GUPxxx/agcrse2/xtalX directory """
+""" Sample_dir should be the GUPxxx/agcrse2/xtalX directory -
+        ie NXreduce.base_directory """
 def is_parent(wrapper_file, sample_dir):
     parent_file = os.path.join(sample_dir,
             os.path.basename(os.path.dirname(sample_dir) + '_parent.nxs'))

@@ -30,7 +30,7 @@ class LockException(Exception):
 
 
 class Lock(object):
-
+    #TODO: use os.open to get fd, then fcntl to lock
     def __init__(self, filename, timeout=600, check_interval=1):
         self.filename = os.path.realpath(filename)
         self.lock_file = self.filename+'.lock'
@@ -46,19 +46,14 @@ class Lock(object):
         if check_interval is None:
             check_interval = self.check_interval
 
-        def _get_lock():
-            if os.path.exists(self.lock_file):
-                raise LockException("'%s' already locked" % self.filename)
-            else:
-                open(self.lock_file, 'w').write("%s" % os.getpid())
         try:
-            _get_lock()
+            self.__get_lock()
         except LockException as exception:
             timeoutend = timeit.default_timer() + timeout
             while timeoutend > timeit.default_timer():
                 time.sleep(check_interval)
                 try:
-                    _get_lock()
+                    self.__get_lock()
                     break
                 except LockException:
                     pass
@@ -68,6 +63,12 @@ class Lock(object):
     def release(self):
         if os.path.exists(self.lock_file):
             os.remove(self.lock_file)
+
+    def __get_lock():
+        if os.path.exists(self.lock_file):
+            raise LockException("'%s' already locked" % self.filename)
+        else:
+            open(self.lock_file, 'w').write("%s" % os.getpid())
 
     def __enter__(self):
         return self.acquire()
