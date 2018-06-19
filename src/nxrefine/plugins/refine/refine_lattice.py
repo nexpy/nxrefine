@@ -83,7 +83,7 @@ class RefineLatticeDialog(BaseDialog):
                         self.orientation_button,
                         self.parameters.report_layout(),
                         self.lattice_buttons,
-                        self.close_buttons())
+                        self.close_layout())
 
         self.parameters.grid_layout.setVerticalSpacing(1)
         self.layout.setSpacing(2)
@@ -99,6 +99,12 @@ class RefineLatticeDialog(BaseDialog):
         self.update_parameters()
         if self.peaks_box:
             self.update_table()
+
+    def report_score(self):
+        try:
+            self.status_message.setText('Score: %.4f' % self.refine.score())
+        except Exception as error:
+            pass
 
     def update_parameters(self):
         self.parameters['a'].value = self.refine.a
@@ -128,6 +134,7 @@ class RefineLatticeDialog(BaseDialog):
                 self.refine.calculate_angles(self.refine.xp, self.refine.yp)
         except Exception:
             pass
+        self.report_score()
 
     def transfer_parameters(self):
         self.refine.a, self.refine.b, self.refine.c, \
@@ -153,8 +160,7 @@ class RefineLatticeDialog(BaseDialog):
         reduce = NXReduce(self.entry)
         reduce.record('nxrefine', fit_report='\n'.join(self.fit_report))
         root = self.entry.nxroot
-        entries = [entry for entry in root.entries if entry != 'entry' and 
-            'orientation_matrix' not in root[entry]['instrument/detector']]
+        entries = [entry for entry in root.entries if entry != 'entry']
         if entries and self.confirm_action(
             'Copy orientation to other entries? (%s)' % (', '.join(entries))):
             om = self.entry['instrument/detector/orientation_matrix']
