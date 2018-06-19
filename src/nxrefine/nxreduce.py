@@ -369,7 +369,10 @@ class NXReduce(QtCore.QObject):
         return self._maximum
 
     def complete(self, program):
-        return program in self.entry
+        if program == 'nxcombine':
+            return program in self.root['entry']
+        else:
+            return program in self.entry
 
     def not_complete(self, program):
         return program not in self.entry or self.overwrite
