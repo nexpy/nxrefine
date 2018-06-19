@@ -24,27 +24,22 @@ class RefineLatticeDialog(BaseDialog):
 
         self.select_entry(self.choose_entry)
 
-        self.refine = NXRefine(self.entry)
-        self.refine.read_parameters()
-
+        self.refine  = NXRefine()
         self.parameters = GridParameters()
         self.parameters.add('symmetry', self.refine.symmetries, 'Symmetry', 
                             None, self.set_lattice_parameters)
-        self.parameters.add('a', self.refine.a, 'Unit Cell - a (Ang)', True,
-                            self.set_lattice_parameters)
-        self.parameters.add('b', self.refine.b, 'Unit Cell - b (Ang)', True,
-                            self.set_lattice_parameters)
-        self.parameters.add('c', self.refine.c, 'Unit Cell - c (Ang)', True,
-                            self.set_lattice_parameters)
-        self.parameters.add('alpha', self.refine.alpha, 
-                            'Unit Cell - alpha (deg)', False,
-                            self.set_lattice_parameters)
-        self.parameters.add('beta', self.refine.beta, 
-                            'Unit Cell - beta (deg)', False,
-                            self.set_lattice_parameters)
-        self.parameters.add('gamma', self.refine.gamma, 
-                            'Unit Cell - gamma (deg)', False,
-                            self.set_lattice_parameters)
+        self.parameters.add('a', self.refine.a, 'Unit Cell - a (Ang)', False,
+                            slot=self.set_lattice_parameters)
+        self.parameters.add('b', self.refine.b, 'Unit Cell - b (Ang)', False,
+                            slot=self.set_lattice_parameters)
+        self.parameters.add('c', self.refine.c, 'Unit Cell - c (Ang)', False,
+                            slot=self.set_lattice_parameters)
+        self.parameters.add('alpha', self.refine.alpha, 'Unit Cell - alpha (deg)', 
+                            False, slot=self.set_lattice_parameters)
+        self.parameters.add('beta', self.refine.beta, 'Unit Cell - beta (deg)',
+                            False, slot=self.set_lattice_parameters)
+        self.parameters.add('gamma', self.refine.gamma, 'Unit Cell - gamma (deg)', 
+                            False, slot=self.set_lattice_parameters)
         self.parameters.add('wavelength', self.refine.wavelength, 
                             'Wavelength (Ang)', False)
         self.parameters.add('distance', self.refine.distance, 'Distance (mm)', 
@@ -67,6 +62,7 @@ class RefineLatticeDialog(BaseDialog):
                             'Polar Angle Tolerance')
         self.parameters.add('peak_tolerance', self.refine.peak_tolerance, 
                             'Peak Angle Tolerance')
+        self.set_symmetry()
 
         self.refine_buttons = self.action_buttons(
                                   ('Refine Angles', self.refine_angles),
@@ -87,15 +83,12 @@ class RefineLatticeDialog(BaseDialog):
                         self.orientation_button,
                         self.parameters.report_layout(),
                         self.lattice_buttons,
-                        self.close_buttons())
+                        self.close_layout())
 
         self.parameters.grid_layout.setVerticalSpacing(1)
         self.layout.setSpacing(2)
                                 
         self.set_title('Refining Lattice')
-
-        self.parameters['symmetry'].value = self.refine.symmetry
-        self.set_symmetry()
 
         self.peaks_box = None
         self.table_model = None
@@ -106,6 +99,12 @@ class RefineLatticeDialog(BaseDialog):
         self.update_parameters()
         if self.peaks_box:
             self.update_table()
+
+    def report_score(self):
+        try:
+            self.status_message.setText('Score: %.4f' % self.refine.score())
+        except Exception as error:
+            pass
 
     def update_parameters(self):
         self.parameters['a'].value = self.refine.a
@@ -129,11 +128,13 @@ class RefineLatticeDialog(BaseDialog):
         self.parameters['gonpitch'].value = self.refine.gonpitch
         self.parameters['polar'].value = self.refine.polar_max
         self.parameters['polar_tolerance'].value = self.refine.polar_tolerance
+        self.parameters['symmetry'].value = self.refine.symmetry
         try:
             self.refine.polar_angles, self.refine.azimuthal_angles = \
                 self.refine.calculate_angles(self.refine.xp, self.refine.yp)
         except Exception:
             pass
+        self.report_score()
 
     def transfer_parameters(self):
         self.refine.a, self.refine.b, self.refine.c, \
@@ -159,8 +160,7 @@ class RefineLatticeDialog(BaseDialog):
         reduce = NXReduce(self.entry)
         reduce.record('nxrefine', fit_report='\n'.join(self.fit_report))
         root = self.entry.nxroot
-        entries = [entry for entry in root.entries if entry != 'entry' and 
-            'orientation_matrix' not in root[entry]['instrument/detector']]
+        entries = [entry for entry in root.entries if entry != 'entry']
         if entries and self.confirm_action(
             'Copy orientation to other entries? (%s)' % (', '.join(entries))):
             om = self.entry['instrument/detector/orientation_matrix']
@@ -214,23 +214,60 @@ class RefineLatticeDialog(BaseDialog):
             self.parameters['alpha'].value = 90.0
             self.parameters['beta'].value = 90.0
             self.parameters['gamma'].value = 90.0
+            self.parameters['a'].enable(vary=True)
+            self.parameters['b'].disable(vary=False)
+            self.parameters['c'].disable(vary=False)
+            self.parameters['alpha'].disable(vary=False)
+            self.parameters['beta'].disable(vary=False)
+            self.parameters['gamma'].disable(vary=False)
         elif symmetry == 'tetragonal':
             self.parameters['b'].value = self.parameters['a'].value
             self.parameters['alpha'].value = 90.0
             self.parameters['beta'].value = 90.0
             self.parameters['gamma'].value = 90.0
+            self.parameters['a'].enable(vary=True)
+            self.parameters['b'].disable(vary=False)
+            self.parameters['c'].enable(vary=True)
+            self.parameters['alpha'].disable(vary=False)
+            self.parameters['beta'].disable(vary=False)
+            self.parameters['gamma'].disable(vary=False)
         elif symmetry == 'orthorhombic':
             self.parameters['alpha'].value = 90.0
             self.parameters['beta'].value = 90.0
             self.parameters['gamma'].value = 90.0
+            self.parameters['a'].enable(vary=True)
+            self.parameters['b'].enable(vary=True)
+            self.parameters['c'].enable(vary=True)
+            self.parameters['alpha'].disable(vary=False)
+            self.parameters['beta'].disable(vary=False)
+            self.parameters['gamma'].disable(vary=False)
         elif symmetry == 'hexagonal':
             self.parameters['b'].value = self.parameters['a'].value
             self.parameters['alpha'].value = 90.0
             self.parameters['beta'].value = 90.0
             self.parameters['gamma'].value = 120.0
+            self.parameters['a'].enable(vary=True)
+            self.parameters['b'].disable(vary=False)
+            self.parameters['c'].enable(vary=True)
+            self.parameters['alpha'].disable(vary=False)
+            self.parameters['beta'].disable(vary=False)
+            self.parameters['gamma'].disable(vary=False)
         elif symmetry == 'monoclinic':
             self.parameters['alpha'].value = 90.0
             self.parameters['gamma'].value = 90.0
+            self.parameters['a'].enable(vary=True)
+            self.parameters['b'].enable(vary=True)
+            self.parameters['c'].enable(vary=True)
+            self.parameters['alpha'].disable(vary=False)
+            self.parameters['beta'].enable(vary=True)
+            self.parameters['gamma'].disable(vary=False)
+        else:
+            self.parameters['a'].enable(vary=True)
+            self.parameters['b'].enable(vary=True)
+            self.parameters['c'].enable(vary=True)
+            self.parameters['alpha'].enable(vary=True)
+            self.parameters['beta'].enable(vary=True)
+            self.parameters['gamma'].enable(vary=True)
 
     def get_wavelength(self):
         return self.parameters['wavelength'].value
@@ -333,6 +370,7 @@ class RefineLatticeDialog(BaseDialog):
         self.mainwindow.app.app.processEvents()
         self.parameters['phi'].vary = False
         self.transfer_parameters()
+        self.set_symmetry()
         self.refine.refine_angles(**self.refined)
         self.parameters.result = self.refine.result
         self.parameters.fit_report = self.refine.fit_report
@@ -346,6 +384,7 @@ class RefineLatticeDialog(BaseDialog):
         self.parameters.status_message.setText('Fitting...')
         self.parameters.status_message.repaint()
         self.mainwindow.app.app.processEvents()
+        self.set_symmetry()
         self.transfer_parameters()
         self.refine.refine_hkls(**self.refined)
         self.parameters.result = self.refine.result
@@ -381,6 +420,7 @@ class RefineLatticeDialog(BaseDialog):
     def reset_parameters(self):
         self.refine.read_parameters()
         self.update_parameters()
+        self.set_symmetry()
         try:
             self.fit_report.pop()
         except IndexError:

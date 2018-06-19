@@ -23,7 +23,8 @@ class SampleDialog(BaseDialog):
         self.sample.add('sample', 'sample', 'Sample Name')
         self.sample.add('label', 'label', 'Sample Label')
 
-        self.set_layout(self.directorybox('Choose Experiment Directory'), 
+        self.set_layout(self.directorybox('Choose Experiment Directory',
+                                          default=False), 
                         self.sample.grid(header=False),
                         self.close_buttons(save=True))
 

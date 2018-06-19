@@ -24,7 +24,8 @@ class ScanDialog(BaseDialog):
         self.entries = {}
 
         self.directory_box = self.directorybox('Choose Experiment Directory',
-                                               self.choose_directory)
+                                               self.choose_directory,
+                                               default=False)
         self.configuration_box = self.select_configuration()
         self.configuration_layout = self.make_layout(
             self.action_buttons(('Choose Experiment Configuration', 
@@ -97,7 +98,8 @@ class ScanDialog(BaseDialog):
 
     def get_configurations(self):
         home_directory = self.get_directory()
-        if 'configurations' in os.listdir(home_directory):
+        if (os.path.exists(home_directory) and 
+            'configurations' in os.listdir(home_directory)):
             return [f for f in 
                     os.listdir(os.path.join(home_directory, 'configurations'))
                     if f.endswith('.nxs')]
@@ -122,13 +124,14 @@ class ScanDialog(BaseDialog):
         
     def get_samples(self):
         home_directory = self.get_directory()
-        if 'configurations' in os.listdir(home_directory):
+        if (os.path.exists(home_directory) and 
+            'configurations' in os.listdir(home_directory)):
             sample_directories = [f for f in os.listdir(home_directory)
                                   if (not f.startswith('.') and
                                       os.path.isdir(
                                         os.path.join(home_directory, f)))]
         else:
-            sample_directories = []
+            return []
         samples = []
         for sample_directory in sample_directories:
             label_directories = [f for f in 
@@ -234,4 +237,4 @@ class ScanDialog(BaseDialog):
         self.copy_configuration()
         self.get_parameters()
         self.scan_file.save(os.path.join(label_directory, scan_name+'.nxs'))
-        self.treeview.tree.load(self.scan_file.nxfilename, 'rw')
+        self.treeview.tree.load(self.scan_file.nxfilename, 'r')

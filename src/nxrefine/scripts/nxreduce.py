@@ -7,7 +7,7 @@
 # The full license is in the file COPYING, distributed with this software.
 #-----------------------------------------------------------------------------
 import argparse
-from nxrefine.nxreduce import NXReduce
+from nxrefine.nxreduce import NXReduce, NXMultiReduce
 
 
 def main():
@@ -30,6 +30,8 @@ def main():
                         help='refine lattice parameters')
     parser.add_argument('-t', '--transform', action='store_true',
                         help='perform CCTW transforms')
+    parser.add_argument('-b', '--combine', action='store_true',
+                        help='combine CCTW transforms')
     parser.add_argument('-o', '--overwrite', action='store_true', 
                         help='overwrite existing maximum')
 
@@ -41,6 +43,9 @@ def main():
                           refine=args.refine, transform=args.transform, 
                           overwrite=args.overwrite)
         reduce.nxreduce()
+    if args.combine:
+        multi_reduce = NXMultiReduce(args.directory, entries=args.entries,
+                                     overwrite=args.overwrite)
 
 
 if __name__=="__main__":

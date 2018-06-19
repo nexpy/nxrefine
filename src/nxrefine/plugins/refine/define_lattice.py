@@ -21,8 +21,7 @@ class LatticeDialog(BaseDialog):
 
         self.select_entry(self.choose_entry)
 
-        self.refine = NXRefine(self.entry)
-        self.refine.read_parameters()
+        self.refine = NXRefine()
 
         self.parameters = GridParameters()
         self.parameters.add('symmetry', self.refine.symmetries, 'Symmetry',
@@ -34,13 +33,11 @@ class LatticeDialog(BaseDialog):
                             slot=self.set_lattice_parameters)
         self.parameters.add('c', self.refine.c, 'Unit Cell - c (Ang)',
                             slot=self.set_lattice_parameters)
-        self.parameters.add('alpha', self.refine.alpha, 
-                            'Unit Cell - alpha (deg)', 
+        self.parameters.add('alpha', self.refine.alpha, 'Unit Cell - alpha (deg)', 
                             slot=self.set_lattice_parameters)
         self.parameters.add('beta', self.refine.beta, 'Unit Cell - beta (deg)',
                             slot=self.set_lattice_parameters)
-        self.parameters.add('gamma', self.refine.gamma, 
-                            'Unit Cell - gamma (deg)', 
+        self.parameters.add('gamma', self.refine.gamma, 'Unit Cell - gamma (deg)', 
                             slot=self.set_lattice_parameters)
         self.parameters['symmetry'].value = self.refine.symmetry
         self.parameters['centring'].value = self.refine.centring

@@ -1,6 +1,7 @@
 import logging
 import logging.handlers
 import os
+import errno
 import platform
 import subprocess
 import sys
@@ -28,7 +29,6 @@ from .nxdatabase import update_db, get_status, sync_db
 class LockException(Exception):
     LOCK_FAILED = 1
 
-
 class Lock(object):
     #TODO: use os.open to get fd, then fcntl to lock
     def __init__(self, filename, timeout=600, check_interval=1):
@@ -36,6 +36,7 @@ class Lock(object):
         self.lock_file = self.filename+'.lock'
         self.timeout = timeout
         self.check_interval = check_interval
+        self.fd = None
 
     def acquire(self, timeout=None, check_interval=None):
         if timeout is None:
@@ -48,21 +49,32 @@ class Lock(object):
 
         try:
             self.__get_lock()
-        except LockException as exception:
+        except OSError as e:
+            # Don't catch unrelated exceptions
+            if e.errno != errno.EEXIST:
+                raise
             timeoutend = timeit.default_timer() + timeout
             while timeoutend > timeit.default_timer():
                 time.sleep(check_interval)
                 try:
                     self.__get_lock()
                     break
-                except LockException:
-                    pass
+                except OSError:
+                    if e.errno != errno.EEXIST:
+                        raise
             else:
-                raise LockException("'%s' already locked" % self.filename)
+                raise LockException("'%s' timeout expired" % self.filename)
+
+    def __get_lock(self):
+        # Has race behavior on NFS version < 3
+        self.fd = os.open(self.lock_file, os.O_CREAT | os.O_EXCL | os.O_RDWR)
+        open(self.lock_file, 'w').write(str(os.getpid()))
 
     def release(self):
-        if os.path.exists(self.lock_file):
+        if self.fd is not None:
+            os.close(self.fd)
             os.remove(self.lock_file)
+            self.fd = None
 
     def __get_lock():
         if os.path.exists(self.lock_file):
@@ -76,8 +88,8 @@ class Lock(object):
     def __exit__(self, type_, value, tb):
         self.release()
 
-    def __delete__(self, instance):
-        instance.release()
+    def __del__(self):
+        self.release()
 
 
 class NXReduce(QtCore.QObject):
@@ -375,7 +387,10 @@ class NXReduce(QtCore.QObject):
         return self._maximum
 
     def complete(self, program):
-        return program in self.entry
+        if program == 'nxcombine':
+            return program in self.root['entry']
+        else:
+            return program in self.entry
 
     """ Check that all entries for this temperature (ie in self.root) are done """
     def all_complete(self, program):
@@ -432,7 +447,6 @@ class NXReduce(QtCore.QObject):
                                 parameters))
         if program in self.entry:
             del self.entry[program]
-
         self.entry[program] = NXprocess(program='%s' % program,
                                 sequence_index=len(self.entry.NXprocess)+1,
                                 version='nxrefine v'+__version__,
@@ -586,16 +600,20 @@ class NXReduce(QtCore.QObject):
                 v = data[i:i+chunk_size,:,:]
             except IndexError as error:
                 pass
+            if i == self.first:
+                vsum = v.sum(0)
+            else:
+                vsum += v.sum(0)
             if self.mask is not None:
                 v = np.ma.masked_array(v)
                 v.mask = self.mask
             if maximum < v.max():
                 maximum = v.max()
-            if i == self.first:
-                self.summed_data = NXfield(v.sum(0), name='summed_data')
-            else:
-                self.summed_data = self.summed_data + v.sum(0)
             del v
+        if self.mask is not None:
+            vsum = np.ma.masked_array(vsum)
+            vsum.mask = self.mask
+        self.summed_data = NXfield(vsum, name='summed_data')
         toc = self.stop_progress()
         self.logger.info('Maximum counts: %s (%g seconds)' % (maximum, toc-tic))
         return maximum
@@ -846,7 +864,7 @@ class NXReduce(QtCore.QObject):
         refine = NXRefine(self.entry)
         refine.refine_hkls(lattice=lattice, chi=True, omega=True)
         fit_report=refine.fit_report
-        refine.refine_hkls(chi=True, omega=True, gonpitch=True)
+        refine.refine_hkls(chi=True, omega=True, phi=True)
         fit_report = fit_report + '\n' + refine.fit_report
         refine.refine_orientation_matrix()
         fit_report = fit_report + '\n' + refine.fit_report
@@ -944,10 +962,7 @@ class NXReduce(QtCore.QObject):
         self.nxrefine()
         self.nxtransform()
 
-    def queue(self, parent=False):
-        if self.server is None:
-            raise NeXusError("NXServer not running")
-
+    def command(self, parent=False):
         switches = ['-d %s' % self.directory, '-e %s' % self._entry]
         if parent:
             command = 'nxparent '
@@ -977,12 +992,18 @@ class NXReduce(QtCore.QObject):
             if self.transform:
                 switches.append('-t')
             if len(switches) == 2:
-                return
+                return None
         if self.overwrite:
             switches.append('-o')
 
-        self.server.add_task(command+' '.join(switches))
+        return command+' '.join(switches)
 
+    def queue(self, parent=False):
+        if self.server is None:
+            raise NeXusError("NXServer not running")
+        command = self.command(parent)
+        if command:
+            self.server.add_task(self.command(parent))
 
 class NXMultiReduce(NXReduce):
 
@@ -1043,16 +1064,17 @@ class NXMultiReduce(NXReduce):
         output = os.path.join(self.directory, 'transform.nxs\#/entry/data/v')
         return 'cctw merge %s -o %s' % (input, output)
 
-    def queue(self):
-        if self.server is None:
-            raise NeXusError("NXServer not running")
-
+    def command(self):
         command = 'nxcombine '
         switches = ['-d %s' %  self.directory, '-e %s' % ' '.join(self.entries)]
         if self.overwrite:
             switches.append('-o')
+        return command+' '.join(switches)
 
-        self.server.add_task(command+' '.join(switches))
+    def queue(self):
+        if self.server is None:
+            raise NeXusError("NXServer not running")
+        self.server.add_task(self.command())
 
 
 class NXpeak(object):

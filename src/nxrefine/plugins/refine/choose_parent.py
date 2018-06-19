@@ -25,10 +25,10 @@ class ParentDialog(BaseDialog):
         self.parameters.add('threshold', '', 'Threshold')
         self.parameters.add('first', '', 'First Frame')
         self.parameters.add('last', '', 'Last Frame')
-        self.parameters.add('radius', 200, 'Radius')
-        self.parameters.add('width', 3, 'Frame Width')
+        self.parameters.add('radius', '', 'Radius')
+        self.parameters.add('width', '', 'Frame Width')
 
-        self.set_layout(self.directorybox('Choose Sample Directory'),
+        self.set_layout(self.directorybox('Choose Sample Directory', default=False),
                         self.filebox('Choose Parent File'),
                         self.parameters.grid(),
                         self.action_buttons(('Add to Queue', self.add_tasks)),
@@ -45,6 +45,8 @@ class ParentDialog(BaseDialog):
                                    self.sample+'_parent.nxs')
         if os.path.exists(parent_file):
             self.filename.setText(os.path.basename(os.path.realpath(parent_file)))
+            self.old_parent = self.parent
+            self.update_parameters()
         else:
             self.filename.setText('')
         self.root_directory = os.path.dirname(os.path.dirname(self.sample_directory))
@@ -55,12 +57,29 @@ class ParentDialog(BaseDialog):
         self.make_parent()
 
     def make_parent(self):
+        self.reduce.make_parent()
+        self.update_parameters
+
+    def update_parameters(self):
+        reduce = self.reduce
+        if reduce.first:
+            self.parameters['first'].value = reduce.first
+        if reduce.last:
+            self.parameters['last'].value = reduce.last
+        if reduce.threshold:
+            self.parameters['threshold'].value = reduce.threshold
+        if reduce.radius:
+            self.parameters['radius'].value = reduce.radius
+        if reduce.width:
+            self.parameters['width'].value = reduce.width
+
+    @property
+    def reduce(self):
         _parent = self.get_filename()
         _base = os.path.basename(os.path.splitext(_parent)[0])
         _scan = _base.replace(self.sample+'_', '')
-        reduce = NXReduce(directory=os.path.join(self.sample_directory, _scan), 
-                          overwrite=True)
-        reduce.make_parent()
+        return NXReduce(directory=os.path.join(self.sample_directory, _scan), 
+                        overwrite=True)
 
     @property
     def parent(self):

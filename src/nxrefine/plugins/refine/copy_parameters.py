@@ -40,7 +40,9 @@ class CopyDialog(BaseDialog):
 
     def accept(self):
         if not self._selected:
-            raise NeXusError('Need to select output file before saving')
+            raise NeXusError("Need to select output file before saving")
+        elif self.root.nxfilemode == 'r':
+            raise NeXusError("NeXus file is locked")
         if self.overwrite:
             for entry in [e for e in self.root if e != 'entry']:
                 reduce = NXReduce(self.root[entry], copy=True, overwrite=True)

@@ -20,7 +20,8 @@ class ServerDialog(BaseDialog):
 
         self.node_editor = self.editor()
         self.set_layout(self.directorybox('Choose Experiment Directory',
-                                          slot=self.choose_directory),
+                                          slot=self.choose_directory,
+                                          default=False),
                         self.checkboxes(('server', 'Server', False),
                                         ('watcher', 'Watcher', False),
                                         ('logger', 'Logger', False)),
