@@ -149,11 +149,12 @@ class WorkflowDialog(BaseDialog):
                 self.update_checkbox(status['link'], j, r.complete('nxlink'))
                 self.update_checkbox(status['max'], j, r.complete('nxmax'))
                 self.update_checkbox(status['find'], j, r.complete('nxfind'))
-                if r.parent:
-                    self.update_checkbox(status['copy'], j, r.complete('nxcopy'))
+                if r.is_parent():
+                    self.update_checkbox(status['copy'], j, True)
+                    status['scan'].setStyleSheet("font-weight: bold;")
                 else:
-                    self.update_checkbox(status['copy'], j, True)  
-                    status['scan'].setFont(self.bold_font)             
+                    self.update_checkbox(status['copy'], j, r.complete('nxcopy'))
+                    status['scan'].setStyleSheet("font-weight: normal;")
                 self.update_checkbox(status['refine'], j, r.complete('nxrefine'))
                 self.update_checkbox(status['transform'], j, r.complete('nxtransform'))
                 self.update_checkbox(status['combine'], j, r.complete('nxcombine'))
