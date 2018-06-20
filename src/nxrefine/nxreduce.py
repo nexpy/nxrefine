@@ -853,8 +853,7 @@ class NXReduce(QtCore.QObject):
     def nxtransform(self):
         if self.not_complete('nxtransform') and self.transform:
             if self.not_complete('nxrefine'):
-                self.logger.info('Cannot transform until the orientation is complete')
-                return
+                self.logger.info('Warning: Transform performed without nxrefine')
             with Lock(self.wrapper_file):
                 cctw_command = self.prepare_transform()
             if cctw_command:
