@@ -88,7 +88,7 @@ class NXReduce(QtCore.QObject):
         super(NXReduce, self).__init__()
 
         if isinstance(entry, NXentry):
-            self._entry = entry.nxname
+            self.entry_name = entry.nxname
             self.wrapper_file = entry.nxfilename
             self.sample = os.path.basename(
                             os.path.dirname(
@@ -120,16 +120,16 @@ class NXReduce(QtCore.QObject):
                                              self.sample, self.label, 
                                              '%s_%s.nxs' % 
                                              (self.sample, self.scan))
-            self._entry = entry
+            self.entry_name = entry
         self.base_directory = os.path.dirname(self.wrapper_file)
         self.task_directory = os.path.join(self.root_directory, 'tasks')
         self.mask_file = os.path.join(self.base_directory, 
                                       self.sample+'_mask.nxs')
         self.log_file = os.path.join(self.task_directory, 'nxlogger.log')
         self.transform_file = os.path.join(self.directory, 
-                                           self._entry+'_transform.nxs')
+                                           self.entry_name+'_transform.nxs')
         self.settings_file = os.path.join(self.directory, 
-                                           self._entry+'_transform.pars')
+                                           self.entry_name+'_transform.pars')
         self.combine_file = os.path.join(self.directory, 'transform.nxs')
         
         self._root = None 
@@ -184,7 +184,7 @@ class NXReduce(QtCore.QObject):
 
     def init_logs(self):
         self.logger = logging.getLogger("%s_%s['%s']" 
-                                        % (self.sample, self.scan, self._entry))
+                                        % (self.sample, self.scan, self.entry_name))
         self.logger.setLevel(logging.DEBUG)
         formatter = logging.Formatter(
                         '%(asctime)s %(name)-12s: %(message)s',
@@ -213,7 +213,7 @@ class NXReduce(QtCore.QObject):
 
     @property
     def entry(self):
-        return self.root[self._entry]
+        return self.root[self.entry_name]
 
     @property
     def entries(self):
@@ -224,7 +224,7 @@ class NXReduce(QtCore.QObject):
 
     @property
     def first_entry(self):
-        return self._entry == self.entries[0]
+        return self.entry_name == self.entries[0]
 
     @property
     def data(self):
@@ -259,7 +259,9 @@ class NXReduce(QtCore.QObject):
                                         self.sample+'_parent.nxs'))):
             _parent = os.path.join(self.base_directory, 
                                    self.sample+'_parent.nxs')
-            if os.path.realpath(_parent) != self.wrapper_file:
+            if os.path.realpath(_parent) == self.wrapper_file:
+                self._parent = None
+            else:
                 self._parent = _parent
         return self._parent
 
@@ -289,11 +291,11 @@ class NXReduce(QtCore.QObject):
             elif self.parent:
                 with Lock(self.parent):
                     root = nxload(self.parent)
-                    if ('peaks' in root[self._entry] and 
-                        'first' in root[self._entry]['peaks'].attrs):
-                        _first = np.int32(root[self._entry]['peaks'].attrs['first'])
-                    elif 'first' in root[self._entry]['data'].attrs:
-                        _first = np.int32(root[self._entry]['data'].attrs['first'])
+                    if ('peaks' in root[self.entry_name] and 
+                        'first' in root[self.entry_name]['peaks'].attrs):
+                        _first = np.int32(root[self.entry_name]['peaks'].attrs['first'])
+                    elif 'first' in root[self.entry_name]['data'].attrs:
+                        _first = np.int32(root[self.entry_name]['data'].attrs['first'])
         try:
             self._first = np.int(_first)
         except Exception as error:
@@ -318,11 +320,11 @@ class NXReduce(QtCore.QObject):
             elif self.parent:
                 with Lock(self.parent):
                     root = nxload(self.parent)
-                    if ('peaks' in root[self._entry] and
-                        'last' in root[self._entry]['peaks'].attrs):
-                        _last = np.int32(root[self._entry]['peaks'].attrs['last'])
-                    elif 'last' in root[self._entry]['data'].attrs:
-                        _last = np.int32(root[self._entry]['data'].attrs['last'])
+                    if ('peaks' in root[self.entry_name] and
+                        'last' in root[self.entry_name]['peaks'].attrs):
+                        _last = np.int32(root[self.entry_name]['peaks'].attrs['last'])
+                    elif 'last' in root[self.entry_name]['data'].attrs:
+                        _last = np.int32(root[self.entry_name]['data'].attrs['last'])
         try:
             self._last = np.int(_last)
         except Exception as error:
@@ -345,9 +347,9 @@ class NXReduce(QtCore.QObject):
             elif self.parent:
                 with Lock(self.parent):
                     root = nxload(self.parent)
-                    if ('peaks' in root[self._entry] and
-                        'threshold' in root[self._entry]['peaks'].attrs):
-                        _threshold = np.int32(root[self._entry]['peaks'].attrs['threshold'])
+                    if ('peaks' in root[self.entry_name] and
+                        'threshold' in root[self.entry_name]['peaks'].attrs):
+                        _threshold = np.int32(root[self.entry_name]['peaks'].attrs['threshold'])
         if _threshold is None:
             if self.maximum is not None:
                 _threshold = self.maximum / 10
@@ -467,8 +469,8 @@ class NXReduce(QtCore.QObject):
             self.logger.info('No raw data loaded')
 
     def read_logs(self):
-        head_file = os.path.join(self.directory, self._entry+'_head.txt')
-        meta_file = os.path.join(self.directory, self._entry+'_meta.txt')
+        head_file = os.path.join(self.directory, self.entry_name+'_head.txt')
+        meta_file = os.path.join(self.directory, self.entry_name+'_meta.txt')
         if os.path.exists(head_file) or os.path.exists(meta_file):
             logs = NXcollection()
         else:
@@ -759,7 +761,14 @@ class NXReduce(QtCore.QObject):
     def calculate_mask(self):
         self.logger.info("Calculating 3D mask")
         data_shape = self.entry['data/data'].shape
-        mask = NXfield(shape=data_shape, dtype=np.int8, fillvalue=0)
+        root = nxload(self.mask_file, 'r+')
+        if not self.entry_name in root:
+            root[self.entry_name] = NXentry()
+        entry = root[self.entry_name]
+        if 'mask' in entry:
+            del entry['mask']
+        entry['mask'] = NXfield(shape=data_shape, dtype=np.int8, fillvalue=0)
+        mask = entry['mask']
         x, y = np.arange(data_shape[2]), np.arange(data_shape[1])
         xp, yp, zp = self.entry['peaks/x'], self.entry['peaks/y'], self.entry['peaks/z']
         tic = self.start_progress(0, len(xp))    
@@ -780,7 +789,7 @@ class NXReduce(QtCore.QObject):
  
     def write_mask(self, mask):
         root = nxload(self.mask_file, 'r+')
-        root[self._entry] = NXentry(mask=mask)
+        root[self.entry_name] = NXentry(mask=mask)
         self.record('nxmask', radius=self.radius, width=self.width)                    
 
     def nxcopy(self):
@@ -796,7 +805,7 @@ class NXReduce(QtCore.QObject):
     def copy_parameters(self):
         with Lock(self.parent):
             input = nxload(self.parent)
-            input_ref = NXRefine(input[self._entry])
+            input_ref = NXRefine(input[self.entry_name])
         with Lock(self.wrapper_file):
             output_ref = NXRefine(self.entry)
             input_ref.copy_parameters(output_ref, sample=True, instrument=True)
@@ -883,8 +892,8 @@ class NXReduce(QtCore.QObject):
             elif self.parent:
                 with Lock(self.parent):
                     root = nxload(self.parent)
-                    if 'transform' in root[self._entry]:
-                        transform = root[self._entry]['transform']
+                    if 'transform' in root[self.entry_name]:
+                        transform = root[self.entry_name]['transform']
             try:
                 Qh, Qk, Ql = (transform['Qh'].nxvalue,
                               transform['Qk'].nxvalue,
@@ -921,7 +930,7 @@ class NXReduce(QtCore.QObject):
         self.nxtransform()
     
     def command(self, parent=False):
-        switches = ['-d %s' % self.directory, '-e %s' % self._entry]
+        switches = ['-d %s' % self.directory, '-e %s' % self.entry_name]
         if parent:
             command = 'nxparent '
             if self.first is not None:
