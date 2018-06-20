@@ -123,6 +123,8 @@ class NXReduce(QtCore.QObject):
             self.entry_name = entry
         self.base_directory = os.path.dirname(self.wrapper_file)
         self.task_directory = os.path.join(self.root_directory, 'tasks')
+        self.parent_file = os.path.join(self.base_directory, 
+                                        self.sample+'_parent.nxs')
         self.mask_file = os.path.join(self.base_directory, 
                                       self.sample+'_mask.nxs')
         self.log_file = os.path.join(self.task_directory, 'nxlogger.log')
@@ -254,31 +256,31 @@ class NXReduce(QtCore.QObject):
 
     @property
     def parent(self):
-        if (self._parent is None and 
-            os.path.exists(os.path.join(self.base_directory, 
-                                        self.sample+'_parent.nxs'))):
-            _parent = os.path.join(self.base_directory, 
-                                   self.sample+'_parent.nxs')
-            if os.path.realpath(_parent) == self.wrapper_file:
-                self._parent = None
-            else:
-                self._parent = _parent
+        if self._parent is None:
+            if not self.is_parent() and os.path.exists(self.parent_file):
+                self._parent = os.path.realpath(self.parent_file)
         return self._parent
 
+    def is_parent(self):
+        if (os.path.exists(self.parent_file) and 
+            os.path.realpath(self.parent_file) == self.wrapper_file):
+            return True
+        else:
+            return False
+
     def make_parent(self):
-        _parent = os.path.join(self.base_directory, self.sample+'_parent.nxs')
-        if os.path.exists(_parent):
-            if os.path.realpath(_parent) == self.wrapper_file:
-                self.logger.info("'%s' already set as parent" % self.wrapper_file)
-                return
-            elif self.overwrite:
-                os.remove(_parent)
+        if self.is_parent():
+            self.logger.info("'%s' already set as parent" % self.wrapper_file)
+            return
+        elif os.path.exists(self.parent_file):
+            if self.overwrite:
+                os.remove(self.parent_file)
             else:
                 raise NeXusError("'%s' already set as parent" 
-                                 % os.path.realpath(_parent))
-        os.symlink(self.wrapper_file, _parent)
+                                 % os.path.realpath(self.parent_file))
+        os.symlink(self.wrapper_file, self.parent_file)
         self._parent = None
-        self.logger.info("'%s' set as parent" % os.path.realpath(_parent))
+        self.logger.info("'%s' set as parent" % os.path.realpath(self.parent_file))
 
     @property
     def first(self):
