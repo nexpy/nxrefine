@@ -30,6 +30,7 @@ class WorkflowDialog(BaseDialog):
         self.grid = None
         self.sample_directory = None
         self.entries = []
+        self.layout.setSizeConstraint(QtWidgets.QLayout.SetFixedSize)
 
     def choose_directory(self):
         super(WorkflowDialog, self).choose_directory()
@@ -83,6 +84,7 @@ class WorkflowDialog(BaseDialog):
             if self.grid:
                 self.delete_grid(self.grid)
             self.grid = QtWidgets.QGridLayout()
+            self.insert_layout(2, self.grid)
             self.grid.setSpacing(1)
             row = 0
             columns = ['Scan', 'data', 'link', 'max', 'find', 'copy', 'refine', 
@@ -138,7 +140,6 @@ class WorkflowDialog(BaseDialog):
         self.grid.addWidget(all_boxes['overwrite'], row, 9, QtCore.Qt.AlignCenter)
         self.grid.addWidget(all_boxes['reduce'], row, 10, QtCore.Qt.AlignCenter)
         self.all_scans = all_boxes
-        self.insert_layout(2, self.grid)
         self.start_progress((0, len(wrapper_files)))
         for (i, scan) in enumerate(self.scans):
             status = self.scans[scan]
