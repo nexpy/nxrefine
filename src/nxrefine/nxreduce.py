@@ -8,6 +8,7 @@ import time
 import timeit
 import numpy as np
 from h5py import is_hdf5
+from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 
 from nexusformat.nexus import *
 
@@ -592,6 +593,26 @@ class NXReduce(QtCore.QObject):
             del self.entry['summed_data']
         self.entry['summed_data'] = NXdata(self.summed_data, 
                                            self.entry['data'].nxaxes[-2:])
+        try:
+            parameters = self.entry['calibration/refinement/parameters']
+            cake = AzimuthalIntegrator(dist=parameters['Distance'].nxvalue,
+                                       poni1=parameters['Poni1'].nxvalue,
+                                       poni2=parameters['Poni2'].nxvalue,
+                                       rot1=parameters['Rot1'].nxvalue,
+                                       rot2=parameters['Rot2'].nxvalue,
+                                       rot3=parameters['Rot3'].nxvalue,
+                                       pixel1=parameters['PixelSize1'].nxvalue,
+                                       pixel2=parameters['PixelSize2'].nxvalue,
+                                       wavelength = parameters['Wavelength'].nxvalue)
+            counts = self.entry['summed_data/summed_data'].nxvalue
+            polar_angle, intensity = cake.integrate1d(counts, 1024, 
+                                                      unit='2th_deg', 
+                                                      correctSolidAngle=True)
+            self.entry['radial_sum'] = NXdata(
+                NXfield(intensity, name='radial_sum'), 
+                NXfield(polar_angle, name='polar_angle'))
+        except Exception as error:
+            self.logger.info('Unable to create radial sum')
         self.record('nxmax', maximum=maximum, 
                     first_frame=self.first, last_frame=self.last)
 
