@@ -608,6 +608,8 @@ class NXReduce(QtCore.QObject):
             polar_angle, intensity = cake.integrate1d(counts, 1024, 
                                                       unit='2th_deg', 
                                                       correctSolidAngle=True)
+            if 'radial_sum' in self.entry:
+                del self.entry['radial_sum']
             self.entry['radial_sum'] = NXdata(
                 NXfield(intensity, name='radial_sum'), 
                 NXfield(polar_angle, name='polar_angle'))
