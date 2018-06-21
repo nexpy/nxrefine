@@ -62,6 +62,8 @@ class WorkflowDialog(BaseDialog):
                           overwrite=True)
         reduce.make_parent()
         if self.grid:
+            self.delete_grid(self.grid)
+            self.grid = None
             self.update()
 
     def is_valid(self, wrapper_file):
