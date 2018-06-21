@@ -9,10 +9,11 @@ from nxrefine.nxreduce import Lock, NXReduce, NXMultiReduce
 
 
 def show_dialog():
-    dialog = WorkflowDialog()
-    dialog.show()
-#    except NeXusError as error:
-#        report_error("Defining New Experiment", error)
+    try:
+        dialog = WorkflowDialog()
+        dialog.show()
+    except NeXusError as error:
+        report_error("Managing Workflows", error)
 
 
 class WorkflowDialog(BaseDialog):
@@ -23,7 +24,8 @@ class WorkflowDialog(BaseDialog):
         self.set_layout(self.directorybox('Choose Sample Directory', default=False),
                         self.filebox('Choose Parent File'),
                         self.action_buttons(('Update Status', self.update),
-                                            ('Add to Queue', self.add_tasks)),
+                                            ('Add to Queue', self.add_tasks),
+                                            ('View Logs', self.view_logs)),
                         self.progress_layout(close=True))
         self.progress_bar.setVisible(False)
         self.set_title('Manage Workflows')
@@ -43,6 +45,7 @@ class WorkflowDialog(BaseDialog):
         else:
             self.filename.setText('')
         self.root_directory = os.path.dirname(os.path.dirname(self.sample_directory))
+        self.task_directory = os.path.join(self.root_directory, 'tasks')
         self.mainwindow.default_directory = self.sample_directory
         if self.grid:
             self.delete_grid(self.grid)
@@ -265,6 +268,8 @@ class WorkflowDialog(BaseDialog):
                 self.scans[scan][command].checkState()==QtCore.Qt.Checked)
     
     def add_tasks(self):
+        if self.grid is None:
+            raise NeXusError('Need to update status')
         for scan in self.enabled_scans:
             for entry in self.entries:
                 reduce = NXReduce(entry, scan)
@@ -288,4 +293,55 @@ class WorkflowDialog(BaseDialog):
                 if self.selected(scan, 'overwrite'):
                     reduce.overwrite = True
                 reduce.queue()
-                
+
+    def view_logs(self):
+        if self.grid is None:
+            raise NeXusError('Need to update status')
+        dialog = BaseDialog(self)
+        dialog.setMinimumWidth(600)
+        dialog.setMinimumHeight(600)
+        scans = [os.path.basename(scan) for scan in self.scans]
+        self.scan_combo = dialog.select_box(scans)
+        self.entry_combo = dialog.select_box(self.entries)
+        self.program_combo = dialog.select_box(self.programs)
+        self.output_box = dialog.editor()
+        self.output_box.setStyleSheet('font-family: monospace;')
+        dialog.set_layout(
+            dialog.make_layout(self.scan_combo, self.entry_combo, self.program_combo),
+            self.output_box,
+            dialog.action_buttons(('View Workflow Logs', self.logview),
+                                  ('View Workflow Output', self.outview)),
+            dialog.close_buttons(close=True))
+        dialog.setWindowTitle("'%s' Logs" % self.sample)
+        self.view_dialog = dialog
+        self.view_dialog.show()
+
+    def logview(self):
+        scan = self.sample + '_' + self.scan_combo.currentText()
+        entry = self.entry_combo.currentText()
+        prefix = scan + "['" + entry + "']: "
+        program = self.program_combo.currentText()
+        with open(os.path.join(self.task_directory, 'nxlogger.log')) as f:
+            lines = f.readlines()
+        text = [line.replace(prefix, '') for line in lines 
+                if scan in line if entry in line]
+        if text:
+            self.output_box.setPlainText(''.join(text))
+        else:
+            self.output_box.setPlainText('No Logs')
+
+    def outview(self):
+        scan = self.sample + '_' + self.scan_combo.currentText()
+        entry = self.entry_combo.currentText()
+        program = 'nx' + self.program_combo.currentText()
+        if program == 'nxcombine':
+            entry = 'entry'
+        wrapper_file = os.path.join(self.sample_directory, scan+'.nxs')
+        with Lock(wrapper_file):
+            root = nxload(wrapper_file)
+        if program in root[entry]:
+            text = 'Date: ' + root[entry][program]['date'].nxvalue + '\n'
+            text = text + root[entry][program]['note/data'].nxvalue
+            self.output_box.setPlainText(text)
+        else:
+            self.output_box.setPlainText('No output for %s' % program)
