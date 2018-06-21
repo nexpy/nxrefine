@@ -594,7 +594,7 @@ class NXReduce(QtCore.QObject):
         self.entry['summed_data'] = NXdata(self.summed_data, 
                                            self.entry['data'].nxaxes[-2:])
         try:
-            parameters = self.entry['calibration/refinement/parameters']
+            parameters = self.entry['instrument/calibration/refinement/parameters']
             cake = AzimuthalIntegrator(dist=parameters['Distance'].nxvalue,
                                        poni1=parameters['Poni1'].nxvalue,
                                        poni2=parameters['Poni2'].nxvalue,
@@ -606,7 +606,8 @@ class NXReduce(QtCore.QObject):
                                        wavelength = parameters['Wavelength'].nxvalue)
             counts = self.entry['summed_data/summed_data'].nxvalue
             polar_angle, intensity = cake.integrate1d(counts, 1024, 
-                                                      unit='2th_deg', 
+                                                      unit='2th_deg',
+                                                      mask=self.mask,
                                                       correctSolidAngle=True)
             if 'radial_sum' in self.entry:
                 del self.entry['radial_sum']
