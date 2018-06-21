@@ -605,7 +605,7 @@ class NXReduce(QtCore.QObject):
                                        pixel2=parameters['PixelSize2'].nxvalue,
                                        wavelength = parameters['Wavelength'].nxvalue)
             counts = self.entry['summed_data/summed_data'].nxvalue
-            polar_angle, intensity = cake.integrate1d(counts, 1024, 
+            polar_angle, intensity = cake.integrate1d(counts, 2048, 
                                                       unit='2th_deg',
                                                       mask=self.mask,
                                                       correctSolidAngle=True)
