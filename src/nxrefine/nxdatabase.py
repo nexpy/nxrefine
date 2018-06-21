@@ -1,23 +1,37 @@
 import os
-
-from sqlalchemy import create_engine, Column, Integer, String, Enum
-from sqlalchemy.ext.automap import automap_base
-from sqlalchemy.orm import sessionmaker
+import datetime
+from sqlalchemy import create_engine, Column, Integer, String, Enum, ForeignKey
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.dialects import mysql
 
 from nexusformat.nexus import nxload
-
-import nxrefine.nxreduce
+# import nxrefine.nxreduce TODO: WARNING: UNCOMMENT THIS
 
 ###  DEBUGGING ###
 import ipdb;
 
-engine = create_engine('mysql+cymysql://python:pythonpa^ss@18.219.38.132/test',
-        echo=False)
-
-Base = automap_base()
+#MySQL database, logging turned on
+engine = create_engine('mysql+mysqlconnector://python:pythonpa^ss@18.219.38.132/test',
+        echo=True)
+Base = declarative_base();
+# Records files that have: not been processed, queued on the NXserver
+    # but not started, started processing, finished processing
+_progress = Enum('not started', 'queued', 'in progress', 'done')
 
 class File(Base):
-    __tablename__='files'
+    __tablename__ = 'files'
+
+    filename = Column(String(255), nullable=False, primary_key=True)
+    data = Column(_progress, server_default='not started')
+    nxlink = Column(_progress, server_default='not started')
+    nxmax = Column(_progress, server_default='not started')
+    nxfind = Column(_progress, server_default='not started')
+    nxcopy = Column(_progress, server_default='not started')
+    nxrefine = Column(_progress, server_default='not started')
+    nxtransform = Column(_progress, server_default='not started')
+    #Combine should probably be special since it involves all 3 samples
+    nxcombine = Column(_progress, server_default='not started')
 
     def __repr__(self):
         not_started = [k for k,v in vars(self).items() if v == 'not started']
@@ -25,25 +39,45 @@ class File(Base):
         in_progress = [k for k,v in vars(self).items() if v == 'in progress']
         done = [k for k,v in vars(self).items() if v == 'done']
 
-        return "File path='{}', \n\tnot started={} \n\tqueued={}\n\t " \
-                "in_progress={} \n\tdone={}".format(
+        return "File path='{}',\n\tnot started={}\n\tqueued={}\n\t " \
+                "in_progress={}\n\tdone={}".format(
                 self.filename, not_started, queued, in_progress, done)
 
-Base.prepare(engine, reflect=True)
+
+class Task(Base):
+    __tablename__ = 'tasks'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(31), nullable=False)
+    entry = Column(Integer)
+    status = Column(_progress, server_default='queued')
+    # Timestamps with microsecond precision
+    queue_time = Column(mysql.TIMESTAMP(fsp=6), default=datetime.datetime.now,
+            nullable=False)
+    start = Column(mysql.TIMESTAMP(fsp=6))
+    end = Column(mysql.TIMESTAMP(fsp=6))
+    pid = Column(Integer, default=os.getpid, nullable=False)
+    filename = Column(String(255), ForeignKey('files.filename'), nullable=False)
+
+    file = relationship('File', back_populates='tasks')
+
+    def __repr__(self):
+        return "<Task {} on {}, entry {}, pid={}>".format(self.name,
+                self.filename, self.entry, self.pid)
+
+File.tasks = relationship('Task', back_populates='file', order_by=Task.id)
+
+Base.metadata.create_all(engine)
 session = sessionmaker(bind=engine)()
 
-# ### Testing ###
-# session.add_all([File(filename='test.txt', nxlink='in progress'),
-#     File(filename='hey/another.txt', nxlink='done', nxmax='done', nxfind='in progress')
-# ])
-# session.commit()
-# for inst in session.query(File):
-#     print(inst)
+ipdb.set_trace()
 
 """ Update database entry for filename """
 def update_db(filename, task, status):
     #Make sure we're only getting one result
     row = session.query(File).filter(File.filename == filename).scalar()
+    # TODO
+    # row.tasks.append(Task)
     if row is None:
         print("No file by that name exists")
         return
@@ -59,7 +93,6 @@ def get_status(filename, task):
 """ Populate the database based on local files. Will overwrite current
     database contents. sample_dir should be NXreduce.base_directory """
 def sync_db(sample_dir):
-    # ipdb.set_trace()
     # Get a list of all the .nxs wrapper files
     wrapper_files = ( os.path.join(sample_dir, filename) for filename in
                     os.listdir(sample_dir) if filename.endswith('.nxs')

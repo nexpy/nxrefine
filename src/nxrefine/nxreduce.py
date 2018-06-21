@@ -76,12 +76,6 @@ class Lock(object):
             os.remove(self.lock_file)
             self.fd = None
 
-    def __get_lock():
-        if os.path.exists(self.lock_file):
-            raise LockException("'%s' already locked" % self.filename)
-        else:
-            open(self.lock_file, 'w').write("%s" % os.getpid())
-
     def __enter__(self):
         return self.acquire()
 
