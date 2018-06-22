@@ -54,8 +54,10 @@ class Task(Base):
     # Timestamps with microsecond precision
     queue_time = Column(mysql.TIMESTAMP(fsp=6), default=datetime.datetime.now,
             nullable=False)
-    start = Column(mysql.TIMESTAMP(fsp=6))
-    end = Column(mysql.TIMESTAMP(fsp=6))
+    start_time = Column(mysql.TIMESTAMP(fsp=6))
+    end_time = Column(mysql.TIMESTAMP(fsp=6))
+    # TODO: Should this be set on task start? also probably shouldn't use
+            # pid of *this* process. How do I get the pid of the worker?
     pid = Column(Integer, default=os.getpid, nullable=False)
     filename = Column(String(255), ForeignKey('files.filename'), nullable=False)
 
@@ -72,23 +74,42 @@ session = sessionmaker(bind=engine)()
 
 ipdb.set_trace()
 
-""" Update database entry for filename """
-def update_db(filename, task, status):
-    #Make sure we're only getting one result
+""" Update a file to 'queued' status and create a matching task """
+def record_queued_task(filename, task, entry):
     row = session.query(File).filter(File.filename == filename).scalar()
-    # TODO
-    # row.tasks.append(Task)
     if row is None:
-        print("No file by that name exists")
+        print("Could not find file {}".format(filename))
         return
-    setattr(row, task, status)
+    row.tasks.append(Task(name=task, entry=entry))
+    setattr(row, task, 'queued')
     session.commit()
 
-""" Return database entry for task in filename """
+""" Update database entry for filename, recording that task started or finished.
+        status should be 'in progress' or 'done' """
+def update_task(filename, task, entry, status):
+    #Make sure we're only getting one result
+    row = session.query(File).filter(File.filename == filename).scalar()
+    if row is None:
+        print("Could not find file {}".format(filename))
+        return
+    setattr(row, task, status)
+    #Find the index of the desired task
+    for i, t in enumerate(row.tasks):
+        if t.name == task:
+            break
+    row.tasks[i].status = status
+    if status == 'done':
+        row.tasks[i].end_time = datetime.datetime.now()
+    else:
+        row.tasks[i].start_time = datetime.datetime.now()
+    session.commit()
+
+""" Return Task database entry for task in filename """
 def get_status(filename, task):
-    status = session.query(File.filename, getattr(File, task)).filter(
-            File.filename == filename).scalar()
-    return scalar[0]
+    return session.query(Task) \
+            .filter(Task.filename == filename) \
+            .filter(Task.name == task) \
+            .scalar()
 
 """ Populate the database based on local files. Will overwrite current
     database contents. sample_dir should be NXreduce.base_directory """

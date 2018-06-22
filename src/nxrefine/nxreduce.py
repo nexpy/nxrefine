@@ -23,14 +23,13 @@ from .nxserver import NXServer
 from . import blobcorrector, __version__
 from .connectedpixels import blob_moments
 from .labelimage import labelimage, flip1
-from .nxdatabase import update_db, get_status, sync_db
+from .nxdatabase import update_task, get_status, sync_db
 
 
 class LockException(Exception):
     LOCK_FAILED = 1
 
 class Lock(object):
-    #TODO: use os.open to get fd, then fcntl to lock
     def __init__(self, filename, timeout=600, check_interval=1):
         self.filename = os.path.realpath(filename)
         self.lock_file = self.filename+'.lock'
@@ -445,13 +444,14 @@ class NXReduce(QtCore.QObject):
                                 sequence_index=len(self.entry.NXprocess)+1,
                                 version='nxrefine v'+__version__,
                                 note=note)
-        # check if all 3 entries are done
-        if self.all_complete(program):
-            update_db(self.wrapper_file, program, 'done')
+        update_task(self.wrapper_file, program, self.entry, 'done')
+        # check if all 3 entries are done - update File
+        # if self.all_complete(program):
+        #     update_task(self.wrapper_file, program, 'done')
 
     """ Record that a task has started. Update DB """
     def record_start(self, program):
-        update_db(self.wrapper_file, program, 'in progress')
+        update_task(self.wrapper_file, program, self.entry, 'in progress')
 
     def nxlink(self):
         if self.not_complete('nxlink') and self.link:
