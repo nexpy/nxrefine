@@ -257,6 +257,20 @@ class WorkflowDialog(BaseDialog):
         for scan in self.enabled_scans:
             self.select_programs(scan)
 
+    def deselect_all(self):
+        for scan in self.enabled_scans:
+            for status in ['overwrite', 'reduce']:
+                self.scans[scan][status].blockSignals(True)
+            for status in ['overwrite', 'reduce']:
+                self.scans[scan][status].setCheckState(False)
+            for status in ['overwrite', 'reduce']:
+                self.scans[scan][status].blockSignals(False)
+        for status in ['overwrite', 'reduce']:
+            self.all_scans[status].blockSignals(True)
+            self.all_scans[status].setChecked(False)
+            self.all_scans[status].blockSignals(False)
+        self.backup_scans()
+
     def combine_all(self):
         for scan in self.enabled_scans:
             if self.scans[scan]['combine'].isEnabled():
@@ -266,6 +280,10 @@ class WorkflowDialog(BaseDialog):
     def selected(self, scan, command):
         return (self.scans[scan][command].isEnabled() and 
                 self.scans[scan][command].checkState()==QtCore.Qt.Checked)
+
+    def queued(self, scan, program):
+        self.scans[scan][program].setChecked(False)
+        self.scans[scan][program].setEnabled(False)
     
     def add_tasks(self):
         if self.grid is None:
@@ -275,16 +293,22 @@ class WorkflowDialog(BaseDialog):
                 reduce = NXReduce(entry, scan)
                 if self.selected(scan, 'link'):
                     reduce.link = True
+                    self.queued(scan, 'link')
                 if self.selected(scan, 'max'):
                     reduce.maxcount = True
+                    self.queued(scan, 'max')
                 if self.selected(scan, 'find'):
                     reduce.find = True
+                    self.queued(scan, 'find')
                 if self.selected(scan, 'copy'):
                     reduce.copy = True
+                    self.queued(scan, 'copy')
                 if self.selected(scan, 'refine'):
                     reduce.refine = True
+                    self.queued(scan, 'refine')
                 if self.selected(scan, 'transform'):
                     reduce.transform = True
+                    self.queued(scan, 'transform')
                 if self.selected(scan, 'overwrite'):
                     reduce.overwrite = True
                 reduce.queue()
@@ -293,12 +317,16 @@ class WorkflowDialog(BaseDialog):
                 if self.selected(scan, 'overwrite'):
                     reduce.overwrite = True
                 reduce.queue()
+                self.queued(scan, 'combine')
+            self.scans[scan]
+        self.deselect_all()
+        
 
     def view_logs(self):
         if self.grid is None:
             raise NeXusError('Need to update status')
         dialog = BaseDialog(self)
-        dialog.setMinimumWidth(600)
+        dialog.setMinimumWidth(900)
         dialog.setMinimumHeight(600)
         scans = [os.path.basename(scan) for scan in self.scans]
         self.scan_combo = dialog.select_box(scans)
@@ -309,18 +337,29 @@ class WorkflowDialog(BaseDialog):
         dialog.set_layout(
             dialog.make_layout(self.scan_combo, self.entry_combo, self.program_combo),
             self.output_box,
-            dialog.action_buttons(('View Workflow Logs', self.logview),
+            dialog.action_buttons(('View Server Logs', self.serverview),
+                                  ('View Workflow Logs', self.logview),
                                   ('View Workflow Output', self.outview)),
             dialog.close_buttons(close=True))
         dialog.setWindowTitle("'%s' Logs" % self.sample)
         self.view_dialog = dialog
         self.view_dialog.show()
 
+    def serverview(self):
+        scan = self.scan_combo.currentText()
+        with open(os.path.join(self.task_directory, 'nxserver.log')) as f:
+            lines = f.readlines()
+        text = [line for line in lines 
+                if self.sample in line if scan in line]
+        if text:
+            self.output_box.setPlainText(''.join(text))
+        else:
+            self.output_box.setPlainText('No Logs')
+
     def logview(self):
         scan = self.sample + '_' + self.scan_combo.currentText()
         entry = self.entry_combo.currentText()
         prefix = scan + "['" + entry + "']: "
-        program = self.program_combo.currentText()
         with open(os.path.join(self.task_directory, 'nxlogger.log')) as f:
             lines = f.readlines()
         text = [line.replace(prefix, '') for line in lines 
