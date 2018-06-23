@@ -8,7 +8,6 @@ import time
 import timeit
 import numpy as np
 from h5py import is_hdf5
-from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 
 from nexusformat.nexus import *
 
@@ -153,8 +152,8 @@ class NXReduce(QtCore.QObject):
         self.summed_data = None
         self._first = first
         self._last = last
-        self.radius = 200
-        self.width = 3
+        self.radius = radius
+        self.width = width
         self.Qh = Qh
         self.Qk = Qk
         self.Ql = Ql
@@ -167,7 +166,7 @@ class NXReduce(QtCore.QObject):
         self.lattice = lattice
         self.transform = transform
         self.combine = combine
-        self.mask3D = False #Temporary halt until code fixed
+        self.mask3D = False # Temporary block on 3D masks
         self.overwrite = overwrite
         self.gui = gui
         
@@ -594,6 +593,7 @@ class NXReduce(QtCore.QObject):
         self.entry['summed_data'] = NXdata(self.summed_data, 
                                            self.entry['data'].nxaxes[-2:])
         try:
+            from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
             parameters = self.entry['instrument/calibration/refinement/parameters']
             cake = AzimuthalIntegrator(dist=parameters['Distance'].nxvalue,
                                        poni1=parameters['Poni1'].nxvalue,
