@@ -326,7 +326,7 @@ class WorkflowDialog(BaseDialog):
         if self.grid is None:
             raise NeXusError('Need to update status')
         dialog = BaseDialog(self)
-        dialog.setMinimumWidth(900)
+        dialog.setMinimumWidth(800)
         dialog.setMinimumHeight(600)
         scans = [os.path.basename(scan) for scan in self.scans]
         self.scan_combo = dialog.select_box(scans)
