@@ -25,8 +25,6 @@ class ParentDialog(BaseDialog):
         self.parameters.add('threshold', '', 'Threshold')
         self.parameters.add('first', '', 'First Frame')
         self.parameters.add('last', '', 'Last Frame')
-        self.parameters.add('radius', '', 'Radius')
-        self.parameters.add('width', '', 'Frame Width')
 
         self.set_layout(self.directorybox('Choose Sample Directory', default=False),
                         self.filebox('Choose Parent File'),
@@ -68,10 +66,6 @@ class ParentDialog(BaseDialog):
             self.parameters['last'].value = reduce.last
         if reduce.threshold:
             self.parameters['threshold'].value = reduce.threshold
-        if reduce.radius:
-            self.parameters['radius'].value = reduce.radius
-        if reduce.width:
-            self.parameters['width'].value = reduce.width
 
     @property
     def reduce(self):
@@ -101,14 +95,6 @@ class ParentDialog(BaseDialog):
     def last(self):
         return self.parameters['last'].value
 
-    @property
-    def radius(self):
-        return self.parameters['radius'].value
-
-    @property
-    def width(self):
-        return self.parameters['width'].value
-
     def add_tasks(self):
         if self.parent == self.old_parent:
             return
@@ -116,8 +102,7 @@ class ParentDialog(BaseDialog):
             root = nxload(self.parent)
         for entry in [e for e in root.entries if e != 'entry']:
             reduce = NXReduce(root[entry], link=True, maxcount=True, find=True, 
-                              mask3D=True, first=self.first, last=self.last, 
-                              threshold=self.threshold, 
-                              radius=self.radius, width=self.width)
+                              first=self.first, last=self.last, 
+                              threshold=self.threshold)
             reduce.queue(parent=True)
         self.old_parent = self.parent                          
