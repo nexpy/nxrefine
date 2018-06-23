@@ -293,25 +293,31 @@ class WorkflowDialog(BaseDialog):
                 reduce = NXReduce(entry, scan)
                 if self.selected(scan, 'link'):
                     reduce.link = True
-                    self.queued(scan, 'link')
                 if self.selected(scan, 'max'):
                     reduce.maxcount = True
-                    self.queued(scan, 'max')
                 if self.selected(scan, 'find'):
                     reduce.find = True
-                    self.queued(scan, 'find')
                 if self.selected(scan, 'copy'):
                     reduce.copy = True
-                    self.queued(scan, 'copy')
                 if self.selected(scan, 'refine'):
                     reduce.refine = True
-                    self.queued(scan, 'refine')
                 if self.selected(scan, 'transform'):
                     reduce.transform = True
-                    self.queued(scan, 'transform')
                 if self.selected(scan, 'overwrite'):
                     reduce.overwrite = True
                 reduce.queue()
+            if self.selected(scan, 'link'):
+                self.queued(scan, 'link')
+            if self.selected(scan, 'max'):
+                self.queued(scan, 'max')
+            if self.selected(scan, 'find'):
+                self.queued(scan, 'find')
+            if self.selected(scan, 'copy'):
+                self.queued(scan, 'copy')
+            if self.selected(scan, 'refine'):
+                self.queued(scan, 'refine')
+            if self.selected(scan, 'transform'):
+                self.queued(scan, 'transform')
             if self.selected(scan, 'combine'):
                 reduce = NXMultiReduce(scan, self.entries)
                 if self.selected(scan, 'overwrite'):
