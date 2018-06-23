@@ -877,7 +877,8 @@ class NXReduce(QtCore.QObject):
     def nxtransform(self):
         if self.not_complete('nxtransform') and self.transform:
             if self.not_complete('nxrefine'):
-                self.logger.info('Warning: Transform performed without nxrefine')
+                self.logger.info('Transform cannot be performed without nxrefine')
+                return
             with Lock(self.wrapper_file):
                 cctw_command = self.prepare_transform()
             if cctw_command:
