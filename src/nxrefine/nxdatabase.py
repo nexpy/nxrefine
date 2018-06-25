@@ -1,4 +1,5 @@
 import os
+import argparse
 import datetime
 from sqlalchemy import create_engine, Column, Integer, String, Enum, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
@@ -6,7 +7,7 @@ from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.dialects import mysql
 
 from nexusformat.nexus import nxload
-# import nxrefine.nxreduce TODO: WARNING: UNCOMMENT THIS
+from .lock import Lock
 
 ###  DEBUGGING ###
 import ipdb;
@@ -72,8 +73,6 @@ File.tasks = relationship('Task', back_populates='file', order_by=Task.id)
 Base.metadata.create_all(engine)
 session = sessionmaker(bind=engine)()
 
-ipdb.set_trace()
-
 """ Update a file to 'queued' status and create a matching task """
 def record_queued_task(filename, task, entry):
     row = session.query(File).filter(File.filename == filename).scalar()
@@ -126,7 +125,7 @@ def sync_db(sample_dir):
             scan_files = os.listdir(scan_dir)
         except OSError:
             scan_files = []
-        with nxrefine.nxreduce.Lock(w):
+        with Lock(w):
             root = nxload(w)
             entries = (e for e in root.entries if e != 'entry')
         # Track how many entries have finished each task
@@ -148,8 +147,8 @@ def sync_db(sample_dir):
                     tasks['nxrefine'] += 1
                 if 'nxtransform' in root[e] or e+'_transform.nxs' in scan_files:
                     tasks['nxtransform'] += 1
-                if 'nxcombine' in root['entry'] or 'transform.nxs' in files \
-                        or 'masked_transform.nxs' in files:
+                if 'nxcombine' in root['entry'] or 'transform.nxs' in scan_files \
+                        or 'masked_transform.nxs' in scan_files:
                     tasks['nxcombine'] += 1
         f = File(filename = w)
         for task, val in tasks.items():
@@ -173,4 +172,8 @@ def is_parent(wrapper_file, sample_dir):
         return False
 
 
-# sync_db('')
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Populate the database based \
+            on local NeXus files")
+    parser.add_argument('sync', action='store_true',
+                        help="Specify 'sync' to sync local files with the database")

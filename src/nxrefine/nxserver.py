@@ -4,6 +4,8 @@ import time
 from multiprocessing import Process, Queue, JoinableQueue
 from .daemon import NXDaemon
 
+#### DEBUGGING ####
+import ipdb;
 
 class NXWorker(Process):
     """Class for processing tasks on a specific node."""
@@ -47,13 +49,14 @@ class NXTask(object):
 class NXServer(NXDaemon):
 
     def __init__(self, directory, node_file=None):
+        ipdb.set_trace()
         self.directory = directory
         self.task_directory = os.path.join(directory, 'tasks')
         if 'tasks' not in os.listdir(directory):
             os.mkdir(self.task_directory)
         self.task_list = os.path.join(self.task_directory, 'task_list')
         if not os.path.exists(self.task_list):
-            os.mkfifo(self.task_list)  
+            os.mkfifo(self.task_list)
         if node_file is None:
             self.node_file = os.path.join(self.task_directory, 'nodefile')
         else:
@@ -65,13 +68,13 @@ class NXServer(NXDaemon):
         self.tasks = None
         self.results = None
         self.workers = []
-        
+
         super(NXServer, self).__init__(self.pid_file)
-        
+
     def read_nodes(self, node_file):
         """Read available nodes"""
         with open(node_file) as f:
-            nodes = [line.strip() for line in f.readlines() if line.strip() != '']            
+            nodes = [line.strip() for line in f.readlines() if line.strip() != '']
         return nodes
 
     def log(self, message):
@@ -81,8 +84,8 @@ class NXServer(NXDaemon):
     def run(self):
         self.log('Starting server')
         self.tasks = JoinableQueue()
-        self.results = Queue()    
-        self.workers = [NXWorker(node, self.tasks, self.results, self.log_file) 
+        self.results = Queue()
+        self.workers = [NXWorker(node, self.tasks, self.results, self.log_file)
                         for node in self.nodes]
         for worker in self.workers:
             worker.start()
@@ -105,9 +108,8 @@ class NXServer(NXDaemon):
 
     def stop(self):
         self.add_task('stop')
-    
+
     def add_task(self, command):
         """Add a task to the server queue"""
         task_fifo = os.open(self.task_list, os.O_RDWR)
         os.write(task_fifo, (command+'\n').encode())
-    
