@@ -46,28 +46,23 @@ class Lock(object):
         if check_interval is None:
             check_interval = self.check_interval
 
-        try:
-            self.__get_lock()
-        except OSError as e:
-            # Don't catch unrelated exceptions
-            if e.errno != errno.EEXIST:
-                raise
-            timeoutend = timeit.default_timer() + timeout
-            while timeoutend > timeit.default_timer():
+        timeoutend = timeit.default_timer() + timeout
+        while timeoutend > timeit.default_timer():
+            try:
+                # Attempt to create the lockfile. If it already exists,
+                # then someone else has the lock and we need to wait
+                self.fd = os.open(self.lock_file,
+                        os.O_CREAT | os.O_EXCL | os.O_RDWR)
+                open(self.lock_file, 'w').write(str(os.getpid()))
+                break
+            except OSError as e:
+                # Only catch if the lockfile already exists
+                if e.errno != errno.EEXIST:
+                    raise
                 time.sleep(check_interval)
-                try:
-                    self.__get_lock()
-                    break
-                except OSError:
-                    if e.errno != errno.EEXIST:
-                        raise
-            else:
-                raise LockException("'%s' timeout expired" % self.filename)
-
-    def __get_lock(self):
-        # Has race behavior on NFS version < 3
-        self.fd = os.open(self.lock_file, os.O_CREAT | os.O_EXCL | os.O_RDWR)
-        open(self.lock_file, 'w').write(str(os.getpid()))
+        # Raise on error if we had to wait for too long
+        else:
+            raise LockException("'%s' timeout expired" % self.filename)
 
     def release(self):
         if self.fd is not None:
@@ -431,7 +426,6 @@ class NXReduce(QtCore.QObject):
 
     """ Record that a task has finished. Update NeXus file and database """
     def record(self, program, **kwds):
-        # ipdb.set_trace()
         parameters = '\n'.join(
             [('%s: %s' % (k, v)).replace('_', ' ').capitalize()
              for (k,v) in kwds.items()])
@@ -454,6 +448,7 @@ class NXReduce(QtCore.QObject):
         update_task(self.wrapper_file, program, self.entry, 'in progress')
 
     def nxlink(self):
+        ipdb.set_trace()
         if self.not_complete('nxlink') and self.link:
             if not self.data_exists():
                 self.logger.info('Data file not available')
@@ -555,7 +550,6 @@ class NXReduce(QtCore.QObject):
             self.entry['instrument/attenuator/attenuator_transmission'] = logs['Calculated_filter_transmission']
 
     def nxmax(self):
-        # ipdb.set_trace()
         if self.not_complete('nxmax') and self.maxcount:
             if not self.data_exists():
                 self.logger.info('Data file not available')
@@ -1007,7 +1001,6 @@ class NXMultiReduce(NXReduce):
         self.combine = True
 
     def nxcombine(self):
-        # ipdb.set_trace()
         if self.not_complete('nxcombine') and self.combine:
             if not self.all_complete('nxtransform'):
                 self.logger.info('Cannot combine until transforms complete')
