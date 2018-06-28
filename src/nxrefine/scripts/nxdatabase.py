@@ -6,11 +6,10 @@ def main():
             on local NeXus files")
     parser.add_argument('-d', required=True, dest='directory',
                         help='The directory of the sample to sync')
-    parser.add_argument('sync', action='store_true',
-                        help="Specify 'sync' to sync local files with the database")
+    # parser.add_argument('sync', action='store_true',
+    #                     help="Specify 'sync' to sync local files with the database")
 
     args = parser.parse_args()
-    import ipdb; ipdb.set_trace()
     if args.sync:
         print('Looking in directory {}'.format(args.directory))
         sync_db(args.directory)

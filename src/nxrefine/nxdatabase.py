@@ -5,6 +5,7 @@ from sqlalchemy import create_engine, Column, Integer, String, Enum, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.dialects import mysql
+from sqlalchemy.exc import IntegrityError
 
 from nexusformat.nexus import nxload
 from .lock import Lock
@@ -43,7 +44,6 @@ class File(Base):
         return "File path='{}',\n\tnot started={}\n\tqueued={}\n\t " \
                 "in_progress={}\n\tdone={}".format(
                 self.filename, not_started, queued, in_progress, done)
-
 
 class Task(Base):
     __tablename__ = 'tasks'
@@ -159,7 +159,15 @@ def sync_db(sample_dir):
             else:
                 setattr(f, task, 'in progress')
         session.add(f)
-    session.commit()
+    try:
+        session.flush()
+    # Catch if the file already exists in the database
+    except IntegrityError as e:
+        session.rollback()
+        for err in e.params:
+            print("ERROR: preexisting entry for '{}'".format(err['filename']))
+    else:
+        session.commit()
 
 """ Sample_dir should be the GUPxxx/agcrse2/xtalX directory -
         ie NXreduce.base_directory """
