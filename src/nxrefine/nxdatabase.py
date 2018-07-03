@@ -13,9 +13,6 @@ from .lock import Lock
 ###  DEBUGGING ###
 import ipdb;
 
-#MySQL database, logging turned on
-engine = create_engine('mysql+mysqlconnector://python:pythonpa^ss@18.219.38.132/test',
-        echo=True)
 Base = declarative_base();
 # Records files that have: not been processed, queued on the NXserver
     # but not started, started processing, finished processing
@@ -70,11 +67,23 @@ class Task(Base):
 
 File.tasks = relationship('Task', back_populates='file', order_by=Task.id)
 
-Base.metadata.create_all(engine)
-session = sessionmaker(bind=engine)()
+session = None
+# ipdb.set_trace()
 
-""" Update a file to 'queued' status and create a matching task """
+def init(connect, echo=False):
+    """ Connect to the database, creating tables if necessary
+    
+        connect: connect string as specified by SQLAlchemy
+        echo: whether or not to echo emmited SQL statements
+    """
+    #MySQL database, logging turned on
+    engine = create_engine(connect, echo=echo)
+    Base.metadata.create_all(engine)
+    global session
+    session = sessionmaker(bind=engine)()
+
 def record_queued_task(filename, task, entry):
+    """ Update a file to 'queued' status and create a matching task """
     row = session.query(File).filter(File.filename == filename).scalar()
     if row is None:
         print("Could not find file {}".format(filename))
@@ -83,9 +92,9 @@ def record_queued_task(filename, task, entry):
     setattr(row, task, 'queued')
     session.commit()
 
-""" Update database entry for filename, recording that task started or finished.
-        status should be 'in progress' or 'done' """
 def update_task(filename, task, entry, status):
+    """ Update database entry for filename, recording that task started or finished.
+            status should be 'in progress' or 'done' """
     #Make sure we're only getting one result
     row = session.query(File).filter(File.filename == filename).scalar()
     if row is None:
@@ -103,16 +112,16 @@ def update_task(filename, task, entry, status):
         row.tasks[i].start_time = datetime.datetime.now()
     session.commit()
 
-""" Return Task database entry for task in filename """
 def get_status(filename, task):
+    """ Return Task database entry for task in filename """
     return session.query(Task) \
             .filter(Task.filename == filename) \
             .filter(Task.name == task) \
             .scalar()
 
-""" Populate the database based on local files. Will overwrite current
-    database contents. sample_dir should be NXreduce.base_directory """
 def sync_db(sample_dir):
+    """ Populate the database based on local files. Will overwrite current
+        database contents. sample_dir should be NXreduce.base_directory """
     # Get a list of all the .nxs wrapper files
     wrapper_files = ( os.path.join(sample_dir, filename) for filename in
                     os.listdir(sample_dir) if filename.endswith('.nxs')
@@ -179,9 +188,5 @@ def is_parent(wrapper_file, sample_dir):
     else:
         return False
 
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Populate the database based \
-            on local NeXus files")
-    parser.add_argument('sync', action='store_true',
-                        help="Specify 'sync' to sync local files with the database")
+def update_task(a,b,c,d):
+    pass

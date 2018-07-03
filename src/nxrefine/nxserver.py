@@ -49,7 +49,6 @@ class NXTask(object):
 class NXServer(NXDaemon):
 
     def __init__(self, directory, node_file=None):
-        ipdb.set_trace()
         self.directory = directory
         self.task_directory = os.path.join(directory, 'tasks')
         if 'tasks' not in os.listdir(directory):

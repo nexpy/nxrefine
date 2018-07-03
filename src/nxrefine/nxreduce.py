@@ -24,7 +24,6 @@ from . import blobcorrector, __version__
 from .connectedpixels import blob_moments
 from .labelimage import labelimage, flip1
 from .lock import Lock, LockException
-# from .nxdatabase import update_task, get_status, sync_db
 import nxrefine.nxdatabase as nxdb
 
 
@@ -39,6 +38,7 @@ class NXReduce(QtCore.QObject):
                  overwrite=False, gui=False):
 
         super(NXReduce, self).__init__()
+        ipdb.set_trace()
 
         if isinstance(entry, NXentry):
             self._entry = entry.nxname
@@ -125,7 +125,8 @@ class NXReduce(QtCore.QObject):
         self._stopped = False
 
         self.init_logs()
-
+        ##TODO: change this to have arguments
+        nxdb.init('mysql+mysqlconnector://python:pythonpa^ss@18.219.38.132/test')
         try:
             self.server = NXServer(self.root_directory)
         except Exception as error:

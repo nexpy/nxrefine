@@ -1,5 +1,5 @@
 import argparse
-from nxrefine.nxdatabase import sync_db
+from nxrefine.nxdatabase import init, sync_db
 
 def main():
     parser = argparse.ArgumentParser(description="Populate the database based \
@@ -11,6 +11,7 @@ def main():
 
     args = parser.parse_args()
     if args.sync:
+        init()
         print('Looking in directory {}'.format(args.directory))
         sync_db(args.directory)
 
