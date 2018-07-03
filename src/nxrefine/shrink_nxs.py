@@ -1,16 +1,20 @@
 from nexusformat.nexus import *
 import numpy as np
+import h5py
 import copy
 import argparse
 import os
 from tqdm import trange
 import ipdb
 
-def loops(arr, chunkshape):
+def chunkify(arr, chunkshape):
     """ Divide NXfield arr into chunks of size chunkshape. If arr doesn't fit
-        exactly it will be truncated """
+        exactly it will be truncated
+        chunkshape: 3-element tuple of ints
+    """
     # Where to truncate arr
     bounds = (np.array(arr.shape) // chunkshape) * chunkshape
+    # bounds = np.array([100,1000,1000])
     dx,dy,dz = chunkshape
     result = np.zeros(bounds // chunkshape, dtype=arr.dtype)
     for x in trange(result.shape[0]):
@@ -23,8 +27,10 @@ def loops(arr, chunkshape):
     return result
 
 def shrink_mask(oldmask, spacing):
-    """ Shrink oldmask to match the array returned from loops, using a grid defined
-        by the tuple spacing """
+    """ Shrink oldmask to match the array returned from chunkify, using a grid
+        defined by spacing
+        spacing: 2-element tuple of ints
+    """
     data = oldmask.nxdata
     bounds = (np.array(data.shape) // spacing) * spacing
     newmask = np.zeros(bounds // spacing, dtype=data.dtype)
@@ -39,7 +45,8 @@ def shrink_monitor(oldmon, spacing):
         higher or lower. Sample from oldmon, making sure that the outliers
         are preserved.
         Oldmon: MCSx field of monitor:NXdata.
-        Spacing: int """
+        Spacing: int
+    """
     data = oldmon.nxdata
     bounds = (np.array(oldmon.shape) // spacing) * spacing
     newmon = np.zeros(bounds // spacing, dtype=oldmon.dtype)
@@ -55,13 +62,14 @@ def shrink_monitor(oldmon, spacing):
 
 parser = argparse.ArgumentParser(description="Shrink a NeXus file by lowering\
             the resolution")
-parser.add_argument('-f', required=True, dest='file', help='name of parent file')
+parser.add_argument('file', help='name of parent file')
 parser.add_argument('-s', '--size', default=10, help='size of the chunks to average')
 
 args = parser.parse_args()
 chunkshape = [args.size] * 3
 sample_dir = os.path.dirname(args.file)
-sample, scan = os.path.basename(args.file).split('_')
+sample,scan = os.path.basename(args.file).split('_')
+scan = os.path.splitext(scan)[0]
 f = nxload(args.file)
 # Copy the metadata to the new file
 # output = NXroot(entries=f.entries)
@@ -78,11 +86,24 @@ for k,v in old_det.entries.items():
 del output.entry.instrument['detector']
 output.entry.instrument.detector = det
 
-output.save(os.path.join(sample_dir, sample + '_shrunk_' + scan))
+# ipdb.set_trace()
+
+# Save output as the wrapper file and crete the scan directory
+try:
+    outfilename = sample + '_shrunk_' + scan
+    output.save(os.path.join(sample_dir, outfilename))
+    scan_dir = os.path.join(sample_dir, 'shrunk_' + scan)
+except OSError:
+    dirs = os.listdir(sample_dir)
+    num = 1 + sum(1 for d in dirs if outfilename in d)
+    output.save(os.path.join(sample_dir, outfilename + str(num)))
+    scan_dir = os.path.join(sample_dir, 'shrunk_' + scan + str(num))
+
+os.mkdir(scan_dir)
 
 for entry in ['f1', 'f2', 'f3']:
     olddata = f[entry].data
-    res = loops(olddata.data, chunkshape)
+    res = chunkify(olddata.data, chunkshape)
     # Save the new data in the entry's data field and update metadata
     newdata = NXdata()
     newdata.attrs['axes'] = olddata.attrs['axes']
@@ -94,7 +115,19 @@ for entry in ['f1', 'f2', 'f3']:
     newdata['frame_number'] = np.arange(res.shape[0])
     newdata['x_pixel'] = np.arange(res.shape[2])
     newdata['y_pixel'] = np.arange(res.shape[1])
-    newdata['data'] = res
+    # newdata['data'] = res
+    # Create an h5 file to hold the actual data and link to it from output
+    # rt = NXroot(NXentry(NXdata()))
+    # rt.entry.data.data = res
+    # rt.entry.data.data.attrs['signal'] = olddata.data.signal
+    data_file = os.path.join(scan_dir, entry + '.h5')
+    target = h5py.File(data_file)
+    target.create_dataset('entry/data/data',
+                data=res, chunks=olddata.data.chunks) # TODO: divide by chunkshape
+    target['entry/data/data'].attrs['signal'] = olddata.data.signal
+    target.close()
+    newdata.data = NXlink('/entry/data/data', data_file)
+
     del output[entry]['data']
     output[entry]['data'] = newdata
 
