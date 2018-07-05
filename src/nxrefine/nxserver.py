@@ -52,8 +52,9 @@ class NXServer(NXDaemon):
         if 'tasks' not in os.listdir(directory):
             os.mkdir(self.task_directory)
         self.task_list = os.path.join(self.task_directory, 'task_list')
-        if not os.path.exists(self.task_list):
-            os.mkfifo(self.task_list)  
+        if os.path.exists(self.task_list):
+            os.remove(self.task_list)
+        os.mkfifo(self.task_list)  
         if node_file is None:
             self.node_file = os.path.join(self.task_directory, 'nodefile')
         else:
