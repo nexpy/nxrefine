@@ -107,6 +107,8 @@ class NXRefine(object):
         self.grid_shape = None
         self.grid_step = None
         self.standard = True
+
+        self._idx = None
         
         self.parameters = None
         
@@ -656,6 +658,7 @@ class NXRefine(object):
         except Exception:
             pass
         self.polar_max = polar_max
+        self._idx = None
 
     def calculate_angles(self, x, y):
         """Calculate the polar and azimuthal angles of the specified pixels"""
@@ -816,19 +819,30 @@ class NXRefine(object):
         peak = Oimat * (vec(self.xp[i], self.yp[i]) - self.Cvec)
         v = norm(Mat * peak)
         return np.arctan(v / self.distance)
+    def score(self, grain=None):
+        self.set_idx()
+        if self.idx:
+            diffs = self.diffs()
+            weights = self.weights
+            return np.sum(weights * diffs) / np.sum(weights)
+        else:
+            return 0.0
 
     @property
     def idx(self):
-        return list(np.where(self.polar_angle < self.polar_max)[0])
+        if self._idx is None:
+            self._idx = list(np.where(self.polar_angle < self.polar_max)[0])
+        return self._idx
+        
+    def set_idx(self, hkl_tolerance=None):
+        if hkl_tolerance is None:
+            hkl_tolerance = self.hkl_tolerance
+        _idx = list(np.where(self.polar_angle < self.polar_max)[0])
+        self._idx = [i for i in _idx if self.diff(i) < hkl_tolerance]
 
     @property
     def weights(self):
         return np.array(self.intensity[self.idx])
-
-    def score(self, grain=None):
-        diffs = self.diffs()
-        weights = self.weights
-        return np.sum(weights * diffs) / np.sum(weights)
 
     def diffs(self):
         """Return the set of reciproal space differences for all the peaks"""
@@ -953,6 +967,7 @@ class NXRefine(object):
         self.set_symmetry()
 
     def refine_hkls(self, method='leastsq', **opts):
+        self.set_idx()
         from lmfit import minimize, fit_report
         if self.Umat is None:
             raise NeXusError('No orientation matrix defined')
@@ -967,6 +982,7 @@ class NXRefine(object):
         return self.diffs()
 
     def refine_angles(self, method='nelder', **opts):
+        self.set_idx()
         from lmfit import minimize, fit_report
         p0 = self.define_parameters(lattice=True, **opts)
         self.result = minimize(self.angle_residuals, p0, method=method)
@@ -993,6 +1009,7 @@ class NXRefine(object):
                 self.Umat[i,j] = p['U%d%d' % (i,j)].value
 
     def refine_orientation_matrix(self, **opts):
+        self.set_idx()
         from lmfit import minimize, fit_report
         p0 = self.define_orientation_matrix()
         self.result = minimize(self.orient_residuals, p0, **opts)
