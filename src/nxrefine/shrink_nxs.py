@@ -35,7 +35,7 @@ def chunkify(arr, chunkshape, mask=None):
             for z in range(result.shape[2]):
                 chunk = slab[:, y*dy:(y+1)*dy, z*dz:(z+1)*dz]
                 # TODO: account for fully masked chunks
-                result[x,y,z] = np.max(chunk)
+                result[x,y,z] = np.mean(chunk)
     return result
 
 def shrink_mask(oldmask, spacing):
@@ -112,17 +112,17 @@ def run(file, size):
             mask = f[entry].instrument.detector.pixel_mask.nxvalue
         except NeXusError:
             mask = None
-        # ipdb.set_trace()
         # cProfile.run('chunkify(olddata.data, chunkshape, mask)')
-        # res = chunkify(olddata.data, chunkshape, mask)
         res = chunkify(olddata.data, chunkshape, mask)
         # Save the new data in the entry's data field and update metadata
         newdata = NXdata()
         newdata.attrs['axes'] = olddata.attrs['axes']
         if entry == 'f1':
-            newdata.attrs['first'] = olddata.attrs['first'] // chunkshape[0]
-            newdata.attrs['last'] = olddata.attrs['last'] // chunkshape[0]
-            newdata.attrs['max'] = res.max()
+            first = olddata.attrs['first'] // chunkshape[0]
+            last = olddata.attrs['last'] // chunkshape[0]
+        newdata.attrs['first'] = first
+        newdata.attrs['last'] = last
+        newdata.attrs['max'] = res.max()
         newdata.attrs['signal'] = olddata.attrs['signal']
         newdata['frame_number'] = np.arange(res.shape[0])
         newdata['x_pixel'] = np.arange(res.shape[2])
@@ -138,6 +138,7 @@ def run(file, size):
 
         del output[entry]['data']
         output[entry]['data'] = newdata
+        del output[entry]['peaks']
 
         # Update calibration
         newcal = output[entry].instrument.calibration

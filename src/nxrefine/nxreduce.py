@@ -38,7 +38,6 @@ class NXReduce(QtCore.QObject):
                  overwrite=False, gui=False):
 
         super(NXReduce, self).__init__()
-        ipdb.set_trace()
 
         if isinstance(entry, NXentry):
             self._entry = entry.nxname
@@ -373,8 +372,8 @@ class NXReduce(QtCore.QObject):
     def stopped(self, value):
         self._stopped = value
 
-    """ Record that a task has finished. Update NeXus file and database """
     def record(self, program, **kwds):
+        """ Record that a task has finished. Update NeXus file and database """
         parameters = '\n'.join(
             [('%s: %s' % (k, v)).replace('_', ' ').capitalize()
              for (k,v) in kwds.items()])
@@ -387,17 +386,20 @@ class NXReduce(QtCore.QObject):
                                 sequence_index=len(self.entry.NXprocess)+1,
                                 version='nxrefine v'+__version__,
                                 note=note)
-        nxdb.update_task(self.wrapper_file, program, self.entry, 'done')
+        nxdb.update_task(self.wrapper_file, program, self._entry, 'done')
         # check if all 3 entries are done - update File
         # if self.all_complete(program):
         #     nxdb.update_task(self.wrapper_file, program, 'done')
 
-    """ Record that a task has started. Update DB """
     def record_start(self, program):
-        nxdb.update_task(self.wrapper_file, program, self.entry, 'in progress')
+        """ Record that a task has started. Update database """
+        ###### TODO: ######
+        # Create the task when it's queued by the server
+        nxdb.record_queued_task(self.wrapper_file, program, self._entry)
+
+        nxdb.update_task(self.wrapper_file, program, self._entry, 'in progress')
 
     def nxlink(self):
-        ipdb.set_trace()
         if self.not_complete('nxlink') and self.link:
             if not self.data_exists():
                 self.logger.info('Data file not available')

@@ -1,5 +1,4 @@
 import os
-import argparse
 import datetime
 from sqlalchemy import create_engine, Column, Integer, String, Enum, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
@@ -12,6 +11,8 @@ from .lock import Lock
 
 ###  DEBUGGING ###
 import ipdb;
+
+NUM_ENTRIES = 3
 
 Base = declarative_base();
 # Records files that have: not been processed, queued on the NXserver
@@ -47,7 +48,7 @@ class Task(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String(31), nullable=False)
-    entry = Column(Integer)
+    entry = Column(String(15))
     status = Column(_progress, server_default='queued')
     # Timestamps with microsecond precision
     queue_time = Column(mysql.TIMESTAMP(fsp=6), default=datetime.datetime.now,
@@ -68,13 +69,12 @@ class Task(Base):
 File.tasks = relationship('Task', back_populates='file', order_by=Task.id)
 
 session = None
-# ipdb.set_trace()
 
 def init(connect, echo=False):
     """ Connect to the database, creating tables if necessary
-    
+
         connect: connect string as specified by SQLAlchemy
-        echo: whether or not to echo emmited SQL statements
+        echo: whether or not to echo the emmited SQL statements
     """
     #MySQL database, logging turned on
     engine = create_engine(connect, echo=echo)
@@ -84,32 +84,43 @@ def init(connect, echo=False):
 
 def record_queued_task(filename, task, entry):
     """ Update a file to 'queued' status and create a matching task """
+    filename = os.path.realpath(filename)
     row = session.query(File).filter(File.filename == filename).scalar()
     if row is None:
-        print("Could not find file {}".format(filename))
+        print("ERROR: NXdatabase could not find file '{}'".format(filename))
         return
     row.tasks.append(Task(name=task, entry=entry))
     setattr(row, task, 'queued')
     session.commit()
 
 def update_task(filename, task, entry, status):
-    """ Update database entry for filename, recording that task started or finished.
-            status should be 'in progress' or 'done' """
+    """ Update an existing task, recording that it has started or finished.
+
+        filename, task, entry: strings that uniquely identify the desired task
+        status: string, should be 'in progress' or 'done'
+    """
+    filename = os.path.realpath(filename)
     #Make sure we're only getting one result
     row = session.query(File).filter(File.filename == filename).scalar()
     if row is None:
-        print("Could not find file {}".format(filename))
+        print("ERROR: NXdatabase could not find file '{}'".format(filename))
         return
-    setattr(row, task, status)
     #Find the index of the desired task
     for i, t in enumerate(row.tasks):
-        if t.name == task:
+        if t.name == task and t.entry == entry and (
+                t.status == 'queued' or t.status == 'in progress'):
             break
     row.tasks[i].status = status
     if status == 'done':
         row.tasks[i].end_time = datetime.datetime.now()
     else:
         row.tasks[i].start_time = datetime.datetime.now()
+    # Update the status of the file to 'done' if this is the last task,
+    #   otherwise to 'in progress'
+    if len(row.tasks) == NUM_ENTRIES and all(t.status == 'done' for t in row.tasks):
+        setattr(row, task, 'done')
+    else:
+        setattr(row, task, 'in progress')
     session.commit()
 
 def get_status(filename, task):
@@ -120,13 +131,17 @@ def get_status(filename, task):
             .scalar()
 
 def sync_db(sample_dir):
-    """ Populate the database based on local files. Will overwrite current
-        database contents. sample_dir should be NXreduce.base_directory """
+    """ Populate the database based on local files (overwritting if necessary)
+
+        sample_dir: Directory containing the .nxs wrapper files
+            (ie NXreduce.base_directory)
+    """
     # Get a list of all the .nxs wrapper files
     wrapper_files = ( os.path.join(sample_dir, filename) for filename in
                     os.listdir(sample_dir) if filename.endswith('.nxs')
                     and all(x not in filename for x in ('parent', 'mask')) )
     for w in wrapper_files:
+        w = os.path.realpath(w)
         base_name = os.path.basename(os.path.splitext(w)[0])
         scan_label = base_name.split('_')[1]
         scan_dir = os.path.join(sample_dir, scan_label)
@@ -188,5 +203,5 @@ def is_parent(wrapper_file, sample_dir):
     else:
         return False
 
-def update_task(a,b,c,d):
-    pass
+# def update_task(a,b,c,d):
+#     pass
