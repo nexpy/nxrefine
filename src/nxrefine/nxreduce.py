@@ -58,11 +58,10 @@ class NXReduce(QtCore.QObject):
         elif directory is None:
             raise NeXusError('Directory not specified')
         else:
-            self.directory = directory.rstrip('/')
-            self.root_directory = os.path.realpath(
-                                    os.path.dirname(
+            self.directory = os.path.realpath(directory.rstrip('/'))
+            self.root_directory = os.path.dirname(
                                       os.path.dirname(
-                                        os.path.dirname(self.directory))))
+                                        os.path.dirname(self.directory)))
             self.sample = os.path.basename(
                             os.path.dirname(
                               os.path.dirname(self.directory)))
@@ -124,8 +123,8 @@ class NXReduce(QtCore.QObject):
         self._stopped = False
 
         self.init_logs()
-        ##TODO: change this to have arguments
-        nxdb.init('mysql+mysqlconnector://python:pythonpa^ss@18.219.38.132/test')
+        db_file = os.path.join(self.root_directory, 'NXdatabase.db')
+        nxdb.init('sqlite:///' + db_file)
         try:
             self.server = NXServer(self.root_directory)
         except Exception as error:

@@ -17,27 +17,28 @@ NUM_ENTRIES = 3
 Base = declarative_base();
 # Records files that have: not been processed, queued on the NXserver
     # but not started, started processing, finished processing
-_progress = Enum('not started', 'queued', 'in progress', 'done')
+_prog = {'not started':0, 'queued':1, 'in progress':2, 'done':3}
+NOT_STARTED, QUEUED, IN_PROGRESS, DONE = 0,1,2,3
 
 class File(Base):
     __tablename__ = 'files'
 
     filename = Column(String(255), nullable=False, primary_key=True)
-    data = Column(_progress, server_default='not started')
-    nxlink = Column(_progress, server_default='not started')
-    nxmax = Column(_progress, server_default='not started')
-    nxfind = Column(_progress, server_default='not started')
-    nxcopy = Column(_progress, server_default='not started')
-    nxrefine = Column(_progress, server_default='not started')
-    nxtransform = Column(_progress, server_default='not started')
+    data = Column(Integer, default=0)
+    nxlink = Column(Integer, default=0)
+    nxmax = Column(Integer, default=0)
+    nxfind = Column(Integer, default=0)
+    nxcopy = Column(Integer, default=0)
+    nxrefine = Column(Integer, default=0)
+    nxtransform = Column(Integer, default=0)
     #Combine should probably be special since it involves all 3 samples
-    nxcombine = Column(_progress, server_default='not started')
+    nxcombine = Column(Integer, default=0)
 
     def __repr__(self):
-        not_started = [k for k,v in vars(self).items() if v == 'not started']
-        queued = [k for k,v in vars(self).items() if v == 'queued']
-        in_progress = [k for k,v in vars(self).items() if v == 'in progress']
-        done = [k for k,v in vars(self).items() if v == 'done']
+        not_started = [k for k,v in vars(self).items() if v == NOT_STARTED]
+        queued = [k for k,v in vars(self).items() if v == QUEUED]
+        in_progress = [k for k,v in vars(self).items() if v == IN_PROGRESS]
+        done = [k for k,v in vars(self).items() if v == DONE]
 
         return "File path='{}',\n\tnot started={}\n\tqueued={}\n\t " \
                 "in_progress={}\n\tdone={}".format(
@@ -47,9 +48,9 @@ class Task(Base):
     __tablename__ = 'tasks'
 
     id = Column(Integer, primary_key=True)
-    name = Column(String(31), nullable=False)
-    entry = Column(String(15))
-    status = Column(_progress, server_default='queued')
+    name = Column(String, nullable=False)
+    entry = Column(String)
+    status = Column(Integer, default=0)
     # Timestamps with microsecond precision
     queue_time = Column(mysql.TIMESTAMP(fsp=6), default=datetime.datetime.now,
             nullable=False)
@@ -57,7 +58,7 @@ class Task(Base):
     end_time = Column(mysql.TIMESTAMP(fsp=6))
     # TODO: Should this be set on task start? also probably shouldn't use
             # pid of *this* process. How do I get the pid of the worker?
-    pid = Column(Integer, default=os.getpid, nullable=False)
+    pid = Column(Integer, default=os.getpid)
     filename = Column(String(255), ForeignKey('files.filename'), nullable=False)
 
     file = relationship('File', back_populates='tasks')
@@ -108,19 +109,20 @@ def update_task(filename, task, entry, status):
     #Find the index of the desired task
     for i, t in enumerate(row.tasks):
         if t.name == task and t.entry == entry and (
-                t.status == 'queued' or t.status == 'in progress'):
+                t.status == QUEUED or t.status == IN_PROGRESS):
             break
     row.tasks[i].status = status
-    if status == 'done':
+    if status == DONE:
         row.tasks[i].end_time = datetime.datetime.now()
     else:
         row.tasks[i].start_time = datetime.datetime.now()
-    # Update the status of the file to 'done' if this is the last task,
+    # Update the status of the file to 'done' if we've finished all the entries,
     #   otherwise to 'in progress'
-    if len(row.tasks) == NUM_ENTRIES and all(t.status == 'done' for t in row.tasks):
-        setattr(row, task, 'done')
+    if len(row.tasks) >= NUM_ENTRIES and all(
+                t.status == DONE for t in row.tasks if t.name == task):
+        setattr(row, task, DONE)
     else:
-        setattr(row, task, 'in progress')
+        setattr(row, task, IN_PROGRESS)
     session.commit()
 
 def get_status(filename, task):
@@ -177,11 +179,11 @@ def sync_db(sample_dir):
         f = File(filename = w)
         for task, val in tasks.items():
             if val == 0:
-                setattr(f, task, 'not started')
+                setattr(f, task, NOT_STARTED)
             elif val == 3:
-                setattr(f, task, 'done')
+                setattr(f, task, DONE)
             else:
-                setattr(f, task, 'in progress')
+                setattr(f, task, IN_PROGRESS)
         session.add(f)
     try:
         session.flush()
