@@ -1,5 +1,6 @@
 from nexusformat.nexus import *
 import numpy as np
+import math
 import h5py
 import copy
 import os
@@ -22,20 +23,26 @@ def chunkify(arr, chunkshape, mask=None):
     bounds = (np.array(arr.shape) // chunkshape) * chunkshape
     # bounds = np.array([500,500,500])
     dx,dy,dz = chunkshape
+    ds = 5*dx  # Height of slabs
+    numslabs = math.ceil(bounds[0] / ds)
     result = np.ma.masked_array(np.zeros(bounds // chunkshape, dtype=arr.dtype))
     if mask is not None:
         mask = mask[:bounds[1], :bounds[2]]
-    for x in trange(result.shape[0]): #TODO: range vs trange
-        # Avoid memory problems and optimize memory accesses
-        slab = arr[x*dx:(x+1)*dx, :bounds[1], :bounds[2]].nxdata
+    for s in trange(numslabs):
+        try:
+            slab = arr[s*ds:(s+1)*ds, :bounds[1], :bounds[2]].nxdata
+        except:
+            # Slab upper bound went beyond arr.shape[0]
+            slab = arr[arr[s*ds:bounds[0], :bounds[1], :bounds[2]].nxdata]
         if mask is not None:
             slab = slab.view(np.ma.MaskedArray)
             slab.mask = mask
-        for y in range(result.shape[1]):
-            for z in range(result.shape[2]):
-                chunk = slab[:, y*dy:(y+1)*dy, z*dz:(z+1)*dz]
-                # TODO: account for fully masked chunks
-                result[x,y,z] = np.mean(chunk)
+        for x in range(ds//dx):
+            for y in range(result.shape[1]):
+                for z in range(result.shape[2]):
+                    chunk = slab[x*dx:(x+1)*dx, y*dy:(y+1)*dy, z*dz:(z+1)*dz]
+                    # TODO: account for fully masked chunks
+                    result[x,y,z] = np.max(chunk)
     return result
 
 def shrink_mask(oldmask, spacing):
