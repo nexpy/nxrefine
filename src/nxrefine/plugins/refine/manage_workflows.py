@@ -5,7 +5,9 @@ from nexpy.gui.pyqt import QtCore, QtWidgets
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.utils import report_error, natural_sort
 
-from nxrefine.nxreduce import Lock, NXReduce, NXMultiReduce
+from nxrefine.nxreduce import NXReduce, NXMultiReduce
+from nxrefine.lock import Lock
+import nxrefine.nxdatabase as nxdb
 
 
 def show_dialog():
@@ -20,15 +22,18 @@ class WorkflowDialog(BaseDialog):
     def __init__(self, parent=None):
         super(WorkflowDialog, self).__init__(parent)
 
-        self.set_layout(self.directorybox('Choose Sample Directory', default=False),
+        self.set_layout(self.directorybox('Choose Sample Directory'),
                         self.filebox('Choose Parent File'),
-                        self.action_buttons(('Update Status', self.update),
+                        self.action_buttons(('Sync Database', self.sync_db),
+                                            ('Update Status', self.update),
                                             ('Add to Queue', self.add_tasks)),
                         self.close_buttons(close=True))
         self.set_title('Manage workflows')
         self.grid = None
         self.sample_directory = None
+        self.using_db = False
         self.entries = []
+
 
     def choose_directory(self):
         super(WorkflowDialog, self).choose_directory()
@@ -42,6 +47,9 @@ class WorkflowDialog(BaseDialog):
             self.filename.setText('')
         self.root_directory = os.path.dirname(os.path.dirname(self.sample_directory))
         self.mainwindow.default_directory = self.sample_directory
+        db_file = os.path.join(self.root_directory, 'NXdatabase.db')
+        nxdb.init('sqlite:///' + db_file)
+
         if self.grid:
             self.delete_grid(self.grid)
             self.grid = None
@@ -59,13 +67,21 @@ class WorkflowDialog(BaseDialog):
         reduce.make_parent()
 
     def is_parent(self, wrapper_file):
-        print(self.sample)
         parent_file = os.path.join(self.sample_directory,
                                    self.sample+'_parent.nxs')
         if os.path.exists(parent_file):
             return wrapper_file == os.path.realpath(parent_file)
         else:
             return False
+
+    def sync_db(self):
+        if self.sample_directory is None:
+            report_error("Please select a sample directory first",
+                            NeXusError("No sample directory declared"))
+            return
+        nxdb.sync_db(self.sample_directory)
+        self.using_db = True
+
 
     def update(self):
         grid = QtWidgets.QGridLayout()
@@ -107,18 +123,27 @@ class WorkflowDialog(BaseDialog):
             status['combine'] = self.new_checkbox()
             status['overwrite'] = self.new_checkbox(self.select_scans)
             status['reduce'] = self.new_checkbox(self.select_scans)
+
             for i,e in enumerate(self.entries):
-                r = NXReduce(root[e])
-                self.update_checkbox(status['data'], i, r.data_exists())
-                self.update_checkbox(status['link'], i, r.complete('nxlink'))
-                self.update_checkbox(status['max'], i, r.complete('nxmax'))
-                self.update_checkbox(status['find'], i, r.complete('nxfind'))
-                self.update_checkbox(status['copy'], i,
-                    r.complete('nxcopy') or self.is_parent(wrapper_file))
-                self.update_checkbox(status['refine'], i, r.complete('nxrefine'))
-                self.update_checkbox(status['transform'], i, r.complete('nxtransform'))
-                self.update_checkbox(status['combine'], i, r.complete('nxcombine'))
-                status['data'].setEnabled(False)
+                if self.using_db:
+                    f = nxdb.get_tasks(os.path.realpath(w))
+                    self.update_checkbox(status['data'], i, f.data == nxdb.NUM_ENTRIES)
+                    status['data'].setEnabled(False)
+                    for k,v in vars(f).items():
+                        if k.startswith('nx'):
+                            self.update_checkbox(status[k], i, v == nxdb.NUM_ENTRIES)
+                else:
+                    r = NXReduce(root[e])
+                    self.update_checkbox(status['data'], i, r.data_exists())
+                    self.update_checkbox(status['link'], i, r.complete('nxlink'))
+                    self.update_checkbox(status['max'], i, r.complete('nxmax'))
+                    self.update_checkbox(status['find'], i, r.complete('nxfind'))
+                    self.update_checkbox(status['copy'], i,
+                        r.complete('nxcopy') or self.is_parent(wrapper_file))
+                    self.update_checkbox(status['refine'], i, r.complete('nxrefine'))
+                    self.update_checkbox(status['transform'], i, r.complete('nxtransform'))
+                    self.update_checkbox(status['combine'], i, r.complete('nxcombine'))
+                    status['data'].setEnabled(False)
             self.update_checkbox(status['combine'], 0, r.complete('nxcombine'))
             grid.addWidget(status['data'], row, 1, QtCore.Qt.AlignCenter)
             grid.addWidget(status['link'], row, 2, QtCore.Qt.AlignCenter)

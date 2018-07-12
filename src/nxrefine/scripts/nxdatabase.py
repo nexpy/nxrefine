@@ -5,10 +5,10 @@ import nxrefine.nxdatabase as nxdb
 def main():
     parser = argparse.ArgumentParser(description="Populate the database based \
             on local NeXus files")
-    parser.add_argument('dir', help='The directory containing the wrapper files\
-                        of the sample to sync')
+    parser.add_argument('dir', nargs='?', default='.', help="The directory \
+            containing the wrapper files of the sample to sync")
     parser.add_argument('-f', '--database-file', default='NXdatabase.db',
-                help='The name of the file in which to save the database')
+            help='The name of the file in which to save the database')
 
     args = parser.parse_args()
 

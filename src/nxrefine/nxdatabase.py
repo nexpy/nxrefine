@@ -1,6 +1,6 @@
 import os
 import datetime
-from sqlalchemy import create_engine, Column, Integer, String, Enum, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.dialects import mysql
@@ -24,15 +24,15 @@ class File(Base):
     __tablename__ = 'files'
 
     filename = Column(String(255), nullable=False, primary_key=True)
-    data = Column(Integer, default=0)
-    nxlink = Column(Integer, default=0)
-    nxmax = Column(Integer, default=0)
-    nxfind = Column(Integer, default=0)
-    nxcopy = Column(Integer, default=0)
-    nxrefine = Column(Integer, default=0)
-    nxtransform = Column(Integer, default=0)
+    data = Column(Integer, default=NOT_STARTED)
+    nxlink = Column(Integer, default=NOT_STARTED)
+    nxmax = Column(Integer, default=NOT_STARTED)
+    nxfind = Column(Integer, default=NOT_STARTED)
+    nxcopy = Column(Integer, default=NOT_STARTED)
+    nxrefine = Column(Integer, default=NOT_STARTED)
+    nxtransform = Column(Integer, default=NOT_STARTED)
     #Combine should probably be special since it involves all 3 samples
-    nxcombine = Column(Integer, default=0)
+    nxcombine = Column(Integer, default=NOT_STARTED)
 
     def __repr__(self):
         not_started = [k for k,v in vars(self).items() if v == NOT_STARTED]
@@ -50,7 +50,7 @@ class Task(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
     entry = Column(String)
-    status = Column(Integer, default=0)
+    status = Column(Integer, default=QUEUED)
     # Timestamps with microsecond precision
     queue_time = Column(mysql.TIMESTAMP(fsp=6), default=datetime.datetime.now,
             nullable=False)
@@ -91,7 +91,7 @@ def record_queued_task(filename, task, entry):
         print("ERROR: NXdatabase could not find file '{}'".format(filename))
         return
     row.tasks.append(Task(name=task, entry=entry))
-    setattr(row, task, 'queued')
+    setattr(row, task, QUEUED)
     session.commit()
 
 def update_task(filename, task, entry, status):
@@ -111,8 +111,12 @@ def update_task(filename, task, entry, status):
         if t.name == task and t.entry == entry and (
                 t.status == QUEUED or t.status == IN_PROGRESS):
             break
-    row.tasks[i].status = status
-    if status == DONE:
+    else:
+        print('ERROR: NXdatabase could not find running task {} on {}/{}'
+                    .format(task, filename, entry))
+        return
+    row.tasks[i].status = _prog[status]
+    if _prog[status] == DONE:
         row.tasks[i].end_time = datetime.datetime.now()
     else:
         row.tasks[i].start_time = datetime.datetime.now()
@@ -125,12 +129,16 @@ def update_task(filename, task, entry, status):
         setattr(row, task, IN_PROGRESS)
     session.commit()
 
-def get_status(filename, task):
-    """ Return Task database entry for task in filename """
-    return session.query(Task) \
-            .filter(Task.filename == filename) \
-            .filter(Task.name == task) \
-            .scalar()
+def get_tasks(filename):
+    """ Return the status of each task for filename
+
+        filename: string, absolute path of wrapper file to query
+     """
+    f = session.query(File) \
+            .filter(File.filename == filename) \
+            .one()
+    return f
+
 
 def sync_db(sample_dir):
     """ Populate the database based on local files (overwritting if necessary)
@@ -138,14 +146,16 @@ def sync_db(sample_dir):
         sample_dir: Directory containing the .nxs wrapper files
             (ie NXreduce.base_directory)
     """
+    from nxrefine.nxreduce import NXReduce
     # Get a list of all the .nxs wrapper files
     wrapper_files = ( os.path.join(sample_dir, filename) for filename in
                     os.listdir(sample_dir) if filename.endswith('.nxs')
                     and all(x not in filename for x in ('parent', 'mask')) )
     for w in wrapper_files:
         w = os.path.realpath(w)
+        print('Found file {}'.format(w))
         base_name = os.path.basename(os.path.splitext(w)[0])
-        scan_label = base_name.split('_')[1]
+        scan_label = '_'.join(base_name.split('_')[1:]) # e.g. 350K, shrunk_350K
         scan_dir = os.path.join(sample_dir, scan_label)
         try:
             scan_files = os.listdir(scan_dir)
@@ -157,43 +167,42 @@ def sync_db(sample_dir):
         # Track how many entries have finished each task
         tasks = { t: 0 for t in ('data', 'nxlink', 'nxmax', 'nxfind', 'nxcopy',
                 'nxrefine', 'nxtransform', 'nxcombine') }
+
+        ipdb.set_trace()
+
         for e in entries:
             if e in root and 'data' in root[e] and 'instrument' in root[e]:
                 if e+'.h5' in scan_files or e+'.nxs' in scan_files:
                     tasks['data'] += 1
-                if 'nxlink' in root[e] or 'logs' in root[e]['instrument']:
+                if 'nxlink' in root[e]:
                     tasks['nxlink'] += 1
-                if 'nxmax' in root[e] or 'maximum' in root[e]['data'].attrs:
+                if 'nxmax' in root[e]:
                     tasks['nxmax'] += 1
-                if 'nxfind' in root[e] or 'peaks' in root[e]:
+                if 'nxfind' in root[e]:
                     tasks['nxfind'] += 1
                 if 'nxcopy' in root[e] or is_parent(w, sample_dir):
                     tasks['nxcopy'] += 1
                 if 'nxrefine' in root[e]:
                     tasks['nxrefine'] += 1
-                if 'nxtransform' in root[e] or e+'_transform.nxs' in scan_files:
+                if 'nxtransform' in root[e]:
                     tasks['nxtransform'] += 1
-                if 'nxcombine' in root['entry'] or 'transform.nxs' in scan_files \
-                        or 'masked_transform.nxs' in scan_files:
+                if 'nxcombine' in root['entry']:
                     tasks['nxcombine'] += 1
         f = File(filename = w)
         for task, val in tasks.items():
             if val == 0:
                 setattr(f, task, NOT_STARTED)
-            elif val == 3:
+            elif val == NUM_ENTRIES:
                 setattr(f, task, DONE)
             else:
                 setattr(f, task, IN_PROGRESS)
         session.add(f)
-    try:
-        session.flush()
-    # Catch if the file already exists in the database
-    except IntegrityError as e:
-        session.rollback()
-        for err in e.params:
-            print("ERROR: preexisting entry for '{}'".format(err['filename']))
-    else:
-        session.commit()
+        try:
+            session.flush()
+        except IntegrityError as e:
+            session.rollback()
+            print("ERROR: nxdb found preexisting file '{}'".format(e.params[0]))
+    session.commit()
 
 """ Sample_dir should be the GUPxxx/agcrse2/xtalX directory -
         ie NXreduce.base_directory """
@@ -204,6 +213,3 @@ def is_parent(wrapper_file, sample_dir):
         return wrapper_file == os.path.realpath(parent_file)
     else:
         return False
-
-# def update_task(a,b,c,d):
-#     pass

@@ -12,19 +12,18 @@ from h5py import is_hdf5
 
 ### DEBUGGING ####
 import ipdb
-
 from nexusformat.nexus import *
 
 from nexpy.gui.pyqt import QtCore
 from nexpy.gui.utils import timestamp
 
+import nxrefine.nxdatabase as nxdb
 from .nxrefine import NXRefine
 from .nxserver import NXServer
 from . import blobcorrector, __version__
 from .connectedpixels import blob_moments
 from .labelimage import labelimage, flip1
 from .lock import Lock, LockException
-import nxrefine.nxdatabase as nxdb
 
 
 class NXReduce(QtCore.QObject):
@@ -820,7 +819,7 @@ class NXReduce(QtCore.QObject):
 
     def nxtransform(self):
         if self.not_complete('nxtransform') and self.transform:
-            if self.not_complete('nxrefine'):
+            if not self.complete('nxrefine'):
                 self.logger.info('Cannot transform until the orientation is complete')
                 return
             self.record_start('nxtransform')
