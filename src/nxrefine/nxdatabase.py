@@ -154,6 +154,14 @@ def sync_db(sample_dir):
     for w in wrapper_files:
         w = os.path.realpath(w)
         print('Found file {}'.format(w))
+        # If this file is already in the db, skip processing it
+        res = session.query(File)           \
+                .filter(File.filename == w) \
+                .all()
+        if len(res) > 0:
+            print("ERROR: NXDatabase found preexisting file '{}'".format(w))
+            continue
+
         base_name = os.path.basename(os.path.splitext(w)[0])
         scan_label = '_'.join(base_name.split('_')[1:]) # e.g. 350K, shrunk_350K
         scan_dir = os.path.join(sample_dir, scan_label)
@@ -167,8 +175,6 @@ def sync_db(sample_dir):
         # Track how many entries have finished each task
         tasks = { t: 0 for t in ('data', 'nxlink', 'nxmax', 'nxfind', 'nxcopy',
                 'nxrefine', 'nxtransform', 'nxcombine') }
-
-        ipdb.set_trace()
 
         for e in entries:
             if e in root and 'data' in root[e] and 'instrument' in root[e]:
@@ -188,6 +194,7 @@ def sync_db(sample_dir):
                     tasks['nxtransform'] += 1
                 if 'nxcombine' in root['entry']:
                     tasks['nxcombine'] += 1
+
         f = File(filename = w)
         for task, val in tasks.items():
             if val == 0:
@@ -197,11 +204,6 @@ def sync_db(sample_dir):
             else:
                 setattr(f, task, IN_PROGRESS)
         session.add(f)
-        try:
-            session.flush()
-        except IntegrityError as e:
-            session.rollback()
-            print("ERROR: nxdb found preexisting file '{}'".format(e.params[0]))
     session.commit()
 
 """ Sample_dir should be the GUPxxx/agcrse2/xtalX directory -
