@@ -16,6 +16,7 @@ class NXWorker(Process):
         self.task_queue = task_queue
         self.result_queue = result_queue
         self.log_file = log_file
+        self.log("Started worker on node {}".format(str(self.node)))
 
     def run(self):
         while True:
@@ -28,6 +29,7 @@ class NXWorker(Process):
                 self.log("%s: Executing '%s'" % (self.node, next_task.command))
                 next_task.execute(self.node)
             self.task_queue.task_done()
+            self.log("%s: Finished '%s'" % (self.node, next_task.command))
             self.result_queue.put(next_task.command)
         return
 
@@ -48,7 +50,6 @@ class NXTask(object):
 
 
 class NXServer(NXDaemon):
-
     def __init__(self, directory, node_file=None):
         self.directory = directory = os.path.realpath(directory)
         self.task_directory = os.path.join(directory, 'tasks')
@@ -70,7 +71,8 @@ class NXServer(NXDaemon):
         self.workers = []
 
         super(NXServer, self).__init__(self.pid_file)
-        nxdb.init('sqlite:///' + self.directory)
+        db_file = os.path.join(self.directory, 'NXdatabase.db')
+        nxdb.init('sqlite:///' + db_file)
 
     def read_nodes(self, node_file):
         """Read available nodes"""
@@ -83,6 +85,12 @@ class NXServer(NXDaemon):
             f.write(str(message)+'\n')
 
     def run(self):
+        """
+        Create worker processes to process commands from the task_fifo
+
+        Create a worker for each node, read commands from task_list, submit
+            an NXTask for each command to a JoinableQueue
+        """
         self.log('Starting server')
         self.tasks = JoinableQueue()
         self.results = Queue()
@@ -94,6 +102,7 @@ class NXServer(NXDaemon):
         while True:
             time.sleep(5)
             command = task_fifo.readline()[:-1]
+            self.log('Found command {}'.format(str(command)))
             if command == 'stop':
                 break
             elif command:

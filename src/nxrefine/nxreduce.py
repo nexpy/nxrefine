@@ -127,6 +127,8 @@ class NXReduce(QtCore.QObject):
         try:
             self.server = NXServer(self.root_directory)
         except Exception as error:
+            #### DEBUG ####
+            print('Problem starting server')
             self.server = None
 
     start = QtCore.Signal(object)
@@ -940,6 +942,7 @@ class NXReduce(QtCore.QObject):
             raise NeXusError("NXServer not running")
         command = self.command(parent)
         if command:
+            print("Queueing command " + command)
             self.server.add_task(self.command(parent))
 
 class NXMultiReduce(NXReduce):

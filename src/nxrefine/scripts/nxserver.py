@@ -3,6 +3,9 @@ import os
 import sys
 from nxrefine.nxserver import NXServer
 
+#### DEBUG ####
+import ipdb
+
 
 def main():
 
@@ -12,14 +15,18 @@ def main():
                         help='directory containing GUP directories')
     parser.add_argument('-g', '--gup', default='GUP-58981',
                         help='GUP number, e.g., GUP-58981')
+    parser.add_argument('-d', '--directory', nargs='?', const='.',
+                        help='If specified, start the server in this directory, \
+                        overriding other options')
     parser.add_argument('command', action='store',
                          help='valid commands are: start|stop|restart')
 
     args = parser.parse_args()
 
-    # import ipdb;ipdb.set_trace()
-
-    server = NXServer(os.path.join(args.cwd, args.gup))
+    if args.directory:
+        server = NXServer(os.path.realpath(args.directory))
+    else:
+        server = NXServer(os.path.join(args.cwd, args.gup))
 
     if args.command == 'start':
         server.start()
