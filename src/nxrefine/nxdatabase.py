@@ -77,11 +77,11 @@ def init(connect, echo=False):
         connect: connect string as specified by SQLAlchemy
         echo: whether or not to echo the emmited SQL statements
     """
-    #MySQL database, logging turned on
-    engine = create_engine(connect, echo=echo)
-    Base.metadata.create_all(engine)
     global session
-    session = sessionmaker(bind=engine)()
+    if session is None:
+        engine = create_engine(connect, echo=echo)
+        Base.metadata.create_all(engine)
+        session = sessionmaker(bind=engine)()
 
 def record_queued_task(filename, task, entry):
     """ Update a file to 'queued' status and create a matching task """
@@ -151,15 +151,13 @@ def sync_db(sample_dir):
     wrapper_files = ( os.path.join(sample_dir, filename) for filename in
                     os.listdir(sample_dir) if filename.endswith('.nxs')
                     and all(x not in filename for x in ('parent', 'mask')) )
+    # Files that already exist in the database
+    tracked_files = [row.filename for row in session.query(File).all()]
+
     for w in wrapper_files:
         w = os.path.realpath(w)
-        print('Found file {}'.format(w))
         # If this file is already in the db, skip processing it
-        res = session.query(File)           \
-                .filter(File.filename == w) \
-                .all()
-        if len(res) > 0:
-            print("ERROR: NXDatabase found preexisting file '{}'".format(w))
+        if w in tracked_files:
             continue
 
         base_name = os.path.basename(os.path.splitext(w)[0])

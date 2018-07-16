@@ -49,6 +49,7 @@ class WorkflowDialog(BaseDialog):
         self.mainwindow.default_directory = self.sample_directory
         db_file = os.path.join(self.root_directory, 'NXdatabase.db')
         nxdb.init('sqlite:///' + db_file)
+        self.using_db = True
 
         if self.grid:
             self.delete_grid(self.grid)
@@ -106,7 +107,7 @@ class WorkflowDialog(BaseDialog):
             base_name = os.path.basename(os.path.splitext(wrapper_file)[0])
             scan_label = base_name.replace(self.sample+'_', '')
             if scan_label == 'parent' or scan_label == 'mask':
-                break
+                continue
             directory = os.path.join(self.sample_directory, scan_label)
             status = {}
             with Lock(wrapper_file):
@@ -124,15 +125,26 @@ class WorkflowDialog(BaseDialog):
             status['overwrite'] = self.new_checkbox(self.select_scans)
             status['reduce'] = self.new_checkbox(self.select_scans)
 
-            for i,e in enumerate(self.entries):
-                if self.using_db:
-                    f = nxdb.get_tasks(os.path.realpath(w))
-                    self.update_checkbox(status['data'], i, f.data == nxdb.NUM_ENTRIES)
-                    status['data'].setEnabled(False)
-                    for k,v in vars(f).items():
-                        if k.startswith('nx'):
-                            self.update_checkbox(status[k], i, v == nxdb.NUM_ENTRIES)
-                else:
+            if self.using_db:
+                f = nxdb.get_tasks(os.path.realpath(wrapper_file))
+                for k,v in vars(f).items():
+                    # print('For file {} ({}: {})'.format(wrapper_file.split('/')[-1], k, v))
+                    if k.startswith('nx'):
+                        chkbox = status[k[2:]]
+                    elif k == 'data':
+                        chkbox = status['data']
+                    else:
+                        continue
+                    if v == nxdb.NUM_ENTRIES:
+                        chkbox.setCheckState(QtCore.Qt.Checked)
+                        chkbox.setEnabled(False)
+                    elif v != 0:
+                        chkbox.setCheckState(QtCore.Qt.PartiallyChecked)
+                        chkbox.setEnabled(True)
+                status['data'].setEnabled(False)
+
+            else:
+                for i,e in enumerate(self.entries):
                     r = NXReduce(root[e])
                     self.update_checkbox(status['data'], i, r.data_exists())
                     self.update_checkbox(status['link'], i, r.complete('nxlink'))
@@ -144,7 +156,6 @@ class WorkflowDialog(BaseDialog):
                     self.update_checkbox(status['transform'], i, r.complete('nxtransform'))
                     self.update_checkbox(status['combine'], i, r.complete('nxcombine'))
                     status['data'].setEnabled(False)
-            self.update_checkbox(status['combine'], 0, r.complete('nxcombine'))
             grid.addWidget(status['data'], row, 1, QtCore.Qt.AlignCenter)
             grid.addWidget(status['link'], row, 2, QtCore.Qt.AlignCenter)
             grid.addWidget(status['max'], row, 3, QtCore.Qt.AlignCenter)
