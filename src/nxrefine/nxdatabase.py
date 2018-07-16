@@ -151,15 +151,9 @@ def sync_db(sample_dir):
     wrapper_files = ( os.path.join(sample_dir, filename) for filename in
                     os.listdir(sample_dir) if filename.endswith('.nxs')
                     and all(x not in filename for x in ('parent', 'mask')) )
-    # Files that already exist in the database
-    tracked_files = [row.filename for row in session.query(File).all()]
 
     for w in wrapper_files:
         w = os.path.realpath(w)
-        # If this file is already in the db, skip processing it
-        if w in tracked_files:
-            continue
-
         base_name = os.path.basename(os.path.splitext(w)[0])
         scan_label = '_'.join(base_name.split('_')[1:]) # e.g. 350K, shrunk_350K
         scan_dir = os.path.join(sample_dir, scan_label)
@@ -193,7 +187,14 @@ def sync_db(sample_dir):
                 if 'nxcombine' in root['entry']:
                     tasks['nxcombine'] += 1
 
-        f = File(filename = w)
+        # If the file already exists, update it, otherwise create a new file
+        tracked_files = session.query(File).all()
+        for row in tracked_files:
+            if w == row.filename:
+                f = row
+                break
+        else:
+            f = File(filename = w)
         for task, val in tasks.items():
             if val == 0:
                 setattr(f, task, NOT_STARTED)
