@@ -11,6 +11,7 @@ from .lock import Lock
 
 ###  DEBUGGING ###
 import ipdb
+import time
 
 NUM_ENTRIES = 3
 
@@ -55,9 +56,7 @@ class Task(Base):
     queue_time = Column(mysql.TIMESTAMP(fsp=6))
     start_time = Column(mysql.TIMESTAMP(fsp=6))
     end_time = Column(mysql.TIMESTAMP(fsp=6))
-    # TODO: Should this be set on task start? also probably shouldn't use
-            # pid of *this* process. How do I get the pid of the worker?
-    pid = Column(Integer, default=os.getpid)
+    pid = Column(Integer)
     filename = Column(String(255), ForeignKey('files.filename'), nullable=False)
 
     file = relationship('File', back_populates='tasks')
@@ -92,7 +91,7 @@ def queue_task(filename, task, entry):
     setattr(row, task, QUEUED)
     session.commit()
 
-def start_task(filename, task, entry):
+def start_task(filename, task_name, entry):
     """ Record that a task has begun execution.
 
         filename, task, entry: strings that uniquely identify the desired task
@@ -102,46 +101,48 @@ def start_task(filename, task, entry):
     row = session.query(File).filter(File.filename == filename).scalar()
     #Find the desired task, and create a new one if it doesn't exist
     for t in row.tasks:
-        if t.name == task and t.entry == entry and t.status == QUEUED:
+        if t.name == task_name and t.entry == entry and t.status == QUEUED:
             break
     else:
         # This task was started from command line, not queued on the server
-        t = Task(name=task, entry=entry)
+        t = Task(name=task_name, entry=entry)
         row.tasks.append(t)
 
     t.status = IN_PROGRESS
     t.start_time = datetime.datetime.now()
-    setattr(row, task, IN_PROGRESS)
+    t.pid = os.getpid()
+    time.sleep(20)
+    setattr(row, task_name, IN_PROGRESS)
     session.commit()
 
-def end_task(filename, task, entry):
+def end_task(filename, task_name, entry):
     """ Record that a task finished execution.
 
         Update the task's database entry, and set the matching column in files
         to DONE if it's the last task to finish
 
-        filename, task, entry: strings that uniquely identify the desired task
+        filename, task_name, entry: strings that uniquely identify the desired task
     """
     filename = os.path.realpath(filename)
     row = session.query(File).filter(File.filename == filename).scalar()
-    for t in row.tasks:
-        if t.name == task and t.entry == entry and t.status == IN_PROGRESS:
-            break
-    else:
+    matching_tasks = []
+    t = None
+    for task in row.tasks:
+        if task.name == task_name:
+            matching_tasks.append(task)
+            if task.entry == entry and task.status == IN_PROGRESS:
+                t = task
+    if t is None:
         print("ERROR: nxdatabase couldn't find task '%s' on file %s/%s"
-                    % (task, filename, entry))
+                    % (task_name, filename, entry))
         return
     t.status = DONE
     t.end_time = datetime.datetime.now()
     # Update the status of the file to DONE if we've finished all the entries,
     #   otherwise, leave it as IN_PROGRESS
-    matching_tasks = []
-    for x in row.tasks:
-        if x.name == task:
-            matching_tasks.append(x)
     if len(matching_tasks) >= NUM_ENTRIES and all(
-                x.status == DONE for x in matching_tasks):
-            setattr(row, task, DONE)
+                task.status == DONE for task in matching_tasks):
+            setattr(row, task_name, DONE)
     session.commit()
 
 
