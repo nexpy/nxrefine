@@ -16,9 +16,9 @@ class NXWorker(Process):
         self.task_queue = task_queue
         self.result_queue = result_queue
         self.log_file = log_file
-        self.log("Started worker on node {}".format(str(self.node)))
 
     def run(self):
+        self.log("Started worker on node {} (pid={})".format(self.node, os.getpid()))
         while True:
             next_task = self.task_queue.get()
             if next_task is None:
@@ -45,8 +45,11 @@ class NXTask(object):
         self.command = command
 
     def execute(self, node):
-        subprocess.run("pdsh -w %s 'cd %s; %s'"
-                        % (node, self.path, self.command), shell=True)
+        #### DEBUG ####
+        # subprocess.run("pdsh -w %s 'cd %s; %s'"
+        #                 % (node, self.path, self.command), shell=True)
+        # TODO: for debugging, don't bother starting on a pdsh node
+        subprocess.run('cd {}; {}'.format(self.path, self.command), shell=True)
 
 
 class NXServer(NXDaemon):
@@ -74,6 +77,7 @@ class NXServer(NXDaemon):
         db_file = os.path.join(self.directory, 'NXdatabase.db')
         nxdb.init('sqlite:///' + db_file)
 
+
     def read_nodes(self, node_file):
         """Read available nodes"""
         with open(node_file) as f:
@@ -91,7 +95,7 @@ class NXServer(NXDaemon):
         Create a worker for each node, read commands from task_list, submit
             an NXTask for each command to a JoinableQueue
         """
-        self.log('Starting server')
+        self.log('Starting server (pid={})'.format(os.getpid()))
         self.tasks = JoinableQueue()
         self.results = Queue()
         self.workers = [NXWorker(node, self.tasks, self.results, self.log_file)
@@ -102,10 +106,10 @@ class NXServer(NXDaemon):
         while True:
             time.sleep(5)
             command = task_fifo.readline()[:-1]
-            self.log('Found command {}'.format(str(command)))
             if command == 'stop':
                 break
             elif command:
+                self.log('Found command {}'.format(command))
                 self.tasks.put(NXTask(self.directory, command))
         for worker in self.workers:
             self.tasks.put(None)

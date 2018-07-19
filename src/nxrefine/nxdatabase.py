@@ -10,7 +10,7 @@ from nexusformat.nexus import nxload
 from .lock import Lock
 
 ###  DEBUGGING ###
-import ipdb;
+import ipdb
 
 NUM_ENTRIES = 3
 
@@ -52,8 +52,7 @@ class Task(Base):
     entry = Column(String)
     status = Column(Integer, default=QUEUED)
     # Timestamps with microsecond precision
-    queue_time = Column(mysql.TIMESTAMP(fsp=6), default=datetime.datetime.now,
-            nullable=False)
+    queue_time = Column(mysql.TIMESTAMP(fsp=6))
     start_time = Column(mysql.TIMESTAMP(fsp=6))
     end_time = Column(mysql.TIMESTAMP(fsp=6))
     # TODO: Should this be set on task start? also probably shouldn't use
@@ -83,51 +82,68 @@ def init(connect, echo=False):
         Base.metadata.create_all(engine)
         session = sessionmaker(bind=engine)()
 
-def record_queued_task(filename, task, entry):
+# def record_queued_task(filename, task, entry):
+def queue_task(filename, task, entry):
     """ Update a file to 'queued' status and create a matching task """
     filename = os.path.realpath(filename)
     row = session.query(File).filter(File.filename == filename).scalar()
-    if row is None:
-        print("ERROR: NXdatabase could not find file '{}'".format(filename))
-        return
-    row.tasks.append(Task(name=task, entry=entry))
+    time = datetime.datetime.now()
+    row.tasks.append(Task(name=task, entry=entry, queue_time=time))
     setattr(row, task, QUEUED)
     session.commit()
 
-def update_task(filename, task, entry, status):
-    """ Update an existing task, recording that it has started or finished.
+def start_task(filename, task, entry):
+    """ Record that a task has begun execution.
 
         filename, task, entry: strings that uniquely identify the desired task
-        status: string, should be 'in progress' or 'done'
     """
     filename = os.path.realpath(filename)
-    #Make sure we're only getting one result
+    # Get the specified file
     row = session.query(File).filter(File.filename == filename).scalar()
-    if row is None:
-        print("ERROR: NXdatabase could not find file '{}'".format(filename))
-        return
-    #Find the index of the desired task
-    for i, t in enumerate(row.tasks):
-        if t.name == task and t.entry == entry and (
-                t.status == QUEUED or t.status == IN_PROGRESS):
+    #Find the desired task, and create a new one if it doesn't exist
+    for t in row.tasks:
+        if t.name == task and t.entry == entry and t.status == QUEUED:
             break
     else:
-        print('ERROR: NXdatabase could not find running task {} on {}/{}'
-                    .format(task, filename, entry))
-        return
-    row.tasks[i].status = _prog[status]
-    if _prog[status] == DONE:
-        row.tasks[i].end_time = datetime.datetime.now()
-    else:
-        row.tasks[i].start_time = datetime.datetime.now()
-    # Update the status of the file to 'done' if we've finished all the entries,
-    #   otherwise to 'in progress'
-    if len(row.tasks) >= NUM_ENTRIES and all(
-                t.status == DONE for t in row.tasks if t.name == task):
-        setattr(row, task, DONE)
-    else:
-        setattr(row, task, IN_PROGRESS)
+        # This task was started from command line, not queued on the server
+        t = Task(name=task, entry=entry)
+        row.tasks.append(t)
+
+    t.status = IN_PROGRESS
+    t.start_time = datetime.datetime.now()
+    setattr(row, task, IN_PROGRESS)
     session.commit()
+
+def end_task(filename, task, entry):
+    """ Record that a task finished execution.
+
+        Update the task's database entry, and set the matching column in files
+        to DONE if it's the last task to finish
+
+        filename, task, entry: strings that uniquely identify the desired task
+    """
+    filename = os.path.realpath(filename)
+    row = session.query(File).filter(File.filename == filename).scalar()
+    for t in row.tasks:
+        if t.name == task and t.entry == entry and t.status == IN_PROGRESS:
+            break
+    else:
+        print("ERROR: nxdatabase couldn't find task '%s' on file %s/%s"
+                    % (task, filename, entry))
+        return
+    t.status = DONE
+    t.end_time = datetime.datetime.now()
+    # Update the status of the file to DONE if we've finished all the entries,
+    #   otherwise, leave it as IN_PROGRESS
+    matching_tasks = []
+    for x in row.tasks:
+        if x.name == task:
+            matching_tasks.append(x)
+    if len(matching_tasks) >= NUM_ENTRIES and all(
+                x.status == DONE for x in matching_tasks):
+            setattr(row, task, DONE)
+    session.commit()
+
 
 def get_tasks(filename):
     """ Return the status of each task for filename
@@ -151,6 +167,7 @@ def sync_db(sample_dir):
     wrapper_files = ( os.path.join(sample_dir, filename) for filename in
                     os.listdir(sample_dir) if filename.endswith('.nxs')
                     and all(x not in filename for x in ('parent', 'mask')) )
+    tracked_files = session.query(File).all()
 
     for w in wrapper_files:
         w = os.path.realpath(w)
@@ -188,7 +205,6 @@ def sync_db(sample_dir):
                     tasks['nxcombine'] += 1
 
         # If the file already exists, update it, otherwise create a new file
-        tracked_files = session.query(File).all()
         for row in tracked_files:
             if w == row.filename:
                 f = row
@@ -203,6 +219,10 @@ def sync_db(sample_dir):
             else:
                 setattr(f, task, IN_PROGRESS)
         session.add(f)
+    #### TODO: Should we delete db entries for deleted files?
+    # for row in tracked_files:
+    #     if row.filename not in wrapper_files:
+    #         session.delete(row)
     session.commit()
 
 """ Sample_dir should be the GUPxxx/agcrse2/xtalX directory -

@@ -7,6 +7,7 @@ import subprocess
 import sys
 import time
 import timeit
+import datetime
 import numpy as np
 from h5py import is_hdf5
 
@@ -386,18 +387,14 @@ class NXReduce(QtCore.QObject):
                                 sequence_index=len(self.entry.NXprocess)+1,
                                 version='nxrefine v'+__version__,
                                 note=note)
-        nxdb.update_task(self.wrapper_file, program, self._entry, 'done')
+        nxdb.end_task(self.wrapper_file, program, self._entry)
         # check if all 3 entries are done - update File
         # if self.all_complete(program):
-        #     nxdb.update_task(self.wrapper_file, program, 'done')
+        #     nxdb.start_task(self.wrapper_file, program, 'done')
 
     def record_start(self, program):
         """ Record that a task has started. Update database """
-        ###### TODO: ######
-        # Create the task when it's queued by the server
-        nxdb.record_queued_task(self.wrapper_file, program, self._entry)
-
-        nxdb.update_task(self.wrapper_file, program, self._entry, 'in progress')
+        nxdb.start_task(self.wrapper_file, program, self._entry)
 
     def nxlink(self):
         if self.not_complete('nxlink') and self.link:
@@ -938,12 +935,31 @@ class NXReduce(QtCore.QObject):
         return command+' '.join(switches)
 
     def queue(self, parent=False):
+        """ Add tasks to the server's fifo, and log this in the database """
         if self.server is None:
             raise NeXusError("NXServer not running")
+
         command = self.command(parent)
         if command:
-            print("Queueing command " + command)
             self.server.add_task(self.command(parent))
+            now = datetime.datetime.now()
+            # TODO: How should I handle this?
+            if command.split()[0] == 'nxparent':
+                return
+            if self.link:
+                nxdb.queue_task(self.wrapper_file, 'nxlink', self._entry)
+            if self.maxcount:
+                nxdb.queue_task(self.wrapper_file, 'nxmax', self._entry)
+            if self.find:
+                nxdb.queue_task(self.wrapper_file, 'nxfind', self._entry)
+            if self.copy:
+                nxdb.queue_task(self.wrapper_file, 'nxcopy', self._entry)
+            if self.refine:
+                nxdb.queue_task(self.wrapper_file, 'nxrefine', self._entry)
+            if self.transform:
+                nxdb.queue_task(self.wrapper_file, 'nxtransform', self._entry)
+
+
 
 class NXMultiReduce(NXReduce):
 
@@ -1014,6 +1030,7 @@ class NXMultiReduce(NXReduce):
         if self.server is None:
             raise NeXusError("NXServer not running")
         self.server.add_task(self.command())
+        nxdb.queue_task(self.wrapper_file, 'nxcombine', None)
 
 
 class NXpeak(object):
