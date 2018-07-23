@@ -71,11 +71,13 @@ class NXReduce(QtCore.QObject):
         self.task_directory = os.path.join(self.root_directory, 'tasks')
         self.parent_file = os.path.join(self.base_directory, 
                                         self.sample+'_parent.nxs')
-        self.mask_file = os.path.join(self.base_directory, 
-                                      self.sample+'_mask.nxs')
+        self.mask_file = os.path.join(self.directory, 
+                                      self.entry_name+'_mask.nxs')
         self.log_file = os.path.join(self.task_directory, 'nxlogger.log')
         self.transform_file = os.path.join(self.directory, 
                                            self.entry_name+'_transform.nxs')
+        self.masked_transform_file = os.path.join(self.directory, 
+                                        self.entry_name+'_masked_transform.nxs')
         self.settings_file = os.path.join(self.directory, 
                                            self.entry_name+'_transform.pars')
         self.combine_file = os.path.join(self.directory, 'transform.nxs')
@@ -112,7 +114,7 @@ class NXReduce(QtCore.QObject):
         self.lattice = lattice
         self.transform = transform
         self.combine = combine
-        self.mask3D = False # Temporary block on 3D masks
+        self.mask3D = mask3D
         self.overwrite = overwrite
         self.gui = gui
         
@@ -716,54 +718,6 @@ class NXReduce(QtCore.QObject):
                     first_frame=self.first, last_frame=self.last, 
                     peak_number=len(peaks))                    
 
-    def nxmask(self):
-        if self.not_complete('nxmask') and self.mask3D:
-            with Lock(self.wrapper_file):
-                mask = self.calculate_mask()
-            if self.gui:
-                if mask:
-                    self.result.emit(mask)
-                self.stop.emit()
-            else:
-                with Lock(self.mask_file):
-                    self.write_mask(mask)
-        elif self.mask3D:
-            self.logger.info('Mask already produced')             
-
-    def calculate_mask(self):
-        self.logger.info("Calculating 3D mask")
-        data_shape = self.entry['data/data'].shape
-        root = nxload(self.mask_file, 'r+')
-        if not self.entry_name in root:
-            root[self.entry_name] = NXentry()
-        entry = root[self.entry_name]
-        if 'mask' in entry:
-            del entry['mask']
-        entry['mask'] = NXfield(shape=data_shape, dtype=np.int8, fillvalue=0)
-        mask = entry['mask']
-        x, y = np.arange(data_shape[2]), np.arange(data_shape[1])
-        xp, yp, zp = self.entry['peaks/x'], self.entry['peaks/y'], self.entry['peaks/z']
-        tic = self.start_progress(0, len(xp))    
-        for i in range(len(xp)):
-            if self.stopped:
-                return None
-            self.update_progress(int(zp[i]))
-            inside = (x[None,:]-int(xp[i]))**2+(y[:,None]-int(yp[i]))**2 < self.radius**2
-            frame = int(zp[i])
-            if self.width == 3:
-                mask[frame-1:frame+2] = mask[frame-1:frame+2] | inside
-            else:
-                mask[frame] = mask[frame] | inside
-        toc = self.stop_progress()
-        self.logger.info("3D Mask stored in '%s' (%g seconds)" 
-                         % (self.mask_file, toc-tic))
-        return mask
- 
-    def write_mask(self, mask):
-        root = nxload(self.mask_file, 'r+')
-        root[self.entry_name] = NXentry(mask=mask)
-        self.record('nxmask', radius=self.radius, width=self.width)                    
-
     def nxcopy(self):
         if self.not_complete('nxcopy') and self.copy:
             if self.parent:
@@ -892,14 +846,79 @@ class NXReduce(QtCore.QObject):
             self.logger.info('Invalid HKL grid')
             return None
 
+    def nxmask(self):
+        if self.not_complete('nxmask') and self.mask3D:
+            if self.not_complete('nxtransform'):
+                self.logger.info('Masked transform not possible without nxtransform')
+                return
+            with Lock(self.wrapper_file):
+                self.calculate_mask()
+                refine = NXRefine(self.entry)
+                refine.initialize_grid()
+                cctw_command = refine.prepare_transform(
+                                        self.masked_transform_file, mask=True)
+            if cctw_command:
+                self.logger.info('Masked transform launched')
+                tic = timeit.default_timer()
+                with Lock(self.data_file):
+                    process = subprocess.run(cctw_command, shell=True,
+                                             stdout=subprocess.PIPE,
+                                             stderr=subprocess.PIPE)
+                toc = timeit.default_timer()
+                if process.returncode == 0:
+                    self.logger.info('Masked transform completed (%g seconds)' 
+                                     % (toc-tic))
+                else:
+                    self.logger.info(
+                        'Masked transform completed - errors reported (%g seconds)' 
+                        % (toc-tic))
+                self.record('nxmask', mask=self.mask_file, 
+                            radius=self.radius, width=self.width,
+                            command=cctw_command,
+                            output=process.stdout.decode(), 
+                            errors=process.stderr.decode())
+            else:
+                self.logger.info('CCTW command invalid')                
+        elif self.transform:
+            self.logger.info('Data already transformed')             
+
+    def calculate_mask(self):
+        self.logger.info("Calculating 3D mask")
+        data_shape = self.entry['data/data'].shape
+        root = nxload(self.mask_file, 'w')
+        if 'entry' not in root:
+            root['entry'] = NXentry()
+        entry = root['entry']
+        if 'mask' in entry:
+            del entry['mask']
+        entry['mask'] = NXfield(shape=data_shape, dtype=np.int8, fillvalue=0)
+        mask = entry['mask']
+        x, y = np.arange(data_shape[2]), np.arange(data_shape[1])
+        xp, yp, zp = self.entry['peaks/x'], self.entry['peaks/y'], self.entry['peaks/z']
+        tic = self.start_progress(0, len(xp))    
+        for i in range(len(xp)):
+            if self.stopped:
+                return None
+            self.update_progress(int(zp[i]))
+            inside = (x[None,:]-int(xp[i]))**2+(y[:,None]-int(yp[i]))**2 < self.radius**2
+            frame = int(zp[i])
+            if self.width == 3:
+                mask[frame-1:frame+2] = mask[frame-1:frame+2] | inside
+            else:
+                mask[frame] = mask[frame] | inside
+        self.data['data_mask'] = NXlink('entry/mask', self.mask_file)
+        toc = self.stop_progress()
+        self.logger.info("3D Mask stored in '%s' (%g seconds)" 
+                         % (self.mask_file, toc-tic))
+
     def nxreduce(self):
         self.nxlink()
         self.nxmax()
         self.nxfind()
-        self.nxmask()
         self.nxcopy()
         self.nxrefine()
         self.nxtransform()
+        self.nxmask()
     
     def command(self, parent=False):
         switches = ['-d %s' % self.directory, '-e %s' % self.entry_name]
