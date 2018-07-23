@@ -5,7 +5,8 @@ from nexpy.gui.pyqt import QtCore, QtWidgets
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.utils import report_error, natural_sort
 
-from nxrefine.nxreduce import Lock, NXReduce, NXMultiReduce
+from nxrefine.nxlock import Lock
+from nxrefine.nxreduce import NXReduce, NXMultiReduce
 
 
 def show_dialog():
