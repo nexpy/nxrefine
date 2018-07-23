@@ -92,15 +92,15 @@ class TransformDialog(BaseDialog):
     def initialize_grid(self):
         self.refine = NXRefine(self.entry)
         self.refine.initialize_grid()
-        self.start_h_box.setText(str(self.refine.h_start))
-        self.step_h_box.setText(str(self.refine.h_step))
-        self.stop_h_box.setText(str(self.refine.h_stop))
-        self.start_k_box.setText(str(self.refine.k_start))
-        self.step_k_box.setText(str(self.refine.k_step))
-        self.stop_k_box.setText(str(self.refine.k_stop))
-        self.start_l_box.setText(str(self.refine.l_start))
-        self.step_l_box.setText(str(self.refine.l_step))
-        self.stop_l_box.setText(str(self.refine.l_stop))
+        self.start_h_box.setText('%g' % self.refine.h_start)
+        self.step_h_box.setText('%g' % self.refine.h_step)
+        self.stop_h_box.setText('%g' % self.refine.h_stop)
+        self.start_k_box.setText('%g' % self.refine.k_start)
+        self.step_k_box.setText('%g' % self.refine.k_step)
+        self.stop_k_box.setText('%g' % self.refine.k_stop)
+        self.start_l_box.setText('%g' % self.refine.l_start)
+        self.step_l_box.setText('%g' % self.refine.l_step)
+        self.stop_l_box.setText('%g' % self.refine.l_stop)
 
     def write_parameters(self, output_file, settings_file):
         self.refine.output_file = output_file
