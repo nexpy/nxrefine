@@ -224,7 +224,7 @@ class NXReduce(QtCore.QObject):
             else:
                 raise NeXusError("'%s' already set as parent" 
                                  % os.path.realpath(self.parent_file))
-        os.symlink(self.wrapper_file, self.parent_file)
+        os.symlink(os.path.basename(self.wrapper_file), self.parent_file)
         self._parent = None
         self.logger.info("'%s' set as parent" % os.path.realpath(self.parent_file))
 
