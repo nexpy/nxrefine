@@ -14,7 +14,7 @@ from nxrefine.nxreduce import NXReduce
 def main():
 
     parser = argparse.ArgumentParser(
-        description="Calculate 3D mask from the Bragg peak locations")
+        description="Perform transform with 3D mask around Bragg peaks")
     parser.add_argument('-d', '--directory', required=True, 
                         help='scan directory')
     parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
