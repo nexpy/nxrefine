@@ -404,7 +404,8 @@ class NXReduce(QtCore.QObject):
                 self.entry['data/x_pixel'] = np.arange(shape[2], dtype=np.int32)
                 self.entry['data/y_pixel'] = np.arange(shape[1], dtype=np.int32)
                 self.entry['data/frame_number'] = np.arange(shape[0], dtype=np.int32)
-                self.entry['data/data'] = NXlink(self.path, self.data_file)
+                data_file = os.path.relpath(self.data_file, os.path.dirname(self.wrapper_file))
+                self.entry['data/data'] = NXlink(self.path, data_file)
                 self.entry['data'].nxsignal = self.entry['data/data']
                 self.logger.info('Data group created and linked to external data')
             else:
@@ -906,7 +907,8 @@ class NXReduce(QtCore.QObject):
                 mask[frame-1:frame+2] = mask[frame-1:frame+2] | inside
             else:
                 mask[frame] = mask[frame] | inside
-        self.data['data_mask'] = NXlink('entry/mask', self.mask_file)
+        mask_file = os.path.relpath(self.mask_file, os.path.dirname(self.wrapper_file))
+        self.data['data_mask'] = NXlink('entry/mask', mask_file)
         toc = self.stop_progress()
         self.logger.info("3D Mask stored in '%s' (%g seconds)" 
                          % (self.mask_file, toc-tic))
