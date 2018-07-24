@@ -908,6 +908,8 @@ class NXReduce(QtCore.QObject):
             else:
                 mask[frame] = mask[frame] | inside
         mask_file = os.path.relpath(self.mask_file, os.path.dirname(self.wrapper_file))
+        if 'data_mask' in self.data:
+            del self.data['data_mask']
         self.data['data_mask'] = NXlink('entry/mask', mask_file)
         toc = self.stop_progress()
         self.logger.info("3D Mask stored in '%s' (%g seconds)" 
