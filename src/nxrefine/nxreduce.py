@@ -741,7 +741,7 @@ class NXReduce(QtCore.QObject):
 
     def nxrefine(self):
         if self.not_complete('nxrefine') and self.refine:
-            if self.not_complete('nxfind'):
+            if not self.complete('nxfind'):
                 self.logger.info('Cannot refine until peak search is completed')
                 return
             with Lock(self.wrapper_file):
@@ -777,7 +777,7 @@ class NXReduce(QtCore.QObject):
 
     def nxtransform(self):
         if self.not_complete('nxtransform') and self.transform:
-            if self.not_complete('nxrefine'):
+            if not self.complete('nxrefine'):
                 self.logger.info('Transform cannot be performed without nxrefine')
                 return
             with Lock(self.wrapper_file):
@@ -849,7 +849,7 @@ class NXReduce(QtCore.QObject):
 
     def nxmask(self):
         if self.not_complete('nxmask') and self.mask3D:
-            if self.not_complete('nxtransform'):
+            if not self.complete('nxtransform'):
                 self.logger.info('Masked transform not possible without nxtransform')
                 return
             with Lock(self.wrapper_file):
