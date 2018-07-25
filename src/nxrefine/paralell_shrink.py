@@ -16,10 +16,8 @@ def chunkify(arr, chunkshape, mask=None):
         mask: np.ndarray of boolean values, with True denoting pixels in
             arr to ignore
     """
-    print('chunkify (pid=%d)' % os.getpid())
     # Where to truncate arr
     bounds = (np.array(arr.shape) // chunkshape) * chunkshape
-    bounds[0] = 250
     dx,dy,dz = chunkshape
     pix_per_slab = 8 # Height of slabs
     ds = pix_per_slab*dx
@@ -28,6 +26,7 @@ def chunkify(arr, chunkshape, mask=None):
     if mask is not None:
         mask = mask[:bounds[1], :bounds[2]].astype(bool)
     tot_time = 0
+    print('PID {}: slab 0 / {}'.format(os.getpid(), numslabs))
     for s in range(numslabs):
         tic = timeit.default_timer()
         gc.collect() # we need to clean up leftover slabs
@@ -98,7 +97,6 @@ def run_chunks(args):
     chunkshape = args[1]
     mask = args[2]
     entry = args[3]
-    print('run_chunks for %s' % entry)
     arr = nxload(datafile)['entry/data/data']
     res = chunkify(arr, chunkshape, mask)
     return res, entry
@@ -111,7 +109,6 @@ def run(file, size):
     scan = os.path.splitext(scan)[0]
     f = nxload(file)
     # Copy the metadata to the new file
-    # output = NXroot(entries=f.entries)
     output = copy.deepcopy(f)
     #Create a scaled pixel mask, then copy the other data
     det = NXdetector()
@@ -138,8 +135,7 @@ def run(file, size):
 
     os.mkdir(scan_dir)
 
-    # entries = ['f1', 'f2', 'f3']
-    entries = ['f1']
+    entries = ['f1', 'f2', 'f3']
     with mp.Pool(processes=len(entries)) as pool:
         olddata_dict = {}
         mask_dict = {}
@@ -156,7 +152,7 @@ def run(file, size):
                     chunkshape, mask_dict[e], e) for e in entries))
         # Process the results in whichever order they finish
         for res, entry in results:
-            print('!!! Got result for {}'.format(entry))
+            print('Processing result for {}'.format(entry))
             olddata = olddata_dict[entry]
             # Save the new data in the entry's data field and update metadata
             newdata = NXdata()

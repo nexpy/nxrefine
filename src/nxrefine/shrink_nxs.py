@@ -22,7 +22,6 @@ def chunkify(arr, chunkshape, mask=None):
     """
     # Where to truncate arr
     bounds = (np.array(arr.shape) // chunkshape) * chunkshape
-    bounds[0] = 100
     dx,dy,dz = chunkshape
     pix_per_slab = 8 # Height of slabs
     ds = pix_per_slab*dx
