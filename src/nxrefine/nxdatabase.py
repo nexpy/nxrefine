@@ -111,7 +111,6 @@ def start_task(filename, task_name, entry):
     t.status = IN_PROGRESS
     t.start_time = datetime.datetime.now()
     t.pid = os.getpid()
-    time.sleep(20)
     setattr(row, task_name, IN_PROGRESS)
     session.commit()
 

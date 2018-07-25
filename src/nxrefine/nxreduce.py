@@ -308,7 +308,7 @@ class NXReduce(QtCore.QObject):
                 _threshold = self.maximum / 10
         try:
             self._threshold = np.float(_threshold)
-        except Exception as error:
+        except:
             self._threshold = None
         return self._threshold
 
@@ -781,7 +781,7 @@ class NXReduce(QtCore.QObject):
 
     def nxrefine(self):
         if self.not_complete('nxrefine') and self.refine:
-            if self.not_complete('nxfind'):
+            if not self.complete('nxfind'):
                 self.logger.info('Cannot refine until peak search is completed')
                 return
             self.record_start('nxrefine')
@@ -1102,7 +1102,8 @@ class NXpeak(object):
             clip = mask[int(self.y),int(self.x)]
             if clip:
                 return False
-        if np.isclose(self.average, 0.0) or np.isnan(self.average) or self.np < 5:
+        # TODO: I changes this from 'or self.np < 5'
+        if np.isclose(self.average, 0.0) or np.isnan(self.average) or self.np < 4:
             return False
         else:
             return True

@@ -5,6 +5,7 @@ import h5py
 import copy
 import os
 from tqdm import trange
+import gc
 import ipdb
 # import cProfile
 # from pycallgraph import PyCallGraph
@@ -21,28 +22,36 @@ def chunkify(arr, chunkshape, mask=None):
     """
     # Where to truncate arr
     bounds = (np.array(arr.shape) // chunkshape) * chunkshape
-    # bounds = np.array([500,500,500])
+    bounds[0] = 100
     dx,dy,dz = chunkshape
-    ds = 5*dx  # Height of slabs
+    pix_per_slab = 8 # Height of slabs
+    ds = pix_per_slab*dx
     numslabs = math.ceil(bounds[0] / ds)
     result = np.ma.masked_array(np.zeros(bounds // chunkshape, dtype=arr.dtype))
     if mask is not None:
-        mask = mask[:bounds[1], :bounds[2]]
+        mask = mask[:bounds[1], :bounds[2]].astype(bool)
     for s in trange(numslabs):
+        gc.collect() # we need to clean up leftover slabs
         try:
-            slab = arr[s*ds:(s+1)*ds, :bounds[1], :bounds[2]].nxdata
+            slab = arr[s*ds : (s+1)*ds, :bounds[1], :bounds[2]].nxdata
         except:
             # Slab upper bound went beyond arr.shape[0]
-            slab = arr[arr[s*ds:bounds[0], :bounds[1], :bounds[2]].nxdata]
-        if mask is not None:
-            slab = slab.view(np.ma.MaskedArray)
-            slab.mask = mask
+            slab = arr[s*ds:bounds[0], :bounds[1], :bounds[2]].nxdata
         for x in range(ds//dx):
+            real_x = x + s*pix_per_slab
+            if real_x >= result.shape[0]:
+                # We reached the end of the array
+                break
             for y in range(result.shape[1]):
                 for z in range(result.shape[2]):
                     chunk = slab[x*dx:(x+1)*dx, y*dy:(y+1)*dy, z*dz:(z+1)*dz]
-                    # TODO: account for fully masked chunks
-                    result[x,y,z] = np.max(chunk)
+                    m = mask[y*dy:(y+1)*dy, z*dz:(z+1)*dz]
+                    try:
+                        # ie if m[1,2] is True, ignore chunk[:,1,2]
+                        result[real_x, y, z] = np.max(chunk[:,~m])
+                    except ValueError:
+                        # Chunk is entirely masked out
+                        result[real_x, y, z] = np.ma.masked
     return result
 
 def shrink_mask(oldmask, spacing):
@@ -79,7 +88,9 @@ def shrink_monitor(oldmon, spacing):
             newmon[x] = chunk.min()
     return newmon
 
+
 def run(file, size):
+    file = os.path.realpath(file)
     chunkshape = [size] * 3
     sample_dir = os.path.dirname(file)
     sample,scan = os.path.basename(file).split('_')
@@ -94,7 +105,7 @@ def run(file, size):
     det.pixel_mask = shrink_mask(old_det.pixel_mask, chunkshape[1:3])
     det.shape = det.pixel_mask.shape
     for k,v in old_det.entries.items():
-        if k  in det.entries:
+        if k in det.entries:
             continue
         det[k] = v
     del output.entry.instrument['detector']
@@ -163,7 +174,10 @@ def run(file, size):
         newdet.beam_center_x /= chunkshape[2]
         newdet.beam_center_y /= chunkshape[1]
         del newdet['pixel_mask']
-        newdet['pixel_mask'] = res.mask[0,...] #TODO: check if it's False
+        if res.mask is not False:
+            newdet['pixel_mask'] = res.mask[0,...]
+        else:
+            newdet['pixel_mask'] = np.zeros(res.shape[1:3], dtype=bool)
         sig_path = os.path.basename(output.nxfilename) + newdet.nxfilepath
         newdet.pixel_mask.attrs['signal_path'] = sig_path
         newdet.shape = newdet['pixel_mask'].shape
@@ -179,4 +193,4 @@ def run(file, size):
 
 
 if __name__ == '__main__':
-    run('/home/patrick/de-bulk/GUP-58871/agcrse2/xtal1a/agcrse2_350K.nxs', 10)
+    run('/home/patrick/de-bulk/GUP-58871/agcrse2/xtal1a/agcrse2_300K.nxs', 10)
