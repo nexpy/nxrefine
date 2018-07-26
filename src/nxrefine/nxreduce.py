@@ -831,7 +831,11 @@ class NXReduce(QtCore.QObject):
             except Exception:
                 self.Qh = self.Qk = self.Ql = None                
 
-    def prepare_transform(self):
+    def prepare_transform(self, mask=False):
+        if mask:
+            transform_file = self.masked_transform_file
+        else:
+            transform_file = self.transform_file
         self.get_transform_grid()
         if self.Qh and self.Qk and self.Ql:
             refine = NXRefine(self.entry)
@@ -840,9 +844,10 @@ class NXReduce(QtCore.QObject):
             refine.k_start, refine.k_step, refine.k_stop = self.Qk
             refine.l_start, refine.l_step, refine.l_stop = self.Ql
             refine.define_grid()
-            refine.prepare_transform(self.transform_file)
-            refine.write_settings(self.settings_file)
-            return refine.cctw_command()
+            refine.prepare_transform(transform_file, mask=mask)
+            if not mask:
+                refine.write_settings(self.settings_file)
+            return refine.cctw_command(mask)
         else:
             self.logger.info('Invalid HKL grid')
             return None
@@ -855,9 +860,7 @@ class NXReduce(QtCore.QObject):
             with Lock(self.wrapper_file):
                 self.calculate_mask()
                 refine = NXRefine(self.entry)
-                refine.initialize_grid()
-                cctw_command = refine.prepare_transform(
-                                        self.masked_transform_file, mask=True)
+                cctw_command = self.prepare_transform(mask=True)
             if cctw_command:
                 self.logger.info('Masked transform launched')
                 tic = timeit.default_timer()
