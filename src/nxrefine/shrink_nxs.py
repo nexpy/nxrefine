@@ -1,3 +1,12 @@
+"""
+(Very) lossy compression of NeXus files. Intended for creating smaller files
+to use as input when debugging code that works with NeXus.
+
+Takes as input a .nxs wrapper file and compresses the data files. Divides
+the data into chunks (cubes) and only saves the maximum value out of each chunk.
+Supports masking out bad values if the input file includes a mask
+"""
+
 from nexusformat.nexus import *
 import numpy as np
 import math

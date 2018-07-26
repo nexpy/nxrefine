@@ -1,3 +1,28 @@
+"""
+Simple sqlite-based logging for NXrefine. The database file is located by
+default at GUP-xxx/NXdatabase.db. It contains two tables:
+    1. Files: Meant for quickly checking the completion status of scans.
+        For each task, records if it is not started, queued but not yet running,
+        in progress (started for at least one entry), or done (finished for all
+        entries).
+    2. Tasks: Detailed information about all tasks. Records queue time (when
+        it was placed in the NXserver's fifo, or null if it was run from the
+        command line), start time, end time, the task's PID, the wrapper file
+        and entry it is working on, and its status.
+
+Usage:
+----------------------
+Before any other calls, use init() to establish a connection to the database
+
+    >>> import nxrefine.nxdatabase as nxdb
+    >>> nxdb.init('sqlite:///relative/path/to/database/file')
+
+Use sync_db() to scan the sample directory and update the database to match
+the contents of the wrapper files. This only needs to be run if there are
+changes to the files outside of NXrefine code (eg manually deleting an entry
+or adding a new .nxs file). Other changes are tracked automatically.
+"""
+
 import os
 import datetime
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey
@@ -12,6 +37,7 @@ from .lock import Lock
 ###  DEBUGGING ###
 import ipdb
 import time
+# import cProfile, pstats
 
 NUM_ENTRIES = 3
 
@@ -73,7 +99,7 @@ def init(connect, echo=False):
     """ Connect to the database, creating tables if necessary
 
         connect: connect string as specified by SQLAlchemy
-        echo: whether or not to echo the emmited SQL statements
+        echo: whether or not to echo the emmited SQL statements to stdout
     """
     global session
     if session is None:
@@ -83,7 +109,10 @@ def init(connect, echo=False):
 
 # def record_queued_task(filename, task, entry):
 def queue_task(filename, task, entry):
-    """ Update a file to 'queued' status and create a matching task """
+    """ Update a file to 'queued' status and create a matching task
+
+        filename, task, entry: strings that uniquely identify the desired task
+    """
     filename = os.path.realpath(filename)
     row = session.query(File).filter(File.filename == filename).scalar()
     time = datetime.datetime.now()
