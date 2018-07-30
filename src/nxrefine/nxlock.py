@@ -1,20 +1,19 @@
 import os
-import time
-import timeit
+import time, timeit
+import errno
 
 
 class LockException(Exception):
     LOCK_FAILED = 1
 
-
 class Lock(object):
-
     def __init__(self, filename, timeout=600, check_interval=1):
         self.filename = os.path.realpath(filename)
         self.lock_file = self.filename+'.lock'
         self.timeout = timeout
         self.check_interval = check_interval
-    
+        self.fd = None
+
     def acquire(self, timeout=None, check_interval=None):
         if timeout is None:
             timeout = self.timeout
@@ -24,28 +23,29 @@ class Lock(object):
         if check_interval is None:
             check_interval = self.check_interval
 
-        def _get_lock():
-            if os.path.exists(self.lock_file):
-                raise LockException("'%s' already locked" % self.filename)
-            else:
-                open(self.lock_file, 'w').write("%s" % os.getpid())
-        try:
-            _get_lock()
-        except LockException as exception:
-            timeoutend = timeit.default_timer() + timeout
-            while timeoutend > timeit.default_timer():
+        timeoutend = timeit.default_timer() + timeout
+        while timeoutend > timeit.default_timer():
+            try:
+                # Attempt to create the lockfile. If it already exists,
+                # then someone else has the lock and we need to wait
+                self.fd = os.open(self.lock_file,
+                        os.O_CREAT | os.O_EXCL | os.O_RDWR)
+                open(self.lock_file, 'w').write(str(os.getpid()))
+                break
+            except OSError as e:
+                # Only catch if the lockfile already exists
+                if e.errno != errno.EEXIST:
+                    raise
                 time.sleep(check_interval)
-                try:
-                    _get_lock()
-                    break
-                except LockException:
-                    pass
-            else:
-                raise LockException("'%s' already locked" % self.filename)
+        # Raise on error if we had to wait for too long
+        else:
+            raise LockException("'%s' timeout expired" % self.filename)
 
     def release(self):
-        if os.path.exists(self.lock_file):
+        if self.fd is not None:
+            os.close(self.fd)
             os.remove(self.lock_file)
+            self.fd = None
 
     def __enter__(self):
         return self.acquire()
@@ -53,5 +53,6 @@ class Lock(object):
     def __exit__(self, type_, value, tb):
         self.release()
 
-    def __delete__(self, instance):
-        instance.release()
+    def __del__(self):
+        self.release()
+
