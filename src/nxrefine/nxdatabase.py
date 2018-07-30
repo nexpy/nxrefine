@@ -32,7 +32,7 @@ from sqlalchemy.dialects import mysql
 from sqlalchemy.exc import IntegrityError
 
 from nexusformat.nexus import nxload
-from .lock import Lock
+from .nxlock import Lock
 
 ###  DEBUGGING ###
 import ipdb

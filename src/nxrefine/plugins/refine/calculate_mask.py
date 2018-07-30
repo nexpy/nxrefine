@@ -4,7 +4,8 @@ from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.utils import report_error
 from nexusformat.nexus import *
 
-from nxrefine.nxreduce import Lock, LockException, NXReduce
+from nxrefine.nxlock import Lock, LockException
+from nxrefine.nxreduce import NXReduce
 
 
 def show_dialog():
@@ -49,7 +50,7 @@ class Mask3DDialog(BaseDialog):
         self.check_lock(self.reduce.wrapper_file)
         self.thread = QtCore.QThread()
         self.reduce = NXReduce(self.entry, radius=self.radius, width=self.width,
-                               overwrite=True, gui=True)
+                               mask3D=True, overwrite=True, gui=True)
         self.reduce.moveToThread(self.thread)
         self.reduce.start.connect(self.start_progress)
         self.reduce.update.connect(self.update_progress)

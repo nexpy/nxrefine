@@ -4,7 +4,8 @@ from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.utils import report_error
 from nexusformat.nexus import *
 
-from nxrefine.nxreduce import Lock, LockException, NXReduce
+from nxrefine.nxlock import Lock, LockException
+from nxrefine.nxreduce import NXReduce
 
 
 def show_dialog():
