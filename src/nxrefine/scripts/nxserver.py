@@ -3,10 +3,6 @@ import os
 import sys
 from nxrefine.nxserver import NXServer
 
-#### DEBUG ####
-import ipdb
-
-
 def main():
 
     parser = argparse.ArgumentParser(

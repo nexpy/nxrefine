@@ -21,6 +21,9 @@ Use sync_db() to scan the sample directory and update the database to match
 the contents of the wrapper files. This only needs to be run if there are
 changes to the files outside of NXrefine code (eg manually deleting an entry
 or adding a new .nxs file). Other changes are tracked automatically.
+
+NXdatabase assumes that no identical tasks (ie same task, entry, and wrapper file)
+will be queued or running at the same time
 """
 
 import os
@@ -34,18 +37,13 @@ from sqlalchemy.exc import IntegrityError
 from nexusformat.nexus import nxload
 from .nxlock import Lock
 
-###  DEBUGGING ###
-import ipdb
-import time
-# import cProfile, pstats
-
 NUM_ENTRIES = 3
 
 Base = declarative_base();
 # Records files that have: not been processed, queued on the NXserver
     # but not started, started processing, finished processing
 _prog = {'not started':0, 'queued':1, 'in progress':2, 'done':3}
-NOT_STARTED, QUEUED, IN_PROGRESS, DONE = 0,1,2,3
+NOT_STARTED, QUEUED, IN_PROGRESS, DONE, FAILED = 0,1,2,3,-1
 
 class File(Base):
     __tablename__ = 'files'
@@ -173,6 +171,19 @@ def end_task(filename, task_name, entry):
             setattr(row, task_name, DONE)
     session.commit()
 
+def fail_task(filename, task_name, entry):
+    """ Record that a task failed during execution.
+
+        filename, task_name, entry: strings that uniquely identify the desired task
+    """
+    filename = os.path.realpath(filename)
+    task = session.query(Task).filter(Task.filename == filename)\
+            .filter(Task.name == task_name)\
+            .filter(Task.entry == entry)\
+            .filter(Task.status == IN_PROGRESS).first()
+    task.status = FAILED
+    # TODO: include logging info?
+    session.commit()
 
 def get_file(filename):
     """ Return the File object (and associated tasks) matching filename
