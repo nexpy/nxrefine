@@ -174,11 +174,12 @@ def end_task(filename, task_name, entry):
     session.commit()
 
 
-def get_tasks(filename):
-    """ Return the status of each task for filename
+def get_file(filename):
+    """ Return the File object (and associated tasks) matching filename
 
         filename: string, absolute path of wrapper file to query
      """
+    filename = os.path.realpath(filename)
     f = session.query(File) \
             .filter(File.filename == filename) \
             .one()

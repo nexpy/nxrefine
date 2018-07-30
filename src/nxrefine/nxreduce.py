@@ -1,5 +1,4 @@
-import logging
-import logging.handlers
+import logging, logging.handlers
 import os
 import errno
 import platform
@@ -13,6 +12,7 @@ from h5py import is_hdf5
 
 ### DEBUGGING ####
 import ipdb
+
 from nexusformat.nexus import *
 
 from nexpy.gui.pyqt import QtCore
@@ -128,8 +128,6 @@ class NXReduce(QtCore.QObject):
         try:
             self.server = NXServer(self.root_directory)
         except Exception as error:
-            #### DEBUG ####
-            print('Problem starting server')
             self.server = None
 
     start = QtCore.Signal(object)
