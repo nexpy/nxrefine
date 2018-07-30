@@ -43,11 +43,8 @@ class NXTask(object):
         self.command = command
 
     def execute(self, node):
-        #### DEBUG ####
-        # subprocess.run("pdsh -w %s 'cd %s; %s'"
-        #                 % (node, self.path, self.command), shell=True)
-        # TODO: for debugging, don't bother starting on a pdsh node
-        subprocess.run('cd {}; {}'.format(self.path, self.command), shell=True)
+        subprocess.run("pdsh -w %s 'cd %s; %s'"
+                        % (node, self.path, self.command), shell=True)
 
 
 class NXServer(NXDaemon):
@@ -58,9 +55,8 @@ class NXServer(NXDaemon):
         if 'tasks' not in os.listdir(directory):
             os.mkdir(self.task_directory)
         self.task_list = os.path.join(self.task_directory, 'task_list')
-        if os.path.exists(self.task_list):
-            os.remove(self.task_list)
-        os.mkfifo(self.task_list)
+        if not os.path.exists(self.task_list):
+            os.mkfifo(self.task_list)
         if node_file is None:
             self.node_file = os.path.join(self.task_directory, 'nodefile')
         else:
@@ -102,16 +98,14 @@ class NXServer(NXDaemon):
                         for node in self.nodes]
         for worker in self.workers:
             worker.start()
-        with open(self.task_list, 'r') as task_fifo:
-            while True:
-                time.sleep(5)
-                command = task_fifo.readline()[:-1]
-                self.log('Command: "%s"' % command)
-                if command == 'stop':
-                    self.log('Found stop')
-                    break
-                elif command:
-                    self.tasks.put(NXTask(self.directory, command))
+        task_fifo = open(self.task_list, 'r')
+        while True:
+            time.sleep(5)
+            command = task_fifo.readline()[:-1]
+            if command == 'stop':
+                break
+            elif command:
+                self.tasks.put(NXTask(self.directory, command))
         for worker in self.workers:
             self.tasks.put(None)
         self.tasks.join()
@@ -122,13 +116,9 @@ class NXServer(NXDaemon):
         super(NXServer, self).stop()
 
     def stop(self):
-        self.log('trying to stop')
         self.add_task('stop')
 
     def add_task(self, command):
         """Add a task to the server queue"""
         task_fifo = os.open(self.task_list, os.O_RDWR)
-        self.log('opened fifo, {}'.format(task_fifo))
         os.write(task_fifo, (command+'\n').encode())
-        self.log('wrote %s' % command)
-
