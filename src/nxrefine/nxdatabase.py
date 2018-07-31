@@ -44,6 +44,8 @@ Base = declarative_base();
     # but not started, started processing, finished processing
 _prog = {'not started':0, 'queued':1, 'in progress':2, 'done':3}
 NOT_STARTED, QUEUED, IN_PROGRESS, DONE, FAILED = 0,1,2,3,-1
+task_names = ('data', 'nxlink', 'nxmax', 'nxfind', 'nxcopy',
+        'nxrefine', 'nxtransform', 'nxcombine')
 
 class File(Base):
     __tablename__ = 'files'
@@ -104,6 +106,17 @@ def init(connect, echo=False):
         engine = create_engine(connect, echo=echo)
         Base.metadata.create_all(engine)
         session = sessionmaker(bind=engine)()
+
+def get_file(filename):
+    """ Return the File object (and associated tasks) matching filename
+
+        filename: string, absolute path of wrapper file to query
+     """
+    filename = os.path.realpath(filename)
+    f = session.query(File) \
+            .filter(File.filename == filename) \
+            .one()
+    return f
 
 # def record_queued_task(filename, task, entry):
 def queue_task(filename, task, entry):
@@ -185,18 +198,6 @@ def fail_task(filename, task_name, entry):
     # TODO: include logging info?
     session.commit()
 
-def get_file(filename):
-    """ Return the File object (and associated tasks) matching filename
-
-        filename: string, absolute path of wrapper file to query
-     """
-    filename = os.path.realpath(filename)
-    f = session.query(File) \
-            .filter(File.filename == filename) \
-            .one()
-    return f
-
-
 def sync_db(sample_dir):
     """ Populate the database based on local files (overwritting if necessary)
 
@@ -223,24 +224,24 @@ def sync_db(sample_dir):
             root = nxload(w)
             entries = (e for e in root.entries if e != 'entry')
         # Track how many entries have finished each task
-        tasks = { t: 0 for t in ('data', 'nxlink', 'nxmax', 'nxfind', 'nxcopy',
-                'nxrefine', 'nxtransform', 'nxcombine') }
+        tasks = { t: 0 for t in task_names }
 
         for e in entries:
-            if e in root and 'data' in root[e] and 'instrument' in root[e]:
+            nxentry = root[e]
+            if e in root and 'data' in nxentry and 'instrument' in nxentry:
                 if e+'.h5' in scan_files or e+'.nxs' in scan_files:
                     tasks['data'] += 1
-                if 'nxlink' in root[e]:
+                if 'nxlink' in nxentry:
                     tasks['nxlink'] += 1
-                if 'nxmax' in root[e]:
+                if 'nxmax' in nxentry:
                     tasks['nxmax'] += 1
-                if 'nxfind' in root[e]:
+                if 'nxfind' in nxentry:
                     tasks['nxfind'] += 1
-                if 'nxcopy' in root[e] or is_parent(w, sample_dir):
+                if 'nxcopy' in nxentry or is_parent(w, sample_dir):
                     tasks['nxcopy'] += 1
-                if 'nxrefine' in root[e]:
+                if 'nxrefine' in nxentry:
                     tasks['nxrefine'] += 1
-                if 'nxtransform' in root[e]:
+                if 'nxtransform' in nxentry:
                     tasks['nxtransform'] += 1
                 if 'nxcombine' in root['entry']:
                     tasks['nxcombine'] += 1
