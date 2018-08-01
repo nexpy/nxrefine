@@ -164,23 +164,29 @@ def end_task(filename, task_name, entry):
     """
     filename = os.path.realpath(filename)
     row = session.query(File).filter(File.filename == filename).scalar()
+    # Others of the same type of task for this file
     matching_tasks = []
+    # The entries that have finished this task
+    finished_entries = [entry]
     t = None
     for task in row.tasks:
         if task.name == task_name:
             matching_tasks.append(task)
             if task.entry == entry and task.status == IN_PROGRESS:
                 t = task
+            elif task.status == DONE:
+                finished_entries.append(task.entry)
     if t is None:
         print("ERROR: nxdatabase couldn't find task '%s' on file %s/%s"
                     % (task_name, filename, entry))
         return
     t.status = DONE
     t.end_time = datetime.datetime.now()
-    # Update the status of the file to DONE if we've finished all the entries,
-    #   otherwise, leave it as IN_PROGRESS
-    if len(matching_tasks) >= NUM_ENTRIES and all(
-                task.status == DONE for task in matching_tasks):
+    # Update the status of the file to DONE if all tasks are done and there is
+    # a finished task for each entry, otherwise leave it as IN_PROGRESS
+    if len(matching_tasks) >= NUM_ENTRIES and \
+                all(task.status == DONE for task in matching_tasks) and \
+                all(e in finished_entries for e in ('f1', 'f2', 'f3')):
             setattr(row, task_name, DONE)
     session.commit()
 

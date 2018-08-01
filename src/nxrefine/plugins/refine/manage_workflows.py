@@ -175,12 +175,16 @@ class WorkflowDialog(BaseDialog):
                 else:
                     col_name = task_name
                 checkbox = status[col_name]
-                if getattr(f, task_name) == nxdb.DONE:
+                file_status = getattr(f, task_name)
+                if file_status == nxdb.DONE:
                     checkbox.setCheckState(QtCore.Qt.Checked)
                     checkbox.setEnabled(False)
-                elif getattr(f, task_name) == nxdb.IN_PROGRESS:
+                elif file_status == nxdb.IN_PROGRESS:
                     checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
                     checkbox.setEnabled(True)
+                elif file_status == nxdb.QUEUED:
+                    checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
+                    checkbox.setEnabled(False)
                 # TODO: do i need to account for last?
             if status['data'].checkState() == QtCore.Qt.Unchecked:
                 self.disable_status(status)
