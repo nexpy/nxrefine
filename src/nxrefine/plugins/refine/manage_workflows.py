@@ -7,7 +7,7 @@ from nexpy.gui.utils import report_error, natural_sort
 
 from nxrefine.nxlock import Lock
 from nxrefine.nxreduce import NXReduce, NXMultiReduce
-
+import nxrefine.nxdatabase as nxdb
 
 def show_dialog():
     try:
@@ -22,12 +22,13 @@ class WorkflowDialog(BaseDialog):
     def __init__(self, parent=None):
         super(WorkflowDialog, self).__init__(parent)
 
-        self.set_layout(self.directorybox('Choose Sample Directory', default=False),
+        self.set_layout(self.directorybox('Choose Sample Directory'),
                         self.filebox('Choose Parent File'),
-                        self.action_buttons(('Update Status', self.update),
+                        self.action_buttons(('Sync Database', self.sync_db),
+                                            ('Update Status', self.update),
                                             ('Add to Queue', self.add_tasks),
                                             ('View Logs', self.view_logs)),
-                        self.progress_layout(close=True))
+                        self.progress_layout(save=True))
         self.progress_bar.setVisible(False)
         self.set_title('Manage Workflows')
         self.grid = None
@@ -39,7 +40,7 @@ class WorkflowDialog(BaseDialog):
         super(WorkflowDialog, self).choose_directory()
         self.sample_directory = self.get_directory()
         self.sample = os.path.basename(os.path.dirname(self.sample_directory))
-        parent_file = os.path.join(self.sample_directory, 
+        parent_file = os.path.join(self.sample_directory,
                                    self.sample+'_parent.nxs')
         if os.path.exists(parent_file):
             self.filename.setText(os.path.basename(os.path.realpath(parent_file)))
@@ -48,6 +49,9 @@ class WorkflowDialog(BaseDialog):
         self.root_directory = os.path.dirname(os.path.dirname(self.sample_directory))
         self.task_directory = os.path.join(self.root_directory, 'tasks')
         self.mainwindow.default_directory = self.sample_directory
+        db_file = os.path.join(self.root_directory, 'NXdatabase.db')
+        nxdb.init('sqlite:///' + db_file)
+
         if self.grid:
             self.delete_grid(self.grid)
             self.grid = None
@@ -59,10 +63,10 @@ class WorkflowDialog(BaseDialog):
     def get_scan(self, filename):
         _base = os.path.basename(os.path.splitext(filename)[0])
         _scan = _base.replace(self.sample+'_', '')
-        return os.path.join(self.sample_directory, _scan)    
+        return os.path.join(self.sample_directory, _scan)
 
     def make_parent(self):
-        reduce = NXReduce(directory=self.get_scan(self.get_filename()), 
+        reduce = NXReduce(directory=self.get_scan(self.get_filename()),
                           overwrite=True)
         reduce.make_parent()
         if self.grid:
@@ -80,10 +84,20 @@ class WorkflowDialog(BaseDialog):
         else:
             return True
 
+    def sync_db(self):
+        if self.sample_directory is None:
+            raise NexusError("No sample directory declared")
+        nxdb.sync_db(self.sample_directory)
+
     def update(self):
-        wrapper_files = sorted([os.path.join(self.sample_directory, filename) 
-                            for filename in os.listdir(self.sample_directory) 
-                            if self.is_valid(filename)], key=natural_sort)
+        if self.sample_directory is None:
+            raise NexusError("No sample directory declared")
+
+        # Map from wrapper files to scan directories
+        wrapper_files = { w : self.get_scan(w) for w in sorted( [
+                            os.path.join(self.sample_directory, filename)
+                            for filename in os.listdir(self.sample_directory)
+                            if self.is_valid(filename)] , key=natural_sort) }
         if self.grid and self.grid.rowCount() == len(wrapper_files) + 2:
             row = 0
         else:
@@ -93,7 +107,7 @@ class WorkflowDialog(BaseDialog):
             self.insert_layout(2, self.grid)
             self.grid.setSpacing(1)
             row = 0
-            columns = ['Scan', 'data', 'link', 'max', 'find', 'copy', 'refine', 
+            columns = ['Scan', 'data', 'link', 'max', 'find', 'copy', 'refine',
                    'transform', 'combine', 'overwrite', 'reduce']
             header = {}
             for col, column in enumerate(columns):
@@ -104,8 +118,9 @@ class WorkflowDialog(BaseDialog):
                 self.grid.addWidget(header[column], row, col)
         self.scans = {}
         self.scans_backup = {}
-        for wrapper_file in wrapper_files:
-            scan = self.get_scan(wrapper_file)
+
+        # Create (unchecked) checkboxes
+        for wrapper_file, scan in wrapper_files.items():
             scan_label = os.path.basename(scan)
             row += 1
             if row == 1:
@@ -122,18 +137,18 @@ class WorkflowDialog(BaseDialog):
             status['refine'] = self.new_checkbox()
             status['transform'] = self.new_checkbox()
             status['combine'] = self.new_checkbox()
-            status['overwrite'] = self.new_checkbox(self.select_scans) 
-            status['reduce'] = self.new_checkbox(self.select_scans) 
+            status['overwrite'] = self.new_checkbox(self.select_scans)
+            status['reduce'] = self.new_checkbox(self.select_scans)
             self.grid.addWidget(status['scan'], row, 0, QtCore.Qt.AlignCenter)
-            self.grid.addWidget(status['data'], row, 1, QtCore.Qt.AlignCenter)                   
-            self.grid.addWidget(status['link'], row, 2, QtCore.Qt.AlignCenter)                   
-            self.grid.addWidget(status['max'], row, 3, QtCore.Qt.AlignCenter)                   
+            self.grid.addWidget(status['data'], row, 1, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['link'], row, 2, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['max'], row, 3, QtCore.Qt.AlignCenter)
             self.grid.addWidget(status['find'], row, 4, QtCore.Qt.AlignCenter)
             self.grid.addWidget(status['copy'], row, 5, QtCore.Qt.AlignCenter)
             self.grid.addWidget(status['refine'], row, 6, QtCore.Qt.AlignCenter)
-            self.grid.addWidget(status['transform'], row, 7, QtCore.Qt.AlignCenter)                   
-            self.grid.addWidget(status['combine'], row, 8, QtCore.Qt.AlignCenter)                   
-            self.grid.addWidget(status['overwrite'], row, 9, QtCore.Qt.AlignCenter)                  
+            self.grid.addWidget(status['transform'], row, 7, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['combine'], row, 8, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['overwrite'], row, 9, QtCore.Qt.AlignCenter)
             self.grid.addWidget(status['reduce'], row, 10, QtCore.Qt.AlignCenter)
             self.scans[scan] = status
         row += 1
@@ -141,36 +156,42 @@ class WorkflowDialog(BaseDialog):
         all_boxes = {}
         all_boxes['combine'] = self.new_checkbox(self.combine_all)
         all_boxes['overwrite'] = self.new_checkbox(self.select_all)
-        all_boxes['reduce'] = self.new_checkbox(self.select_all)        
+        all_boxes['reduce'] = self.new_checkbox(self.select_all)
         self.grid.addWidget(all_boxes['combine'], row, 8, QtCore.Qt.AlignCenter)
         self.grid.addWidget(all_boxes['overwrite'], row, 9, QtCore.Qt.AlignCenter)
         self.grid.addWidget(all_boxes['reduce'], row, 10, QtCore.Qt.AlignCenter)
         self.all_scans = all_boxes
         self.start_progress((0, len(wrapper_files)))
-        for (i, scan) in enumerate(self.scans):
+
+        # Populate the checkboxes based on the entries in nxdb.File
+        for i, (wrapper, scan) in enumerate(wrapper_files.items()):
             status = self.scans[scan]
-            for (j, entry) in enumerate(self.entries):
-                r = NXReduce(entry, scan)
-                self.update_checkbox(status['data'], j, r.data_exists())
-                self.update_checkbox(status['link'], j, r.complete('nxlink'))
-                self.update_checkbox(status['max'], j, r.complete('nxmax'))
-                self.update_checkbox(status['find'], j, r.complete('nxfind'))
-                if r.is_parent():
-                    self.update_checkbox(status['copy'], j, True)
-                    status['scan'].setStyleSheet("font-weight: bold;")
+            status['data'].setEnabled(False)
+            f = nxdb.get_file(wrapper)
+            for task_name in nxdb.task_names:
+                # Database columns use nx* names while columns don't
+                if task_name.startswith('nx'):
+                    col_name = task_name[2:]
                 else:
-                    self.update_checkbox(status['copy'], j, r.complete('nxcopy'))
-                    status['scan'].setStyleSheet("font-weight: normal;")
-                self.update_checkbox(status['refine'], j, r.complete('nxrefine'))
-                self.update_checkbox(status['transform'], j, r.complete('nxtransform'))
-                self.update_checkbox(status['combine'], j, r.complete('nxcombine'))
-                status['data'].setEnabled(False)
-            if self.scans[scan]['data'].checkState() == QtCore.Qt.Unchecked:
-                self.disable_status(self.scans[scan])
-            self.update_checkbox(status['combine'], 0, r.complete('nxcombine'))
+                    col_name = task_name
+                checkbox = status[col_name]
+                file_status = getattr(f, task_name)
+                if file_status == nxdb.DONE:
+                    checkbox.setCheckState(QtCore.Qt.Checked)
+                    checkbox.setEnabled(False)
+                elif file_status == nxdb.IN_PROGRESS:
+                    checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
+                    checkbox.setEnabled(True)
+                elif file_status == nxdb.QUEUED:
+                    checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
+                    checkbox.setEnabled(False)
+                # TODO: do i need to account for last?
+            if status['data'].checkState() == QtCore.Qt.Unchecked:
+                self.disable_status(status)
             self.update_progress(i)
-        self.stop_progress()       
-        self.backup_scans()           
+
+        self.stop_progress()
+        self.backup_scans()
         return self.grid
 
     def new_checkbox(self, slot=None):
@@ -186,7 +207,7 @@ class WorkflowDialog(BaseDialog):
             checkbox.setCheckState(QtCore.Qt.Checked)
             checkbox.setEnabled(False)
         elif ((status and checkbox.checkState() == QtCore.Qt.Unchecked) or
-              (not status and checkbox.checkState() == QtCore.Qt.Checked)):                    
+              (not status and checkbox.checkState() == QtCore.Qt.Checked)):
             checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
             checkbox.setEnabled(True)
 
@@ -199,7 +220,7 @@ class WorkflowDialog(BaseDialog):
             self.scans_backup[scan] = []
             for status in self.programs:
                 self.scans_backup[scan].append(
-                    (status, 
+                    (status,
                      self.scans[scan][status].isEnabled(),
                      self.scans[scan][status].checkState()))
 
@@ -209,7 +230,7 @@ class WorkflowDialog(BaseDialog):
 
     @property
     def enabled_scans(self):
-        return [scan for scan in self.scans 
+        return [scan for scan in self.scans
                 if self.scans[scan]['data'].isChecked()]
 
     def overwrite_selected(self, scan):
@@ -223,7 +244,7 @@ class WorkflowDialog(BaseDialog):
             status, enabled, checked = backup
             self.scans[scan][status].setEnabled(enabled)
             self.scans[scan][status].setCheckState(checked)
-    
+
     def select_programs(self, scan):
         if self.overwrite_selected(scan):
             for status in self.programs:
@@ -239,7 +260,7 @@ class WorkflowDialog(BaseDialog):
                 for status in self.programs:
                     if self.scans[scan][status].isEnabled():
                         self.scans[scan][status].setChecked(False)
-            else:    
+            else:
                 self.restore_scan(scan)
 
     def select_scans(self):
@@ -279,13 +300,13 @@ class WorkflowDialog(BaseDialog):
                     self.all_scans['combine'].checkState())
 
     def selected(self, scan, command):
-        return (self.scans[scan][command].isEnabled() and 
+        return (self.scans[scan][command].isEnabled() and
                 self.scans[scan][command].checkState()==QtCore.Qt.Checked)
 
     def queued(self, scan, program):
         self.scans[scan][program].setChecked(False)
         self.scans[scan][program].setEnabled(False)
-    
+
     def add_tasks(self):
         if self.grid is None:
             raise NeXusError('Need to update status')
@@ -327,7 +348,7 @@ class WorkflowDialog(BaseDialog):
                 self.queued(scan, 'combine')
             self.scans[scan]
         self.deselect_all()
-        
+
 
     def view_logs(self):
         if self.grid is None:
@@ -356,7 +377,7 @@ class WorkflowDialog(BaseDialog):
         scan = self.scan_combo.currentText()
         with open(os.path.join(self.task_directory, 'nxserver.log')) as f:
             lines = f.readlines()
-        text = [line for line in lines 
+        text = [line for line in lines
                 if self.sample in line if scan in line]
         if text:
             self.output_box.setPlainText(''.join(text))
@@ -369,7 +390,7 @@ class WorkflowDialog(BaseDialog):
         prefix = scan + "['" + entry + "']: "
         with open(os.path.join(self.task_directory, 'nxlogger.log')) as f:
             lines = f.readlines()
-        text = [line.replace(prefix, '') for line in lines 
+        text = [line.replace(prefix, '') for line in lines
                 if scan in line if entry in line]
         if text:
             self.output_box.setPlainText(''.join(text))

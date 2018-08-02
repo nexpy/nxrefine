@@ -55,4 +55,3 @@ class Lock(object):
 
     def __del__(self):
         self.release()
-

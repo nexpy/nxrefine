@@ -11,35 +11,35 @@ class NXDaemon:
 
     Usage: subclass the daemon class and override the run() method."""
 
-    def __init__(self, pidfile): 
+    def __init__(self, pidfile):
         self.pidfile = pidfile
-    
+
     def daemonize(self):
         """Deamonize class. UNIX double fork mechanism."""
-        try: 
-            pid = os.fork() 
+        try:
+            pid = os.fork()
             if pid > 0:
                 # exit first parent
-                sys.exit(0) 
-        except OSError as err: 
+                sys.exit(0)
+        except OSError as err:
             print.write('fork #1 failed: {0}\n'.format(err))
             sys.exit(1)
     
         # decouple from parent environment
-        os.chdir('/') 
-        os.setsid() 
-        os.umask(0) 
-    
+        os.chdir('/')
+        os.setsid()
+        os.umask(0)
+
         # do second fork
-        try: 
-            pid = os.fork() 
+        try:
+            pid = os.fork()
             if pid > 0:
                 # exit from second parent
-                sys.exit(0) 
-        except OSError as err: 
+                sys.exit(0)
+        except OSError as err:
             print('fork #2 failed: {0}\n'.format(err))
-            sys.exit(1) 
-    
+            sys.exit(1)
+
         # redirect standard file descriptors
         sys.stdout.flush()
         sys.stderr.flush()
@@ -50,11 +50,11 @@ class NXDaemon:
         os.dup2(si.fileno(), sys.stdin.fileno())
         os.dup2(so.fileno(), sys.stdout.fileno())
         os.dup2(se.fileno(), sys.stderr.fileno())
-    
+
         pid = str(os.getpid())
         with open(self.pidfile, 'w+') as f:
             f.write(pid + '\n')
-    
+
     def start(self):
         """Start the daemon."""
 
@@ -64,13 +64,13 @@ class NXDaemon:
                 pid = int(pf.read().strip())
         except Exception:
             pid = None
-    
+
         if pid:
             message = "pidfile {0} already exists. " + \
                       "Daemon already running?\n"
             sys.stderr.write(message.format(self.pidfile))
             sys.exit(1)
-        
+
         # Start the daemon
         self.daemonize()
         self.run()
@@ -84,7 +84,7 @@ class NXDaemon:
                 pid = int(pf.read().strip())
         except Exception:
             pid = None
-    
+
         if not pid:
             message = "pidfile {0} does not exist. " + \
                     "Daemon not running?\n"
@@ -94,7 +94,7 @@ class NXDaemon:
         if os.path.exists(self.pidfile):
             sys.stderr.write('Removing file')
             os.remove(self.pidfile)
-        # Try killing the daemon process    
+        # Try killing the daemon process
         try:
             while 1:
                 os.kill(pid, signal.SIGTERM)
@@ -104,7 +104,7 @@ class NXDaemon:
             if e.find("No such process") == 0:
                 print (str(err.args))
                 sys.exit(1)
-        
+
 
     def restart(self):
         """Restart the daemon."""
@@ -113,7 +113,7 @@ class NXDaemon:
 
     def run(self):
         """Run the process started by the daemon.
-        
-        It will be called after the process has been daemonized by 
+
+        It will be called after the process has been daemonized by
         start() or restart(). This should be overridden by a subclass
         """
