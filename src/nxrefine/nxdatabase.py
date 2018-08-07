@@ -205,7 +205,7 @@ def fail_task(filename, task_name, entry):
     session.commit()
 
 def sync_db(sample_dir):
-    """ Populate the database based on local files (overwritting if necessary)
+    """ Populate the database based on local files (overwriting if necessary)
 
         sample_dir: Directory containing the .nxs wrapper files
             (ie NXreduce.base_directory)
