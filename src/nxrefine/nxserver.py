@@ -70,7 +70,7 @@ class NXServer(NXDaemon):
         self.workers = []
 
         super(NXServer, self).__init__(self.pid_file)
-        db_file = os.path.join(self.directory, 'NXdatabase.db')
+        db_file = os.path.join(self.task_directory, 'nxdatabase.db')
         nxdb.init('sqlite:///' + db_file)
 
 

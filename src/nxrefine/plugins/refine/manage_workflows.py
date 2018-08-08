@@ -49,7 +49,7 @@ class WorkflowDialog(BaseDialog):
         self.root_directory = os.path.dirname(os.path.dirname(self.sample_directory))
         self.task_directory = os.path.join(self.root_directory, 'tasks')
         self.mainwindow.default_directory = self.sample_directory
-        db_file = os.path.join(self.root_directory, 'NXdatabase.db')
+        db_file = os.path.join(self.task_directory, 'nxdatabase.db')
         nxdb.init('sqlite:///' + db_file)
 
         if self.grid:

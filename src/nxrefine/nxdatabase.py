@@ -1,6 +1,6 @@
 """
 Simple sqlite-based logging for NXrefine. The database file is located by
-default at GUP-xxx/NXdatabase.db. It contains two tables:
+default at GUP-xxx/tasks/nxdatabase.db. It contains two tables:
     1. Files: Meant for quickly checking the completion status of scans.
         For each task, records if it is not started, queued but not yet running,
         in progress (started for at least one entry), or done (finished for all
@@ -22,8 +22,8 @@ the contents of the wrapper files. This only needs to be run if there are
 changes to the files outside of NXrefine code (eg manually deleting an entry
 or adding a new .nxs file). Other changes are tracked automatically.
 
-NXdatabase assumes that no identical tasks (ie same task, entry, and wrapper file)
-will be queued or running at the same time
+NXdatabase assumes that no identical tasks (i.e., same task, entry, and wrapper 
+file) will be queued or running at the same time
 """
 
 import os

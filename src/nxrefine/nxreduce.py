@@ -125,7 +125,7 @@ class NXReduce(QtCore.QObject):
         self._stopped = False
 
         self.init_logs()
-        db_file = os.path.join(self.root_directory, 'NXdatabase.db')
+        db_file = os.path.join(self.task_directory, 'nxdatabase.db')
         nxdb.init('sqlite:///' + db_file)
         try:
             self.server = NXServer(self.root_directory)
