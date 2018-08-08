@@ -22,13 +22,13 @@ class WorkflowDialog(BaseDialog):
     def __init__(self, parent=None):
         super(WorkflowDialog, self).__init__(parent)
 
-        self.set_layout(self.directorybox('Choose Sample Directory'),
+        self.set_layout(self.directorybox('Choose Sample Directory', default=False),
                         self.filebox('Choose Parent File'),
                         self.action_buttons(('Sync Database', self.sync_db),
                                             ('Update Status', self.update),
                                             ('Add to Queue', self.add_tasks),
                                             ('View Logs', self.view_logs)),
-                        self.progress_layout(save=True))
+                        self.progress_layout(close=True))
         self.progress_bar.setVisible(False)
         self.set_title('Manage Workflows')
         self.grid = None
@@ -107,8 +107,8 @@ class WorkflowDialog(BaseDialog):
             self.insert_layout(2, self.grid)
             self.grid.setSpacing(1)
             row = 0
-            columns = ['Scan', 'data', 'link', 'max', 'find', 'copy', 'refine',
-                   'transform', 'combine', 'overwrite', 'reduce']
+            columns = ['Scan', 'data', 'link', 'max', 'find', 'copy', 'refine', 
+                       'transform', 'mask', 'combine', 'overwrite', 'reduce']
             header = {}
             for col, column in enumerate(columns):
                 header[column] = QtWidgets.QLabel(column)
@@ -136,6 +136,7 @@ class WorkflowDialog(BaseDialog):
             status['copy'] = self.new_checkbox()
             status['refine'] = self.new_checkbox()
             status['transform'] = self.new_checkbox()
+            status['mask'] = self.new_checkbox()
             status['combine'] = self.new_checkbox()
             status['overwrite'] = self.new_checkbox(self.select_scans)
             status['reduce'] = self.new_checkbox(self.select_scans)
@@ -147,9 +148,10 @@ class WorkflowDialog(BaseDialog):
             self.grid.addWidget(status['copy'], row, 5, QtCore.Qt.AlignCenter)
             self.grid.addWidget(status['refine'], row, 6, QtCore.Qt.AlignCenter)
             self.grid.addWidget(status['transform'], row, 7, QtCore.Qt.AlignCenter)
-            self.grid.addWidget(status['combine'], row, 8, QtCore.Qt.AlignCenter)
-            self.grid.addWidget(status['overwrite'], row, 9, QtCore.Qt.AlignCenter)
-            self.grid.addWidget(status['reduce'], row, 10, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['mask'], row, 8, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['combine'], row, 9, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['overwrite'], row, 10, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['reduce'], row, 11, QtCore.Qt.AlignCenter)
             self.scans[scan] = status
         row += 1
         self.grid.addWidget(QtWidgets.QLabel('All'), row, 0, QtCore.Qt.AlignCenter)
@@ -157,9 +159,9 @@ class WorkflowDialog(BaseDialog):
         all_boxes['combine'] = self.new_checkbox(self.combine_all)
         all_boxes['overwrite'] = self.new_checkbox(self.select_all)
         all_boxes['reduce'] = self.new_checkbox(self.select_all)
-        self.grid.addWidget(all_boxes['combine'], row, 8, QtCore.Qt.AlignCenter)
-        self.grid.addWidget(all_boxes['overwrite'], row, 9, QtCore.Qt.AlignCenter)
-        self.grid.addWidget(all_boxes['reduce'], row, 10, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['combine'], row, 9, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['overwrite'], row, 10, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['reduce'], row, 11, QtCore.Qt.AlignCenter)
         self.all_scans = all_boxes
         self.start_progress((0, len(wrapper_files)))
 
@@ -226,7 +228,8 @@ class WorkflowDialog(BaseDialog):
 
     @property
     def programs(self):
-        return ['link', 'max', 'find', 'copy', 'refine', 'transform', 'combine']
+        return ['link', 'max', 'find', 'copy', 'refine', 'transform', 'mask', 
+                'combine']
 
     @property
     def enabled_scans(self):
@@ -325,6 +328,8 @@ class WorkflowDialog(BaseDialog):
                     reduce.refine = True
                 if self.selected(scan, 'transform'):
                     reduce.transform = True
+                if self.selected(scan, 'mask'):
+                    reduce.mask3D = True
                 if self.selected(scan, 'overwrite'):
                     reduce.overwrite = True
                 reduce.queue()
@@ -340,6 +345,8 @@ class WorkflowDialog(BaseDialog):
                 self.queued(scan, 'refine')
             if self.selected(scan, 'transform'):
                 self.queued(scan, 'transform')
+            if self.selected(scan, 'mask'):
+                self.queued(scan, 'mask')
             if self.selected(scan, 'combine'):
                 reduce = NXMultiReduce(scan, self.entries)
                 if self.selected(scan, 'overwrite'):

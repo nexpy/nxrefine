@@ -45,7 +45,7 @@ Base = declarative_base();
 _prog = {'not started':0, 'queued':1, 'in progress':2, 'done':3}
 NOT_STARTED, QUEUED, IN_PROGRESS, DONE, FAILED = 0,1,2,3,-1
 task_names = ('data', 'nxlink', 'nxmax', 'nxfind', 'nxcopy',
-        'nxrefine', 'nxtransform', 'nxcombine')
+        'nxrefine', 'nxtransform', 'nxmask', 'nxcombine')
 
 class File(Base):
     __tablename__ = 'files'
@@ -58,6 +58,7 @@ class File(Base):
     nxcopy = Column(Integer, default=NOT_STARTED)
     nxrefine = Column(Integer, default=NOT_STARTED)
     nxtransform = Column(Integer, default=NOT_STARTED)
+    nxmask = Column(Integer, default=NOT_STARTED)
     #Combine should probably be special since it involves all 3 samples
     nxcombine = Column(Integer, default=NOT_STARTED)
 
@@ -249,6 +250,8 @@ def sync_db(sample_dir):
                     tasks['nxrefine'] += 1
                 if 'nxtransform' in nxentry:
                     tasks['nxtransform'] += 1
+                if 'nxmask' in nxentry:
+                    tasks['nxmask'] += 1
                 if 'nxcombine' in root['entry']:
                     tasks['nxcombine'] += 1
 

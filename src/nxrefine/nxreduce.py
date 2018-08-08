@@ -889,6 +889,7 @@ class NXReduce(QtCore.QObject):
             return None
 
     def nxmask(self):
+        self.record_start('nxmask')
         if self.not_complete('nxmask') and self.mask3D:
             if not self.complete('nxtransform'):
                 self.logger.info('Masked transform not possible without nxtransform')
@@ -924,28 +925,32 @@ class NXReduce(QtCore.QObject):
 
     def calculate_mask(self):
         self.logger.info("Calculating 3D mask")
+        tic = self.start_progress(0, len(xp))
         data_shape = self.entry['data/data'].shape
+        mask = np.zeros(shape=data_shape, dtype=np.bool)
+        x, y = np.arange(data_shape[2]), np.arange(data_shape[1])
+        xp, yp, zp = self.entry['peaks/x'], self.entry['peaks/y'], self.entry['peaks/z']
+        inside = np.array([(x[np.newaxis,:]-int(cx))**2 + 
+                          (y[:,np.newaxis]-int(cy))**2 < self.radius**2 
+                          for cx,cy in zip(xp,yp)], dtype=np.bool)
+        if self.width == 1:
+            i, j = 0, 1
+        elif self.width == 3:
+            i, j = 1, 2
+        elif self.width == 5:
+            i, j = 2, 3
+        for k, frame in enumerate([int(z) for z in zp]):
+            if self.stopped:
+                return None
+            self.update_progress(frame)
+            mask[frame-i:frame+j] = mask[frame-i:frame+j] | inside[k]
         root = nxload(self.mask_file, 'w')
         if 'entry' not in root:
             root['entry'] = NXentry()
         entry = root['entry']
         if 'mask' in entry:
             del entry['mask']
-        entry['mask'] = NXfield(shape=data_shape, dtype=np.int8, fillvalue=0)
-        mask = entry['mask']
-        x, y = np.arange(data_shape[2]), np.arange(data_shape[1])
-        xp, yp, zp = self.entry['peaks/x'], self.entry['peaks/y'], self.entry['peaks/z']
-        tic = self.start_progress(0, len(xp))
-        for i in range(len(xp)):
-            if self.stopped:
-                return None
-            self.update_progress(int(zp[i]))
-            inside = (x[None,:]-int(xp[i]))**2+(y[:,None]-int(yp[i]))**2 < self.radius**2
-            frame = int(zp[i])
-            if self.width == 3:
-                mask[frame-1:frame+2] = mask[frame-1:frame+2] | inside
-            else:
-                mask[frame] = mask[frame] | inside
+        entry['mask'] = mask
         mask_file = os.path.relpath(self.mask_file, os.path.dirname(self.wrapper_file))
         if 'data_mask' in self.data:
             del self.data['data_mask']
@@ -1023,6 +1028,8 @@ class NXReduce(QtCore.QObject):
                 nxdb.queue_task(self.wrapper_file, 'nxrefine', self.entry_name)
             if self.transform:
                 nxdb.queue_task(self.wrapper_file, 'nxtransform', self.entry_name)
+            if self.mask3D:
+                nxdb.queue_task(self.wrapper_file, 'nxmask', self.entry_name)
 
 
 
