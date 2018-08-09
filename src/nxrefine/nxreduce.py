@@ -925,11 +925,11 @@ class NXReduce(QtCore.QObject):
 
     def calculate_mask(self):
         self.logger.info("Calculating 3D mask")
-        tic = self.start_progress(0, len(xp))
         data_shape = self.entry['data/data'].shape
         mask = np.zeros(shape=data_shape, dtype=np.bool)
         x, y = np.arange(data_shape[2]), np.arange(data_shape[1])
         xp, yp, zp = self.entry['peaks/x'], self.entry['peaks/y'], self.entry['peaks/z']
+        tic = self.start_progress(0, len(xp))
         inside = np.array([(x[np.newaxis,:]-int(cx))**2 + 
                           (y[:,np.newaxis]-int(cy))**2 < self.radius**2 
                           for cx,cy in zip(xp,yp)], dtype=np.bool)
