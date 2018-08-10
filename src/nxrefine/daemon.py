@@ -89,6 +89,10 @@ class NXDaemon:
     def stop(self):
         """Stop the daemon."""
         pid = self.get_pid()
+
+        if os.path.exists(self.pid_file):
+            os.remove(self.pid_file)
+
         if pid is None:
             return
         elif psutil.pid_exists(pid):
@@ -108,8 +112,6 @@ class NXDaemon:
                         message = "Process {0} survived SIGKILL"
                         sys.stderr.write(message.format(p))
 
-        if os.path.exists(self.pid_file):
-            os.remove(self.pid_file)
 
     def restart(self):
         """Restart the daemon."""
