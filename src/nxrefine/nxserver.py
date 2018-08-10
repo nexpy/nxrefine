@@ -117,7 +117,10 @@ class NXServer(NXDaemon):
         super(NXServer, self).stop()
 
     def stop(self):
-        self.add_task('stop')
+        if self.is_running():
+            self.add_task('stop')
+        else:
+            super(NXServer, self).stop()
 
     def add_task(self, command):
         """Add a task to the server queue"""
