@@ -68,13 +68,14 @@ class NXLogger(ThreadingTCPServer, NXDaemon):
     def __init__(self, directory, host='localhost',
                  port=logging.handlers.DEFAULT_TCP_LOGGING_PORT,
                  handler=LogRecordStreamHandler):
+        self.pid_name = 'nxlogger'
         self.directory = directory
         self.task_directory = os.path.join(directory, 'tasks')
         if 'tasks' not in os.listdir(directory):
             os.mkdir(self.task_directory)
         self.log_file = os.path.join(self.task_directory, 'nxlogger.log')
         self.pid_file = os.path.join(self.task_directory, 'nxlogger.pid')
-        NXDaemon.__init__(self, self.pid_file)
+        NXDaemon.__init__(self, self.pid_name, self.pid_file)
         
         self.host = host
         self.port = port

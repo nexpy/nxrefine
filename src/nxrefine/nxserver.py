@@ -50,6 +50,7 @@ class NXTask(object):
 class NXServer(NXDaemon):
 
     def __init__(self, directory, node_file=None):
+        self.pid_name = 'nxserver'
         self.directory = directory = os.path.realpath(directory)
         self.task_directory = os.path.join(directory, 'tasks')
         if 'tasks' not in os.listdir(directory):
@@ -69,7 +70,7 @@ class NXServer(NXDaemon):
         self.results = None
         self.workers = []
 
-        super(NXServer, self).__init__(self.pid_file)
+        super(NXServer, self).__init__(self.pid_name, self.pid_file)
         db_file = os.path.join(self.task_directory, 'nxdatabase.db')
         nxdb.init('sqlite:///' + db_file)
 

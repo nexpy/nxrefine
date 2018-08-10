@@ -11,6 +11,7 @@ from .nxreduce import NXReduce
 class NXWatcher(NXDaemon):
 
     def __init__(self, directory, entries=['f1', 'f2', 'f3'], timeout=120):
+        self.pid_name = 'nxwatcher'
         self.directory = directory
         self.entries = entries
         self.timeout = timeout
@@ -22,7 +23,7 @@ class NXWatcher(NXDaemon):
         self.log_file = os.path.join(self.task_directory, 'nxserver.log')
         self.pid_file = os.path.join(self.task_directory, 'nxwatcher.pid')
         self.observer = Observer()
-        super(NXWatcher, self).__init__(self.pid_file)
+        super(NXWatcher, self).__init__(self.pid_name, self.pid_file)
 
     def run(self):
         event_handler = NXHandler(self.server, self.entries, self.timeout,
