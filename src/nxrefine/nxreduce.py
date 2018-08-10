@@ -15,7 +15,7 @@ from nexusformat.nexus import *
 from nexpy.gui.pyqt import QtCore
 from nexpy.gui.utils import timestamp
 
-import .nxdatabase as nxdb
+import nxrefine.nxdatabase as nxdb
 from .nxrefine import NXRefine
 from .nxlock import Lock
 from .nxserver import NXServer
