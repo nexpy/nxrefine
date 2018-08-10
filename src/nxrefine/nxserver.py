@@ -122,6 +122,11 @@ class NXServer(NXDaemon):
         else:
             super(NXServer, self).stop()
 
+    def clear(self):
+        if os.path.exists(self.task_list):
+            os.remove(self.task_list)
+        os.mkfifo(self.task_list)        
+
     def add_task(self, command):
         """Add a task to the server queue"""
         task_fifo = os.open(self.task_list, os.O_RDWR)

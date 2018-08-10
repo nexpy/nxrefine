@@ -15,7 +15,7 @@ def main():
                         help='If specified, start the server in this directory, \
                         overriding other options')
     parser.add_argument('command', action='store',
-                         help='valid commands are: start|stop|restart')
+                        help='valid commands are: start|stop|restart|clear')
 
     args = parser.parse_args()
 
@@ -30,6 +30,8 @@ def main():
         server.stop()
     elif args.command == 'restart':
         server.restart()
+    elif args.command == 'clear':
+        server.clear()
 
 
 if __name__=="__main__":
