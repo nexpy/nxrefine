@@ -15,15 +15,13 @@ from nexusformat.nexus import *
 from nexpy.gui.pyqt import QtCore
 from nexpy.gui.utils import timestamp
 
-import nxrefine.nxdatabase as nxdb
+import .nxdatabase as nxdb
 from .nxrefine import NXRefine
 from .nxlock import Lock
 from .nxserver import NXServer
 from . import blobcorrector, __version__
 from .connectedpixels import blob_moments
 from .labelimage import labelimage, flip1
-
-import ipdb
 
 
 class NXReduce(QtCore.QObject):
@@ -331,8 +329,8 @@ class NXReduce(QtCore.QObject):
         else:
             return program in self.entry
 
-    """ Check that all entries for this temperature (ie in self.root) are done """
     def all_complete(self, program):
+        """ Check that all entries for this temperature are done """
         complete = True
         for entry in self.entries:
             if program not in self.root[entry]:
@@ -920,8 +918,9 @@ class NXReduce(QtCore.QObject):
                             errors=process.stderr.decode())
             else:
                 self.logger.info('CCTW command invalid')
-        elif self.transform:
-            self.logger.info('Data already transformed')
+        elif self.mask3D:
+            self.logger.info('Masked data already transformed')
+            self.record('nxmask')
 
     def calculate_mask(self):
         self.logger.info("Calculating 3D mask")
@@ -963,10 +962,10 @@ class NXReduce(QtCore.QObject):
         self.nxlink()
         self.nxmax()
         self.nxfind()
-        self.nxmask()
         self.nxcopy()
         self.nxrefine()
         self.nxtransform()
+        self.nxmask()
 
     def command(self, parent=False):
         switches = ['-d %s' % self.directory, '-e %s' % self.entry_name]
@@ -1006,7 +1005,7 @@ class NXReduce(QtCore.QObject):
 
     def queue(self, parent=False):
         """ Add tasks to the server's fifo, and log this in the database """
-        if self.server is None:
+        if not self.server.is_running():
             raise NeXusError("NXServer not running")
 
         command = self.command(parent)
