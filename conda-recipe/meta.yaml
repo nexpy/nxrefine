@@ -32,6 +32,9 @@ requirements:
   run:
     - python
     - numpy >=1.6.0
+    - sqlalchemy
+    - psutil
+    - pyfai
 
 test:
   imports:
