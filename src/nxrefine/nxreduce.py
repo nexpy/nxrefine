@@ -996,6 +996,8 @@ class NXReduce(QtCore.QObject):
                 switches.append('-r')
             if self.transform:
                 switches.append('-t')
+            if self.mask3D:
+                switches.append('-M')
             if len(switches) == 2:
                 return None
         if self.overwrite:

@@ -30,6 +30,8 @@ def main():
                         help='refine lattice parameters')
     parser.add_argument('-t', '--transform', action='store_true',
                         help='perform CCTW transforms')
+    parser.add_argument('-M', '--mask', action='store_true',
+                        help='perform CCTW transforms with 3D mask')
     parser.add_argument('-b', '--combine', action='store_true',
                         help='combine CCTW transforms')
     parser.add_argument('-o', '--overwrite', action='store_true', 
@@ -40,8 +42,8 @@ def main():
     for entry in args.entries:
         reduce = NXReduce(entry, args.directory, link=args.link,
                           maxcount=args.max, find=args.find, copy=args.copy,
-                          refine=args.refine, transform=args.transform, 
-                          overwrite=args.overwrite)
+                          refine=args.refine, transform=args.transform,
+                          mask=args.mask, overwrite=args.overwrite)
         reduce.nxreduce()
     if args.combine:
         multi_reduce = NXMultiReduce(args.directory, entries=args.entries,
@@ -49,4 +51,4 @@ def main():
 
 
 if __name__=="__main__":
-    main()
+    main(
