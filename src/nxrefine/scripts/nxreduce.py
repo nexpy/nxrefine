@@ -43,7 +43,7 @@ def main():
         reduce = NXReduce(entry, args.directory, link=args.link,
                           maxcount=args.max, find=args.find, copy=args.copy,
                           refine=args.refine, transform=args.transform,
-                          mask=args.mask, overwrite=args.overwrite)
+                          mask3D=args.mask, overwrite=args.overwrite)
         reduce.nxreduce()
     if args.combine:
         multi_reduce = NXMultiReduce(args.directory, entries=args.entries,
