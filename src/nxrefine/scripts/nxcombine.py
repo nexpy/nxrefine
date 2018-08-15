@@ -18,15 +18,15 @@ def main():
     parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
         nargs='+', help='names of entries to be searched')
     parser.add_argument('-m', '--mask', action='store_true', 
-                        help='transform with 3D mask')
+                        help='combine transforms with 3D mask')
     parser.add_argument('-o', '--overwrite', action='store_true', 
                         help='overwrite existing transform')
     
     args = parser.parse_args()
 
-    reduce = NXMultiReduce(args.directory, entries=args.entries,
+    reduce = NXMultiReduce(args.directory, entries=args.entries, mask=args.mask,
                            overwrite=args.overwrite)
-    reduce.nxcombine()
+    reduce.nxcombine(mask=args.mask)
 
 
 if __name__=="__main__":

@@ -108,14 +108,27 @@ class WorkflowDialog(BaseDialog):
             self.grid.setSpacing(1)
             row = 0
             columns = ['Scan', 'data', 'link', 'max', 'find', 'copy', 'refine', 
-                       'transform', 'mask', 'combine', 'overwrite', 'reduce']
+                       'transform', 'masked_transform', 'combine', 
+                       'masked_combine', 'overwrite', 'reduce']
             header = {}
             for col, column in enumerate(columns):
                 header[column] = QtWidgets.QLabel(column)
                 header[column].setFont(self.bold_font)
                 header[column].setFixedWidth(75)
                 header[column].setAlignment(QtCore.Qt.AlignHCenter)
-                self.grid.addWidget(header[column], row, col)
+                if column == 'transform' or column == 'combine':
+                    self.grid.addWidget(header[column], row, col, 1, 2)
+                elif 'masked' not in column:
+                    self.grid.addWidget(header[column], row, col)
+            row = 1
+            columns = ['regular', 'masked', 'regular', 'masked']
+            for col, columns in enumerate(columns):
+                header[column] = QtWidgets.QLabel(column)
+                header[column].setFont(self.bold_font)
+                header[column].setFixedWidth(75)
+                header[column].setAlignment(QtCore.Qt.AlignHCenter)
+                self.grid.addWidget(header[column], row, col+7)
+
         self.scans = {}
         self.scans_backup = {}
 
@@ -123,7 +136,7 @@ class WorkflowDialog(BaseDialog):
         for wrapper_file, scan in wrapper_files.items():
             scan_label = os.path.basename(scan)
             row += 1
-            if row == 1:
+            if row == 2:
                 with Lock(wrapper_file):
                     root = nxload(wrapper_file)
                     self.entries = [e for e in root.entries if e != 'entry']
@@ -136,7 +149,7 @@ class WorkflowDialog(BaseDialog):
             status['copy'] = self.new_checkbox()
             status['refine'] = self.new_checkbox()
             status['transform'] = self.new_checkbox()
-            status['mask'] = self.new_checkbox()
+            status['masked_transform'] = self.new_checkbox()
             status['combine'] = self.new_checkbox()
             status['overwrite'] = self.new_checkbox(self.select_scans)
             status['reduce'] = self.new_checkbox(self.select_scans)
@@ -148,20 +161,19 @@ class WorkflowDialog(BaseDialog):
             self.grid.addWidget(status['copy'], row, 5, QtCore.Qt.AlignCenter)
             self.grid.addWidget(status['refine'], row, 6, QtCore.Qt.AlignCenter)
             self.grid.addWidget(status['transform'], row, 7, QtCore.Qt.AlignCenter)
-            self.grid.addWidget(status['mask'], row, 8, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['masked_transform'], row, 8, QtCore.Qt.AlignCenter)
             self.grid.addWidget(status['combine'], row, 9, QtCore.Qt.AlignCenter)
-            self.grid.addWidget(status['overwrite'], row, 10, QtCore.Qt.AlignCenter)
-            self.grid.addWidget(status['reduce'], row, 11, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['masked_combine'], row, 10, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['overwrite'], row, 11, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['reduce'], row, 12, QtCore.Qt.AlignCenter)
             self.scans[scan] = status
         row += 1
         self.grid.addWidget(QtWidgets.QLabel('All'), row, 0, QtCore.Qt.AlignCenter)
         all_boxes = {}
-        all_boxes['combine'] = self.new_checkbox(self.combine_all)
         all_boxes['overwrite'] = self.new_checkbox(self.select_all)
         all_boxes['reduce'] = self.new_checkbox(self.select_all)
-        self.grid.addWidget(all_boxes['combine'], row, 9, QtCore.Qt.AlignCenter)
-        self.grid.addWidget(all_boxes['overwrite'], row, 10, QtCore.Qt.AlignCenter)
-        self.grid.addWidget(all_boxes['reduce'], row, 11, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['overwrite'], row, 11, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['reduce'], row, 12, QtCore.Qt.AlignCenter)
         self.all_scans = all_boxes
         self.start_progress((0, len(wrapper_files)))
 
@@ -228,8 +240,8 @@ class WorkflowDialog(BaseDialog):
 
     @property
     def programs(self):
-        return ['link', 'max', 'find', 'copy', 'refine', 'transform', 'mask', 
-                'combine']
+        return ['link', 'max', 'find', 'copy', 'refine', 'transform', 
+                'masked_transform', 'combine', 'masked_combine']
 
     @property
     def enabled_scans(self):
@@ -296,12 +308,6 @@ class WorkflowDialog(BaseDialog):
             self.all_scans[status].blockSignals(False)
         self.backup_scans()
 
-    def combine_all(self):
-        for scan in self.enabled_scans:
-            if self.scans[scan]['combine'].isEnabled():
-                self.scans[scan]['combine'].setCheckState(
-                    self.all_scans['combine'].checkState())
-
     def selected(self, scan, command):
         return (self.scans[scan][command].isEnabled() and
                 self.scans[scan][command].checkState()==QtCore.Qt.Checked)
@@ -328,7 +334,7 @@ class WorkflowDialog(BaseDialog):
                     reduce.refine = True
                 if self.selected(scan, 'transform'):
                     reduce.transform = True
-                if self.selected(scan, 'mask'):
+                if self.selected(scan, 'masked_transform'):
                     reduce.mask3D = True
                 if self.selected(scan, 'overwrite'):
                     reduce.overwrite = True
@@ -345,14 +351,20 @@ class WorkflowDialog(BaseDialog):
                 self.queued(scan, 'refine')
             if self.selected(scan, 'transform'):
                 self.queued(scan, 'transform')
-            if self.selected(scan, 'mask'):
-                self.queued(scan, 'mask')
+            if self.selected(scan, 'masked_transform'):
+                self.queued(scan, 'masked_transform')
             if self.selected(scan, 'combine'):
                 reduce = NXMultiReduce(scan, self.entries)
                 if self.selected(scan, 'overwrite'):
                     reduce.overwrite = True
                 reduce.queue()
                 self.queued(scan, 'combine')
+            if self.selected(scan, 'masked_combine'):
+                reduce = NXMultiReduce(scan, self.entries, mask3D=True)
+                if self.selected(scan, 'overwrite'):
+                    reduce.overwrite = True
+                reduce.queue()
+                self.queued(scan, 'masked_combine')
             self.scans[scan]
         self.deselect_all()
 

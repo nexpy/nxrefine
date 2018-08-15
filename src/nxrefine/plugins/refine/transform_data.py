@@ -21,8 +21,7 @@ class TransformDialog(BaseDialog):
         super(TransformDialog, self).__init__(parent)
         
         self.select_entry(self.initialize_grid)
-        self.refine = NXRefine(self.entry)
-        self.refine.read_parameters()
+        self.refine = NXRefine()
 
         grid = QtWidgets.QGridLayout()
         grid.setSpacing(10)
@@ -60,6 +59,7 @@ class TransformDialog(BaseDialog):
         grid.addWidget(self.stop_l_box, 3, 3)
         self.set_layout(self.entry_layout, grid, 
             self.checkboxes(('copy', 'Copy to all entries', True),
+                            ('mask', 'Create masked transform group', True),
                             ('overwrite', 'Overwrite existing transforms', False)),
             self.close_buttons(save=True))
         self.setWindowTitle('Transforming Data')
@@ -68,8 +68,11 @@ class TransformDialog(BaseDialog):
         except Exception:
             pass
 
-    def get_output_file(self):
-        return os.path.splitext(self.entry.data.nxsignal.nxfilename)[0]+'_transform.nxs'
+    def get_output_file(self, mask=False):
+        if self.mask:
+            return os.path.splitext(self.entry.data.nxsignal.nxfilename)[0]+'_masked_transform.nxs'
+        else:
+            return os.path.splitext(self.entry.data.nxsignal.nxfilename)[0]+'_transform.nxs'
 
     def get_settings_file(self):
         return os.path.splitext(self.entry.data.nxsignal.nxfilename)[0]+'_transform.pars'
@@ -110,32 +113,56 @@ class TransformDialog(BaseDialog):
         self.refine.l_start, self.refine.l_step, self.refine.l_stop = self.get_l_grid()
         self.refine.define_grid()
 
+    @property
+    def copy(self):
+        return self.checkbox['copy'].isChecked()
+
+    @property
+    def mask(self):
+        return self.checkbox['mask'].isChecked()
+
+    @property
+    def overwrite(self):
+        return self.checkbox['overwrite'].isChecked()
+
     def accept(self):
         try:
-            if ('transform' in self.entry and not
-                self.checkbox['overwrite'].isChecked()):
+            if 'transform' in self.entry and not self.overwrite:
                 self.display_message('Preparing Transform',
-                    'Transform already exists in %s' % self.entry.nxname)
+                    'Transform group already exists in %s' % self.entry.nxname)
+                return
+            if self.mask and 'masked_transform' in self.entry and not self.overwrite:
+                self.display_message('Preparing Transform',
+                    'Masked transform group already exists in %s' % self.entry.nxname)
                 return
             output_file = self.get_output_file()
             settings_file = self.get_settings_file()
             self.write_parameters(output_file, settings_file)
             self.refine.prepare_transform(output_file)
+            if self.mask:
+                masked_output_file = self.get_output_file(mask=True)
+                self.refine.prepare_transform(masked_output_file, mask=True)
             self.refine.write_settings(settings_file)
-            if self.checkbox['copy'].isChecked():
+            if self.copy:
                 root = self.entry.nxroot
                 for entry in [e for e in root 
                               if e != 'entry' and e != self.entry.nxname]:
-                    if ('transform' in root[entry] and not
-                        self.checkbox['overwrite'].isChecked()):
+                    if 'transform' in root[entry] and not self.overwrite:
                         self.display_message('Preparing Transform',
-                            'Transform already exists in %s' % entry)
+                            'Transform group already exists in %s' % entry)
+                        return
+                    if self.mask and 'masked_transform' in root[entry] and not self.overwrite:
+                        self.display_message('Preparing Transform',
+                            'Masked transform group already exists in %s' % entry)
                         return
                     self.refine = NXRefine(root[entry])
                     output = output_file.replace(self.entry.nxname, entry)
                     settings = settings_file.replace(self.entry.nxname, entry)
                     self.write_parameters(output, settings)
                     self.refine.prepare_transform(output)
+                    if self.mask:
+                        output = masked_output_file.replace(self.entry.nxname, entry)
+                        self.refine.prepare_transform(output, mask=True)
                     self.refine.write_settings(settings)
                     
             super(TransformDialog, self).accept()

@@ -17,6 +17,7 @@ def main():
                         help='scan directory')
     parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
         nargs='+', help='names of entries to be processed')
+    parser.add_argument('-m', '--mask', help='use 3D mask')
     parser.add_argument('-qh', nargs=3, help='Qh - min, step, max')
     parser.add_argument('-qk', nargs=3, help='Qk - min, step, max')
     parser.add_argument('-ql', nargs=3, help='Ql - min, step, max')
@@ -26,10 +27,13 @@ def main():
     args = parser.parse_args()
     
     for entry in args.entries:
-        reduce = NXReduce(entry, args.directory, transform=True,
+        reduce = NXReduce(entry, args.directory, transform=True, mask=args.mask,
                           Qh=args.qh, Qk=args.qk, Ql=args.ql,
                           overwrite=args.overwrite)
-        reduce.nxtransform()
+        if args.mask:
+            reduce.nxmasked_transform()
+        else:
+            reduce.nxtransform()
 
 
 if __name__=="__main__":
