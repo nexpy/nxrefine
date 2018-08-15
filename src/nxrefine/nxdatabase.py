@@ -45,7 +45,8 @@ Base = declarative_base();
 _prog = {'not started':0, 'queued':1, 'in progress':2, 'done':3}
 NOT_STARTED, QUEUED, IN_PROGRESS, DONE, FAILED = 0,1,2,3,-1
 task_names = ('data', 'nxlink', 'nxmax', 'nxfind', 'nxcopy',
-        'nxrefine', 'nxtransform', 'nxmask', 'nxcombine')
+              'nxrefine', 'nxtransform', 'nxmasked_transform', 'nxcombine',
+              'nxmasked_combine', 'nxpdf')
 
 class File(Base):
     __tablename__ = 'files'
@@ -58,9 +59,10 @@ class File(Base):
     nxcopy = Column(Integer, default=NOT_STARTED)
     nxrefine = Column(Integer, default=NOT_STARTED)
     nxtransform = Column(Integer, default=NOT_STARTED)
-    nxmask = Column(Integer, default=NOT_STARTED)
-    #Combine should probably be special since it involves all 3 samples
+    nxmasked_transform = Column(Integer, default=NOT_STARTED)
     nxcombine = Column(Integer, default=NOT_STARTED)
+    nxmasked_combine = Column(Integer, default=NOT_STARTED)
+    nxpdf = Column(Integer, default=NOT_STARTED)
 
     def __repr__(self):
         not_started = [k for k,v in vars(self).items() if v == NOT_STARTED]
@@ -68,7 +70,7 @@ class File(Base):
         in_progress = [k for k,v in vars(self).items() if v == IN_PROGRESS]
         done = [k for k,v in vars(self).items() if v == DONE]
 
-        return "File path='{}',\n\tnot started={}\n\tqueued={}\n\t " \
+        return "File path='{}',\n\tnot started={}\n\tqueued={}\n\t" \
                 "in_progress={}\n\tdone={}".format(
                 self.filename, not_started, queued, in_progress, done)
 
@@ -250,10 +252,14 @@ def sync_db(sample_dir):
                     tasks['nxrefine'] += 1
                 if 'nxtransform' in nxentry:
                     tasks['nxtransform'] += 1
-                if 'nxmask' in nxentry:
-                    tasks['nxmask'] += 1
+                if 'nxmasked_transform' in nxentry or 'nxmask' in nxentry:
+                    tasks['nxmasked_transform'] += 1
                 if 'nxcombine' in root['entry']:
                     tasks['nxcombine'] += 1
+                if 'nxmasked_combine' in root['entry']:
+                    tasks['nxmasked_combine'] += 1
+                if 'nxpdf' in root['entry']:
+                    tasks['nxpdf'] += 1
 
         # If the file already exists, update it, otherwise create a new file
         for row in tracked_files:
@@ -270,10 +276,9 @@ def sync_db(sample_dir):
             else:
                 setattr(f, task, IN_PROGRESS)
         session.add(f)
-    #### TODO: Should we delete db entries for deleted files?
-    # for row in tracked_files:
-    #     if row.filename not in wrapper_files:
-    #         session.delete(row)
+        for row in tracked_files:
+            if row.filename not in wrapper_files:
+                session.delete(row)
     session.commit()
 
 """ Sample_dir should be the GUPxxx/agcrse2/xtalX directory -
