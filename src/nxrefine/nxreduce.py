@@ -29,9 +29,9 @@ class NXReduce(QtCore.QObject):
     def __init__(self, entry='f1', directory=None, parent=None, entries=None,
                  data='data/data', extension='.h5', path='/entry/data/data',
                  threshold=None, first=None, last=None, radius=200, width=3,
-                 Qh=None, Qk=None, Ql=None,
-                 link=False, maxcount=False, find=False, copy=False, mask3D=False,
-                 refine=False, lattice=False, transform=False, combine=True,
+                 Qh=None, Qk=None, Ql=None, 
+                 link=False, maxcount=False, find=False, copy=False,
+                 refine=False, lattice=False, transform=False, mask=False,
                  overwrite=False, gui=False):
 
         super(NXReduce, self).__init__()
@@ -82,12 +82,11 @@ class NXReduce(QtCore.QObject):
                                         self.entry_name+'_masked_transform.nxs')
         self.settings_file = os.path.join(self.directory,
                                            self.entry_name+'_transform.pars')
-        self.combine_file = os.path.join(self.directory, 'transform.nxs')
 
         self._root = None
         self._data = data
         self._field = None
-        self._mask = None
+        self._pixel_mask = None
         self._parent = parent
         self._entries = entries
 
@@ -115,8 +114,7 @@ class NXReduce(QtCore.QObject):
         self.refine = refine
         self.lattice = lattice
         self.transform = transform
-        self.combine = combine
-        self.mask3D = mask3D
+        self.mask = mask
         self.overwrite = overwrite
         self.gui = gui
 
@@ -197,13 +195,13 @@ class NXReduce(QtCore.QObject):
         return is_hdf5(self.data_file)
 
     @property
-    def mask(self):
-        if self._mask is None:
+    def pixel_mask(self):
+        if self._pixel_mask is None:
             try:
-                self._mask = self.entry['instrument/detector/pixel_mask'].nxvalue
+                self._pixel_mask = self.entry['instrument/detector/pixel_mask'].nxvalue
             except Exception as error:
                 pass
-        return self._mask
+        return self._pixel_mask
 
     @property
     def parent(self):
@@ -543,15 +541,15 @@ class NXReduce(QtCore.QObject):
                 vsum = v.sum(0)
             else:
                 vsum += v.sum(0)
-            if self.mask is not None:
+            if self.pixel_mask is not None:
                 v = np.ma.masked_array(v)
-                v.mask = self.mask
+                v.mask = self.pixel_mask
             if maximum < v.max():
                 maximum = v.max()
             del v
-        if self.mask is not None:
+        if self.pixel_mask is not None:
             vsum = np.ma.masked_array(vsum)
-            vsum.mask = self.mask
+            vsum.mask = self.pixel_mask
         self.summed_data = NXfield(vsum, name='summed_data')
         toc = self.stop_progress()
         self.logger.info('Maximum counts: %s (%g seconds)' % (maximum, toc-tic))
@@ -580,7 +578,7 @@ class NXReduce(QtCore.QObject):
             counts = self.entry['summed_data/summed_data'].nxvalue
             polar_angle, intensity = cake.integrate1d(counts, 2048,
                                                       unit='2th_deg',
-                                                      mask=self.mask,
+                                                      mask=self.pixel_mask,
                                                       correctSolidAngle=True)
             if 'radial_sum' in self.entry:
                 del self.entry['radial_sum']
@@ -657,7 +655,7 @@ class NXReduce(QtCore.QObject):
                                             self.threshold,
                                             pixel_tolerance,
                                             frame_tolerance)
-                                        if peak.isvalid(self.mask):
+                                        if peak.isvalid(self.pixel_mask):
                                             allpeaks.append(peak)
                 except IndexError as error:
                     pass
@@ -886,12 +884,9 @@ class NXReduce(QtCore.QObject):
             self.logger.info('Invalid HKL grid')
             return None
 
-    def nxmask(self):
-        self.record_start('nxmask')
-        if self.not_complete('nxmask') and self.mask3D:
-            if not self.complete('nxtransform'):
-                self.logger.info('Masked transform not possible without nxtransform')
-                return
+    def nxmasked_transform(self):
+        self.record_start('nxmasked_transform')
+        if self.not_complete('nxmasked_transform') and self.mask:
             with Lock(self.wrapper_file):
                 self.calculate_mask()
                 refine = NXRefine(self.entry)
@@ -911,16 +906,16 @@ class NXReduce(QtCore.QObject):
                     self.logger.info(
                         'Masked transform completed - errors reported (%g seconds)'
                         % (toc-tic))
-                self.record('nxmask', mask=self.mask_file,
+                self.record('nxmasked_transform', mask=self.mask_file,
                             radius=self.radius, width=self.width,
                             command=cctw_command,
                             output=process.stdout.decode(),
                             errors=process.stderr.decode())
             else:
                 self.logger.info('CCTW command invalid')
-        elif self.mask3D:
+        elif self.mask:
             self.logger.info('Masked data already transformed')
-            self.record('nxmask')
+            self.record('nxmasked_transform')
 
     def calculate_mask(self):
         self.logger.info("Calculating 3D mask")
@@ -965,7 +960,7 @@ class NXReduce(QtCore.QObject):
         self.nxcopy()
         self.nxrefine()
         self.nxtransform()
-        self.nxmask()
+        self.nxmasked_transform()
 
     def command(self, parent=False):
         switches = ['-d %s' % self.directory, '-e %s' % self.entry_name]
@@ -996,7 +991,7 @@ class NXReduce(QtCore.QObject):
                 switches.append('-r')
             if self.transform:
                 switches.append('-t')
-            if self.mask3D:
+            if self.mask:
                 switches.append('-M')
             if len(switches) == 2:
                 return None
@@ -1028,18 +1023,20 @@ class NXReduce(QtCore.QObject):
             if self.refine:
                 nxdb.queue_task(self.wrapper_file, 'nxrefine', self.entry_name)
             if self.transform:
-                nxdb.queue_task(self.wrapper_file, 'nxtransform', self.entry_name)
-            if self.mask3D:
-                nxdb.queue_task(self.wrapper_file, 'nxmask', self.entry_name)
-
+                if self.mask:
+                    nxdb.queue_task(self.wrapper_file, 'nxmasked_transform', 
+                                    self.entry_name)
+                else:
+                    nxdb.queue_task(self.wrapper_file, 'nxtransform', 
+                                    self.entry_name)
 
 
 class NXMultiReduce(NXReduce):
 
-    def __init__(self, directory, entries=['f1', 'f2', 'f3'], overwrite=False):
+    def __init__(self, directory, entries=['f1', 'f2', 'f3'], 
+                 mask=False, pdf=False, overwrite=False):
         super(NXMultiReduce, self).__init__(entry='entry', directory=directory,
                                             entries=entries, overwrite=overwrite)
-        self.combine = True
 
     def complete(self, program):
         complete = True
@@ -1048,14 +1045,21 @@ class NXMultiReduce(NXReduce):
                 complete = False
         return complete
 
-    def nxcombine(self):
-        self.record_start('nxcombine')
-        if self.not_complete('nxcombine') and self.combine:
-            if not self.complete('nxtransform'):
+    def nxcombine(self, mask=False):
+        if mask:
+            task = 'masked_combine'
+        else:
+            task = 'nxcombine'
+        self.record_start(task)
+        if self.not_complete(task):
+            if mask and not self.complete('nxmasked_transform'):
+                self.logger.info('Cannot combine until masked transforms complete')
+                return
+            elif not self.complete('nxtransform'):
                 self.logger.info('Cannot combine until transforms complete')
                 return
             with Lock(self.wrapper_file):
-                cctw_command = self.prepare_combine()
+                cctw_command = self.prepare_combine(mask=mask)
             if cctw_command:
                 self.logger.info('Combining transforms (%s)'
                                  % ', '.join(self.entries))
@@ -1071,35 +1075,42 @@ class NXMultiReduce(NXReduce):
                     self.logger.info(
                         'Combine completed - errors reported (%g seconds)'
                         % (toc-tic))
-                self.record('nxcombine', command=cctw_command,
+                self.record(task, command=cctw_command,
                             output=process.stdout.decode(),
                             errors=process.stderr.decode())
             else:
                 self.logger.info('CCTW command invalid')
-                self.record('nxcombine')
-        elif self.combine:
+                self.record(task)
+        else:
             self.logger.info('Data already combined')
-            self.record('nxcombine')
+            self.record(task)
 
-    def prepare_combine(self):
+    def prepare_combine(self, mask=False):
+        if mask:
+            transform = 'masked_transform'
+        else:
+            transform = 'transform'
         try:
             entry = self.entries[0]
-            Qh, Qk, Ql = (self.root[entry]['transform']['Qh'],
-                          self.root[entry]['transform']['Qk'],
-                          self.root[entry]['transform']['Ql'])
+            Qh, Qk, Ql = (self.root[entry][transform]['Qh'],
+                          self.root[entry][transform]['Qk'],
+                          self.root[entry][transform]['Ql'])
             data = NXlink('/entry/data/v',
-                          file=os.path.join(self.scan, 'transform.nxs'), name='data')
-            if 'transform' in self.entry:
-                del self.entry['transform']
-            self.entry['transform'] = NXdata(data, [Ql,Qk,Qh])
+                          file=os.path.join(self.scan, transform+'.nxs'), name='data')
+            if transform in self.entry:
+                del self.entry[transform]
+            self.entry[transform] = NXdata(data, [Ql,Qk,Qh])
         except Exception as error:
             self.logger.info('Unable to initialize transform group')
             return None
         input = ' '.join([os.path.join(self.directory,
-                                       '%s_transform.nxs\#/entry/data' % entry)
+                                       '%s_%s.nxs\#/entry/data' % (entry, transform))
                           for entry in self.entries])
-        output = os.path.join(self.directory, 'transform.nxs\#/entry/data/v')
+        output = os.path.join(self.directory, transform+'.nxs\#/entry/data/v')
         return 'cctw merge %s -o %s' % (input, output)
+
+    def nxpdf(self):
+        pass
 
     def command(self):
         command = 'nxcombine '
