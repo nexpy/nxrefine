@@ -26,7 +26,7 @@ def main():
 
     reduce = NXMultiReduce(args.directory, entries=args.entries, mask=args.mask,
                            overwrite=args.overwrite)
-    reduce.nxcombine(mask=args.mask)
+    reduce.nxcombine()
 
 
 if __name__=="__main__":

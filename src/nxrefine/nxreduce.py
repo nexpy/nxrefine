@@ -1037,6 +1037,8 @@ class NXMultiReduce(NXReduce):
                  mask=False, pdf=False, overwrite=False):
         super(NXMultiReduce, self).__init__(entry='entry', directory=directory,
                                             entries=entries, overwrite=overwrite)
+        self.mask = mask
+        self.pdf = pdf
 
     def complete(self, program):
         complete = True
@@ -1045,21 +1047,21 @@ class NXMultiReduce(NXReduce):
                 complete = False
         return complete
 
-    def nxcombine(self, mask=False):
-        if mask:
+    def nxcombine(self):
+        if self.mask:
             task = 'masked_combine'
         else:
             task = 'nxcombine'
         self.record_start(task)
         if self.not_complete(task):
-            if mask and not self.complete('nxmasked_transform'):
+            if self.mask and not self.complete('nxmasked_transform'):
                 self.logger.info('Cannot combine until masked transforms complete')
                 return
             elif not self.complete('nxtransform'):
                 self.logger.info('Cannot combine until transforms complete')
                 return
             with Lock(self.wrapper_file):
-                cctw_command = self.prepare_combine(mask=mask)
+                cctw_command = self.prepare_combine()
             if cctw_command:
                 self.logger.info('Combining transforms (%s)'
                                  % ', '.join(self.entries))
@@ -1085,8 +1087,8 @@ class NXMultiReduce(NXReduce):
             self.logger.info('Data already combined')
             self.record(task)
 
-    def prepare_combine(self, mask=False):
-        if mask:
+    def prepare_combine(self):
+        if self.mask:
             transform = 'masked_transform'
         else:
             transform = 'transform'
@@ -1115,6 +1117,8 @@ class NXMultiReduce(NXReduce):
     def command(self):
         command = 'nxcombine '
         switches = ['-d %s' %  self.directory, '-e %s' % ' '.join(self.entries)]
+        if self.mask:
+            switches.append('-m')
         if self.overwrite:
             switches.append('-o')
         return command+' '.join(switches)
