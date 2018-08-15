@@ -38,7 +38,7 @@ def main():
     if args.start:
         for entry in args.entries:
             reduce = NXReduce(entry, args.directory, 
-                              link=True, maxcount=True, find=True, mask3D=True,
+                              link=True, maxcount=True, find=True, mask=True,
                               threshold=args.threshold, 
                               first=args.first, last=args.last,
                               radius=args.radius, width=args.width,

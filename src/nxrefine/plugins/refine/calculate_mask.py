@@ -50,7 +50,7 @@ class Mask3DDialog(BaseDialog):
         self.check_lock(self.reduce.wrapper_file)
         self.thread = QtCore.QThread()
         self.reduce = NXReduce(self.entry, radius=self.radius, width=self.width,
-                               mask3D=True, overwrite=True, gui=True)
+                               mask=True, overwrite=True, gui=True)
         self.reduce.moveToThread(self.thread)
         self.reduce.start.connect(self.start_progress)
         self.reduce.update.connect(self.update_progress)
