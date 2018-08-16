@@ -1037,6 +1037,11 @@ class NXMultiReduce(NXReduce):
         for entry in self.entries:
             if program not in self.root[entry]:
                 complete = False
+        if not complete and program == 'nxmasked_transform':
+            complete = True
+            for entry in self.entries:
+                if 'nxmask' not in self.root[entry]:
+                    complete = False                        
         return complete
 
     def nxcombine(self):
@@ -1046,8 +1051,7 @@ class NXMultiReduce(NXReduce):
             task = 'nxcombine'
         if self.not_complete(task):
             self.record_start(task)
-            if self.mask and not (
-                    self.complete('nxmasked_transform') or self.complete('nxmask')):
+            if self.mask and not self.complete('nxmasked_transform'):
                 self.logger.info('Cannot combine until masked transforms complete')
                 return
             elif not self.complete('nxtransform'):
@@ -1118,7 +1122,10 @@ class NXMultiReduce(NXReduce):
         if self.server is None:
             raise NeXusError("NXServer not running")
         self.server.add_task(self.command())
-        nxdb.queue_task(self.wrapper_file, 'nxcombine', None)
+        if self.mask:
+            nxdb.queue_task(self.wrapper_file, 'nxmasked_combine', None)
+        else:
+            nxdb.queue_task(self.wrapper_file, 'nxcombine', None)
 
 
 class NXpeak(object):
