@@ -1046,7 +1046,8 @@ class NXMultiReduce(NXReduce):
             task = 'nxcombine'
         if self.not_complete(task):
             self.record_start(task)
-            if self.mask and not self.complete('nxmasked_transform'):
+            if self.mask and not (
+                    self.complete('nxmasked_transform') or self.complete('nxmask')):
                 self.logger.info('Cannot combine until masked transforms complete')
                 return
             elif not self.complete('nxtransform'):
