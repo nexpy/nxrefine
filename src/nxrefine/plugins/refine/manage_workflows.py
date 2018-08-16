@@ -109,7 +109,7 @@ class WorkflowDialog(BaseDialog):
             row = 0
             columns = ['Scan', 'data', 'link', 'max', 'find', 'copy', 'refine', 
                        'transform', 'masked_transform', 'combine', 
-                       'masked_combine', 'overwrite', 'reduce']
+                       'masked_combine', 'pdf', 'overwrite', 'reduce']
             header = {}
             for col, column in enumerate(columns):
                 header[column] = QtWidgets.QLabel(column)
