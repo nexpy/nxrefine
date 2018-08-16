@@ -395,8 +395,8 @@ class NXReduce(QtCore.QObject):
         nxdb.start_task(self.wrapper_file, program, self.entry_name)
 
     def nxlink(self):
-        self.record_start('nxlink')
         if self.not_complete('nxlink') and self.link:
+            self.record_start('nxlink')
             if not self.data_exists():
                 self.logger.info('Data file not available')
                 return
@@ -414,7 +414,6 @@ class NXReduce(QtCore.QObject):
                     self.record('nxlink')
         elif self.link:
             self.logger.info('Data already linked')
-            self.record('nxlink')
 
     def link_data(self):
         if self.field:
@@ -498,8 +497,8 @@ class NXReduce(QtCore.QObject):
             self.entry['instrument/attenuator/attenuator_transmission'] = logs['Calculated_filter_transmission']
 
     def nxmax(self):
-        self.record_start('nxmax')
         if self.not_complete('nxmax') and self.maxcount:
+            self.record_start('nxmax')
             if not self.data_exists():
                 self.logger.info('Data file not available')
                 return
@@ -514,7 +513,6 @@ class NXReduce(QtCore.QObject):
                     self.write_maximum(maximum)
         elif self.maxcount:
             self.logger.info('Maximum counts already found')
-            self.record('nxmax')
 
     def find_maximum(self):
         self.logger.info('Finding maximum counts')
@@ -591,8 +589,8 @@ class NXReduce(QtCore.QObject):
                     first_frame=self.first, last_frame=self.last)
 
     def nxfind(self):
-        self.record_start('nxfind')
         if self.not_complete('nxfind') and self.find:
+            self.record_start('nxfind')
             if not self.data_exists():
                 self.logger.info('Data file not available')
                 return
@@ -607,7 +605,6 @@ class NXReduce(QtCore.QObject):
                     self.write_peaks(peaks)
         elif self.find:
             self.logger.info('Peaks already found')
-            self.record('nxfind')
 
     def find_peaks(self):
         self.logger.info("Finding peaks")
@@ -744,8 +741,8 @@ class NXReduce(QtCore.QObject):
                     peak_number=len(peaks))
 
     def nxcopy(self):
-        self.record_start('nxcopy')
         if self.not_complete('nxcopy') and self.copy:
+            self.record_start('nxcopy')
             if self.parent:
                 self.copy_parameters()
                 self.record('nxcopy', parent=self.parent)
@@ -754,7 +751,6 @@ class NXReduce(QtCore.QObject):
                 self.record('nxcopy')
         elif self.copy:
             self.logger.info('Data already copied')
-            self.record('nxcopy')
 
     def copy_parameters(self):
         with Lock(self.parent):
@@ -767,8 +763,8 @@ class NXReduce(QtCore.QObject):
                          os.path.basename(os.path.realpath(self.parent)))
 
     def nxrefine(self):
-        self.record_start('nxrefine')
         if self.not_complete('nxrefine') and self.refine:
+            self.record_start('nxrefine')
             if not self.complete('nxfind'):
                 self.logger.info('Cannot refine until peak search is completed')
                 return
@@ -782,7 +778,6 @@ class NXReduce(QtCore.QObject):
                     self.write_refinement(result)
         elif self.refine:
             self.logger.info('HKL values already refined')
-            self.record('nxrefine')
 
     def refine_parameters(self, lattice=False):
         refine = NXRefine(self.entry)
@@ -805,8 +800,8 @@ class NXReduce(QtCore.QObject):
         self.record('nxrefine', fit_report=refine.fit_report)
 
     def nxtransform(self):
-        self.record_start('nxtransform')
         if self.not_complete('nxtransform') and self.transform:
+            self.record_start('nxtransform')
             if not self.complete('nxrefine'):
                 self.logger.info('Cannot transform until the orientation is complete')
                 return
@@ -832,10 +827,8 @@ class NXReduce(QtCore.QObject):
                             errors=process.stderr.decode())
             else:
                 self.logger.info('CCTW command invalid')
-                self.record('nxtransform')
         elif self.transform:
             self.logger.info('Data already transformed')
-            self.record('nxtransform')
 
     def get_transform_grid(self):
         if self.Qh and self.Qk and self.Ql:
@@ -885,8 +878,8 @@ class NXReduce(QtCore.QObject):
             return None
 
     def nxmasked_transform(self):
-        self.record_start('nxmasked_transform')
         if self.not_complete('nxmasked_transform') and self.mask:
+            self.record_start('nxmasked_transform')
             with Lock(self.wrapper_file):
                 self.calculate_mask()
                 refine = NXRefine(self.entry)
@@ -915,7 +908,6 @@ class NXReduce(QtCore.QObject):
                 self.logger.info('CCTW command invalid')
         elif self.mask:
             self.logger.info('Masked data already transformed')
-            self.record('nxmasked_transform')
 
     def calculate_mask(self):
         self.logger.info("Calculating 3D mask")
@@ -1052,8 +1044,8 @@ class NXMultiReduce(NXReduce):
             task = 'masked_combine'
         else:
             task = 'nxcombine'
-        self.record_start(task)
         if self.not_complete(task):
+            self.record_start(task)
             if self.mask and not self.complete('nxmasked_transform'):
                 self.logger.info('Cannot combine until masked transforms complete')
                 return
@@ -1082,10 +1074,8 @@ class NXMultiReduce(NXReduce):
                             errors=process.stderr.decode())
             else:
                 self.logger.info('CCTW command invalid')
-                self.record(task)
         else:
             self.logger.info('Data already combined')
-            self.record(task)
 
     def prepare_combine(self):
         if self.mask:
