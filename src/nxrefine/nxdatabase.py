@@ -81,6 +81,7 @@ class Task(Base):
     name = Column(String, nullable=False)
     entry = Column(String)
     status = Column(Integer, default=QUEUED)
+    entries = Column(Integer, default=NOT_STARTED)
     # Timestamps with microsecond precision
     queue_time = Column(mysql.TIMESTAMP(fsp=6))
     start_time = Column(mysql.TIMESTAMP(fsp=6))
@@ -110,24 +111,29 @@ def init(connect, echo=False):
         Base.metadata.create_all(engine)
         session = sessionmaker(bind=engine)()
 
+def get_filename(filename):
+    """Return the relative path of the requested filename"""
+    database = os.path.realpath(session.bind.url.database)
+    root = os.path.dirname(os.path.dirname(database))
+    return os.path.relpath(os.path.realpath(filename), root)
+
 def get_file(filename):
     """ Return the File object (and associated tasks) matching filename
 
-        filename: string, absolute path of wrapper file to query
+        filename: string, path of wrapper file relative to GUP directory
      """
-    filename = os.path.realpath(filename)
+    filename = get_filename(filename)
     f = session.query(File) \
             .filter(File.filename == filename) \
             .one()
     return f
 
-# def record_queued_task(filename, task, entry):
 def queue_task(filename, task, entry):
     """ Update a file to 'queued' status and create a matching task
 
         filename, task, entry: strings that uniquely identify the desired task
     """
-    filename = os.path.realpath(filename)
+    filename = get_filename(filename)
     row = session.query(File).filter(File.filename == filename).scalar()
     time = datetime.datetime.now()
     row.tasks.append(Task(name=task, entry=entry, queue_time=time))
@@ -139,7 +145,7 @@ def start_task(filename, task_name, entry):
 
         filename, task, entry: strings that uniquely identify the desired task
     """
-    filename = os.path.realpath(filename)
+    filename = get_filename(filename)
     # Get the specified file
     row = session.query(File).filter(File.filename == filename).scalar()
     #Find the desired task, and create a new one if it doesn't exist
@@ -165,7 +171,7 @@ def end_task(filename, task_name, entry):
 
         filename, task_name, entry: strings that uniquely identify the desired task
     """
-    filename = os.path.realpath(filename)
+    filename = get_filename(filename)
     row = session.query(File).filter(File.filename == filename).scalar()
     # Others of the same type of task for this file
     matching_tasks = []
@@ -198,7 +204,7 @@ def fail_task(filename, task_name, entry):
 
         filename, task_name, entry: strings that uniquely identify the desired task
     """
-    filename = os.path.realpath(filename)
+    filename = get_filename(filename)
     task = session.query(Task).filter(Task.filename == filename)\
             .filter(Task.name == task_name)\
             .filter(Task.entry == entry)\
@@ -215,15 +221,16 @@ def sync_db(sample_dir):
     """
     from nxrefine.nxreduce import NXReduce
     # Get a list of all the .nxs wrapper files
-    wrapper_files = ( os.path.join(sample_dir, filename) for filename in
-                    os.listdir(sample_dir) if filename.endswith('.nxs')
-                    and all(x not in filename for x in ('parent', 'mask')) )
+    wrapper_files = (os.path.join(sample_dir, filename) for filename in
+                     os.listdir(sample_dir) if filename.endswith('.nxs')
+                     and all(x not in filename for x in ('parent', 'mask')) )
     tracked_files = session.query(File).all()
 
     for w in wrapper_files:
         w = os.path.realpath(w)
         base_name = os.path.basename(os.path.splitext(w)[0])
-        scan_label = '_'.join(base_name.split('_')[1:]) # e.g. 350K, shrunk_350K
+        sample = os.path.basename(os.path.dirname(os.path.dirname(w)))
+        scan_label = base_name.replace(sample+'_', '')
         scan_dir = os.path.join(sample_dir, scan_label)
         try:
             scan_files = os.listdir(scan_dir)
@@ -234,7 +241,6 @@ def sync_db(sample_dir):
             entries = (e for e in root.entries if e != 'entry')
         # Track how many entries have finished each task
         tasks = { t: 0 for t in task_names }
-
         for e in entries:
             nxentry = root[e]
             if e in root and 'data' in nxentry and 'instrument' in nxentry:
@@ -263,11 +269,11 @@ def sync_db(sample_dir):
 
         # If the file already exists, update it, otherwise create a new file
         for row in tracked_files:
-            if w == row.filename:
+            if get_filename(w) == row.filename:
                 f = row
                 break
         else:
-            f = File(filename = w)
+            f = File(filename = get_filename(w))
         for task, val in tasks.items():
             if val == 0:
                 setattr(f, task, NOT_STARTED)
@@ -277,7 +283,7 @@ def sync_db(sample_dir):
                 setattr(f, task, IN_PROGRESS)
         session.add(f)
         for row in tracked_files:
-            if row.filename not in wrapper_files:
+            if row.filename not in [get_filename(w) for w in wrapper_files]:
                 session.delete(row)
     session.commit()
 
