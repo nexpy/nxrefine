@@ -106,10 +106,13 @@ def init(connect, echo=False):
         echo: whether or not to echo the emmited SQL statements to stdout
     """
     global session
-    if session is None:
-        engine = create_engine(connect, echo=echo)
-        Base.metadata.create_all(engine)
-        session = sessionmaker(bind=engine)()
+    try:
+        session.close()
+    except Exception:
+        pass
+    engine = create_engine(connect, echo=echo)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine)()
 
 def get_filename(filename):
     """Return the relative path of the requested filename"""
