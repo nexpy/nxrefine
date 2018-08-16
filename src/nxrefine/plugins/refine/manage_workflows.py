@@ -88,6 +88,7 @@ class WorkflowDialog(BaseDialog):
         if self.sample_directory is None:
             raise NexusError("No sample directory declared")
         nxdb.sync_db(self.sample_directory)
+        self.update()
 
     def update(self):
         if self.sample_directory is None:
