@@ -1046,7 +1046,7 @@ class NXMultiReduce(NXReduce):
 
     def nxcombine(self):
         if self.mask:
-            task = 'masked_combine'
+            task = 'nxmasked_combine'
         else:
             task = 'nxcombine'
         if self.not_complete(task):
@@ -1060,8 +1060,12 @@ class NXMultiReduce(NXReduce):
             with Lock(self.wrapper_file):
                 cctw_command = self.prepare_combine()
             if cctw_command:
-                self.logger.info('Combining transforms (%s)'
-                                 % ', '.join(self.entries))
+                if self.mask:
+                    self.logger.info('Combining masked transforms (%s)'
+                                     % ', '.join(self.entries))
+                else:
+                    self.logger.info('Combining transforms (%s)'
+                                     % ', '.join(self.entries))
                 tic = timeit.default_timer()
                 process = subprocess.run(cctw_command, shell=True,
                                          stdout=subprocess.PIPE,
