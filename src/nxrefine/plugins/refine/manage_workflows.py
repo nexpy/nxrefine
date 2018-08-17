@@ -47,8 +47,10 @@ class WorkflowDialog(BaseDialog):
         else:
             self.filename.setText('')
         self.root_directory = os.path.dirname(os.path.dirname(self.sample_directory))
-        self.task_directory = os.path.join(self.root_directory, 'tasks')
         self.mainwindow.default_directory = self.sample_directory
+        self.task_directory = os.path.join(self.root_directory, 'tasks')
+        if not os.path.exists(self.task_directory):
+            os.mkdir(self.task_directory)
         db_file = os.path.join(self.task_directory, 'nxdatabase.db')
         nxdb.init('sqlite:///' + db_file)
 
@@ -424,7 +426,8 @@ class WorkflowDialog(BaseDialog):
         scan = self.sample + '_' + self.scan_combo.currentText()
         entry = self.entry_combo.currentText()
         program = 'nx' + self.program_combo.currentText()
-        if program == 'nxcombine':
+        if (program == 'nxcombine' or program == 'nxmasked_combine' or
+            program == 'nxpdf'):
             entry = 'entry'
         wrapper_file = os.path.join(self.sample_directory, scan+'.nxs')
         with Lock(wrapper_file):
