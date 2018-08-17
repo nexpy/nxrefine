@@ -1074,12 +1074,12 @@ class NXMultiReduce(NXReduce):
                                          stderr=subprocess.PIPE)
                 toc = timeit.default_timer()
                 if process.returncode == 0:
-                    self.logger.info('%s completed (%g seconds)'
-                                     % (title, toc-tic))
+                    self.logger.info('%s (%s)completed (%g seconds)'
+                        % (title, ', '.join(self.entries), toc-tic))
                 else:
                     self.logger.info(
-                        '%s completed - errors reported (%g seconds)'
-                        % (title, toc-tic))
+                        '%s (%s) completed - errors reported (%g seconds)'
+                        % (title, ', '.join(self.entries), toc-tic))
                 self.record(task, command=cctw_command,
                             output=process.stdout.decode(),
                             errors=process.stderr.decode())
