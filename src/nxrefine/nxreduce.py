@@ -1047,8 +1047,10 @@ class NXMultiReduce(NXReduce):
     def nxcombine(self):
         if self.mask:
             task = 'nxmasked_combine'
+            title = 'Masked combine'
         else:
             task = 'nxcombine'
+            title = 'Combine'
         if self.not_complete(task):
             self.record_start(task)
             if self.mask and not self.complete('nxmasked_transform'):
@@ -1072,12 +1074,12 @@ class NXMultiReduce(NXReduce):
                                          stderr=subprocess.PIPE)
                 toc = timeit.default_timer()
                 if process.returncode == 0:
-                    self.logger.info('Combine completed (%g seconds)'
-                                     % (toc-tic))
+                    self.logger.info('%s completed (%g seconds)'
+                                     % (title, toc-tic))
                 else:
                     self.logger.info(
-                        'Combine completed - errors reported (%g seconds)'
-                        % (toc-tic))
+                        '%s completed - errors reported (%g seconds)'
+                        % (title, toc-tic))
                 self.record(task, command=cctw_command,
                             output=process.stdout.decode(),
                             errors=process.stderr.decode())
