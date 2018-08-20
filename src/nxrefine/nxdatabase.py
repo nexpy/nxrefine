@@ -196,9 +196,10 @@ def end_task(filename, task_name, entry):
     t.end_time = datetime.datetime.now()
     # Update the status of the file to DONE if all tasks are done and there is
     # a finished task for each entry, otherwise leave it as IN_PROGRESS
-    if len(matching_tasks) >= NUM_ENTRIES and \
-                all(task.status == DONE for task in matching_tasks) and \
-                all(e in finished_entries for e in ('f1', 'f2', 'f3')):
+    if (entry == 'entry' or 
+        (len(matching_tasks) >= NUM_ENTRIES and 
+         all(task.status == DONE for task in matching_tasks) and
+         all(e in finished_entries for e in ('f1', 'f2', 'f3')))):
             setattr(row, task_name, DONE)
     session.commit()
 
