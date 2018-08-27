@@ -919,12 +919,8 @@ class NXReduce(QtCore.QObject):
         inside = np.array([(x[np.newaxis,:]-int(cx))**2 + 
                           (y[:,np.newaxis]-int(cy))**2 < self.radius**2 
                           for cx,cy in zip(xp,yp)], dtype=np.bool)
-        if self.width == 1:
-            i, j = 0, 1
-        elif self.width == 3:
-            i, j = 1, 2
-        elif self.width == 5:
-            i, j = 2, 3
+        half_width = float(self.width) / 2.0
+        i, j = int(half_width-0.5), int(half_width+0.5) 
         for k, frame in enumerate([int(z) for z in zp]):
             if self.stopped:
                 return None
