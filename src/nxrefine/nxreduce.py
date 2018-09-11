@@ -101,8 +101,8 @@ class NXReduce(QtCore.QObject):
         self.summed_data = None
         self._first = first
         self._last = last
-        self.radius = radius
-        self.width = width
+        self.radius = int(radius)
+        self.width = int(width)
         self.Qh = Qh
         self.Qk = Qk
         self.Ql = Ql
