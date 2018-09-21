@@ -128,7 +128,7 @@ def get_file(filename):
     filename = get_filename(filename)
     f = session.query(File) \
             .filter(File.filename == filename) \
-            .one()
+            .one_or_none()
     return f
 
 def queue_task(filename, task, entry):

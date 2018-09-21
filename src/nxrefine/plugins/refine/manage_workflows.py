@@ -188,6 +188,8 @@ class WorkflowDialog(BaseDialog):
             status = self.scans[scan]
             status['data'].setEnabled(False)
             f = nxdb.get_file(wrapper)
+            if f is None:
+                raise NeXusError('Need to sync database')
             for task_name in nxdb.task_names:
                 # Database columns use nx* names while columns don't
                 if task_name.startswith('nx'):
