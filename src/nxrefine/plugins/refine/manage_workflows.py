@@ -88,13 +88,13 @@ class WorkflowDialog(BaseDialog):
 
     def sync_db(self):
         if self.sample_directory is None:
-            raise NexusError("No sample directory declared")
+            raise NeXusError("No sample directory declared")
         nxdb.sync_db(self.sample_directory)
         self.update()
 
     def update(self):
         if self.sample_directory is None:
-            raise NexusError("No sample directory declared")
+            raise NeXusError("No sample directory declared")
 
         # Map from wrapper files to scan directories
         wrapper_files = { w : self.get_scan(w) for w in sorted( [
