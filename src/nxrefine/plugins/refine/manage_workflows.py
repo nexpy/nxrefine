@@ -87,13 +87,13 @@ class WorkflowDialog(BaseDialog):
             return True
 
     def sync_db(self):
-        if self.sample_directory is None:
+        if not self.sample_directory:
             raise NeXusError("No sample directory declared")
         nxdb.sync_db(self.sample_directory)
         self.update()
 
     def update(self):
-        if self.sample_directory is None:
+        if not self.sample_directory:
             raise NeXusError("No sample directory declared")
 
         # Map from wrapper files to scan directories
@@ -189,7 +189,9 @@ class WorkflowDialog(BaseDialog):
             status['data'].setEnabled(False)
             f = nxdb.get_file(wrapper)
             if f is None:
-                raise NeXusError('Need to sync database')
+                report_error("Managing Workflows", "Need to sync database")
+                self.stop_progress()
+                return 
             for task_name in nxdb.task_names:
                 # Database columns use nx* names while columns don't
                 if task_name.startswith('nx'):
