@@ -385,14 +385,25 @@ class NXReduce(QtCore.QObject):
                                 sequence_index=len(self.entry.NXprocess)+1,
                                 version='nxrefine v'+__version__,
                                 note=note)
-        nxdb.end_task(self.wrapper_file, program, self.entry_name)
+        self.record_end(program)
+        
         # check if all 3 entries are done - update File
         # if self.all_complete(program):
         #     nxdb.start_task(self.wrapper_file, program, 'done')
 
     def record_start(self, program):
         """ Record that a task has started. Update database """
-        nxdb.start_task(self.wrapper_file, program, self.entry_name)
+        try:
+            nxdb.start_task(self.wrapper_file, program, self.entry_name)
+        except Exception:
+            pass
+
+    def record_end(self, program):
+        """ Record that a task has ended. Update database """
+        try:
+            nxdb.end_task(self.wrapper_file, program, self.entry_name)
+        except Exception:
+            pass
 
     def nxlink(self):
         if self.not_complete('nxlink') and self.link:
