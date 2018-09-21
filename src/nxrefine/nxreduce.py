@@ -745,10 +745,12 @@ class NXReduce(QtCore.QObject):
             self.record_start('nxcopy')
             if self.parent:
                 self.copy_parameters()
-                self.record('nxcopy', parent=self.parent)
+                with Lock(self.wrapper_file):
+                    self.record('nxcopy', parent=self.parent)
             else:
                 self.logger.info('No parent defined')
-                self.record('nxcopy')
+                with Lock(self.wrapper_file):
+                    self.record('nxcopy')
         elif self.copy:
             self.logger.info('Data already copied')
 
@@ -822,9 +824,10 @@ class NXReduce(QtCore.QObject):
                     self.logger.info(
                         'Transform completed - errors reported (%g seconds)'
                         % (toc-tic))
-                self.record('nxtransform', command=cctw_command,
-                            output=process.stdout.decode(),
-                            errors=process.stderr.decode())
+                with Lock(self.wrapper_file):
+                    self.record('nxtransform', command=cctw_command,
+                                output=process.stdout.decode(),
+                                errors=process.stderr.decode())
             else:
                 self.logger.info('CCTW command invalid')
         elif self.transform:
@@ -899,11 +902,12 @@ class NXReduce(QtCore.QObject):
                     self.logger.info(
                         'Masked transform completed - errors reported (%g seconds)'
                         % (toc-tic))
-                self.record('nxmasked_transform', mask=self.mask_file,
-                            radius=self.radius, width=self.width,
-                            command=cctw_command,
-                            output=process.stdout.decode(),
-                            errors=process.stderr.decode())
+                with Lock(self.wrapper_file):
+                    self.record('nxmasked_transform', mask=self.mask_file,
+                                radius=self.radius, width=self.width,
+                                command=cctw_command,
+                                output=process.stdout.decode(),
+                                errors=process.stderr.decode())
             else:
                 self.logger.info('CCTW command invalid')
         elif self.mask:
@@ -1076,9 +1080,10 @@ class NXMultiReduce(NXReduce):
                     self.logger.info(
                         '%s (%s) completed - errors reported (%g seconds)'
                         % (title, ', '.join(self.entries), toc-tic))
-                self.record(task, command=cctw_command,
-                            output=process.stdout.decode(),
-                            errors=process.stderr.decode())
+                with Lock(self.wrapper_file):
+                    self.record(task, command=cctw_command,
+                                output=process.stdout.decode(),
+                                errors=process.stderr.decode())
             else:
                 self.logger.info('CCTW command invalid')
         else:
