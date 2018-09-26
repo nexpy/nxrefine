@@ -69,7 +69,7 @@ class TransformDialog(BaseDialog):
             pass
 
     def get_output_file(self, mask=False):
-        if self.mask:
+        if mask:
             return os.path.splitext(self.entry.data.nxsignal.nxfilename)[0]+'_masked_transform.nxs'
         else:
             return os.path.splitext(self.entry.data.nxsignal.nxfilename)[0]+'_transform.nxs'
