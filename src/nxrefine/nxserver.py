@@ -18,6 +18,7 @@ class NXWorker(Process):
     def run(self):
         self.log("Started worker on node {} (pid={})".format(self.node, os.getpid()))
         while True:
+            time.sleep(5)
             next_task = self.task_queue.get()
             if next_task is None:
                 self.log('%s: Exiting' % self.node)
