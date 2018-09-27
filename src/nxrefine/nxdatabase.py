@@ -34,7 +34,7 @@ from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.dialects import mysql
 from sqlalchemy.exc import IntegrityError
 
-from nexusformat.nexus import nxload
+from nexusformat.nexus import nxload, NeXusError
 from .nxlock import Lock
 
 NUM_ENTRIES = 3
@@ -131,6 +131,56 @@ def get_file(filename):
             .one_or_none()
     return f
 
+def update_file(filename):
+    """ Update the status of a file adding it to the database if necessary
+    
+        filename: string, path of wrapper file 
+    """
+    f = get_file(filename)
+    if not os.path.exists(filename):
+        raise NeXusError("'%s' does not exist")
+    if f is None:
+        f = File(filename = get_filename(filename))
+        session.add(f)
+    tasks = { t: 0 for t in task_names }
+    with Lock(w):
+        root = nxload(w)
+        entries = (e for e in root.entries if e != 'entry')
+        # Track how many entries have finished each task
+        for e in entries:
+            nxentry = root[e]
+            if e in root and 'data' in nxentry and 'instrument' in nxentry:
+                if e+'.h5' in scan_files or e+'.nxs' in scan_files:
+                    tasks['data'] += 1
+                if 'nxlink' in nxentry:
+                    tasks['nxlink'] += 1
+                if 'nxmax' in nxentry:
+                    tasks['nxmax'] += 1
+                if 'nxfind' in nxentry:
+                    tasks['nxfind'] += 1
+                if 'nxcopy' in nxentry or is_parent(w, sample_dir):
+                    tasks['nxcopy'] += 1
+                if 'nxrefine' in nxentry:
+                    tasks['nxrefine'] += 1
+                if 'nxtransform' in nxentry:
+                    tasks['nxtransform'] += 1
+                if 'nxmasked_transform' in nxentry or 'nxmask' in nxentry:
+                    tasks['nxmasked_transform'] += 1
+                if 'nxcombine' in root['entry']:
+                    tasks['nxcombine'] += 1
+                if 'nxmasked_combine' in root['entry']:
+                    tasks['nxmasked_combine'] += 1
+                if 'nxpdf' in root['entry']:
+                    tasks['nxpdf'] += 1
+        for task, val in tasks.items():
+            if val == 0:
+                setattr(f, task, NOT_STARTED)
+            elif val == NUM_ENTRIES:
+                setattr(f, task, DONE)
+            else:
+                setattr(f, task, IN_PROGRESS)
+        session.commit()
+
 def queue_task(filename, task, entry):
     """ Update a file to 'queued' status and create a matching task
 
@@ -225,10 +275,10 @@ def sync_db(sample_dir):
     """
     from nxrefine.nxreduce import NXReduce
     # Get a list of all the .nxs wrapper files
-    wrapper_files = (os.path.join(sample_dir, filename) for filename in
+    wrapper_files = [os.path.join(sample_dir, filename) for filename in
                      os.listdir(sample_dir) if filename.endswith('.nxs')
-                     and all(x not in filename for x in ('parent', 'mask')) )
-    tracked_files = session.query(File).all()
+                     and all(x not in filename for x in ('parent', 'mask'))]
+    tracked_files = list(session.query(File).all())
 
     for w in wrapper_files:
         w = os.path.realpath(w)
