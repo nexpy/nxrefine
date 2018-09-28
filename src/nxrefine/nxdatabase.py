@@ -281,74 +281,18 @@ def sync_db(sample_dir):
     """ Populate the database based on local files (overwriting if necessary)
 
         sample_dir: Directory containing the .nxs wrapper files
-            (ie NXreduce.base_directory)
     """
-    from nxrefine.nxreduce import NXReduce
     # Get a list of all the .nxs wrapper files
     wrapper_files = [os.path.join(sample_dir, filename) for filename in
                      os.listdir(sample_dir) if filename.endswith('.nxs')
                      and all(x not in filename for x in ('parent', 'mask'))]
-    tracked_files = list(session.query(File).all())
 
     for w in wrapper_files:
-        w = os.path.realpath(w)
-        base_name = os.path.basename(os.path.splitext(w)[0])
-        sample = os.path.basename(os.path.dirname(os.path.dirname(w)))
-        scan_label = base_name.replace(sample+'_', '')
-        scan_dir = os.path.join(sample_dir, scan_label)
-        try:
-            scan_files = os.listdir(scan_dir)
-        except OSError:
-            scan_files = []
-        with Lock(w):
-            root = nxload(w)
-            entries = (e for e in root.entries if e != 'entry')
-        # Track how many entries have finished each task
-        tasks = { t: 0 for t in task_names }
-        for e in entries:
-            nxentry = root[e]
-            if e in root and 'data' in nxentry and 'instrument' in nxentry:
-                if e+'.h5' in scan_files or e+'.nxs' in scan_files:
-                    tasks['data'] += 1
-                if 'nxlink' in nxentry:
-                    tasks['nxlink'] += 1
-                if 'nxmax' in nxentry:
-                    tasks['nxmax'] += 1
-                if 'nxfind' in nxentry:
-                    tasks['nxfind'] += 1
-                if 'nxcopy' in nxentry or is_parent(w, sample_dir):
-                    tasks['nxcopy'] += 1
-                if 'nxrefine' in nxentry:
-                    tasks['nxrefine'] += 1
-                if 'nxtransform' in nxentry:
-                    tasks['nxtransform'] += 1
-                if 'nxmasked_transform' in nxentry or 'nxmask' in nxentry:
-                    tasks['nxmasked_transform'] += 1
-                if 'nxcombine' in root['entry']:
-                    tasks['nxcombine'] += 1
-                if 'nxmasked_combine' in root['entry']:
-                    tasks['nxmasked_combine'] += 1
-                if 'nxpdf' in root['entry']:
-                    tasks['nxpdf'] += 1
-
-        # If the file already exists, update it, otherwise create a new file
-        for row in tracked_files:
-            if get_filename(w) == row.filename:
-                f = row
-                break
-        else:
-            f = File(filename = get_filename(w))
-        for task, val in tasks.items():
-            if val == 0:
-                setattr(f, task, NOT_STARTED)
-            elif val == NUM_ENTRIES:
-                setattr(f, task, DONE)
-            else:
-                setattr(f, task, IN_PROGRESS)
-        session.add(f)
-        for row in tracked_files:
-            if row.filename not in [get_filename(w) for w in wrapper_files]:
-                session.delete(row)
+        self.update_file(w)
+    tracked_files = list(session.query(File).all())
+    for row in tracked_files:
+        if row.filename not in [get_filename(w) for w in wrapper_files]:
+            session.delete(row)
     session.commit()
 
 """ Sample_dir should be the GUPxxx/agcrse2/xtalX directory -
