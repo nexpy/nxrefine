@@ -125,53 +125,65 @@ def get_file(filename):
 
         filename: string, path of wrapper file relative to GUP directory
      """
-    filename = get_filename(filename)
     f = session.query(File) \
-            .filter(File.filename == filename) \
+            .filter(File.filename == get_filename(filename)) \
             .one_or_none()
+
+    if f is None:
+        filename = os.path.realpath(filename)
+        if not os.path.exists(filename):
+            raise NeXusError("'%s' does not exist" % filename)
+        session.add(File(filename = get_filename(filename)))        
+        session.commit()
+        f = update_file(filename)
     return f
 
 def update_file(filename):
-    """ Update the status of a file adding it to the database if necessary
-    
-        filename: string, path of wrapper file 
-    """
+    """ Return the File object (and associated tasks) matching filename
+
+        filename: string, path of wrapper file relative to GUP directory
+     """
     f = get_file(filename)
-    if not os.path.exists(filename):
-        raise NeXusError("'%s' does not exist")
-    if f is None:
-        f = File(filename = get_filename(filename))
-        session.add(f)
-    tasks = { t: 0 for t in task_names }
-    with Lock(w):
-        root = nxload(w)
-        entries = (e for e in root.entries if e != 'entry')
-        # Track how many entries have finished each task
-        for e in entries:
-            nxentry = root[e]
-            if e in root and 'data' in nxentry and 'instrument' in nxentry:
-                if e+'.h5' in scan_files or e+'.nxs' in scan_files:
-                    tasks['data'] += 1
-                if 'nxlink' in nxentry:
-                    tasks['nxlink'] += 1
-                if 'nxmax' in nxentry:
-                    tasks['nxmax'] += 1
-                if 'nxfind' in nxentry:
-                    tasks['nxfind'] += 1
-                if 'nxcopy' in nxentry or is_parent(w, sample_dir):
-                    tasks['nxcopy'] += 1
-                if 'nxrefine' in nxentry:
-                    tasks['nxrefine'] += 1
-                if 'nxtransform' in nxentry:
-                    tasks['nxtransform'] += 1
-                if 'nxmasked_transform' in nxentry or 'nxmask' in nxentry:
-                    tasks['nxmasked_transform'] += 1
-                if 'nxcombine' in root['entry']:
-                    tasks['nxcombine'] += 1
-                if 'nxmasked_combine' in root['entry']:
-                    tasks['nxmasked_combine'] += 1
-                if 'nxpdf' in root['entry']:
-                    tasks['nxpdf'] += 1
+    if f:
+        base_name = os.path.basename(os.path.splitext(filename)[0])
+        sample_dir = os.path.dirname(filename)
+        sample = os.path.basename(os.path.dirname(sample_dir))
+        scan_label = base_name.replace(sample+'_', '')
+        scan_dir = os.path.join(sample_dir, scan_label)
+        try:
+            scan_files = os.listdir(scan_dir)
+        except OSError:
+            scan_files = []
+
+        tasks = { t: 0 for t in task_names }
+        with Lock(filename):
+            root = nxload(filename)
+            entries = (e for e in root.entries if e != 'entry')
+            for e in entries:
+                nxentry = root[e]
+                if e in root and 'data' in nxentry and 'instrument' in nxentry:
+                    if e+'.h5' in scan_files or e+'.nxs' in scan_files:
+                        tasks['data'] += 1
+                    if 'nxlink' in nxentry:
+                        tasks['nxlink'] += 1
+                    if 'nxmax' in nxentry:
+                        tasks['nxmax'] += 1
+                    if 'nxfind' in nxentry:
+                        tasks['nxfind'] += 1
+                    if 'nxcopy' in nxentry or is_parent(filename, sample_dir):
+                        tasks['nxcopy'] += 1
+                    if 'nxrefine' in nxentry:
+                        tasks['nxrefine'] += 1
+                    if 'nxtransform' in nxentry:
+                        tasks['nxtransform'] += 1
+                    if 'nxmasked_transform' in nxentry or 'nxmask' in nxentry:
+                        tasks['nxmasked_transform'] += 1
+                    if 'nxcombine' in root['entry']:
+                        tasks['nxcombine'] += 1
+                    if 'nxmasked_combine' in root['entry']:
+                        tasks['nxmasked_combine'] += 1
+                    if 'nxpdf' in root['entry']:
+                        tasks['nxpdf'] += 1
         for task, val in tasks.items():
             if val == 0:
                 setattr(f, task, NOT_STARTED)
@@ -180,6 +192,7 @@ def update_file(filename):
             else:
                 setattr(f, task, IN_PROGRESS)
         session.commit()
+    return f
 
 def queue_task(filename, task, entry):
     """ Update a file to 'queued' status and create a matching task
@@ -198,9 +211,7 @@ def start_task(filename, task_name, entry):
 
         filename, task, entry: strings that uniquely identify the desired task
     """
-    filename = get_filename(filename)
-    # Get the specified file
-    row = session.query(File).filter(File.filename == filename).scalar()
+    row = get_file(filename)
     #Find the desired task, and create a new one if it doesn't exist
     for t in row.tasks:
         if t.name == task_name and t.entry == entry and t.status == QUEUED:
@@ -224,8 +235,7 @@ def end_task(filename, task_name, entry):
 
         filename, task_name, entry: strings that uniquely identify the desired task
     """
-    filename = get_filename(filename)
-    row = session.query(File).filter(File.filename == filename).scalar()
+    row = get_file(filename)
     # Others of the same type of task for this file
     matching_tasks = []
     # The entries that have finished this task
