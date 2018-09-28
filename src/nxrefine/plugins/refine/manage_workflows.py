@@ -24,8 +24,7 @@ class WorkflowDialog(BaseDialog):
 
         self.set_layout(self.directorybox('Choose Sample Directory', default=False),
                         self.filebox('Choose Parent File'),
-                        self.action_buttons(('Sync Database', self.sync_db),
-                                            ('Update Status', self.update),
+                        self.action_buttons(('Update Status', self.update),
                                             ('Add to Queue', self.add_tasks),
                                             ('View Logs', self.view_logs)),
                         self.progress_layout(close=True))
@@ -43,8 +42,10 @@ class WorkflowDialog(BaseDialog):
         parent_file = os.path.join(self.sample_directory,
                                    self.sample+'_parent.nxs')
         if os.path.exists(parent_file):
-            self.filename.setText(os.path.basename(os.path.realpath(parent_file)))
+            self.parent_file = os.path.realpath(parent_file)
+            self.filename.setText(os.path.basename(self.parent_file))
         else:
+            self.parent_file = None
             self.filename.setText('')
         self.root_directory = os.path.dirname(os.path.dirname(self.sample_directory))
         self.mainwindow.default_directory = self.sample_directory
@@ -53,10 +54,7 @@ class WorkflowDialog(BaseDialog):
             os.mkdir(self.task_directory)
         db_file = os.path.join(self.task_directory, 'nxdatabase.db')
         nxdb.init('sqlite:///' + db_file)
-
-        if self.grid:
-            self.delete_grid(self.grid)
-            self.grid = None
+        self.update()
 
     def choose_file(self):
         super(WorkflowDialog, self).choose_file()
@@ -71,10 +69,12 @@ class WorkflowDialog(BaseDialog):
         reduce = NXReduce(directory=self.get_scan(self.get_filename()),
                           overwrite=True)
         reduce.make_parent()
-        if self.grid:
-            self.delete_grid(self.grid)
-            self.grid = None
-            self.update()
+        nxdb.update_file(reduce.wrapper_file)
+        if self.parent_file:
+            nxdb.update_file(self.parent_file)
+        self.parent_file = reduce.wrapper_file
+        self.filename.setText(os.path.basename(self.parent_file))
+        self.update()
 
     def is_valid(self, wrapper_file):
         if not wrapper_file.endswith('.nxs'):
@@ -86,51 +86,43 @@ class WorkflowDialog(BaseDialog):
         else:
             return True
 
-    def sync_db(self):
-        if not self.sample_directory:
-            raise NeXusError("No sample directory declared")
-        nxdb.sync_db(self.sample_directory)
-        self.update()
-
     def update(self):
         if not self.sample_directory:
             raise NeXusError("No sample directory declared")
+
+        if self.grid:
+            self.delete_grid(self.grid)
 
         # Map from wrapper files to scan directories
         wrapper_files = { w : self.get_scan(w) for w in sorted( [
                             os.path.join(self.sample_directory, filename)
                             for filename in os.listdir(self.sample_directory)
                             if self.is_valid(filename)] , key=natural_sort) }
-        if self.grid and self.grid.rowCount() == len(wrapper_files) + 2:
-            row = 0
-        else:
-            if self.grid:
-                self.delete_grid(self.grid)
-            self.grid = QtWidgets.QGridLayout()
-            self.insert_layout(2, self.grid)
-            self.grid.setSpacing(1)
-            row = 0
-            columns = ['Scan', 'data', 'link', 'max', 'find', 'copy', 'refine', 
-                       'transform', 'masked_transform', 'combine', 
-                       'masked_combine', 'pdf', 'overwrite', 'reduce']
-            header = {}
-            for col, column in enumerate(columns):
-                header[column] = QtWidgets.QLabel(column)
-                header[column].setFont(self.bold_font)
-                header[column].setFixedWidth(75)
-                if column == 'transform' or column == 'combine':
-                    self.grid.addWidget(header[column], row, col, 1, 2,
-                                        QtCore.Qt.AlignHCenter)
-                elif 'masked' not in column:
-                    self.grid.addWidget(header[column], row, col)
-                    header[column].setAlignment(QtCore.Qt.AlignHCenter)
-            row = 1
-            columns = ['regular', 'masked', 'regular', 'masked']
-            for col, column in enumerate(columns):
-                header[column] = QtWidgets.QLabel(column)
-                header[column].setFixedWidth(75)
+        self.grid = QtWidgets.QGridLayout()
+        self.insert_layout(2, self.grid)
+        self.grid.setSpacing(1)
+        row = 0
+        columns = ['Scan', 'data', 'link', 'max', 'find', 'copy', 'refine', 
+                   'transform', 'masked_transform', 'combine', 
+                   'masked_combine', 'pdf', 'overwrite', 'reduce']
+        header = {}
+        for col, column in enumerate(columns):
+            header[column] = QtWidgets.QLabel(column)
+            header[column].setFont(self.bold_font)
+            header[column].setFixedWidth(75)
+            if column == 'transform' or column == 'combine':
+                self.grid.addWidget(header[column], row, col, 1, 2,
+                                    QtCore.Qt.AlignHCenter)
+            elif 'masked' not in column:
+                self.grid.addWidget(header[column], row, col)
                 header[column].setAlignment(QtCore.Qt.AlignHCenter)
-                self.grid.addWidget(header[column], row, col+7)
+        row = 1
+        columns = ['regular', 'masked', 'regular', 'masked']
+        for col, column in enumerate(columns):
+            header[column] = QtWidgets.QLabel(column)
+            header[column].setFixedWidth(75)
+            header[column].setAlignment(QtCore.Qt.AlignHCenter)
+            self.grid.addWidget(header[column], row, col+7)
 
         self.scans = {}
         self.scans_backup = {}
@@ -139,12 +131,10 @@ class WorkflowDialog(BaseDialog):
         for wrapper_file, scan in wrapper_files.items():
             scan_label = os.path.basename(scan)
             row += 1
-            if row == 2:
-                with Lock(wrapper_file):
-                    root = nxload(wrapper_file)
-                    self.entries = [e for e in root.entries if e != 'entry']
             status = {}
             status['scan'] = QtWidgets.QLabel(scan_label)
+            if self.parent_file == wrapper_file:
+                status['scan'].setStyleSheet('font-weight:bold')
             status['data'] = self.new_checkbox()
             status['link'] = self.new_checkbox()
             status['max'] = self.new_checkbox()
@@ -188,10 +178,6 @@ class WorkflowDialog(BaseDialog):
             status = self.scans[scan]
             status['data'].setEnabled(False)
             f = nxdb.get_file(wrapper)
-            if f is None:
-                report_error("Managing Workflows", "Need to sync database")
-                self.stop_progress()
-                return 
             for task_name in nxdb.task_names:
                 # Database columns use nx* names while columns don't
                 if task_name.startswith('nx'):
