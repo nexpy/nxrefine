@@ -288,7 +288,7 @@ def sync_db(sample_dir):
                      and all(x not in filename for x in ('parent', 'mask'))]
 
     for w in wrapper_files:
-        self.update_file(w)
+        update_file(w)
     tracked_files = list(session.query(File).all())
     for row in tracked_files:
         if row.filename not in [get_filename(w) for w in wrapper_files]:
