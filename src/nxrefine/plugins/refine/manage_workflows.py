@@ -26,7 +26,7 @@ class WorkflowDialog(BaseDialog):
                         self.filebox('Choose Parent File'),
                         self.action_buttons(('Update Status', self.update),
                                             ('Add to Queue', self.add_tasks),
-                                            ('View Logs', self.view_logs).
+                                            ('View Logs', self.view_logs),
                                             ('Sync Database', self.sync_db)),
                         self.progress_layout(close=True))
         self.progress_bar.setVisible(False)
