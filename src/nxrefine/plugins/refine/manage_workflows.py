@@ -26,7 +26,8 @@ class WorkflowDialog(BaseDialog):
                         self.filebox('Choose Parent File'),
                         self.action_buttons(('Update Status', self.update),
                                             ('Add to Queue', self.add_tasks),
-                                            ('View Logs', self.view_logs)),
+                                            ('View Logs', self.view_logs).
+                                            ('Sync Database', self.sync_db)),
                         self.progress_layout(close=True))
         self.progress_bar.setVisible(False)
         self.set_title('Manage Workflows')
@@ -203,6 +204,12 @@ class WorkflowDialog(BaseDialog):
         self.stop_progress()
         self.backup_scans()
         return self.grid
+
+    def sync_db(self):
+        if not self.sample_directory:
+            raise NeXusError("No sample directory declared")
+        nxdb.sync_db(self.sample_directory)
+        self.update()
 
     def new_checkbox(self, slot=None):
         checkbox = QtWidgets.QCheckBox()
