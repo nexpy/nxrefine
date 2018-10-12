@@ -33,7 +33,7 @@ class WorkflowDialog(BaseDialog):
         self.set_title('Manage Workflows')
         self.grid = None
         self.sample_directory = None
-        self.entries = []
+        self.entries = ['f1', 'f2', 'f3']
         self.layout.setSizeConstraint(QtWidgets.QLayout.SetFixedSize)
 
     def choose_directory(self):
