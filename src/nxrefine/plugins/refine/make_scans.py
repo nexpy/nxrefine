@@ -35,11 +35,11 @@ class MakeDialog(BaseDialog):
         self.sample_directory = self.get_directory()
         self.experiment_directory = os.path.dirname(os.path.dirname(self.sample_directory))
         self.macro_directory = os.path.join(self.experiment_directory, 'macros')
-        label = os.path.basename(self.sample_directory)
-        sample = os.path.basename(os.path.dirname(self.sample_directory))
-        experiment = os.path.basename(self.experiment_directory)
+        self.label = os.path.basename(self.sample_directory)
+        self.sample = os.path.basename(os.path.dirname(self.sample_directory))
+        self.experiment = os.path.basename(self.experiment_directory)
         self.experiment_path = experiment
-        self.scan_path = os.path.join(experiment, sample, label)
+        self.scan_path = os.path.join(self.experiment, self.sample, self.label)
         self.setup_scans()
 
     def setup_scans(self):
@@ -113,12 +113,19 @@ class MakeDialog(BaseDialog):
                 else:
                     frame_rate = 10.0                        
                 scan_file = entry.nxname
-                scan_parameters.append(
-                    '%s %s %s %.6g %.6g %.6g %.6g %.6g %.6g %.6g %.6g %.6g'
-                    % (scan_command, self.scan_path, scan_file, 
-                       temperature, dx, dy, 
-                       phi_start, phi_step, phi_end,
-                       chi, omega, frame_rate))
+                if scan_command == 'Pil2Mscan'
+                    scan_parameters.append(
+                        '%s %s %s %.6g %.6g %.6g %.6g %.6g %.6g %.6g %.6g %.6g'
+                        % (scan_command, self.scan_path, scan_file, 
+                           temperature, dx, dy, 
+                           phi_start, phi_step, phi_end,
+                           chi, omega, frame_rate))
+            if scan_command == 'Pil2Mstring':
+                base_name = os.path.basename(os.path.splitext(nexus_file)[0])
+                scan_label = base_name.replace(self.sample+'_', '')
+                scan_parameters.append('Pil2Mstring("%s")' % scan_label)
+            else:
+                scan_parameters.append('%s %s' % (scan_command, temperature))
         if not os.path.exists(self.macro_directory):
             os.mkdir(os.path.join(self.experiment_directory, 'macros'))
         macro_filter = ';;'.join(("SPEC Macro (*.mac)", "Any Files (*.* *)"))
