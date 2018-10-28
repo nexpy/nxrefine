@@ -855,11 +855,15 @@ class NXReduce(QtCore.QObject):
         else:
             if 'transform' in self.entry:
                 transform = self.entry['transform']
+            elif 'masked_transform' in self.entry:
+                transform = self.entry['masked_transform']
             elif self.parent:
                 with Lock(self.parent):
                     root = nxload(self.parent)
                     if 'transform' in root[self.entry_name]:
                         transform = root[self.entry_name]['transform']
+                    elif 'masked_transform' in root[self.entry_name]:
+                        transform = root[self.entry_name]['masked_transform']
             try:
                 Qh, Qk, Ql = (transform['Qh'].nxvalue,
                               transform['Qk'].nxvalue,
@@ -1064,9 +1068,10 @@ class NXMultiReduce(NXReduce):
             title = 'Combine'
         if self.not_complete(task):
             self.record_start(task)
-            if self.mask and not self.complete('nxmasked_transform'):
-                self.logger.info('Cannot combine until masked transforms complete')
-                return
+            if self.mask:
+                if not self.complete('nxmasked_transform'):
+                    self.logger.info('Cannot combine until masked transforms complete')
+                    return
             elif not self.complete('nxtransform'):
                 self.logger.info('Cannot combine until transforms complete')
                 return
