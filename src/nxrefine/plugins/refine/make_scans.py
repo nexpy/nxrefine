@@ -113,7 +113,7 @@ class MakeDialog(BaseDialog):
                 else:
                     frame_rate = 10.0                        
                 scan_file = entry.nxname
-                if scan_command == 'Pil2Mscan'
+                if scan_command == 'Pil2Mscan':
                     scan_parameters.append(
                         '%s %s %s %.6g %.6g %.6g %.6g %.6g %.6g %.6g %.6g %.6g'
                         % (scan_command, self.scan_path, scan_file, 
