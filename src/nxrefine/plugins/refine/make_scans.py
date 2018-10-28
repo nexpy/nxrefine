@@ -93,8 +93,8 @@ class MakeDialog(BaseDialog):
     def make_scans(self):
         scans = [scan.label.text() for scan in self.scan_list]  
         scan_command = self.textbox['Scan Command'].text()
-#        scan_parameters = ['#command path filename temperature detx dety ' + 
-#                           'phi_start phi_step phi_end chi omega frame_rate']
+        scan_parameters = ['#command path filename temperature detx dety ' + 
+                           'phi_start phi_step phi_end chi omega frame_rate']
         for scan in self.scan_list:
             nexus_file = scan.label.text()
             root = nxload(os.path.join(self.sample_directory, nexus_file))
