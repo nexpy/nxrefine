@@ -46,8 +46,12 @@ class MakeDialog(BaseDialog):
         if self.scans:
             self.scans.delete_grid()
         self.scans = GridParameters()
-        filenames = sorted([f for f in os.listdir(self.sample_directory) 
-                            if f.endswith('.nxs')], key=natural_sort)
+        all_files = [self.sample+'_'+d+'.nxs' 
+                    for d in os.listdir(self.sample_directory) 
+                    if os.path.isdir(os.path.join(self.sample_directory, d))]
+        filenames = sorted([f for f in all_files 
+                    if os.path.exists(os.path.join(self.sample_directory, f))], 
+                    key=natural_sort)
         for i, f in enumerate(filenames):
             scan = 'f%d' % i
             self.scans.add(scan, i+1, f, True, self.update_scans)
