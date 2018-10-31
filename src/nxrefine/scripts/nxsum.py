@@ -42,7 +42,7 @@ def main():
 
     parser = argparse.ArgumentParser(
         description="Find peaks within the NeXus data")
-    parser.add_argument('-d', '--directory', required=True,
+    parser.add_argument('-d', '--directory', 
                         default='/data/user6idd/dm/GUP-58924_run18-3/LBCOx0125/xtal1',
                         help='directory containing wrapper files')
     parser.add_argument('-n', '--new_scan', default='30K_sum',
