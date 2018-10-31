@@ -103,12 +103,23 @@ class MakeDialog(BaseDialog):
             nexus_file = scan.label.text()
             root = nxload(os.path.join(self.sample_directory, nexus_file))
             temperature = root.entry.sample.temperature
+            base_name = os.path.basename(os.path.splitext(nexus_file)[0])
+            scan_dir = base_name.replace(self.sample+'_', '')
             for entry in [root[e] for e in root if e != 'entry']:
-                phi_start = entry['instrument/goniometer/phi']
+                if 'phi_set' in entry['instrument/goniometer']:
+                    phi_start = entry['instrument/goniometer/phi_set']
+                else:
+                    phi_start = entry['instrument/goniometer/phi']
                 phi_step = entry['instrument/goniometer/phi'].attrs['step']
                 phi_end = entry['instrument/goniometer/phi'].attrs['end']
-                chi = entry['instrument/goniometer/chi']
-                omega = entry['instrument/goniometer/omega']
+                if 'chi_set' in entry['instrument/goniometer']:
+                    chi = entry['instrument/goniometer/chi_set']
+                else:
+                    chi = entry['instrument/goniometer/chi']
+                if 'omega_set' in entry['instrument/goniometer']:
+                    omega = entry['instrument/goniometer/omega_set']
+                else:
+                    omega = entry['instrument/goniometer/omega']
                 dx = entry['instrument/detector/translation_x']
                 dy = entry['instrument/detector/translation_y']
                 if ('frame_time' in entry['instrument/detector'] and

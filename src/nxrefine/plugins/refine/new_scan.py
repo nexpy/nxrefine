@@ -205,10 +205,13 @@ class ScanDialog(BaseDialog):
             if 'goniometer' not in entry['instrument']:
                 entry['instrument/goniometer'] = NXgoniometer()
             entry['instrument/goniometer/phi'] = phi_start
+            entry['instrument/goniometer/phi_set'] = phi_start
             entry['instrument/goniometer/phi'].attrs['step'] = phi_step
             entry['instrument/goniometer/phi'].attrs['end'] = phi_end
             entry['instrument/goniometer/chi'] = chi
+            entry['instrument/goniometer/chi_set'] = chi
             entry['instrument/goniometer/omega'] = omega
+            entry['instrument/goniometer/omega_set'] = omega
             if frame_rate > 0.0:
                 entry['instrument/detector/frame_time'] = 1.0 / frame_rate
             linkpath = self.entries[position]['linkpath'].value
