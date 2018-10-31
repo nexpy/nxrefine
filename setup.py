@@ -58,6 +58,7 @@ setup (name = nxrefine.__package_name__,
                                 'nxreduce=nxrefine.scripts.nxreduce:main',
                                 'nxsummary=nxrefine.scripts.nxsummary:main',
                                 'nxdatabase=nxrefine.scripts.nxdatabase:main',
+                                'nxsum=nxrefine.scripts.nxsum:main',
                                 'nxshrink=nxrefine.scripts.nxshrink:main'],
        },
        classifiers= ['Development Status :: 4 - Beta',
@@ -69,6 +70,7 @@ setup (name = nxrefine.__package_name__,
                      'Programming Language :: Python :: 3',
                      'Programming Language :: Python :: 3.5',
                      'Programming Language :: Python :: 3.6',
+                     'Programming Language :: Python :: 3.7',
                      'Topic :: Scientific/Engineering']
       )
 
