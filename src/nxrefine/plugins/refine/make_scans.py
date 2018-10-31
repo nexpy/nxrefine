@@ -131,15 +131,13 @@ class MakeDialog(BaseDialog):
                 if scan_command == 'Pil2Mscan':
                     scan_parameters.append(
                         '%s %s %s %.6g %.6g %.6g %.6g %.6g %.6g %.6g %.6g %.6g'
-                        % (scan_command, self.scan_path, scan_file, 
-                           temperature, dx, dy, 
+                        % (scan_command, os.path.join(self.scan_path, scan_dir),
+                           scan_file, temperature, dx, dy, 
                            phi_start, phi_step, phi_end,
                            chi, omega, frame_rate))
             if scan_command == 'Pil2Mstring':
-                base_name = os.path.basename(os.path.splitext(nexus_file)[0])
-                scan_label = base_name.replace(self.sample+'_', '')
-                scan_parameters.append('Pil2Mstring("%s")' % scan_label)
-            else:
+                scan_parameters.append('Pil2Mstring("%s")' % scan_dir)
+            elif scan_command != 'Pil2Mscan':
                 scan_parameters.append('%s %s' % (scan_command, temperature))
         if not os.path.exists(self.macro_directory):
             os.mkdir(os.path.join(self.experiment_directory, 'macros'))
