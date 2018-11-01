@@ -968,12 +968,42 @@ class NXReduce(QtCore.QObject):
                          % (self.mask_file, toc-tic))
 
     def nxsum(self, scan_list):
+        if self.overwrite or not os.path.exists(self.data_file):
+            self.logger.info('Sum files launched')
+            tic = timeit.default_timer()
+            with Lock(self.data_file):
+                self.sum_files(scan_list)
+            toc = timeit.default_timer()
+            self.logger.info('Sum completed (%g seconds)' % (toc-tic))
         else:
+            self.logger.info('Data already summed')
+
+    def sum_files(self, scan_list):
+    
+        nframes = 3650
+        chunk_size = 50
+
         for i, scan in enumerate(scans):
+            reduce = NXReduce(directory=os.path.join(self.base_directory, scan))
+            if not os.path.exists(reduce.data_file):
+                self.logger.info("'%s' does not exist" % reduce.data_file)
+                if i == 0:
+                    break
+                else:
+                    continue
             with Lock(reduce.data_file):
                 if i == 0:
                     shutil.copyfile(reduce.data_file, self.data_file)
                     new_file = h5.File(self.data_file, 'r+')
+                    new_field = scan_file[self.path]
+                else:
+                    scan_file = h5.File(reduce.data_file, 'r')
+                    scan_field = scan_file[self.path]
+                    for i in range(0, nframes, chunk_size):
+                        new_slab = new_field[i:i+chunk_size,:,:]
+                        scan_slab = scan_field[i:i+chunk_size,:,:]
+                        new_field[i:i+chunk_size,:,:] = new_slab + scan_slab
+
     def nxreduce(self):
         self.nxlink()
         self.nxmax()
