@@ -103,11 +103,6 @@ class SumDialog(BaseDialog):
         scan_file = os.path.join(self.sample_directory, 
                                  self.sample+'_'+self.scan_label+'.nxs')
         copy_file = os.path.join(self.sample_directory, self.scan_files[0])
-        if os.path.exists(scan_file):
-            if confirm_action('New scan file already exists. Overwrite?'):
-                os.remove(scan_file)
-            else:
-                return
         if os.path.exists(scan_dir):
             if not confirm_action(
                 "New scan directory already exists. Overwrite?"):
