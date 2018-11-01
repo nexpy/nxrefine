@@ -967,6 +967,13 @@ class NXReduce(QtCore.QObject):
         self.logger.info("3D Mask stored in '%s' (%g seconds)"
                          % (self.mask_file, toc-tic))
 
+    def nxsum(self, scan_list):
+        else:
+        for i, scan in enumerate(scans):
+            with Lock(reduce.data_file):
+                if i == 0:
+                    shutil.copyfile(reduce.data_file, self.data_file)
+                    new_file = h5.File(self.data_file, 'r+')
     def nxreduce(self):
         self.nxlink()
         self.nxmax()
