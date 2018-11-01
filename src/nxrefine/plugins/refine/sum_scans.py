@@ -37,11 +37,7 @@ class SumDialog(BaseDialog):
         super(SumDialog, self).choose_directory()
         self.sample_directory = self.get_directory()
         self.experiment_directory = os.path.dirname(os.path.dirname(self.sample_directory))
-        self.label = os.path.basename(self.sample_directory)
         self.sample = os.path.basename(os.path.dirname(self.sample_directory))
-        self.experiment = os.path.basename(self.experiment_directory)
-        self.experiment_path = self.experiment
-        self.scan_path = os.path.join(self.experiment, self.sample, self.label)
         self.setup_scans()
 
     def setup_scans(self):
@@ -97,7 +93,7 @@ class SumDialog(BaseDialog):
         else:
             os.mkdir(scan_dir)
         
-        reduce = NXReduce(self.scan_path)    
+        reduce = NXReduce(scan_file)    
         for entry in reduce.entries:
             server.add_task('nxsum -d %s -e %s -o' % (self.sample_directory,
                                                       entry))
