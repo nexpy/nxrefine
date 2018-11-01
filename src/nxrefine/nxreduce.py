@@ -984,7 +984,7 @@ class NXReduce(QtCore.QObject):
         nframes = 3650
         chunk_size = 50
 
-        for i, scan in enumerate(scans):
+        for i, scan in enumerate(scan_list):
             reduce = NXReduce(directory=os.path.join(self.base_directory, scan))
             if not os.path.exists(reduce.data_file):
                 self.logger.info("'%s' does not exist" % reduce.data_file)
