@@ -115,7 +115,7 @@ class SumDialog(BaseDialog):
         reduce = NXReduce(directory=scan_dir)    
         for entry in reduce.entries:
             server.add_task('nxsum -d %s -e %s -o -s %s' 
-                            % (self.sample_directory, entry, self.scan_list))
+                            % (scan_dir, entry, self.scan_list))
 
     def clean_scan(self, scan_file):
         with Lock(scan_file):
