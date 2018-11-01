@@ -9,6 +9,7 @@ from nexpy.gui.utils import report_error, confirm_action, natural_sort
 from nexpy.gui.pyqt import QtCore, getSaveFileName
 from nxrefine.nxlock import Lock
 from nxrefine.nxserver import NXServer
+from nxrefine.nxreduce import NXReduce
 
 
 def show_dialog():
@@ -26,7 +27,6 @@ class SumDialog(BaseDialog):
         self.scans = None
         self.set_layout(self.directorybox("Choose Sample Directory",
                                           self.choose_sample),
-                        self.textboxes(('New Scan Label', '')),
                         self.action_buttons(('Select All', self.select_scans),
                                             ('Clear All', self.clear_scans),
                                             ('Sum Scans', self.sum_scans)),
@@ -59,12 +59,21 @@ class SumDialog(BaseDialog):
         scan_list = []
         for scan in self.checkbox:
             if self.checkbox[scan].isChecked():
-                scan_list.append(self.checkbox[scan].text())
-        return scan_list
+                base_name = os.path.splitext(self.checkbox[scan].text())[0]
+                scan_list.append(base_name.replace(self.sample+'_', ''))
+        return ' '.join(scan_list)
 
     @property
-    def scan_label(self):
-        return self.textbox['New Scan Label'].text()
+    def scan_files(self):
+        scan_files = []
+        for scan in self.checkbox:
+            if self.checkbox[scan].isChecked():
+                scan_files.append(self.checkbox[scan].text())
+        return scan_files
+
+    def get_label(self, scan_file):
+        base_name = os.path.basename(os.path.splitext(scan_file)[0])
+        return base_name.replace(self.sample+'_', '')
 
     def select_scans(self):
         for scan in self.checkbox:
@@ -78,9 +87,22 @@ class SumDialog(BaseDialog):
         server = NXServer(self.experiment_directory)
         if not server.is_running():
             raise NeXusError('Server not running')
+        scan_filter = ';;'.join(("NeXus Files (*.nxs)", "Any Files (*.* *)"))
+        preferred_name = os.path.join(self.sample_directory, 
+                                      self.sample+'_'+'sum.nxs')
+        scan_file = getSaveFileName(self, 'Choose Summed File Name', 
+                                    preferred_name, scan_filter)
+        if not scan_file:
+            return
+        prefix = self.sample + '_'
+        if not os.path.basename(scan_file).startswith(prefix):
+            raise NeXusError("Summed file name must start with '%s'" % prefix)
+
+        self.scan_label = self.get_label(scan_file)
         scan_dir = os.path.join(self.sample_directory, self.scan_label)
         scan_file = os.path.join(self.sample_directory, 
                                  self.sample+'_'+self.scan_label+'.nxs')
+        copy_file = os.path.join(self.sample_directory, self.scan_files[0])
         if os.path.exists(scan_file):
             if confirm_action('New scan file already exists. Overwrite?'):
                 os.remove(scan_file)
@@ -92,8 +114,34 @@ class SumDialog(BaseDialog):
                 return
         else:
             os.mkdir(scan_dir)
-        
+        copyfile(copy_file, scan_file)
+        self.clean_scan(scan_file)
+        self.treeview.tree.load(scan_file, 'rw')
         reduce = NXReduce(scan_file)    
         for entry in reduce.entries:
-            server.add_task('nxsum -d %s -e %s -o' % (self.sample_directory,
-                                                      entry))
+            server.add_task('nxsum -d %s -e %s -o -s %s' 
+                            % (self.sample_directory, entry, self.scan_list))
+
+    def clean_scan(self, scan_file):
+        with Lock(scan_file):
+            scan_root = nxload(scan_file, 'rw')
+            for entry in scan_root:
+                if 'transform' in scan_root[entry]:
+                    del scan_root[entry]['transform']
+                if 'masked_transform' in scan_root[entry]:
+                    del scan_root[entry]['masked_transform']
+                if 'nxtransform' in scan_root[entry]:
+                    del scan_root[entry]['nxtransform']
+                if 'nxcombine' in scan_root[entry]:
+                    del scan_root[entry]['nxcombine']
+                if 'nxmasked_transform' in scan_root[entry]:
+                    del scan_root[entry]['nxmasked_transform']
+                if 'nxmasked_combine' in scan_root[entry]:
+                    del scan_root[entry]['nxmasked_combine']
+                if 'data' in scan_root[entry]:
+                    if 'data' in scan_root[entry]['data']:
+                        del scan_root[entry]['data/data']
+                        scan_root[entry]['data/data'] = NXlink(
+                            '/entry/data/data', self.scan_label+'/'+entry+'.h5')
+                    if 'data_mask' in scan_root[entry]['data']:
+                        del scan_root[entry]['data/data_mask']

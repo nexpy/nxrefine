@@ -2,6 +2,7 @@ import logging, logging.handlers
 import os
 import errno
 import platform
+import shutil
 import subprocess
 import sys
 import time
