@@ -117,7 +117,7 @@ class SumDialog(BaseDialog):
         copyfile(copy_file, scan_file)
         self.clean_scan(scan_file)
         self.treeview.tree.load(scan_file, 'rw')
-        reduce = NXReduce(scan_file)    
+        reduce = NXReduce(directory=scan_dir)    
         for entry in reduce.entries:
             server.add_task('nxsum -d %s -e %s -o -s %s' 
                             % (self.sample_directory, entry, self.scan_list))
