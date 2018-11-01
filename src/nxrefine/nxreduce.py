@@ -9,6 +9,7 @@ import time
 import timeit
 import datetime
 import numpy as np
+import h5py as h5
 from h5py import is_hdf5
 
 from nexusformat.nexus import *
