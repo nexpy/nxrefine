@@ -538,6 +538,7 @@ class NXReduce(QtCore.QObject):
         if self.last == None:
             self.last = self.field.shape[0]
         tic = self.start_progress(self.first, self.last)
+        fsum = np.zeros(self.entry['data'].nxaxes[0].shape, dtype=np.float64)
         for i in range(self.first, self.last, chunk_size):
             if self.stopped:
                 return None
@@ -550,6 +551,7 @@ class NXReduce(QtCore.QObject):
                 vsum = v.sum(0)
             else:
                 vsum += v.sum(0)
+            fsum[i:i+chunk_size] = v.sum((1,2))
             if self.pixel_mask is not None:
                 v = np.ma.masked_array(v)
                 v.mask = self.pixel_mask
@@ -560,6 +562,7 @@ class NXReduce(QtCore.QObject):
             vsum = np.ma.masked_array(vsum)
             vsum.mask = self.pixel_mask
         self.summed_data = NXfield(vsum, name='summed_data')
+        self.summed_frames = NXfield(fsum, name='summed_frames')
         toc = self.stop_progress()
         self.logger.info('Maximum counts: %s (%g seconds)' % (maximum, toc-tic))
         return maximum
@@ -572,6 +575,10 @@ class NXReduce(QtCore.QObject):
             del self.entry['summed_data']
         self.entry['summed_data'] = NXdata(self.summed_data,
                                            self.entry['data'].nxaxes[-2:])
+        if 'summed_frames' in self.entry:
+            del self.entry['summed_frames']
+        self.entry['summed_frames'] = NXdata(self.summed_frames,
+                                             self.entry['data'].nxaxes[0])
         try:
             from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
             parameters = self.entry['instrument/calibration/refinement/parameters']
