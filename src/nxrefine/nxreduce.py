@@ -991,6 +991,9 @@ class NXReduce(QtCore.QObject):
                     break
                 else:
                     continue
+            else:
+                self.logger.info("Summing %s in '%s'" % (self.entry_name,
+                                                         reduce.data_file)
             with Lock(reduce.data_file):
                 if i == 0:
                     shutil.copyfile(reduce.data_file, self.data_file)
