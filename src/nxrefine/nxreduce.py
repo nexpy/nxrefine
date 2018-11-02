@@ -1001,7 +1001,7 @@ class NXReduce(QtCore.QObject):
                 if i == 0:
                     shutil.copyfile(reduce.data_file, self.data_file)
                     new_file = h5.File(self.data_file, 'r+')
-                    new_field = scan_file[self.path]
+                    new_field = new_file[self.path]
                 else:
                     scan_file = h5.File(reduce.data_file, 'r')
                     scan_field = scan_file[self.path]
