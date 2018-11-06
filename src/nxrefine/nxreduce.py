@@ -1065,6 +1065,7 @@ class NXReduce(QtCore.QObject):
         command = self.command(parent)
         if command:
             self.server.add_task(self.command(parent))
+            self.server.add_task(command)
             now = datetime.datetime.now()
             # TODO: How should I handle nxparent command?
             if command.split()[0] == 'nxparent':
@@ -1127,17 +1128,32 @@ class NXMultiReduce(NXReduce):
                 return
             with Lock(self.wrapper_file):
                 cctw_command = self.prepare_combine()
+                root = nxload(self.wrapper_file, 'r')
             if cctw_command:
                 if self.mask:
                     self.logger.info('Combining masked transforms (%s)'
                                      % ', '.join(self.entries))
+                    transform_file = os.path.join(self.directory, 
+                                                  'masked_transform.nxs')
+                    transform_path = 'masked_transform/data'
                 else:
                     self.logger.info('Combining transforms (%s)'
                                      % ', '.join(self.entries))
+                    transform_file = os.path.join(self.directory, 
+                                                  'transform.nxs')
+                    transform_path = 'transform/data'
                 tic = timeit.default_timer()
-                process = subprocess.run(cctw_command, shell=True,
-                                         stdout=subprocess.PIPE,
-                                         stderr=subprocess.PIPE)
+                with Lock(transform_file):
+                    data_lock = {}
+                    for entry in self.entries:
+                        data_lock[entry] = Lock(
+                            root[entry][transform_path].nxfilename)
+                        data_lock[entry].acquire()
+                    process = subprocess.run(cctw_command, shell=True,
+                                             stdout=subprocess.PIPE,
+                                             stderr=subprocess.PIPE)
+                    for entry in self.entries:
+                        data_lock[entry].release()
                 toc = timeit.default_timer()
                 if process.returncode == 0:
                     self.logger.info('%s (%s)completed (%g seconds)'
