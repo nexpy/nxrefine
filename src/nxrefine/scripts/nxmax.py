@@ -22,6 +22,8 @@ def main():
     parser.add_argument('-l', '--last', type=int, help='last frame')
     parser.add_argument('-o', '--overwrite', action='store_true', 
                         help='overwrite existing maximum')
+    parser.add_argument('-q', '--queue', action='store_true',
+                        help='add to server task queue')
 
     args = parser.parse_args()
 
@@ -29,7 +31,10 @@ def main():
         reduce = NXReduce(entry, args.directory, maxcount=True,
                           first=args.first, last=args.last, 
                           overwrite=args.overwrite)
-        reduce.nxmax()
+        if args.queue:
+            reduce.queue()
+        else:
+            reduce.nxmax()
 
 
 if __name__=="__main__":

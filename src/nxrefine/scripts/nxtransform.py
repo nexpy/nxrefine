@@ -27,6 +27,8 @@ def main():
                         help='width of masked region (in frames)')
     parser.add_argument('-o', '--overwrite', action='store_true', 
                         help='overwrite existing transforms')
+    parser.add_argument('-q', '--queue', action='store_true',
+                        help='add to server task queue')
     
     args = parser.parse_args()
     
@@ -36,9 +38,15 @@ def main():
                           radius=args.radius, width=args.width,
                           overwrite=args.overwrite)
         if args.mask:
-            reduce.nxmasked_transform()
+            if args.queue:
+                reduce.queue()
+            else:
+                reduce.nxmasked_transform()
         else:
-            reduce.nxtransform()
+            if args.queue:
+                reduce.queue()
+            else:
+                reduce.nxtransform()
 
 
 if __name__=="__main__":

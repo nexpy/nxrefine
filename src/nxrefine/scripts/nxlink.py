@@ -20,13 +20,18 @@ def main():
         nargs='+', help='names of entries to be searched')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing peaks')
+    parser.add_argument('-q', '--queue', action='store_true',
+                        help='add to server task queue')
 
     args = parser.parse_args()
 
     for entry in args.entries:
         reduce = NXReduce(entry, args.directory, link=True,
                           overwrite=args.overwrite)
-        reduce.nxlink()
+        if args.queue:
+            reduce.queue()
+        else:
+            reduce.nxlink()
 
 
 if __name__=="__main__":

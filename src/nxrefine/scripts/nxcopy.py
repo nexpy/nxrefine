@@ -22,13 +22,18 @@ def main():
     parser.add_argument('-p', '--parent', help='file name of file to copy from')
     parser.add_argument('-o', '--overwrite', action='store_true', 
                         help='overwrite existing peaks')
+    parser.add_argument('-q', '--queue', action='store_true',
+                        help='add to server task queue')
 
     args = parser.parse_args()
 
     for entry in args.entries:
         reduce = NXReduce(entry, args.directory, parent=args.parent, copy=True,
                           overwrite=args.overwrite)
-        reduce.nxcopy()
+        if args.queue:
+            reduce.queue()
+        else:
+            reduce.nxcopy()
     
 
 if __name__=="__main__":

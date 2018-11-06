@@ -18,6 +18,8 @@ def main():
                         help='overwrite existing peaks')
     parser.add_argument('-p', '--parent', default=None,
                         help='The parent .nxs file to use')
+    parser.add_argument('-q', '--queue', action='store_true',
+                        help='add to server task queue')
 
     args = parser.parse_args()
 
@@ -26,7 +28,10 @@ def main():
                           threshold=args.threshold,
                           first=args.first, last=args.last,
                           overwrite=args.overwrite)
-        reduce.nxfind()
+        if args.queue:
+            reduce.queue()
+        else:
+            reduce.nxfind()
 
 
 if __name__=="__main__":

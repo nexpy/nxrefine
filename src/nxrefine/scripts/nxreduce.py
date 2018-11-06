@@ -36,6 +36,8 @@ def main():
                         help='combine CCTW transforms')
     parser.add_argument('-o', '--overwrite', action='store_true', 
                         help='overwrite existing maximum')
+    parser.add_argument('-q', '--queue', action='store_true',
+                        help='add to server task queue')
 
     args = parser.parse_args()
 
@@ -44,10 +46,18 @@ def main():
                           maxcount=args.max, find=args.find, copy=args.copy,
                           refine=args.refine, transform=args.transform,
                           mask=args.mask, overwrite=args.overwrite)
-        reduce.nxreduce()
+        if args.queue:
+            reduce.queue()
+        else:
+            reduce.nxreduce()
     if args.combine:
-        multi_reduce = NXMultiReduce(args.directory, entries=args.entries,
+        reduce = NXMultiReduce(args.directory, entries=args.entries,
                                      mask=args.mask, overwrite=args.overwrite)
+        if args.queue:
+            reduce.queue()
+        else:
+            reduce.nxcombine()
+
 
 
 if __name__=="__main__":
