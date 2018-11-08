@@ -167,8 +167,28 @@ class WorkflowDialog(BaseDialog):
         row += 1
         self.grid.addWidget(QtWidgets.QLabel('All'), row, 0, QtCore.Qt.AlignCenter)
         all_boxes = {}
+        all_boxes['link'] = self.new_checkbox(lambda:self.select_status('link'))
+        all_boxes['max'] = self.new_checkbox(lambda:self.select_status('max'))
+        all_boxes['find'] = self.new_checkbox(lambda:self.select_status('find'))
+        all_boxes['copy'] = self.new_checkbox(lambda:self.select_status('copy'))
+        all_boxes['refine'] = self.new_checkbox(lambda:self.select_status('refine'))
+        all_boxes['transform'] = self.new_checkbox(lambda:self.select_status('transform'))
+        all_boxes['masked_transform'] = self.new_checkbox(lambda:self.select_status('masked_transform'))
+        all_boxes['combine'] = self.new_checkbox(lambda:self.select_status('combine'))
+        all_boxes['masked_combine'] = self.new_checkbox(lambda:self.select_status('masked_combine'))
+        all_boxes['pdf'] = self.new_checkbox(lambda:self.select_status('pdf'))
         all_boxes['overwrite'] = self.new_checkbox(self.select_all)
         all_boxes['reduce'] = self.new_checkbox(self.select_all)
+        self.grid.addWidget(all_boxes['link'], row, 2, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['max'], row, 3, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['find'], row, 4, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['copy'], row, 5, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['refine'], row, 6, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['transform'], row, 7, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['masked_transform'], row, 8, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['combine'], row, 9, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['masked_combine'], row, 10, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['pdf'], row, 11, QtCore.Qt.AlignCenter)
         self.grid.addWidget(all_boxes['overwrite'], row, 12, QtCore.Qt.AlignCenter)
         self.grid.addWidget(all_boxes['reduce'], row, 13, QtCore.Qt.AlignCenter)
         self.all_scans = all_boxes
@@ -273,11 +293,13 @@ class WorkflowDialog(BaseDialog):
             for status in self.programs:
                 if self.scans[scan][status].isEnabled():
                     self.scans[scan][status].setChecked(True)
+                self.all_scans[status].setChecked(True)
         else:
             if self.overwrite_selected(scan):
                 for status in self.programs:
                     if self.scans[scan][status].isEnabled():
-                        self.scans[scan][status].setChecked(False)
+                        self.scans[scan][status].setChecked(
+                            self.all_scans[status].isChecked())
             else:
                 self.restore_scan(scan)
 
@@ -294,8 +316,16 @@ class WorkflowDialog(BaseDialog):
                     self.all_scans[status].checkState())
             for status in ['overwrite', 'reduce']:
                 self.scans[scan][status].blockSignals(False)
+        for status in self.programs:
+            self.all_scans[status].setChecked(self.all_scans['reduce'].isChecked())
         for scan in self.enabled_scans:
             self.select_programs(scan)
+
+    def select_status(self, status):
+        for scan in self.enabled_scans:
+            if self.scans[scan][status].isEnabled():
+                self.scans[scan][status].setCheckState(
+                    self.all_scans[status].checkState())
 
     def deselect_all(self):
         for scan in self.enabled_scans:
