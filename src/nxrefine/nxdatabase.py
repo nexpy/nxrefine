@@ -210,18 +210,10 @@ def update_data(filename):
         sample = os.path.basename(os.path.dirname(sample_dir))
         scan_label = base_name.replace(sample+'_', '')
         scan_dir = os.path.join(sample_dir, scan_label)
-        try:
-            scan_files = os.listdir(scan_dir)
-        except OSError:
-            scan_files = []
-
         data = 0
-        with Lock(filename):
-            root = nxload(filename)
-            entries = (e for e in root.entries if e != 'entry')
-            for e in entries:
-                if e+'.h5' in scan_files or e+'.nxs' in scan_files:
-                    data += 1
+        for e in ['f1', 'f2', 'f3']:
+            if os.path.exists(os.path.join(scan_dir, e+'.h5')):
+                data += 1
         if data == 0:
             f.data = NOT_STARTED
         elif data == NUM_ENTRIES:
