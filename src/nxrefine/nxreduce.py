@@ -1015,9 +1015,11 @@ class NXReduce(QtCore.QObject):
         self.nxmax()
         self.nxfind()
         self.nxcopy()
-        self.nxrefine()
-        self.nxtransform()
-        self.nxmasked_transform()
+        if self.complete('nxcopy'):
+            self.nxrefine()
+            if self.complete('nxrefine'):
+                self.nxtransform()
+                self.nxmasked_transform()
 
     def command(self, parent=False):
         switches = ['-d %s' % self.directory, '-e %s' % self.entry_name]
