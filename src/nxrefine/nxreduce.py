@@ -769,8 +769,6 @@ class NXReduce(QtCore.QObject):
                     self.record('nxcopy', parent=self.parent)
             else:
                 self.logger.info('No parent defined')
-                with Lock(self.wrapper_file):
-                    self.record('nxcopy')
         elif self.copy:
             self.logger.info('Data already copied')
 
@@ -1066,7 +1064,6 @@ class NXReduce(QtCore.QObject):
 
         command = self.command(parent)
         if command:
-            self.server.add_task(self.command(parent))
             self.server.add_task(command)
             now = datetime.datetime.now()
             # TODO: How should I handle nxparent command?
