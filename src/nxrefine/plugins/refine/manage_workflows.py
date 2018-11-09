@@ -346,7 +346,7 @@ class WorkflowDialog(BaseDialog):
                 self.scans[scan][command].checkState()==QtCore.Qt.Checked)
 
     def queued(self, scan, program):
-        self.scans[scan][program].setChecked(False)
+        self.scans[scan][program].setCheckState(QtCore.Qt.PartiallyChecked)
         self.scans[scan][program].setEnabled(False)
 
     def add_tasks(self):
