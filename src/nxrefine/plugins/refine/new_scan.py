@@ -50,7 +50,7 @@ class ScanDialog(BaseDialog):
                         self.entries[5].grid(header=False),
                         self.action_buttons(('Make Scan File', self.make_scan)),
                         self.close_buttons(close=True))
-        self.setup_directory()
+
         for i in self.entries:
             self.entries[i].hide_grid()
         self.entries[1].show_grid()
