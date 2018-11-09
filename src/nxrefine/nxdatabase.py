@@ -137,7 +137,7 @@ def get_file(filename):
         session.commit()
         f = update_file(filename)
     else:
-        update_data(f)
+        f = update_data(filename)
     return f
 
 def update_file(filename):
@@ -196,13 +196,15 @@ def update_file(filename):
         session.commit()
     return f
 
-def update_data(f):
+def update_data(filename):
     """ Update status of raw data linked from filename
 
         filename: string, path of wrapper file relative to GUP directory
      """
+    f = session.query(File) \
+            .filter(File.filename == get_filename(filename)) \
+            .one_or_none()
     if f:
-        filename = f.filename
         base_name = os.path.basename(os.path.splitext(filename)[0])
         sample_dir = os.path.dirname(filename)
         sample = os.path.basename(os.path.dirname(sample_dir))
@@ -227,6 +229,7 @@ def update_data(f):
         else:
             f.data = IN_PROGRESS
         session.commit()
+    return f
 
 def queue_task(filename, task, entry):
     """ Update a file to 'queued' status and create a matching task
