@@ -1059,9 +1059,6 @@ class NXReduce(QtCore.QObject):
 
     def queue(self, parent=False):
         """ Add tasks to the server's fifo, and log this in the database """
-        if not self.server.is_running():
-            raise NeXusError("NXServer not running")
-
         command = self.command(parent)
         if command:
             self.server.add_task(command)
