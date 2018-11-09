@@ -202,6 +202,7 @@ def update_data(f):
         filename: string, path of wrapper file relative to GUP directory
      """
     if f:
+        filename = f.filename
         base_name = os.path.basename(os.path.splitext(filename)[0])
         sample_dir = os.path.dirname(filename)
         sample = os.path.basename(os.path.dirname(sample_dir))
