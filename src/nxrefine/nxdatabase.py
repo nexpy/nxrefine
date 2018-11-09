@@ -136,6 +136,8 @@ def get_file(filename):
         session.add(File(filename = get_filename(filename)))        
         session.commit()
         f = update_file(filename)
+    else:
+        f = update_data(filename)
     return f
 
 def update_file(filename):
@@ -191,6 +193,39 @@ def update_file(filename):
                 setattr(f, task, DONE)
             else:
                 setattr(f, task, IN_PROGRESS)
+        session.commit()
+    return f
+
+def update_data(filename):
+    """ Update status of raw data linked from filename
+
+        filename: string, path of wrapper file relative to GUP directory
+     """
+    f = get_file(filename)
+    if f:
+        base_name = os.path.basename(os.path.splitext(filename)[0])
+        sample_dir = os.path.dirname(filename)
+        sample = os.path.basename(os.path.dirname(sample_dir))
+        scan_label = base_name.replace(sample+'_', '')
+        scan_dir = os.path.join(sample_dir, scan_label)
+        try:
+            scan_files = os.listdir(scan_dir)
+        except OSError:
+            scan_files = []
+
+        data = 0
+        with Lock(filename):
+            root = nxload(filename)
+            entries = (e for e in root.entries if e != 'entry')
+            for e in entries:
+                if e+'.h5' in scan_files or e+'.nxs' in scan_files:
+                    data += 1
+        if data == 0:
+            f.data = NOT_STARTED
+        elif data == NUM_ENTRIES:
+            f.data = DONE
+        else:
+            f.data = IN_PROGRESS
         session.commit()
     return f
 
