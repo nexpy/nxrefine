@@ -411,9 +411,10 @@ class WorkflowDialog(BaseDialog):
         dialog.setMinimumWidth(800)
         dialog.setMinimumHeight(600)
         scans = [os.path.basename(scan) for scan in self.scans]
-        self.scan_combo = dialog.select_box(scans)
-        self.entry_combo = dialog.select_box(self.entries)
-        self.program_combo = dialog.select_box(self.programs)
+        self.scan_combo = dialog.select_box(scans, slot=self.refreshview)
+        self.entry_combo = dialog.select_box(self.entries, slot=self.refreshview)
+        self.program_combo = dialog.select_box(self.programs, slot=self.refreshview)
+        self.defaultview = None
         self.output_box = dialog.editor()
         self.output_box.setStyleSheet('font-family: monospace;')
         self.output_box.setLineWrapMode(QtWidgets.QPlainTextEdit.NoWrap)
@@ -430,6 +431,7 @@ class WorkflowDialog(BaseDialog):
         self.view_dialog.show()
 
     def serverview(self):
+        self.defaultview = self.serverview
         scan = self.scan_combo.currentText()
         with open(os.path.join(self.task_directory, 'nxserver.log')) as f:
             lines = f.readlines()
@@ -441,6 +443,7 @@ class WorkflowDialog(BaseDialog):
             self.output_box.setPlainText('No Logs')
 
     def logview(self):
+        self.defaultview = self.logview
         scan = self.sample + '_' + self.scan_combo.currentText()
         entry = self.entry_combo.currentText()
         prefix = scan + "['" + entry + "']: "
@@ -454,6 +457,7 @@ class WorkflowDialog(BaseDialog):
             self.output_box.setPlainText('No Logs')
 
     def outview(self):
+        self.defaultview = self.outview
         scan = self.sample + '_' + self.scan_combo.currentText()
         entry = self.entry_combo.currentText()
         program = 'nx' + self.program_combo.currentText()
@@ -471,6 +475,7 @@ class WorkflowDialog(BaseDialog):
             self.output_box.setPlainText('No output for %s' % program)
 
     def databaseview(self):
+        self.defaultview = self.databaseview
         scan = self.sample + '_' + self.scan_combo.currentText()
         entry = self.entry_combo.currentText()
         program = 'nx' + self.program_combo.currentText()
@@ -486,3 +491,7 @@ class WorkflowDialog(BaseDialog):
             self.output_box.setPlainText('\n'.join(text))
         else:
             self.output_box.setPlainText('No Entries')
+
+    def refreshview(self):
+        if self.defaultview:
+            self.defaultview()
