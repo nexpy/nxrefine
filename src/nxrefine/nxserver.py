@@ -1,6 +1,7 @@
 import os
 import subprocess
 import time
+from datetime import datetime
 from multiprocessing import Process, Queue, JoinableQueue
 from .daemon import NXDaemon
 import nxrefine.nxdatabase as nxdb
@@ -34,7 +35,7 @@ class NXWorker(Process):
 
     def log(self, message):
         with open(self.log_file, 'a') as f:
-            f.write(message+'\n')
+            f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S")+' '+str(message)+'\n')
 
 
 class NXTask(object):
@@ -91,7 +92,7 @@ class NXServer(NXDaemon):
 
     def log(self, message):
         with open(self.log_file, 'a') as f:
-            f.write(str(message)+'\n')
+            f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S")+' '+str(message)+'\n')
 
     def run(self):
         """
