@@ -45,11 +45,13 @@ class ServerDialog(BaseDialog):
             self.pushbutton['server'].setText('Start Server')
 
     def toggle_server(self):
-        if not self.experiment_directory:
+          switches = '-c %s -g %s' % (os.path.dirname(self.home_directory),
+                                      os.path.basename(self.home_directory))
+          if not self.experiment_directory:
             raise NeXusError('Experiment directory not chosen')
         elif self.pushbutton['server'].text() == 'Start Server':
-            self.server.start()
+            subprocess.run('nxserver %s start' % switches, shell=True)
             self.pushbutton['server'].setText('Stop Server')
         else:
-            self.server.stop()
+            subprocess.run('nxserver %s stop' % switches, shell=True)
             self.pushbutton['server'].setText('Start Server')
