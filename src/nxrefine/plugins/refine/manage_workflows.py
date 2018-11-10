@@ -479,7 +479,7 @@ class WorkflowDialog(BaseDialog):
             entry = 'entry'
         wrapper_file = os.path.join(self.sample_directory, scan+'.nxs')
         f = nxdb.get_file(wrapper_file)
-        text = [' '.join([t.entry, str(t.status), 
+        text = [' '.join([t.name, t.entry, str(t.status), 
                           str(t.queue_time), str(t.start_time), str(t.end_time)]) 
                 for t in f.tasks]
         if text:
