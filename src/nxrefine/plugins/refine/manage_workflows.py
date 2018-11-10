@@ -293,7 +293,6 @@ class WorkflowDialog(BaseDialog):
             for status in self.programs:
                 if self.scans[scan][status].isEnabled():
                     self.scans[scan][status].setChecked(True)
-                self.all_scans[status].setChecked(True)
         else:
             if self.overwrite_selected(scan):
                 for status in self.programs:
