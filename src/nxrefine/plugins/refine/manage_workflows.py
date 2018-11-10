@@ -481,7 +481,7 @@ class WorkflowDialog(BaseDialog):
         f = nxdb.get_file(wrapper_file)
         text = [' '.join([t.name, t.entry, str(t.status), 
                           str(t.queue_time), str(t.start_time), str(t.end_time)]) 
-                for t in f.tasks]
+                for t in f.tasks if t.name == program]
         if text:
             self.output_box.setPlainText('\n'.join(text))
         else:
