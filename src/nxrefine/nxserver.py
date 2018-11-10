@@ -50,9 +50,12 @@ class NXTask(object):
 
 class NXServer(NXDaemon):
 
-    def __init__(self, directory, node_file=None):
+    def __init__(self, directory=None, node_file=None):
         self.pid_name = 'nxserver'
-        self.directory = directory = os.path.realpath(directory)
+        if directory:
+            self.directory = directory = os.path.realpath(directory)
+        else:
+            self.directory = os.getcwd()
         self.task_directory = os.path.join(directory, 'tasks')
         if 'tasks' not in os.listdir(directory):
             os.mkdir(self.task_directory)
@@ -78,8 +81,12 @@ class NXServer(NXDaemon):
 
     def read_nodes(self, node_file):
         """Read available nodes"""
-        with open(node_file) as f:
-            nodes = [line.strip() for line in f.readlines() if line.strip() != '']
+        if os.path.exists(node_file):
+            with open(node_file) as f:
+                nodes = [line.strip() for line in f.readlines() 
+                         if line.strip() != '']
+        else:
+            nodes = []
         return nodes
 
     def log(self, message):
