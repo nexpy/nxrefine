@@ -434,6 +434,7 @@ class NXReduce(QtCore.QObject):
                     self.record_fail('nxlink')
         elif self.link:
             self.logger.info('Data already linked')
+            self.record_end('nxlink')
 
     def link_data(self):
         if self.field:
@@ -533,6 +534,7 @@ class NXReduce(QtCore.QObject):
                     self.write_maximum(maximum)
         elif self.maxcount:
             self.logger.info('Maximum counts already found')
+            self.record_end('nxmax')
 
     def find_maximum(self):
         self.logger.info('Finding maximum counts')
@@ -632,6 +634,7 @@ class NXReduce(QtCore.QObject):
                     self.write_peaks(peaks)
         elif self.find:
             self.logger.info('Peaks already found')
+            self.record_end('nxfind')
 
     def find_peaks(self):
         self.logger.info("Finding peaks")
@@ -779,6 +782,7 @@ class NXReduce(QtCore.QObject):
                 self.record_fail('nxcopy')
         elif self.copy:
             self.logger.info('Data already copied')
+            self.record_end('nxcopy')
 
     def copy_parameters(self):
         with Lock(self.parent):
@@ -809,6 +813,7 @@ class NXReduce(QtCore.QObject):
                     self.record_fail('nxrefine')
         elif self.refine:
             self.logger.info('HKL values already refined')
+            self.record_end('nxrefine')
 
     def refine_parameters(self, lattice=False):
         refine = NXRefine(self.entry)
@@ -862,6 +867,7 @@ class NXReduce(QtCore.QObject):
                 self.record_fail('nxtransform')
         elif self.transform:
             self.logger.info('Data already transformed')
+            self.record_end('nxtransform')
 
     def get_transform_grid(self):
         if self.Qh and self.Qk and self.Ql:
@@ -947,6 +953,7 @@ class NXReduce(QtCore.QObject):
                 self.record_fail('nxmasked_transform')
         elif self.mask:
             self.logger.info('Masked data already transformed')
+            self.record_end('nxmasked_transform')
 
     def calculate_mask(self):
         self.logger.info("Calculating 3D mask")
@@ -1031,6 +1038,13 @@ class NXReduce(QtCore.QObject):
             if self.complete('nxrefine'):
                 self.nxtransform()
                 self.nxmasked_transform()
+            else:
+                self.record_fail('nxtransform')
+                self.record_fail('nxmasked_transform')
+        else:
+            self.record_fail('nxrefine')
+            self.record_fail('nxtransform')
+            self.record_fail('nxmasked_transform')
 
     def command(self, parent=False):
         switches = ['-d %s' % self.directory, '-e %s' % self.entry_name]
