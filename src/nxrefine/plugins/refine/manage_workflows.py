@@ -216,6 +216,9 @@ class WorkflowDialog(BaseDialog):
                 elif file_status == nxdb.QUEUED:
                     checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
                     checkbox.setEnabled(False)
+                elif file_status == nxdb.FAILED:
+                    checkbox.setCheckState(QtCore.Qt.Unchecked)
+                    checkbox.setEnabled(True)
                 # TODO: do i need to account for last?
             if status['data'].checkState() == QtCore.Qt.Unchecked:
                 self.disable_status(status)
@@ -413,12 +416,14 @@ class WorkflowDialog(BaseDialog):
         self.program_combo = dialog.select_box(self.programs)
         self.output_box = dialog.editor()
         self.output_box.setStyleSheet('font-family: monospace;')
+        self.output_box.setLineWrapMode(QtWidgets.QPlainTextEdit.NoWrap)
         dialog.set_layout(
             dialog.make_layout(self.scan_combo, self.entry_combo, self.program_combo),
             self.output_box,
             dialog.action_buttons(('View Server Logs', self.serverview),
                                   ('View Workflow Logs', self.logview),
-                                  ('View Workflow Output', self.outview)),
+                                  ('View Workflow Output', self.outview),
+                                  ('View Database', self.databaseview)),
             dialog.close_buttons(close=True))
         dialog.setWindowTitle("'%s' Logs" % self.sample)
         self.view_dialog = dialog
@@ -464,3 +469,19 @@ class WorkflowDialog(BaseDialog):
             self.output_box.setPlainText(text)
         else:
             self.output_box.setPlainText('No output for %s' % program)
+
+    def databaseview(self):
+        scan = self.sample + '_' + self.scan_combo.currentText()
+        entry = self.entry_combo.currentText()
+        program = 'nx' + self.program_combo.currentText()
+        if (program == 'nxcombine' or program == 'nxmasked_combine' or
+            program == 'nxpdf'):
+            entry = 'entry'
+        wrapper_file = os.path.join(self.sample_directory, scan+'.nxs')
+        f = nxdb.get_file(wrapper_file)
+        text = [' '.join([t.entry, t.status, t.queue_time, t.start_time, t.end_time]) 
+                for t in f.tasks]
+        if text:
+            self.output_box.setPlainText(''.join(text))
+        else:
+            self.output_box.setPlainText('No Entries')
