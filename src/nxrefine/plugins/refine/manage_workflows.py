@@ -483,6 +483,6 @@ class WorkflowDialog(BaseDialog):
                           str(t.queue_time), str(t.start_time), str(t.end_time)]) 
                 for t in f.tasks]
         if text:
-            self.output_box.setPlainText(''.join(text))
+            self.output_box.setPlainText('\n'.join(text))
         else:
             self.output_box.setPlainText('No Entries')
