@@ -1236,9 +1236,9 @@ class NXMultiReduce(NXReduce):
             raise NeXusError("NXServer not running")
         self.server.add_task(self.command())
         if self.mask:
-            nxdb.queue_task(self.wrapper_file, 'nxmasked_combine', None)
+            nxdb.queue_task(self.wrapper_file, 'nxmasked_combine', 'entry')
         else:
-            nxdb.queue_task(self.wrapper_file, 'nxcombine', None)
+            nxdb.queue_task(self.wrapper_file, 'nxcombine', 'entry')
 
 
 class NXpeak(object):
