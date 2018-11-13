@@ -74,6 +74,7 @@ class File(Base):
                 "in_progress={}\n\tdone={}".format(
                 self.filename, not_started, queued, in_progress, done)
 
+
 class Task(Base):
     __tablename__ = 'tasks'
 
@@ -140,6 +141,14 @@ def get_file(filename):
         f = update_data(filename)
     return f
 
+def get_directory(filename):
+    """Return the directory path containing the raw data"""
+    base_name = os.path.basename(os.path.splitext(filename)[0])
+    sample_dir = os.path.dirname(filename)
+    sample = os.path.basename(os.path.dirname(sample_dir))
+    scan_label = base_name.replace(sample+'_', '')
+    return os.path.join(sample_dir, scan_label)
+
 def update_file(filename):
     """ Return the File object (and associated tasks) matching filename
 
@@ -147,13 +156,8 @@ def update_file(filename):
      """
     f = get_file(filename)
     if f:
-        base_name = os.path.basename(os.path.splitext(filename)[0])
-        sample_dir = os.path.dirname(filename)
-        sample = os.path.basename(os.path.dirname(sample_dir))
-        scan_label = base_name.replace(sample+'_', '')
-        scan_dir = os.path.join(sample_dir, scan_label)
         try:
-            scan_files = os.listdir(scan_dir)
+            scan_files = os.listdir(get_directory(filename))
         except OSError:
             scan_files = []
 
@@ -197,7 +201,7 @@ def update_file(filename):
     return f
 
 def update_data(filename):
-    """ Update status of raw data linked from filename
+    """ Update status of raw data linked from File
 
         filename: string, path of wrapper file relative to GUP directory
      """
@@ -205,11 +209,7 @@ def update_data(filename):
             .filter(File.filename == get_filename(filename)) \
             .one_or_none()
     if f:
-        base_name = os.path.basename(os.path.splitext(filename)[0])
-        sample_dir = os.path.dirname(filename)
-        sample = os.path.basename(os.path.dirname(sample_dir))
-        scan_label = base_name.replace(sample+'_', '')
-        scan_dir = os.path.join(sample_dir, scan_label)
+        scan_dir = get_directory(filename)
         data = 0
         for e in ['f1', 'f2', 'f3']:
             if os.path.exists(os.path.join(scan_dir, e+'.h5')):
@@ -228,11 +228,10 @@ def queue_task(filename, task, entry):
 
         filename, task, entry: strings that uniquely identify the desired task
     """
-    filename = get_filename(filename)
-    row = session.query(File).filter(File.filename == filename).scalar()
+    f = get_file(filename)
     time = datetime.datetime.now()
-    row.tasks.append(Task(name=task, entry=entry, queue_time=time))
-    setattr(row, task, QUEUED)
+    f.tasks.append(Task(name=task, entry=entry, queue_time=time))
+    setattr(f, task, QUEUED)
     session.commit()
 
 def start_task(filename, task_name, entry):
@@ -316,12 +315,12 @@ def sync_db(sample_dir):
                      os.listdir(sample_dir) if filename.endswith('.nxs')
                      and all(x not in filename for x in ('parent', 'mask'))]
 
-    for w in wrapper_files:
-        update_file(w)
+    for wrapper_file in wrapper_files:
+        update_file(get_file(wrapper_file))
     tracked_files = list(session.query(File).all())
-    for row in tracked_files:
-        if row.filename not in [get_filename(w) for w in wrapper_files]:
-            session.delete(row)
+    for f in tracked_files:
+        if f.filename not in [get_filename(w) for w in wrapper_files]:
+            session.delete(f)
     session.commit()
 
 """ Sample_dir should be the GUPxxx/agcrse2/xtalX directory -
