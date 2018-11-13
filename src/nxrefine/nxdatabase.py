@@ -239,20 +239,20 @@ def start_task(filename, task_name, entry):
 
         filename, task, entry: strings that uniquely identify the desired task
     """
-    row = get_file(filename)
+    f = get_file(filename)
     #Find the desired task, and create a new one if it doesn't exist
-    for t in row.tasks:
+    for t in reversed(f.tasks):
         if t.name == task_name and t.entry == entry and t.status == QUEUED:
             break
     else:
         # This task was started from command line, not queued on the server
         t = Task(name=task_name, entry=entry)
-        row.tasks.append(t)
+        f.tasks.append(t)
 
     t.status = IN_PROGRESS
     t.start_time = datetime.datetime.now()
     t.pid = os.getpid()
-    setattr(row, task_name, IN_PROGRESS)
+    setattr(f, task_name, IN_PROGRESS)
     session.commit()
 
 def end_task(filename, task_name, entry):
@@ -263,16 +263,13 @@ def end_task(filename, task_name, entry):
 
         filename, task_name, entry: strings that uniquely identify the desired task
     """
-    row = get_file(filename)
-    # Others of the same type of task for this file
-    matching_tasks = []
+    f = get_file(filename)
     # The entries that have finished this task
     finished_entries = [entry]
     t = None
-    for task in row.tasks:
+    for task in reversed(f.tasks):
         if task.name == task_name:
-            matching_tasks.append(task)
-            if task.entry == entry and task.status == IN_PROGRESS:
+            if task.entry == entry:
                 t = task
             elif task.status == DONE:
                 finished_entries.append(task.entry)
@@ -285,10 +282,8 @@ def end_task(filename, task_name, entry):
     # Update the status of the file to DONE if all tasks are done and there is
     # a finished task for each entry, otherwise leave it as IN_PROGRESS
     if (entry == 'entry' or 
-        (len(matching_tasks) >= NUM_ENTRIES and 
-         all(task.status == DONE for task in matching_tasks) and
-         all(e in finished_entries for e in ('f1', 'f2', 'f3')))):
-            setattr(row, task_name, DONE)
+        all(e in finished_entries for e in ('f1', 'f2', 'f3'))):
+        setattr(f, task_name, DONE)
     session.commit()
 
 def fail_task(filename, task_name, entry):
