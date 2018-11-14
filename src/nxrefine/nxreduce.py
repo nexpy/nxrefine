@@ -994,7 +994,7 @@ class NXReduce(QtCore.QObject):
             refine.l_start, refine.l_step, refine.l_stop = self.Ql
             refine.define_grid()
             refine.prepare_transform(transform_file, mask=mask)
-            refine.write_settings()
+            refine.write_settings(self.settings_file)
             return refine.cctw_command(mask)
         else:
             self.logger.info('Invalid HKL grid')
