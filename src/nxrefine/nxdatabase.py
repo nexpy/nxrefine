@@ -230,12 +230,18 @@ def queue_task(filename, task, entry):
         filename, task, entry: strings that uniquely identify the desired task
     """
     f = get_file(filename)
-    time = datetime.datetime.now()
-    f.tasks.append(Task(name=task, entry=entry, queue_time=time))
+    for t in reversed(f.tasks):
+        if t.name == task and t.entry == entry:
+            break
+    else:
+        t = Task(name=task, entry=entry)
+        f.tasks.append(t)
+    t.status = QUEUED
+    t.queue_time = datetime.datetime.now()
     setattr(f, task, QUEUED)
     session.commit()
 
-def start_task(filename, task_name, entry):
+def start_task(filename, task, entry):
     """ Record that a task has begun execution.
 
         filename, task, entry: strings that uniquely identify the desired task
@@ -243,58 +249,58 @@ def start_task(filename, task_name, entry):
     f = get_file(filename)
     #Find the desired task, and create a new one if it doesn't exist
     for t in reversed(f.tasks):
-        if t.name == task_name and t.entry == entry and t.status == QUEUED:
+        if t.name == task and t.entry == entry:
             break
     else:
         # This task was started from command line, not queued on the server
-        t = Task(name=task_name, entry=entry)
+        t = Task(name=task, entry=entry)
         f.tasks.append(t)
-
     t.status = IN_PROGRESS
     t.start_time = datetime.datetime.now()
     t.pid = os.getpid()
-    setattr(f, task_name, IN_PROGRESS)
+    setattr(f, task, IN_PROGRESS)
     session.commit()
 
-def end_task(filename, task_name, entry):
+def end_task(filename, task, entry):
     """ Record that a task finished execution.
 
         Update the task's database entry, and set the matching column in files
         to DONE if it's the last task to finish
 
-        filename, task_name, entry: strings that uniquely identify the desired task
+        filename, task, entry: strings that uniquely identify the desired task
     """
     f = get_file(filename)
     # The entries that have finished this task
-    finished_entries = [entry]
-    t = None
-    for task in reversed(f.tasks):
-        if task.name == task_name:
-            if task.entry == entry:
-                t = task
-            elif task.status == DONE:
-                finished_entries.append(task.entry)
-    if t is None:
-        print("ERROR: nxdatabase couldn't find task '%s' on file %s/%s"
-                    % (task_name, filename, entry))
-        return
+    for t in reversed(f.tasks):
+        if t.name == task and t.entry == entry:
+            break
+    else:
+        # This task was started from command line, not queued on the server
+        t = Task(name=task, entry=entry)
+        f.tasks.append(t)
     t.status = DONE
     t.end_time = datetime.datetime.now()
+    finished_entries = []
+    for e in ['f1', 'f2', 'f3']:
+        for t in reversed(f.tasks):
+            if t.name == task and t.entry == e and t.status == DONE:
+                finished_entries.append(t.entry)
+                break
     # Update the status of the file to DONE if all tasks are done and there is
     # a finished task for each entry, otherwise leave it as IN_PROGRESS
     if (entry == 'entry' or 
-        all(e in finished_entries for e in ('f1', 'f2', 'f3'))):
-        setattr(f, task_name, DONE)
+        all(e in finished_entries for e in ['f1', 'f2', 'f3'])):
+        setattr(f, task, DONE)
     session.commit()
 
-def fail_task(filename, task_name, entry):
+def fail_task(filename, task, entry):
     """ Record that a task failed during execution.
 
-        filename, task_name, entry: strings that uniquely identify the desired task
+        filename, task, entry: strings that uniquely identify the desired task
     """
     filename = get_filename(filename)
     task = session.query(Task).filter(Task.filename == filename)\
-            .filter(Task.name == task_name)\
+            .filter(Task.name == task)\
             .filter(Task.entry == entry)\
             .filter(Task.status == IN_PROGRESS).first()
     task.status = FAILED
