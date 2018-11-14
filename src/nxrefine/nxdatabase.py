@@ -155,6 +155,7 @@ def update_file(filename):
         filename: string, path of wrapper file relative to GUP directory
      """
     f = get_file(filename)
+    sample_dir = os.path.dirname(filename)
     if f:
         try:
             scan_files = os.listdir(get_directory(filename))
