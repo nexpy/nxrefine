@@ -26,6 +26,8 @@ def main():
                         help='radius of mask around each peak (in pixels)')
     parser.add_argument('-w', '--width', type=int, default=3, 
                         help='width of masked region (in frames)')
+    parser.add_argument('-n', '--norm', default=50000, 
+                        help='normalization to monitor1')
     parser.add_argument('-s', '--start', action='store_true',
                         help='start data reduction')
     parser.add_argument('-o', '--overwrite', action='store_true', 
@@ -41,7 +43,7 @@ def main():
                               link=True, maxcount=True, find=True, mask=True,
                               threshold=args.threshold, 
                               first=args.first, last=args.last,
-                              radius=args.radius, width=args.width,
+                              radius=args.radius, width=args.width, norm=args.norm,
                               overwrite=args.overwrite)
             reduce.nxlink()
             reduce.nxmax()

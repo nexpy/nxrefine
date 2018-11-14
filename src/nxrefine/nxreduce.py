@@ -932,7 +932,8 @@ class NXReduce(QtCore.QObject):
                         'Transform completed - errors reported (%g seconds)'
                         % (toc-tic))
                 with Lock(self.wrapper_file):
-                    self.record('nxtransform', command=cctw_command,
+                    self.record('nxtransform', norm=self.norm,
+                                command=cctw_command,
                                 output=process.stdout.decode(),
                                 errors=process.stderr.decode())
             else:
@@ -1024,7 +1025,7 @@ class NXReduce(QtCore.QObject):
                         % (toc-tic))
                 with Lock(self.wrapper_file):
                     self.record('nxmasked_transform', mask=self.mask_file,
-                                radius=self.radius, width=self.width,
+                                radius=self.radius, width=self.width, norm=self.norm,
                                 command=cctw_command,
                                 output=process.stdout.decode(),
                                 errors=process.stderr.decode())
@@ -1140,6 +1141,8 @@ class NXReduce(QtCore.QObject):
                 switches.append('-r %s' % self.radius)
             if self.width is not None:
                 switches.append('-w %s' % self.width)
+            if self.norm is not None:
+                switches.append('-n %s' % self.norm)
             switches.append('-s')
         else:
             command = 'nxreduce '
@@ -1169,10 +1172,6 @@ class NXReduce(QtCore.QObject):
         command = self.command(parent)
         if command:
             self.server.add_task(command)
-            now = datetime.datetime.now()
-            # TODO: How should I handle nxparent command?
-            if command.split()[0] == 'nxparent':
-                return
             if self.link:
                 nxdb.queue_task(self.wrapper_file, 'nxlink', self.entry_name)
             if self.maxcount:
