@@ -30,8 +30,8 @@ class NXReduce(QtCore.QObject):
 
     def __init__(self, entry='f1', directory=None, parent=None, entries=None,
                  data='data/data', extension='.h5', path='/entry/data/data',
-                 threshold=None, first=None, last=None, radius=200, width=3,
-                 Qh=None, Qk=None, Ql=None, 
+                 threshold=None, first=None, last=None, radius=None, width=None,
+                 norm=None, Qh=None, Qk=None, Ql=None, 
                  link=False, maxcount=False, find=False, copy=False,
                  refine=False, lattice=False, transform=False, mask=False,
                  overwrite=False, gui=False):
@@ -103,8 +103,9 @@ class NXReduce(QtCore.QObject):
         self.summed_data = None
         self._first = first
         self._last = last
-        self.radius = int(radius)
-        self.width = int(width)
+        self._radius = radius
+        self._width = width
+        self._norm = norm
         self.Qh = Qh
         self.Qk = Qk
         self.Ql = Ql
@@ -161,7 +162,7 @@ class NXReduce(QtCore.QObject):
     def root(self):
         if self._root is None:
             with Lock(self.wrapper_file):
-                self._root = nxload(self.wrapper_file, 'r+')
+                self._root = nxload(self.wrapper_file, 'rw')
         return self._root
 
     @property
@@ -308,13 +309,85 @@ class NXReduce(QtCore.QObject):
                 _threshold = self.maximum / 10
         try:
             self._threshold = np.float(_threshold)
+            if self._threshold <= 0.0:
+                self._threshold = None
         except:
             self._threshold = None
         return self._threshold
 
     @threshold.setter
-    def threshold(value):
+    def threshold(self, value):
         self._threshold = value
+
+    @property
+    def radius(self):
+        _radius = self._radius
+        if _radius is None:
+            if 'peaks' in self.entry and 'radius' in self.entry['peaks'].attrs:
+                _radius = np.int32(self.entry['peaks'].attrs['radius'])
+            elif self.parent:
+                with Lock(self.parent):
+                    root = nxload(self.parent)
+                    if ('peaks' in root[self.entry_name] and
+                        'radius' in root[self.entry_name]['peaks'].attrs):
+                        _radius = np.int32(root[self.entry_name]['peaks'].attrs['radius'])
+        if _radius is None:
+            _radius = 200
+        try:
+            self._radius = np.int(_radius)
+        except:
+            self._radius = 200
+        return self._radius
+
+    @radius.setter
+    def radius(self, value):
+        self._radius = value
+
+    @property
+    def width(self):
+        _width = self._width
+        if _width is None:
+            if 'peaks' in self.entry and 'width' in self.entry['peaks'].attrs:
+                _width = np.int32(self.entry['peaks'].attrs['width'])
+            elif self.parent:
+                with Lock(self.parent):
+                    root = nxload(self.parent)
+                    if ('peaks' in root[self.entry_name] and
+                        'width' in root[self.entry_name]['peaks'].attrs):
+                        _width = np.int32(root[self.entry_name]['peaks'].attrs['width'])
+        try:
+            self._width = np.int(_width)
+        except:
+            self._width = 3
+        return self._width
+
+    @width.setter
+    def width(self, value):
+        self._width = value
+
+    @property
+    def norm(self):
+        _norm = self._norm
+        if _norm is None:
+            if 'peaks' in self.entry and 'norm' in self.entry['peaks'].attrs:
+                _norm = np.int32(self.entry['peaks'].attrs['norm'])
+            elif self.parent:
+                with Lock(self.parent):
+                    root = nxload(self.parent)
+                    if ('peaks' in root[self.entry_name] and
+                        'norm' in root[self.entry_name]['peaks'].attrs):
+                        _norm = np.int32(root[self.entry_name]['peaks'].attrs['norm'])
+        try:
+            self._norm = np.float(_norm)
+            if self._norm <= 0:
+                self._norm = None
+        except:
+            self._norm = None
+        return self._norm
+
+    @norm.setter
+    def norm(self, value):
+        self._norm = value
 
     @property
     def maximum(self):
@@ -899,12 +972,20 @@ class NXReduce(QtCore.QObject):
             except Exception:
                 self.Qh = self.Qk = self.Ql = None
 
+    def get_normalization(self):
+        if self.norm and 'monitor1' in self.entry:
+            self.data['monitor_weight'] = self.entry['monitor1'].nxsignal / self.norm
+            self.data['monitor_weight'][0] = self.data['monitor_weight'][1]
+            self.data['monitor_weight'][-1] = self.data['monitor_weight'][-2]
+
     def prepare_transform(self, mask=False):
         if mask:
             transform_file = self.masked_transform_file
         else:
             transform_file = self.transform_file
         self.get_transform_grid()
+        if self.norm:
+            self.get_normalization()
         if self.Qh and self.Qk and self.Ql:
             refine = NXRefine(self.entry)
             refine.read_parameters()
