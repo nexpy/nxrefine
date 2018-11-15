@@ -66,6 +66,10 @@ class WorkflowDialog(BaseDialog):
         _scan = _base.replace(self.sample+'_', '')
         return os.path.join(self.sample_directory, _scan)
 
+    def get_scan_file(self, scan):
+        return os.path.join(self.sample_directory, 
+                            self.sample+'_'+os.path.basename(scan)+'.nxs')
+
     def make_parent(self):
         reduce = NXReduce(directory=self.get_scan(self.get_filename()),
                           overwrite=True)
@@ -105,7 +109,7 @@ class WorkflowDialog(BaseDialog):
         row = 0
         columns = ['Scan', 'data', 'link', 'max', 'find', 'copy', 'refine', 
                    'transform', 'masked_transform', 'combine', 
-                   'masked_combine', 'pdf', 'overwrite', 'reduce']
+                   'masked_combine', 'pdf', 'overwrite', 'reduce', 'sync']
         header = {}
         for col, column in enumerate(columns):
             header[column] = QtWidgets.QLabel(column)
@@ -149,6 +153,7 @@ class WorkflowDialog(BaseDialog):
             status['pdf'] = self.new_checkbox()
             status['overwrite'] = self.new_checkbox(self.select_scans)
             status['reduce'] = self.new_checkbox(self.select_scans)
+            status['sync'] = self.new_checkbox()
             self.grid.addWidget(status['scan'], row, 0, QtCore.Qt.AlignCenter)
             self.grid.addWidget(status['data'], row, 1, QtCore.Qt.AlignCenter)
             self.grid.addWidget(status['link'], row, 2, QtCore.Qt.AlignCenter)
@@ -163,6 +168,7 @@ class WorkflowDialog(BaseDialog):
             self.grid.addWidget(status['pdf'], row, 11, QtCore.Qt.AlignCenter)
             self.grid.addWidget(status['overwrite'], row, 12, QtCore.Qt.AlignCenter)
             self.grid.addWidget(status['reduce'], row, 13, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['sync'], row, 14, QtCore.Qt.AlignCenter)
             self.scans[scan] = status
         row += 1
         self.grid.addWidget(QtWidgets.QLabel('All'), row, 0, QtCore.Qt.AlignCenter)
@@ -179,6 +185,7 @@ class WorkflowDialog(BaseDialog):
         all_boxes['pdf'] = self.new_checkbox(lambda:self.select_status('pdf'))
         all_boxes['overwrite'] = self.new_checkbox(self.select_all)
         all_boxes['reduce'] = self.new_checkbox(self.select_all)
+        all_boxes['sync'] = self.new_checkbox(self.select_all)
         self.grid.addWidget(all_boxes['link'], row, 2, QtCore.Qt.AlignCenter)
         self.grid.addWidget(all_boxes['max'], row, 3, QtCore.Qt.AlignCenter)
         self.grid.addWidget(all_boxes['find'], row, 4, QtCore.Qt.AlignCenter)
@@ -191,6 +198,7 @@ class WorkflowDialog(BaseDialog):
         self.grid.addWidget(all_boxes['pdf'], row, 11, QtCore.Qt.AlignCenter)
         self.grid.addWidget(all_boxes['overwrite'], row, 12, QtCore.Qt.AlignCenter)
         self.grid.addWidget(all_boxes['reduce'], row, 13, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['sync'], row, 14, QtCore.Qt.AlignCenter)
         self.all_scans = all_boxes
         self.start_progress((0, len(wrapper_files)))
 
@@ -229,9 +237,9 @@ class WorkflowDialog(BaseDialog):
         return self.grid
 
     def sync_db(self):
-        if not self.sample_directory:
-            raise NeXusError("No sample directory declared")
-        nxdb.sync_db(self.sample_directory)
+        for scan in self.scans:
+            if self.sync_selected(scan):
+                nxdb.sync_file(self.get_scan_file(scan))
         self.update()
 
     def new_checkbox(self, slot=None):
@@ -280,6 +288,9 @@ class WorkflowDialog(BaseDialog):
     def reduce_selected(self, scan):
         return self.scans[scan]['reduce'].isChecked()
 
+    def sync_selected(self, scan):
+        return self.scans[scan]['sync'].isChecked()
+
     def restore_scan(self, scan):
         for backup in self.scans_backup[scan]:
             status, enabled, checked = backup
@@ -318,6 +329,8 @@ class WorkflowDialog(BaseDialog):
                     self.all_scans[status].checkState())
             for status in ['overwrite', 'reduce']:
                 self.scans[scan][status].blockSignals(False)
+        for scan in self.scans:
+            self.scans[scan]['sync'].setCheckState(self.all_scans['sync'].checkState())
         for status in self.programs:
             self.all_scans[status].setChecked(self.all_scans['reduce'].isChecked())
         for scan in self.enabled_scans:
@@ -337,6 +350,8 @@ class WorkflowDialog(BaseDialog):
                 self.scans[scan][status].setCheckState(False)
             for status in ['overwrite', 'reduce']:
                 self.scans[scan][status].blockSignals(False)
+        for scan in self.scans:
+            self.scans[scan]['sync'].setCheckState(False)
         for status in ['overwrite', 'reduce']:
             self.all_scans[status].blockSignals(True)
             self.all_scans[status].setChecked(False)
