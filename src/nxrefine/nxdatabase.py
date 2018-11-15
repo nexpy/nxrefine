@@ -238,8 +238,8 @@ def queue_task(filename, task, entry):
         f.tasks.append(t)
     t.status = QUEUED
     t.queue_time = datetime.datetime.now()
-    setattr(f, task, QUEUED)
     session.commit()
+    update_status(filename, task)
 
 def start_task(filename, task, entry):
     """ Record that a task has begun execution.
@@ -258,8 +258,8 @@ def start_task(filename, task, entry):
     t.status = IN_PROGRESS
     t.start_time = datetime.datetime.now()
     t.pid = os.getpid()
-    setattr(f, task, IN_PROGRESS)
     session.commit()
+    update_status(filename, task)
 
 def end_task(filename, task, entry):
     """ Record that a task finished execution.
@@ -280,31 +280,50 @@ def end_task(filename, task, entry):
         f.tasks.append(t)
     t.status = DONE
     t.end_time = datetime.datetime.now()
-    finished_entries = []
-    for e in ['f1', 'f2', 'f3']:
-        for t in reversed(f.tasks):
-            if t.name == task and t.entry == e and t.status == DONE:
-                finished_entries.append(t.entry)
-                break
-    # Update the status of the file to DONE if all tasks are done and there is
-    # a finished task for each entry, otherwise leave it as IN_PROGRESS
-    if (entry == 'entry' or 
-        all(e in finished_entries for e in ['f1', 'f2', 'f3'])):
-        setattr(f, task, DONE)
     session.commit()
+    update_status(filename, task)
 
 def fail_task(filename, task, entry):
     """ Record that a task failed during execution.
 
         filename, task, entry: strings that uniquely identify the desired task
     """
-    filename = get_filename(filename)
-    task = session.query(Task).filter(Task.filename == filename)\
-            .filter(Task.name == task)\
-            .filter(Task.entry == entry)\
-            .filter(Task.status == IN_PROGRESS).first()
-    task.status = FAILED
-    # TODO: include logging info?
+    f = get_file(filename)
+    for t in reversed(f.tasks):
+        if t.name == task and t.entry == entry:
+            break
+    else:
+        #No task recorded
+        return
+    t.status = FAILED
+    t.queue_time = None
+    t.start_time = None
+    t.end_time = None
+    session.commit()
+    update_status(filename, task)
+    
+def update_status(filename, task):
+    f = get_file(filename)
+    status = {}
+    if task == 'nxcombine' or task == 'nxmasked_combine':
+        entries = ['entry']
+    else:
+        entries = ['f1', 'f2', 'f3']
+    for e in entries:
+        for t in reversed(f.tasks):
+            if t.name == task and t.entry == e:
+                status[e] = t.status
+                break
+        else:
+            status[e] = NOT_STARTED
+    if IN_PROGRESS in status.values():
+        setattr(f, task, IN_PROGRESS)
+    elif QUEUED in status.values():
+        setattr(f, task, QUEUED)
+    elif all(s == DONE for s in status.values()):
+        setattr(f, task, DONE)
+    else:
+        setattr(f, task, NOT_STARTED)    
     session.commit()
 
 def sync_db(sample_dir):
