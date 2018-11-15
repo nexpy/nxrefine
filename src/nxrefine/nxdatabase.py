@@ -224,6 +224,9 @@ def sync_data(filename):
         session.commit()
     return f
 
+update_file = sync_file #Temporary backward compatibility    
+update_data = sync_data
+
 def queue_task(filename, task, entry):
     """ Update a file to 'queued' status and create a matching task
 
