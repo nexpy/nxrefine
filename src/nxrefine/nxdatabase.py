@@ -136,9 +136,9 @@ def get_file(filename):
             raise NeXusError("'%s' does not exist" % filename)
         session.add(File(filename = get_filename(filename)))        
         session.commit()
-        f = update_file(filename)
+        f = sync_file(filename)
     else:
-        f = update_data(filename)
+        f = sync_data(filename)
     return f
 
 def get_directory(filename):
@@ -149,7 +149,7 @@ def get_directory(filename):
     scan_label = base_name.replace(sample+'_', '')
     return os.path.join(sample_dir, scan_label)
 
-def update_file(filename):
+def sync_file(filename):
     """ Return the File object (and associated tasks) matching filename
 
         filename: string, path of wrapper file relative to GUP directory
@@ -201,7 +201,7 @@ def update_file(filename):
         session.commit()
     return f
 
-def update_data(filename):
+def sync_data(filename):
     """ Update status of raw data linked from File
 
         filename: string, path of wrapper file relative to GUP directory
@@ -337,7 +337,7 @@ def sync_db(sample_dir):
                      and all(x not in filename for x in ('parent', 'mask'))]
 
     for wrapper_file in wrapper_files:
-        update_file(get_file(wrapper_file))
+        sync_file(get_file(wrapper_file))
     tracked_files = list(session.query(File).all())
     for f in tracked_files:
         if f.filename not in [get_filename(w) for w in wrapper_files]:
