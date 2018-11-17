@@ -976,6 +976,7 @@ class NXReduce(QtCore.QObject):
     def get_normalization(self):
         if self.norm and 'monitor1' in self.entry:
             self.data['monitor_weight'] = self.entry['monitor1'].nxsignal / self.norm
+            self.data['monitor_weight'].attrs['axes'] = 'frame_number'
             self.data['monitor_weight'][0] = self.data['monitor_weight'][1]
             self.data['monitor_weight'][-1] = self.data['monitor_weight'][-2]
 
