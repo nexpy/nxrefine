@@ -996,7 +996,10 @@ class NXReduce(QtCore.QObject):
             refine.define_grid()
             refine.prepare_transform(transform_file, mask=mask)
             refine.write_settings(self.settings_file)
-            return refine.cctw_command(mask)
+            command = refine.cctw_command(mask)
+            if command and os.path.exists(transform_file):
+                os.remove(transform_file)
+            return command
         else:
             self.logger.info('Invalid HKL grid')
             return None
@@ -1246,6 +1249,8 @@ class NXMultiReduce(NXReduce):
                     transform_path = 'transform/data'
                 tic = timeit.default_timer()
                 with Lock(transform_file):
+                    if os.path.exists(transform_file):
+                        os.remove(transform_file)
                     data_lock = {}
                     for entry in self.entries:
                         data_lock[entry] = Lock(
