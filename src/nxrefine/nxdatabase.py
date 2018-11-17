@@ -115,6 +115,10 @@ def init(connect, echo=False):
     Base.metadata.create_all(engine)
     session = sessionmaker(bind=engine)()
 
+def commit(session):
+    with Lock(os.path.realpath(session.bind.url.database)):
+        session.commit()
+
 def get_filename(filename):
     """Return the relative path of the requested filename"""
     database = os.path.realpath(session.bind.url.database)
@@ -135,7 +139,7 @@ def get_file(filename):
         if not os.path.exists(filename):
             raise NeXusError("'%s' does not exist" % filename)
         session.add(File(filename = get_filename(filename)))        
-        session.commit()
+        commit(session)
         f = sync_file(filename)
     else:
         f = sync_data(filename)
@@ -198,7 +202,7 @@ def sync_file(filename):
                 setattr(f, task, DONE)
             else:
                 setattr(f, task, IN_PROGRESS)
-        session.commit()
+        commit(session)
     return f
 
 def sync_data(filename):
@@ -221,7 +225,7 @@ def sync_data(filename):
             f.data = DONE
         else:
             f.data = IN_PROGRESS
-        session.commit()
+        commit(session)
     return f
 
 update_file = sync_file #Temporary backward compatibility    
@@ -241,7 +245,7 @@ def queue_task(filename, task, entry):
         f.tasks.append(t)
     t.status = QUEUED
     t.queue_time = datetime.datetime.now()
-    session.commit()
+    commit(session)
     update_status(filename, task)
 
 def start_task(filename, task, entry):
@@ -261,7 +265,7 @@ def start_task(filename, task, entry):
     t.status = IN_PROGRESS
     t.start_time = datetime.datetime.now()
     t.pid = os.getpid()
-    session.commit()
+    commit(session)
     update_status(filename, task)
 
 def end_task(filename, task, entry):
@@ -283,7 +287,7 @@ def end_task(filename, task, entry):
         f.tasks.append(t)
     t.status = DONE
     t.end_time = datetime.datetime.now()
-    session.commit()
+    commit(session)
     update_status(filename, task)
 
 def fail_task(filename, task, entry):
@@ -302,7 +306,7 @@ def fail_task(filename, task, entry):
     t.queue_time = None
     t.start_time = None
     t.end_time = None
-    session.commit()
+    commit(session)
     update_status(filename, task)
     
 def update_status(filename, task):
@@ -327,7 +331,7 @@ def update_status(filename, task):
         setattr(f, task, DONE)
     else:
         setattr(f, task, NOT_STARTED)    
-    session.commit()
+    commit(session)
 
 def sync_db(sample_dir):
     """ Populate the database based on local files (overwriting if necessary)
@@ -345,7 +349,7 @@ def sync_db(sample_dir):
     for f in tracked_files:
         if f.filename not in [get_filename(w) for w in wrapper_files]:
             session.delete(f)
-    session.commit()
+    commit(session)
 
 """ Sample_dir should be the GUPxxx/agcrse2/xtalX directory -
         ie NXreduce.base_directory """
