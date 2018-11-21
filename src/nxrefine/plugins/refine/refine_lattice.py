@@ -517,7 +517,7 @@ class RefineLatticeDialog(BaseDialog):
         self.plotview.ax.set_title('%s: Peak %s' % (data.nxtitle, i))
         self.plotview.ztab.maxbox.setValue(z)
         self.plotview.aspect = 'equal'
-        self.plotview.crosshairs(x, y, color='r', linewidth='0.5')
+        self.plotview.crosshairs(x, y, color='r', linewidth=0.5)
 
     def orient(self):
         self.refine.primary = int(self.primary_box.text())
