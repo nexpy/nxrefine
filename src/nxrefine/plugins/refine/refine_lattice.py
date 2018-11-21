@@ -340,21 +340,6 @@ class RefineLatticeDialog(BaseDialog):
         plotview.vlines(peaks, colors='r', linestyles='dotted')
         plotview.draw()
     
-    def plot_peak(self, i):
-        x, y, z = self.refine.xp[i], self.refine.yp[i], self.refine.zp[i]/10.0
-        xmin, xmax = max(0,int(x)-200), min(int(x)+200,data.v.shape[2])
-        ymin, ymax = max(0,int(y)-200), min(int(y)+200,data.v.shape[1])
-        zmin, zmax = max(0.0,z-20.0), min(z+20.0, 360.0)
-        xslab=np.s_[zmin:zmax,ymin:ymax,x]
-        yslab=np.s_[zmin:zmax,y,xmin:xmax]
-        zslab=np.s_[z,ymin:ymax,xmin:xmax]
-        pvz.plot(data[zslab], log=True)
-        pvz.crosshairs(x, y)
-        pvy.plot(data[yslab], log=True)
-        pvy.crosshairs(x, z)
-        pvx.plot(data[xslab], log=True)
-        pvx.crosshairs(y, z)
-
     @property
     def refined(self):
         refined = {}
@@ -519,16 +504,20 @@ class RefineLatticeDialog(BaseDialog):
     def plot_peak(self):
         row = self.table_view.currentIndex().row()
         data = self.entry.data
-        x, y, z = [self.table_view.model().peak_list[row][i] 
-                   for i in range(1, 4)]
-        xmin, xmax = max(0,x-200), min(x+200,data.nxsignal.shape[2])
-        ymin, ymax = max(0,y-200), min(y+200,data.nxsignal.shape[1])
-        zmin, zmax = max(0,z-200), min(z+200,data.nxsignal.shape[0])
-        zslab=np.s_[z,ymin:ymax,xmin:xmax]
+        i, x, y, z = [self.table_view.model().peak_list[row][i] 
+                      for i in range(4)]
+        signal = data.nxsignal
+        xmin, xmax = max(0,x-200), min(x+200,signal.shape[2])
+        ymin, ymax = max(0,y-200), min(y+200,signal.shape[1])
+        zmin, zmax = max(0,z-20), min(z+20,signal.shape[0])
+        zslab=np.s_[zmin:zmax,ymin:ymax,xmin:xmax]
         if self.plotview is None:
-            self.plotview = NXPlotView('X-Y Projection')
+            self.plotview = NXPlotView('Peak Plot')
         self.plotview.plot(data[zslab], log=True)
-        self.plotview.crosshairs(x, y, color='r')
+        self.plotview.ax.set_title('%s: Peak %s' % (data.nxtitle, i))
+        self.plotview.ztab.maxbox.setValue(z)
+        self.plotview.aspect = 'equal'
+        self.plotview.crosshairs(x, y, color='r', linewidth='0.5')
 
     def orient(self):
         self.refine.primary = int(self.primary_box.text())
