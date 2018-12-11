@@ -311,26 +311,30 @@ def fail_task(filename, task, entry):
     
 def update_status(filename, task):
     f = get_file(filename)
+    sample_dir = os.path.dirname(filename)
     status = {}
-    if task == 'nxcombine' or task == 'nxmasked_combine':
-        entries = ['entry']
-    else:
-        entries = ['f1', 'f2', 'f3']
-    for e in entries:
-        for t in reversed(f.tasks):
-            if t.name == task and t.entry == e:
-                status[e] = t.status
-                break
-        else:
-            status[e] = NOT_STARTED
-    if IN_PROGRESS in status.values():
-        setattr(f, task, IN_PROGRESS)
-    elif QUEUED in status.values():
-        setattr(f, task, QUEUED)
-    elif all(s == DONE for s in status.values()):
+    if task == 'nxcopy' and is_parent(filename, sample_dir):
         setattr(f, task, DONE)
     else:
-        setattr(f, task, NOT_STARTED)    
+        if task == 'nxcombine' or task == 'nxmasked_combine':
+            entries = ['entry']
+        else:
+            entries = ['f1', 'f2', 'f3']
+        for e in entries:
+            for t in reversed(f.tasks):
+                if t.name == task and t.entry == e:
+                    status[e] = t.status
+                    break
+            else:
+                status[e] = NOT_STARTED
+        if IN_PROGRESS in status.values():
+            setattr(f, task, IN_PROGRESS)
+        elif QUEUED in status.values():
+            setattr(f, task, QUEUED)
+        elif all(s == DONE for s in status.values()):
+            setattr(f, task, DONE)
+        else:
+            setattr(f, task, NOT_STARTED)    
     commit(session)
 
 def sync_db(sample_dir):
