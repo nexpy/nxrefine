@@ -844,7 +844,9 @@ class NXReduce(QtCore.QObject):
                     peak_number=len(peaks))
 
     def nxcopy(self):
-        if self.not_complete('nxcopy') and self.copy:
+        if self.is_parent():
+            self.logger.info('Set as parent; no parameters copied')
+        elif self.not_complete('nxcopy') and self.copy:
             self.record_start('nxcopy')
             if self.parent:
                 self.copy_parameters()
@@ -854,7 +856,7 @@ class NXReduce(QtCore.QObject):
                 self.logger.info('No parent defined')
                 self.record_fail('nxcopy')
         elif self.copy:
-            self.logger.info('Data already copied')
+            self.logger.info('Parameters already copied')
             self.record_end('nxcopy')
 
     def copy_parameters(self):
@@ -1120,16 +1122,11 @@ class NXReduce(QtCore.QObject):
         self.nxcopy()
         if self.complete('nxcopy'):
             self.nxrefine()
-            if self.complete('nxrefine'):
-                self.nxtransform()
-                self.nxmasked_transform()
-            else:
-                self.logger.info('Orientation has not been refined')
-                self.record_fail('nxtransform')
-                self.record_fail('nxmasked_transform')
+        if self.complete('nxrefine'):
+            self.nxtransform()
+            self.nxmasked_transform()
         else:
-            self.logger.info('Parameters have not been copied')
-            self.record_fail('nxrefine')
+            self.logger.info('Orientation has not been refined')
             self.record_fail('nxtransform')
             self.record_fail('nxmasked_transform')
 
