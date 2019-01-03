@@ -88,7 +88,6 @@ class NXReduce(QtCore.QObject):
         self._root = None
         self._data = data
         self._field = None
-        self._shape = None
         self._pixel_mask = None
         self._parent = parent
         self._entries = entries
@@ -190,12 +189,6 @@ class NXReduce(QtCore.QObject):
         if self._field is None:
             self._field = nxload(self.data_file, 'r')[self.path]
         return self._field
-
-    @property
-    def shape(self):
-        if self._shape is None:
-            self._shape = self.field.shape
-        return self._shape
 
     @property
     def data_file(self):
@@ -518,19 +511,20 @@ class NXReduce(QtCore.QObject):
 
     def link_data(self):
         if self.field:
+            shape = self.field.shape
             if 'data' not in self.entry:
                 self.entry['data'] = NXdata()
-                self.entry['data/x_pixel'] = np.arange(self.shape[2], dtype=np.int32)
-                self.entry['data/y_pixel'] = np.arange(self.shape[1], dtype=np.int32)
-                self.entry['data/frame_number'] = np.arange(self.shape[0], dtype=np.int32)
+                self.entry['data/x_pixel'] = np.arange(shape[2], dtype=np.int32)
+                self.entry['data/y_pixel'] = np.arange(shape[1], dtype=np.int32)
+                self.entry['data/frame_number'] = np.arange(shape[0], dtype=np.int32)
                 data_file = os.path.relpath(self.data_file, os.path.dirname(self.wrapper_file))
                 self.entry['data/data'] = NXlink(self.path, data_file)
                 self.entry['data'].nxsignal = self.entry['data/data']
                 self.logger.info('Data group created and linked to external data')
             else:
-                if self.entry['data/frame_number'].shape != self.shape[0]:
+                if self.entry['data/frame_number'].shape != shape[0]:
                     del self.entry['data/frame_number']
-                    self.entry['data/frame_number'] = np.arange(self.shape[0], dtype=np.int32)
+                    self.entry['data/frame_number'] = np.arange(shape[0], dtype=np.int32)
                     self.logger.info('Fixed frame number axis')
             self.entry['data'].nxaxes = [self.entry['data/frame_number'],
                                          self.entry['data/y_pixel'],
@@ -618,7 +612,7 @@ class NXReduce(QtCore.QObject):
     def find_maximum(self):
         self.logger.info('Finding maximum counts')
         maximum = 0.0
-        nframes = self.shape[0]
+        nframes = self.field.shape[0]
         chunk_size = self.field.chunks[0]
         if chunk_size < 20:
             chunk_size = 50
@@ -626,7 +620,7 @@ class NXReduce(QtCore.QObject):
         if self.first == None:
             self.first = 0
         if self.last == None:
-            self.last = nframes
+            self.last = self.field.shape[0]
         tic = self.start_progress(self.first, self.last)
         fsum = np.zeros(self.entry['data'].nxaxes[0].shape, dtype=np.float64)
         for i in range(self.first, self.last, chunk_size):
@@ -725,14 +719,14 @@ class NXReduce(QtCore.QObject):
         if self.first == None:
             self.first = 0
         if self.last == None:
-            self.last = self.shape[0]
+            self.last = self.field.shape[0]
         z_min, z_max = self.first, self.last
 
         tic = self.start_progress(z_min, z_max)
 
-        lio = labelimage(self.shape[-2:], flipper=flip1)
+        lio = labelimage(self.field.shape[-2:], flipper=flip1)
         allpeaks = []
-        if len(self.shape) == 2:
+        if len(self.field.shape) == 2:
             res = None
         else:
             chunk_size = self.field.chunks[0]
@@ -850,9 +844,7 @@ class NXReduce(QtCore.QObject):
                     peak_number=len(peaks))
 
     def nxcopy(self):
-        if self.is_parent():
-            self.logger.info('Set as parent; no parameters copied')
-        elif self.not_complete('nxcopy') and self.copy:
+        if self.not_complete('nxcopy') and self.copy:
             self.record_start('nxcopy')
             if self.parent:
                 self.copy_parameters()
@@ -862,7 +854,7 @@ class NXReduce(QtCore.QObject):
                 self.logger.info('No parent defined')
                 self.record_fail('nxcopy')
         elif self.copy:
-            self.logger.info('Parameters already copied')
+            self.logger.info('Data already copied')
             self.record_end('nxcopy')
 
     def copy_parameters(self):
@@ -1049,35 +1041,65 @@ class NXReduce(QtCore.QObject):
             self.record_end('nxmasked_transform')
 
     def calculate_mask(self):
-        self.logger.info("Calculating 3D mask")
-        mask = np.zeros(shape=self.shape, dtype=np.bool)
-        x, y = np.arange(self.shape[2]), np.arange(self.shape[1])
-        xp, yp, zp = self.entry['peaks/x'], self.entry['peaks/y'], self.entry['peaks/z']
-        tic = self.start_progress(0, len(xp))
-        inside = np.array([(x[np.newaxis,:]-int(cx))**2 + 
-                          (y[:,np.newaxis]-int(cy))**2 < self.radius**2 
-                          for cx,cy in zip(xp,yp)], dtype=np.bool)
-        half_width = float(self.width) / 2.0
-        i, j = int(half_width-0.5), int(half_width+0.5) 
-        for k, frame in enumerate([int(z) for z in zp]):
-            if self.stopped:
-                return None
-            self.update_progress(frame)
-            mask[frame-i:frame+j] = mask[frame-i:frame+j] | inside[k]
-        root = nxload(self.mask_file, 'w')
-        if 'entry' not in root:
-            root['entry'] = NXentry()
-        entry = root['entry']
-        if 'mask' in entry:
-            del entry['mask']
-        entry['mask'] = mask
-        mask_file = os.path.relpath(self.mask_file, os.path.dirname(self.wrapper_file))
-        if 'data_mask' in self.data:
-            del self.data['data_mask']
-        self.data['data_mask'] = NXlink('entry/mask', mask_file)
-        toc = self.stop_progress()
-        self.logger.info("3D Mask stored in '%s' (%g seconds)"
-                         % (self.mask_file, toc-tic))
+		if('mask_xyz' in self.entry)
+			self.logger.info("Calculating 3D mask")
+			mask = np.zeros(shape=self.shape, dtype=np.bool)
+			x, y = np.arange(self.shape[2]), np.arange(self.shape[1])
+			xp, yp, zp, rp = self.entry['mask_xyz/x'], self.entry['mask_xyz/y'], self.entry['mask_xyz/z'], self.entry['mask_xyz/radius']
+			tic = self.start_progress(0, len(xp))
+			inside = np.array([(x[np.newaxis,:]-int(cx))**2 + 
+							(y[:,np.newaxis]-int(cy))**2 < cr**2 
+							for cx,cy,cr in zip(xp,yp,rp)], dtype=np.bool)
+			for k, frame in enumerate([int(z) for z in zp]):
+				if self.stopped:
+					return None
+				self.update_progress(frame)
+				mask[frame] = mask[frame] | inside[k]
+			root = nxload(self.mask_file, 'w')
+			if 'entry' not in root:
+				root['entry'] = NXentry()
+			entry = root['entry']
+			if 'mask' in entry:
+				del entry['mask']
+			entry['mask'] = mask
+			mask_file = os.path.relpath(self.mask_file, os.path.dirname(self.wrapper_file))
+			if 'data_mask' in self.data:
+				del self.data['data_mask']
+			self.data['data_mask'] = NXlink('entry/mask', mask_file)
+			toc = self.stop_progress()
+			self.logger.info("3D Mask stored in '%s' (%g seconds)"
+							% (self.mask_file, toc-tic))		
+		else:
+			self.logger.info("Calculating 3D mask")
+			data_shape = self.entry['data/data'].shape
+			mask = np.zeros(shape=data_shape, dtype=np.bool)
+			x, y = np.arange(data_shape[2]), np.arange(data_shape[1])
+			xp, yp, zp = self.entry['peaks/x'], self.entry['peaks/y'], self.entry['peaks/z']
+			tic = self.start_progress(0, len(xp))
+			inside = np.array([(x[np.newaxis,:]-int(cx))**2 + 
+							(y[:,np.newaxis]-int(cy))**2 < self.radius**2 
+							for cx,cy in zip(xp,yp)], dtype=np.bool)
+			half_width = float(self.width) / 2.0
+			i, j = int(half_width-0.5), int(half_width+0.5) 
+			for k, frame in enumerate([int(z) for z in zp]):
+				if self.stopped:
+					return None
+				self.update_progress(frame)
+				mask[frame-i:frame+j] = mask[frame-i:frame+j] | inside[k]
+			root = nxload(self.mask_file, 'w')
+			if 'entry' not in root:
+				root['entry'] = NXentry()
+			entry = root['entry']
+			if 'mask' in entry:
+				del entry['mask']
+			entry['mask'] = mask
+			mask_file = os.path.relpath(self.mask_file, os.path.dirname(self.wrapper_file))
+			if 'data_mask' in self.data:
+				del self.data['data_mask']
+			self.data['data_mask'] = NXlink('entry/mask', mask_file)
+			toc = self.stop_progress()
+			self.logger.info("3D Mask stored in '%s' (%g seconds)"
+							% (self.mask_file, toc-tic))
 
     def nxsum(self, scan_list):
         if self.overwrite or not os.path.exists(self.data_file):
@@ -1127,11 +1149,14 @@ class NXReduce(QtCore.QObject):
         self.nxcopy()
         if self.complete('nxcopy'):
             self.nxrefine()
-        if self.complete('nxrefine'):
-            self.nxtransform()
-            self.nxmasked_transform()
+            if self.complete('nxrefine'):
+                self.nxtransform()
+                self.nxmasked_transform()
+            else:
+                self.record_fail('nxtransform')
+                self.record_fail('nxmasked_transform')
         else:
-            self.logger.info('Orientation has not been refined')
+            self.record_fail('nxrefine')
             self.record_fail('nxtransform')
             self.record_fail('nxmasked_transform')
 
