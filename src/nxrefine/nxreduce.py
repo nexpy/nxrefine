@@ -1041,7 +1041,7 @@ class NXReduce(QtCore.QObject):
             self.record_end('nxmasked_transform')
 
     def calculate_mask(self):
-		if('mask_xyz' in self.entry)
+		if('mask_xyz' in self.entry):
 			self.logger.info("Calculating 3D mask")
 			mask = np.zeros(shape=self.shape, dtype=np.bool)
 			x, y = np.arange(self.shape[2]), np.arange(self.shape[1])
