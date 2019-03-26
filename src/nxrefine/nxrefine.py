@@ -821,6 +821,7 @@ class NXRefine(object):
         peak = Oimat * (vec(self.xp[i], self.yp[i]) - self.Cvec)
         v = norm(Mat * peak)
         return np.arctan(v / self.distance)
+
     def score(self, grain=None):
         self.set_idx()
         if self.idx:
@@ -859,11 +860,11 @@ class NXRefine(object):
         return norm(self.Bmat * (Q - Q0))
 
     def angle_diffs(self):
-        """Return the set of reciproal space differences for all the peaks"""
+        """Return the set of polar angle differences for all the peaks"""
         return np.array([self.angle_diff(i) for i in self.idx])
 
     def angle_diff(self, i):
-        """Determine the reciprocal space difference between the calculated 
+        """Determine the polar angle difference between the calculated 
         (hkl) and the closest integer (hkl) of the specified peak"""
         h, k, l = self.hkl(i)
         (h0, k0, l0) = (np.rint(h), np.rint(k), np.rint(l))
