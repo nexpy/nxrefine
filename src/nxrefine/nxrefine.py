@@ -201,6 +201,9 @@ class NXRefine(object):
                 self.set_polar_max(self.polar_angle.max())
         else:
             self.set_polar_max(10.0)
+        self.Qh = self.read_parameter('transform/Qh')
+        self.Qk = self.read_parameter('transform/Qk')
+        self.Ql = self.read_parameter('transform/Ql')
 
     def write_parameter(self, path, value, attr=None):
         if value is not None:
@@ -385,25 +388,33 @@ class NXRefine(object):
                                                 for args in peaks]))
 
     def initialize_grid(self):
-        polar_max = self.polar_max
-        try:
-            self.set_polar_max(self.polar_angle.max())
-        except:
-            pass
-        self.h_stop = np.round(self.ds_max * self.a)
-        h_range = np.round(2*self.h_stop)
-        self.h_start = -self.h_stop
-        self.h_step = np.round(h_range/1000, 2)
-        self.k_stop = np.round(self.ds_max * self.b)
-        k_range = np.round(2*self.k_stop)
-        self.k_start = -self.k_stop
-        self.k_step = np.round(k_range/1000, 2)
-        self.l_stop = np.round(self.ds_max * self.c)
-        l_range = np.round(2*self.l_stop)
-        self.l_start = -self.l_stop
-        self.l_step = np.round(l_range/1000, 2)
+        if self.Qh is not None and self.Qk is not None and self.Ql is not None:
+            self.h_start, self.h_step, self.h_stop = (
+                self.Qh[0], self.Qh[1]-self.Qh[0], self.Qh[-1])
+            self.k_start, self.k_step, self.k_stop = (
+                self.Qk[0], self.Qk[1]-self.Qk[0], self.Qk[-1])
+            self.l_start, self.l_step, self.l_stop = (
+                self.Ql[0], self.Ql[1]-self.Ql[0], self.Ql[-1])
+        else:
+            polar_max = self.polar_max
+            try:
+                self.set_polar_max(self.polar_angle.max())
+            except:
+                pass
+            self.h_stop = np.round(self.ds_max * self.a)
+            h_range = np.round(2*self.h_stop)
+            self.h_start = -self.h_stop
+            self.h_step = np.round(h_range/1000, 2)
+            self.k_stop = np.round(self.ds_max * self.b)
+            k_range = np.round(2*self.k_stop)
+            self.k_start = -self.k_stop
+            self.k_step = np.round(k_range/1000, 2)
+            self.l_stop = np.round(self.ds_max * self.c)
+            l_range = np.round(2*self.l_stop)
+            self.l_start = -self.l_stop
+            self.l_step = np.round(l_range/1000, 2)
+            self.polar_max = polar_max
         self.define_grid()
-        self.polar_max = polar_max
 
     def define_grid(self):
         self.h_shape = np.int32(np.round((self.h_stop - self.h_start) / 
