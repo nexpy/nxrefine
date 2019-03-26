@@ -548,6 +548,9 @@ class NXRefine(object):
         self._unitcell.makerings(self.ds_max)
         return self._unitcell
 
+    def absent(self, h, k, l):
+        return outif[self.centring](h, k, l)
+
     @property
     def npks(self):
         try:
