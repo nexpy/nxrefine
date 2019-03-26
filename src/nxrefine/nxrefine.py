@@ -4,9 +4,10 @@ import numpy as np
 import os
 import random
 import six
+from scipy import optimize
 
 from nexusformat.nexus import *
-from .unitcell import unitcell
+from .unitcell import unitcell, outif
 from . import closest
 
 from numpy.linalg import inv, norm
@@ -55,8 +56,10 @@ class NXRefine(object):
     def __init__(self, node=None):
         if node is not None:
             self.entry = node.nxentry
+            self.data = self.entry['data']
         else:
             self.entry = None
+            self.data = None
         self.a = 4.0
         self.b = 4.0
         self.c = 4.0
@@ -93,6 +96,7 @@ class NXRefine(object):
         self.rotation_angle = None
         self.intensity = None
         self.pixel_size = 0.1
+        self.shape = [3650, 1679, 1475]
         self.polar_max = None
         self.Umat = None
         self.primary = None
@@ -155,6 +159,7 @@ class NXRefine(object):
                                       self.yd)
         self.frame_time = self.read_parameter('instrument/detector/frame_time', 
                                               self.frame_time)
+        self.shape = self.read_parameter('instrument/detector/shape', self.shape)
         phi = self.read_parameter('instrument/goniometer/phi', self.phi)
         if isinstance(phi, np.ndarray) and len(phi) > 1:
             self.phi = phi[0]
@@ -453,7 +458,7 @@ class NXRefine(object):
                                                   file=output_link)
         self.entry[transform+'/command'] = command
 
-    def cctw_command(self, mask=None):
+    def cctw_command(self, mask=False):
         entry = self.entry.nxname
         if mask:
             name = entry + '_masked_transform'
@@ -828,6 +833,38 @@ class NXRefine(object):
         """Return the calculated (hkl) for the specified peak"""
         return self.get_hkl(self.xp[i], self.yp[i], self.zp[i])
 
+    def get_xyz(self, h, k, l):
+        peaks = []
+        v7 = vec(h, k, l)
+        v6 = self.Bmat * v7
+        v5 = self.Umat * v6
+        
+        ewald_condition = lambda phi: (norm(self.Evec)**2 - norm(self.Gmat(phi)*v5 +
+                                       self.Evec)**2)
+
+        if h == k == l == 0:
+            phis = [(0,0,0)]
+        elif optimize.fsolve(ewald_condition, 45.0, full_output=1)[2] == 1:
+            phis = np.unique(np.around([optimize.fsolve(ewald_condition, phi) % 360 
+                                        for phi in np.arange(30, 390, 15)], 
+                                       decimals=4))
+        def get_ij(phi):
+            v4 = self.Gmat(phi) * v5
+            p = norm_vec(v4 + self.Evec)
+            v3 = -(self.Dvec[0,0] / p[0,0]) * p
+            v2 = self.Dmat * (v3 + self.Dvec)
+            v1 = (self.Omat * v2 / self.pixel_size) + self.Cvec
+            return np.int(v1[0,0]), np.int(v1[1,0])
+
+        for i in range(len(phis)):
+            x, y = get_ij(phis[i])
+            z = ((phis[i] - self.phi_start) / self.phi_step) % 3600
+            if z < 25:
+                z += 3600
+            if x >= 1 and x <= self.shape[1] and y >=1 and y <= self.shape[0]:
+                peaks.append(NXpeak(x, y, z))
+        return peaks
+
     def polar(self, i):
         """Return the polar angle for the specified peak"""
         Oimat = inv(self.Omat)
@@ -1044,7 +1081,7 @@ class NXRefine(object):
 
 class NXpeak(object):
 
-    def __init__(self, x, y, z, intensity, 
+    def __init__(self, x, y, z, intensity=None, 
                  polar_angle=None, azimuthal_angle=None, rotation_angle=None):
         self.x = x
         self.y = y
