@@ -96,7 +96,7 @@ class NXRefine(object):
         self.rotation_angle = None
         self.intensity = None
         self.pixel_size = 0.1
-        self.shape = [3650, 1679, 1475]
+        self.shape = [1679, 1475]
         self.polar_max = None
         self.Umat = None
         self.primary = None
@@ -834,7 +834,7 @@ class NXRefine(object):
         return self.get_hkl(self.xp[i], self.yp[i], self.zp[i])
 
     def get_xyz(self, h, k, l):
-        peaks = []
+
         v7 = vec(h, k, l)
         v6 = self.Bmat * v7
         v5 = self.Umat * v6
@@ -842,12 +842,14 @@ class NXRefine(object):
         ewald_condition = lambda phi: (norm(self.Evec)**2 - norm(self.Gmat(phi)*v5 +
                                        self.Evec)**2)
 
-        if h == k == l == 0:
-            phis = [(0,0,0)]
+        phis = []
+        if h == 0 and k == 0 and l == 0:
+            pass
         elif optimize.fsolve(ewald_condition, 45.0, full_output=1)[2] == 1:
-            phis = np.unique(np.around([optimize.fsolve(ewald_condition, phi) % 360 
-                                        for phi in np.arange(30, 390, 15)], 
-                                       decimals=4))
+            phis = list(np.unique(np.around([optimize.fsolve(ewald_condition, phi) % 360 
+                                             for phi in np.arange(30, 390, 15)], 
+                                            decimals=4)))
+
         def get_ij(phi):
             v4 = self.Gmat(phi) * v5
             p = norm_vec(v4 + self.Evec)
@@ -856,14 +858,54 @@ class NXRefine(object):
             v1 = (self.Omat * v2 / self.pixel_size) + self.Cvec
             return np.int(v1[0,0]), np.int(v1[1,0])
 
-        for i in range(len(phis)):
-            x, y = get_ij(phis[i])
-            z = ((phis[i] - self.phi_start) / self.phi_step) % 3600
+        peaks = []
+        for phi in phis:
+            x, y = get_ij(phi)
+            z = ((phi - self.phi_start) / self.phi_step) % 3600
             if z < 25:
                 z += 3600
             if x >= 1 and x <= self.shape[1] and y >=1 and y <= self.shape[0]:
                 peaks.append(NXpeak(x, y, z))
+
+        for peak in peaks:
+            xmin, xmax = max(peak.x-10, 0), min(peak.x+11, self.shape[1])
+            ymin, ymax = max(peak.y-10, 0), min(peak.y+11, self.shape[0])
+            zmin, zmax = max(peak.z-10, 0), min(peak.z+11, 3650)
+            slab = self.data[zmin:zmax, ymin:ymax, xmin:xmax]
+            cut = slab.sum((1,2))
+            x, y = cut.nxaxes[0], cut.nxsignal
+            if y.min() < 0: #Slab includes gaps in the detector
+                xmin, xmax = max(peak.x-30, 0), min(peak.x+31, self.shape[1])
+                ymin, ymax = max(peak.y-30, 0), min(peak.y+31, self.shape[0])
+                slab = self.data[zmin:zmax, ymin:ymax, xmin:xmax]
+                cut = slab.sum((1,2))
+                x, y = cut.nxaxes[0], cut.nxsignal
+            slope = (y[-1]-y[0]) / (x[-1]-x[0])
+            constant = y[0] - slope * x[0]
+            peak.z = (cut - constant - slope*x).moment()
+            frame = slab[peak.z].nxsignal.nxdata
+            frame = np.ma.masked_where(frame<0, frame)
+            peak.intensity = np.ma.average(frame) * np.prod(frame.shape)
+            peak.pixel_count = slab[peak.z, peak.y, peak.x]
+            peak.radius = mask_size(peak.intensity)
+            peak.Qh, peak.Qk, peak.Ql = h, k, l
+
+        peaks = [peak for peak in peaks if peak.z > 0 and peak.z < 3648]
+
         return peaks
+
+    def get_xyzs(self):
+        Qh = range(int(self.Qh[0])-1, int(self.Qh[-1])+1)
+        Qk = range(int(self.Qk[0])-1, int(self.Qk[-1])+1)
+        Ql = range(int(self.Ql[0])-1, int(self.Ql[-1])+1)
+        peaks = []
+        for h in Qh:
+            for k in Qk:
+                for l in Ql:
+                    if not self.absent(h, k, l):
+                        peaks.extend(self.get_xyz(h, k, l))
+        return peaks
+                        
 
     def polar(self, i):
         """Return the polar angle for the specified peak"""
@@ -1120,4 +1162,18 @@ class NXgrain(object):
 
     def __len__(self):
         return len(self.peaks)
+
+
+def mask_size(intensity, find_zero=False):
+    a = 1.3858
+    b = 0.330556764635949
+    c = -134.21 + 40 #radius_add
+    if find_zero:
+        return -(c/a)**(1./b)
+    else:
+        if(intensity<1):
+            return 0
+        else:
+            radius = c + a * (intensity**b)
+            return np.int(radius)
 
