@@ -856,7 +856,7 @@ class NXRefine(object):
             v3 = -(self.Dvec[0,0] / p[0,0]) * p
             v2 = self.Dmat * (v3 + self.Dvec)
             v1 = (self.Omat * v2 / self.pixel_size) + self.Cvec
-            return np.int(v1[0,0]), np.int(v1[1,0])
+            return v1[0,0], v1[1,0]
 
         peaks = []
         for phi in phis:
@@ -882,13 +882,13 @@ class NXRefine(object):
                 x, y = cut.nxaxes[0], cut.nxsignal
             slope = (y[-1]-y[0]) / (x[-1]-x[0])
             constant = y[0] - slope * x[0]
-            peak.z = (cut - constant - slope*x).moment()
+            peak.z = (cut - constant - slope*x).moment().nxvalue
             frame = slab[peak.z].nxsignal.nxdata
             frame = np.ma.masked_where(frame<0, frame)
             peak.intensity = np.ma.average(frame) * np.prod(frame.shape)
-            peak.pixel_count = slab[peak.z, peak.y, peak.x]
+            peak.pixel_count = slab[peak.z, peak.y, peak.x].nxsignal.nxvalue
             peak.radius = mask_size(peak.intensity)
-            peak.Qh, peak.Qk, peak.Ql = h, k, l
+            peak.H, peak.K, peak.L = h, k, l
 
         peaks = [peak for peak in peaks if peak.z > 0 and peak.z < 3648]
 
