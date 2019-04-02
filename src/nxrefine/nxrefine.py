@@ -388,9 +388,8 @@ class NXRefine(object):
         self.write_parameter('peaks/azimuthal_angle', azimuthal_angles)
 
     def initialize_peaks(self):
-        peaks=zip(self.xp,  self.yp, self.zp, self.intensity)
-        self.peak = dict(zip(range(len(peaks)),[NXpeak(*args) 
-                                                for args in peaks]))
+        peaks=list(zip(self.xp,  self.yp, self.zp, self.intensity))
+        self.peak = dict(zip(range(len(peaks)),[NXpeak(*args) for args in peaks]))
 
     def initialize_grid(self):
         if self.Qh is not None and self.Qk is not None and self.Ql is not None:
@@ -1169,11 +1168,11 @@ def mask_size(intensity, find_zero=False):
     b = 0.330556764635949
     c = -134.21 + 40 #radius_add
     if find_zero:
-        return -(c/a)**(1./b)
+        return np.real(-(c/a)**(1./b))
     else:
         if(intensity<1):
             return 0
         else:
-            radius = c + a * (intensity**b)
+            radius = np.real(c + a * (intensity**b))
             return np.int(radius)
 
