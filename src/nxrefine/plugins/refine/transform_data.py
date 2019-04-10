@@ -68,14 +68,18 @@ class TransformDialog(BaseDialog):
         except Exception:
             pass
 
-    def get_output_file(self, mask=False):
+    def get_output_file(self, mask=False, entry=None):
+        if entry is None:
+            entry = self.entry            
         if mask:
-            return os.path.splitext(self.entry.data.nxsignal.nxfilename)[0]+'_masked_transform.nxs'
+            return os.path.splitext(entry.data.nxsignal.nxfilename)[0]+'_masked_transform.nxs'
         else:
-            return os.path.splitext(self.entry.data.nxsignal.nxfilename)[0]+'_transform.nxs'
+            return os.path.splitext(entry.data.nxsignal.nxfilename)[0]+'_transform.nxs'
 
-    def get_settings_file(self):
-        return os.path.splitext(self.entry.data.nxsignal.nxfilename)[0]+'_transform.pars'
+    def get_settings_file(self, entry=None):
+        if entry is None:
+            entry = self.entry            
+        return os.path.splitext(entry.data.nxsignal.nxfilename)[0]+'_transform.pars'
 
     def get_h_grid(self):
         return (np.float32(self.start_h_box.text()),
@@ -156,14 +160,15 @@ class TransformDialog(BaseDialog):
                             'Masked transform group already exists in %s' % entry)
                         return
                     self.refine = NXRefine(root[entry])
-                    output = output_file.replace(self.entry.nxname, entry)
-                    settings = settings_file.replace(self.entry.nxname, entry)
-                    self.write_parameters(output, settings)
-                    self.refine.prepare_transform(output)
+                    output_file = self.get_output_file(entry=root[entry])
+                    settings_file = self.get_settings_file(entry=root[entry])
+                    self.write_parameters(output_file, settings_file)
+                    self.refine.prepare_transform(output_file)
                     if self.mask:
-                        output = masked_output_file.replace(self.entry.nxname, entry)
-                        self.refine.prepare_transform(output, mask=True)
-                    self.refine.write_settings(settings)
+                        masked_output_file = self.get_output_file(mask=True, 
+                                                                  entry=root[entry])
+                        self.refine.prepare_transform(masked_output_file, mask=True)
+                    self.refine.write_settings(settings_file)
                     
             super(TransformDialog, self).accept()
         except NeXusError as error:
