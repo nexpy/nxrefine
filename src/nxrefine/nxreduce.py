@@ -1049,35 +1049,65 @@ class NXReduce(QtCore.QObject):
             self.record_end('nxmasked_transform')
 
     def calculate_mask(self):
-        self.logger.info("Calculating 3D mask")
-        mask = np.zeros(shape=self.shape, dtype=np.bool)
-        x, y = np.arange(self.shape[2]), np.arange(self.shape[1])
-        xp, yp, zp = self.entry['peaks/x'], self.entry['peaks/y'], self.entry['peaks/z']
-        tic = self.start_progress(0, len(xp))
-        inside = np.array([(x[np.newaxis,:]-int(cx))**2 + 
-                          (y[:,np.newaxis]-int(cy))**2 < self.radius**2 
-                          for cx,cy in zip(xp,yp)], dtype=np.bool)
-        half_width = float(self.width) / 2.0
-        i, j = int(half_width-0.5), int(half_width+0.5) 
-        for k, frame in enumerate([int(z) for z in zp]):
-            if self.stopped:
-                return None
-            self.update_progress(frame)
-            mask[frame-i:frame+j] = mask[frame-i:frame+j] | inside[k]
-        root = nxload(self.mask_file, 'w')
-        if 'entry' not in root:
-            root['entry'] = NXentry()
-        entry = root['entry']
-        if 'mask' in entry:
-            del entry['mask']
-        entry['mask'] = mask
-        mask_file = os.path.relpath(self.mask_file, os.path.dirname(self.wrapper_file))
-        if 'data_mask' in self.data:
-            del self.data['data_mask']
-        self.data['data_mask'] = NXlink('entry/mask', mask_file)
-        toc = self.stop_progress()
-        self.logger.info("3D Mask stored in '%s' (%g seconds)"
-                         % (self.mask_file, toc-tic))
+        if('mask_xyz' in self.entry):
+            self.logger.info("Calculating 3D mask")
+            mask = np.zeros(shape=self.shape, dtype=np.bool)
+            x, y = np.arange(self.shape[2]), np.arange(self.shape[1])
+            xp, yp, zp, rp = self.entry['mask_xyz/x'], self.entry['mask_xyz/y'], self.entry['mask_xyz/z'], self.entry['mask_xyz/radius']
+            tic = self.start_progress(0, len(xp))
+            inside = np.array([(x[np.newaxis,:]-int(cx))**2 + 
+                            (y[:,np.newaxis]-int(cy))**2 < cr**2 
+                            for cx,cy,cr in zip(xp,yp,rp)], dtype=np.bool)
+            for k, frame in enumerate([int(z) for z in zp]):
+                if self.stopped:
+                    return None
+                self.update_progress(frame)
+                mask[frame] = mask[frame] | inside[k]
+            root = nxload(self.mask_file, 'w')
+            if 'entry' not in root:
+                root['entry'] = NXentry()
+            entry = root['entry']
+            if 'mask' in entry:
+                del entry['mask']
+            entry['mask'] = mask
+            mask_file = os.path.relpath(self.mask_file, os.path.dirname(self.wrapper_file))
+            if 'data_mask' in self.data:
+                del self.data['data_mask']
+            self.data['data_mask'] = NXlink('entry/mask', mask_file)
+            toc = self.stop_progress()
+            self.logger.info("3D Mask stored in '%s' (%g seconds)"
+			                % (self.mask_file, toc-tic))		
+        else:
+            self.logger.info("Calculating 3D mask")
+            data_shape = self.entry['data/data'].shape
+            mask = np.zeros(shape=data_shape, dtype=np.bool)
+            x, y = np.arange(data_shape[2]), np.arange(data_shape[1])
+            xp, yp, zp = self.entry['peaks/x'], self.entry['peaks/y'], self.entry['peaks/z']
+            tic = self.start_progress(0, len(xp))
+            inside = np.array([(x[np.newaxis,:]-int(cx))**2 + 
+                            (y[:,np.newaxis]-int(cy))**2 < self.radius**2 
+                            for cx,cy in zip(xp,yp)], dtype=np.bool)
+            half_width = float(self.width) / 2.0
+            i, j = int(half_width-0.5), int(half_width+0.5) 
+            for k, frame in enumerate([int(z) for z in zp]):
+                if self.stopped:
+                    return None
+                self.update_progress(frame)
+                mask[frame-i:frame+j] = mask[frame-i:frame+j] | inside[k]
+            root = nxload(self.mask_file, 'w')
+            if 'entry' not in root:
+                root['entry'] = NXentry()
+            entry = root['entry']
+            if 'mask' in entry:
+                del entry['mask']
+            entry['mask'] = mask
+            mask_file = os.path.relpath(self.mask_file, os.path.dirname(self.wrapper_file))
+            if 'data_mask' in self.data:
+                del self.data['data_mask']
+            self.data['data_mask'] = NXlink('entry/mask', mask_file)
+            toc = self.stop_progress()
+            self.logger.info("3D Mask stored in '%s' (%g seconds)"
+                            % (self.mask_file, toc-tic))
 
     def nxsum(self, scan_list):
         if self.overwrite or not os.path.exists(self.data_file):
