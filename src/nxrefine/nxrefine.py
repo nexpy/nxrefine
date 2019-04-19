@@ -320,6 +320,40 @@ class NXRefine(object):
                 del other.entry['sample']
             other.entry.makelink(self.entry['sample'])
 
+    def read_settings(self, settings_file):
+        import configparser, itertools
+        cfg = configparser.ConfigParser()
+        filename = settings_file
+        with open(filename) as fp:
+            cfg.read_file(itertools.chain(['[global]'], fp), source=filename)
+        d = {}
+        for c in cfg.items('global'):
+            try:
+                d[c[0]]=eval(c[1].strip(';'))
+            except Exception:
+                pass
+        self.distance = d['parameters.distance']
+        self.a, self.b, self.c, alpha, beta, gamma = d['parameters.unitcell']
+        self.alpha, self.beta, self.gamma = alpha*degrees, beta*degrees, gamma*degrees
+        ubmat = np.matrix(d['parameters.ubmat'])
+        self.Umat = ubmat * self.Bimat
+        self.xc = d['parameters.det0x']
+        self.yc = d['parameters.det0y']
+        self.pitch = d['parameters.orienterrordetpitch'] * degrees
+        self.roll = d['parameters.orienterrordetroll'] * degrees
+        self.yaw = d['parameters.orienterrordetyaw'] * degrees
+        self.gonpitch = d['parameters.orienterrorgonpitch'] * degrees
+        self.twotheta = d['parameters.twothetanom'] * degrees
+        self.omega = d['parameters.omeganom'] * degrees
+        self.chi = d['parameters.chinom'] * degrees
+        self.phi = d['parameters.phinom'] * degrees
+        self.phi_step = d['parameters.phistep'] * degrees
+        self.h_start, self.k_start, self.l_start = d['parameters.gridorigin']
+        self.h_stop, self.k_stop, self.l_stop = [-v for v in d['parameters.gridorigin']]
+        hs, ks, ls = d['parameters.griddim']
+        self.h_step, self.k_step, self.l_step = [1.0/hs, 1.0/ks, 1.0/ls]
+        self.h_shape, self.k_shape, self.l_shape = d['outputdata.dimensions']
+
     def write_settings(self, settings_file):
         lines = []
         lines.append('parameters.pixelSize = %s;' % self.pixel_size)
