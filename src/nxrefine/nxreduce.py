@@ -18,7 +18,7 @@ from nexpy.gui.pyqt import QtCore
 from nexpy.gui.utils import timestamp
 
 import nxrefine.nxdatabase as nxdb
-from .nxrefine import NXRefine
+from .nxrefine import NXRefine, NXpeak
 from .nxlock import Lock
 from .nxserver import NXServer
 from . import blobcorrector, __version__
@@ -755,7 +755,7 @@ class NXReduce(QtCore.QObject):
                                     blob_moments(lio.res)
                                     for k in range(lio.res.shape[0]):
                                         res = lio.res[k]
-                                        peak = NXpeak(res[0], res[22],
+                                        peak = Peak(res[0], res[22],
                                             res[23], res[24], omega,
                                             res[27], res[26], res[29],
                                             self.threshold,
@@ -1018,7 +1018,6 @@ class NXReduce(QtCore.QObject):
             self.record_start('nxmasked_transform')
             with Lock(self.wrapper_file):
                 self.calculate_mask()
-                refine = NXRefine(self.entry)
                 cctw_command = self.prepare_transform(mask=True)
             if cctw_command:
                 self.logger.info('Masked transform launched')
@@ -1048,66 +1047,72 @@ class NXReduce(QtCore.QObject):
             self.logger.info('Masked data already transformed')
             self.record_end('nxmasked_transform')
 
-    def calculate_mask(self):
-        if('mask_xyz' in self.entry):
-            self.logger.info("Calculating 3D mask")
-            mask = np.zeros(shape=self.shape, dtype=np.bool)
-            x, y = np.arange(self.shape[2]), np.arange(self.shape[1])
-            xp, yp, zp, rp = self.entry['mask_xyz/x'], self.entry['mask_xyz/y'], self.entry['mask_xyz/z'], self.entry['mask_xyz/radius']
-            tic = self.start_progress(0, len(xp))
-            inside = np.array([(x[np.newaxis,:]-int(cx))**2 + 
-                            (y[:,np.newaxis]-int(cy))**2 < cr**2 
-                            for cx,cy,cr in zip(xp,yp,rp)], dtype=np.bool)
-            for k, frame in enumerate([int(z) for z in zp]):
-                if self.stopped:
-                    return None
-                self.update_progress(frame)
-                mask[frame] = mask[frame] | inside[k]
-            root = nxload(self.mask_file, 'w')
-            if 'entry' not in root:
-                root['entry'] = NXentry()
-            entry = root['entry']
-            if 'mask' in entry:
-                del entry['mask']
-            entry['mask'] = mask
-            mask_file = os.path.relpath(self.mask_file, os.path.dirname(self.wrapper_file))
-            if 'data_mask' in self.data:
-                del self.data['data_mask']
-            self.data['data_mask'] = NXlink('entry/mask', mask_file)
-            toc = self.stop_progress()
-            self.logger.info("3D Mask stored in '%s' (%g seconds)"
-			                % (self.mask_file, toc-tic))		
-        else:
-            self.logger.info("Calculating 3D mask")
-            data_shape = self.entry['data/data'].shape
-            mask = np.zeros(shape=data_shape, dtype=np.bool)
-            x, y = np.arange(data_shape[2]), np.arange(data_shape[1])
-            xp, yp, zp = self.entry['peaks/x'], self.entry['peaks/y'], self.entry['peaks/z']
-            tic = self.start_progress(0, len(xp))
-            inside = np.array([(x[np.newaxis,:]-int(cx))**2 + 
-                            (y[:,np.newaxis]-int(cy))**2 < self.radius**2 
-                            for cx,cy in zip(xp,yp)], dtype=np.bool)
-            half_width = float(self.width) / 2.0
-            i, j = int(half_width-0.5), int(half_width+0.5) 
-            for k, frame in enumerate([int(z) for z in zp]):
-                if self.stopped:
-                    return None
-                self.update_progress(frame)
-                mask[frame-i:frame+j] = mask[frame-i:frame+j] | inside[k]
-            root = nxload(self.mask_file, 'w')
-            if 'entry' not in root:
-                root['entry'] = NXentry()
-            entry = root['entry']
-            if 'mask' in entry:
-                del entry['mask']
-            entry['mask'] = mask
-            mask_file = os.path.relpath(self.mask_file, os.path.dirname(self.wrapper_file))
-            if 'data_mask' in self.data:
-                del self.data['data_mask']
-            self.data['data_mask'] = NXlink('entry/mask', mask_file)
-            toc = self.stop_progress()
-            self.logger.info("3D Mask stored in '%s' (%g seconds)"
-                            % (self.mask_file, toc-tic))
+    def calculate_peaks(self):
+        self.logger.info("Calculating peaks to be masked")
+        refine = NXRefine(self.entry)
+        peaks = refine.get_xyzs()
+        self.write_xyz_peaks(peaks)
+        if self.all_complete('nxmasked_transform'):
+            self.prepare_xyz_mask()
+        entry = root['entry']
+        if 'mask' in entry:
+            del entry['mask']
+        entry['mask'] = mask
+        mask_file = os.path.relpath(self.mask_file, os.path.dirname(self.wrapper_file))
+        if 'data_mask' in self.data:
+            del self.data['data_mask']
+        self.data['data_mask'] = NXlink('entry/mask', mask_file)
+        toc = self.stop_progress()
+        self.logger.info("3D Mask stored in '%s' (%g seconds)"
+                         % (self.mask_file, toc-tic))
+
+    def write_xyz_peaks(self, peaks):
+        if 'peaks_inferred' not in self.entry:
+            self.entry['peaks_inferred'] = NXcollection()
+        peak_array = np.array(list(zip(*[(peak.x, peak.y, peak.z, peak.intensity,
+                                          peak.pixel_count, peak.H, peak.K, peak.L,
+                                          peak.radius) 
+                                         for peak in peaks])))
+        self.entry['peaks_inferred/x'] = peak_array[0]
+        self.entry['peaks_inferred/y'] = peak_array[1]
+        self.entry['peaks_inferred/z'] = peak_array[2]
+        self.entry['peaks_inferred/intensity'] = peak_array[3]
+        self.entry['peaks_inferred/pixel_count'] = peak_array[4]
+        self.entry['peaks_inferred/H'] = peak_array[5]
+        self.entry['peaks_inferred/K'] = peak_array[6]
+        self.entry['peaks_inferred/L'] = peak_array[7]
+        self.entry['peaks_inferred/radius'] = peak_array[8]
+
+    def read_xyz_peaks(self, entry):
+        if 'peaks_inferred' not in self.entry:
+            return
+        p = entry['peaks_inferred']
+        peaks=list(zip(p.x, p.y, p.z, p.intensity, p.pixel_count, 
+                       p.H, p.K, p.L, p.radius))
+        return [NXpeak(*args) for args in peaks]
+
+    def determine_mask(self, peak):
+        frame = np.ma.masked_where(frame<0, frame)
+        peak.intensity = np.ma.average(frame) * np.prod(frame.shape)
+
+    def prepare_xyz_mask(self):
+        mask_xyz = []
+        peaks = {}
+        for entry in self.entries:
+            peaks[entry] = self.read_xyz_peaks(entry)
+        for entry in self.entries:
+            for p in peaks[entry]:
+                width = 0
+                if p.pixel_count > 0:
+                    mask_xyz.append(determine_mask(p))
+                elif p.pixel_count < 0:
+                    for e in [e for e in self.entries if e is not entry]:
+                        other_peaks = [op for op in peaks[e] if peaks[e].H == p.H and
+                                                                peaks[e].K == p.K and 
+                                                                peaks[e].L == p.L and
+                                                                peaks[e].pixel_count > 0]
+                        for op in other_peaks:
+                        	radius, width = determine_mask(op)
 
     def nxsum(self, scan_list):
         if self.overwrite or not os.path.exists(self.data_file):
@@ -1360,7 +1365,7 @@ class NXMultiReduce(NXReduce):
             nxdb.queue_task(self.wrapper_file, 'nxcombine', 'entry')
 
 
-class NXpeak(object):
+class Peak(object):
 
     def __init__(self, np, average, x, y, z, sigx, sigy, covxy, threshold,
                  pixel_tolerance, frame_tolerance):
