@@ -1240,6 +1240,9 @@ class NXMultiReduce(NXReduce):
                  mask=False, pdf=False, overwrite=False):
         super(NXMultiReduce, self).__init__(entry='entry', directory=directory,
                                             entries=entries, overwrite=overwrite)
+        self.transform_file = os.path.join(self.directory, 'transform.nxs')
+        self.masked_transform_file = os.path.join(self.directory,
+                                                  'masked_transform.nxs')
         self.mask = mask
         self.pdf = pdf
 
@@ -1278,14 +1281,12 @@ class NXMultiReduce(NXReduce):
                 if self.mask:
                     self.logger.info('Combining masked transforms (%s)'
                                      % ', '.join(self.entries))
-                    transform_file = os.path.join(self.directory, 
-                                                  'masked_transform.nxs')
+                    transform_file = self.masked_transform_file
                     transform_path = 'masked_transform/data'
                 else:
                     self.logger.info('Combining transforms (%s)'
                                      % ', '.join(self.entries))
-                    transform_file = os.path.join(self.directory, 
-                                                  'transform.nxs')
+                    transform_file = self.transform_file
                     transform_path = 'transform/data'
                 tic = timeit.default_timer()
                 with Lock(transform_file):
