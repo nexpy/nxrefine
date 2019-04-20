@@ -20,29 +20,23 @@ def main():
     
     args = parser.parse_args()
 
-    files = os.listdir(args.directory)
-    
     for entry in args.entries:
         reduce = NXReduce(entry, args.directory)
-        r = NXRefine(reduce.entry)
-        settings_file = entry+'_transform.pars'
-        if settings_file in files:
-            r.read_settings(os.path.join(args.directory, settings_file))
-            r.write_parameters()
-        transform_file = entry+'_transform.nxs'
-        if transform_file in files:
-            r.prepare_transform(os.path.join(os.path.basename(args.directory[:-1]), 
-                                             transform_file))
-        masked_transform_file = entry+'_masked_transform.nxs'
-        if masked_transform_file in files:
-            r.prepare_transform(os.path.join(os.path.basename(args.directory[:-1]), 
-                                             args.directory, masked_transform_file))
-    if 'transform.nxs' in files:
+        if os.path.exists(reduce.settings_file):
+            refine = NXRefine(reduce.entry)
+            refine.read_settings(reduce.settings_file)
+            refine.write_parameters()
+            if os.path.exists(reduce.transform_file):
+                refine.prepare_transform(reduce.transform_file)
+            if os.path.exists(reduce.masked_transform_file):
+                refine.prepare_transform(reduce.masked_transform_file, 
+                                         mask=True)
         reduce = NXMultiReduce(args.directory)
-        reduce.prepare_combine()
-    if 'masked_transform.nxs' in files:
-        reduce = NXMultiReduce(args.directory, mask=True)
-        reduce.prepare_combine()
+        if os.path.exists(reduce.transform_file):
+            reduce.prepare_combine()
+        if os.path.exists(reduce.masked_transform_file):
+            reduce.mask = True
+            reduce.prepare_combine()
 
 
 if __name__=="__main__":
