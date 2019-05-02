@@ -427,7 +427,7 @@ class NXRefine(object):
 
     def initialize_peaks(self):
         peaks=list(zip(self.xp,  self.yp, self.zp, self.intensity))
-        self.peak = dict(zip(range(len(peaks)),[NXpeak(*args) for args in peaks]))
+        self.peak = dict(zip(range(len(peaks)),[NXPeak(*args) for args in peaks]))
 
     def initialize_grid(self):
         if self.Qh is not None and self.Qk is not None and self.Ql is not None:
@@ -978,30 +978,7 @@ class NXRefine(object):
             if z < 25:
                 z += 3600
             if x >= 1 and x <= self.shape[1] and y >=1 and y <= self.shape[0]:
-                peaks.append(NXpeak(x, y, z))
-
-        for peak in peaks:
-            xmin, xmax = max(peak.x-10, 0), min(peak.x+11, self.shape[1])
-            ymin, ymax = max(peak.y-10, 0), min(peak.y+11, self.shape[0])
-            zmin, zmax = max(peak.z-10, 0), min(peak.z+11, 3650)
-            slab = self.data[zmin:zmax, ymin:ymax, xmin:xmax]
-            cut = slab.sum((1,2))
-            x, y = cut.nxaxes[0], cut.nxsignal
-            if y.min() < 0: #Slab includes gaps in the detector
-                xmin, xmax = max(peak.x-30, 0), min(peak.x+31, self.shape[1])
-                ymin, ymax = max(peak.y-30, 0), min(peak.y+31, self.shape[0])
-                slab = self.data[zmin:zmax, ymin:ymax, xmin:xmax]
-                cut = slab.sum((1,2))
-                x, y = cut.nxaxes[0], cut.nxsignal
-            slope = (y[-1]-y[0]) / (x[-1]-x[0])
-            constant = y[0] - slope * x[0]
-            peak.z = (cut - constant - slope*x).moment().nxvalue
-            frame = slab[peak.z].nxsignal.nxdata
-            frame = np.ma.masked_where(frame<0, frame)
-            peak.intensity = np.ma.average(frame) * np.prod(frame.shape)
-            peak.pixel_count = slab[peak.z, peak.y, peak.x].nxsignal.nxvalue
-            peak.radius = mask_size(peak.intensity)
-            peak.H, peak.K, peak.L = h, k, l
+                peaks.append(NXPeak(x, y, z, H=h, K=k, L=l))
 
         peaks = [peak for peak in peaks if peak.z > 0 and peak.z < 3648]
 
@@ -1017,8 +994,7 @@ class NXRefine(object):
                 for l in Ql:
                     if not self.absent(h, k, l):
                         peaks.extend(self.get_xyz(h, k, l))
-        return peaks
-                        
+        return peaks                       
 
     def polar(self, i):
         """Return the polar angle for the specified peak"""
@@ -1234,25 +1210,28 @@ class NXRefine(object):
         return self.diffs()
 
 
-class NXpeak(object):
+class NXPeak(object):
 
-    def __init__(self, x, y, z, intensity=None, 
-                 polar_angle=None, azimuthal_angle=None, rotation_angle=None):
+    def __init__(self, x, y, z, intensity=None, pixel_count=None, H=None, K=None, L=None, 
+                 polar_angle=None, azimuthal_angle=None, rotation_angle=None, 
+                 radius=None):
         self.x = x
         self.y = y
         self.z = z
         self.intensity = intensity
+        self.pixel_count = pixel_count
         self.polar_angle = polar_angle
         self.azimuthal_angle = azimuthal_angle
         self.rotation_angle = rotation_angle
+        self.radius = radius
         self.ring = None
-        self.H = None
-        self.K = None
-        self.L = None
+        self.H = H
+        self.K = K
+        self.L = L
         self.Umat = None
 
     def __repr__(self):
-        return "NXpeak(x=%.2f y=%.2f z=%.2f)" % (self.x, self.y, self.z)
+        return "NXPeak(x=%.2f, y=%.2f, z=%.2f)" % (self.x, self.y, self.z)
 
 
 class NXgrain(object):
@@ -1275,18 +1254,3 @@ class NXgrain(object):
 
     def __len__(self):
         return len(self.peaks)
-
-
-def mask_size(intensity, find_zero=False):
-    a = 1.3858
-    b = 0.330556764635949
-    c = -134.21 + 40 #radius_add
-    if find_zero:
-        return np.real(-(c/a)**(1./b))
-    else:
-        if(intensity<1):
-            return 0
-        else:
-            radius = np.real(c + a * (intensity**b))
-            return np.int(radius)
-
