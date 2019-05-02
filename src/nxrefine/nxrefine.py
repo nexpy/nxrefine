@@ -68,13 +68,13 @@ class NXRefine(object):
         self.gamma = 90.0
         self.wavelength = 1.0
         self.distance = 100.0
-        self.yaw = 0.0
-        self.pitch = 0.0
-        self.roll = 0.0
-        self.gonpitch = 0.0
+        self._yaw = 0.0
+        self._pitch = 0.0
+        self._roll = 0.0
         self.twotheta = 0.0
-        self.chi = 0.0
-        self.omega = 0.0
+        self._gonpitch = 0.0
+        self._omega = 0.0
+        self._chi = 0.0
         self.phi = 0.0
         self.phi_step = 0.1
         self.xc = 256.0
@@ -113,6 +113,10 @@ class NXRefine(object):
         self.standard = True
 
         self._idx = None
+        self._Dmat_cache = inv(rotmat(1, self.roll) * rotmat(2, self.pitch) *
+                               rotmat(3, self.yaw))
+        self._Gmat_cache = (rotmat(2,self.gonpitch) * rotmat(3, self.omega) * 
+                            rotmat(1, self.chi))
         
         self.parameters = None
         
@@ -570,6 +574,87 @@ class NXRefine(object):
         return self.xc, self.yc
 
     @property
+    def roll(self):
+        return self._roll
+
+    @roll.setter
+    def roll(self, value):
+        self._roll = value
+        try:
+            self._Dmat_cache = inv(rotmat(1, self.roll) * rotmat(2, self.pitch) *
+                                   rotmat(3, self.yaw))
+
+        except:
+            pass
+        
+    @property
+    def pitch(self):
+        return self._pitch
+
+    @pitch.setter
+    def pitch(self, value):
+        self._pitch = value
+        try:
+            self._Dmat_cache = inv(rotmat(1, self.roll) * rotmat(2, self.pitch) *
+                                   rotmat(3, self.yaw))
+
+        except:
+            pass
+        
+    @property
+    def yaw(self):
+        return self._yaw
+
+    @yaw.setter
+    def yaw(self, value):
+        self._yaw = value
+        try:
+            self._Dmat_cache = inv(rotmat(1, self.roll) * rotmat(2, self.pitch) *
+                                   rotmat(3, self.yaw))
+
+        except:
+            pass
+        
+    @property
+    def chi(self):
+        return self._chi
+
+    @chi.setter
+    def chi(self, value):
+        self._chi = value
+        try:
+            self._Gmat_cache = (rotmat(2,self.gonpitch) * rotmat(3, self.omega) * 
+                                rotmat(1, self.chi))
+        except:
+            pass
+        
+    @property
+    def omega(self):
+        return self._omega
+
+    @omega.setter
+    def omega(self, value):
+        self._omega = value
+        try:
+            self._Gmat_cache = (rotmat(2,self.gonpitch) * rotmat(3, self.omega) * 
+                                rotmat(1, self.chi))
+        except:
+            pass
+
+    @property
+    def gonpitch(self):
+        return self._gonpitch
+
+    @gonpitch.setter
+    def gonpitch(self, value):
+        self._gonpitch = value
+        try:
+            self._Gmat_cache = (rotmat(2,self.gonpitch) * rotmat(3, self.omega) * 
+                                rotmat(1, self.chi))
+        except:
+            pass
+
+    @property
     def phi_start(self):
         return self.phi
 
@@ -653,19 +738,14 @@ class NXRefine(object):
         It also transforms detector coords into lab coords.
         Operation order:    yaw -> pitch -> roll
         """
-        return inv(rotmat(1, self.roll) *
-                   rotmat(2, self.pitch) *
-                   rotmat(3, self.yaw))
+        return self._Dmat_cache
 
     def Gmat(self, phi):
         """Define the matrix that physically orients the goniometer head.
     
         It performs the inverse transform of lab coords into head coords.
         """
-        return (rotmat(2,self.gonpitch) * 
-                rotmat(3, self.omega) * 
-                rotmat(1, self.chi) * 
-                rotmat(3, phi))
+        return self._Gmat_cache * rotmat(3, phi)
 
     @property
     def Cvec(self):
