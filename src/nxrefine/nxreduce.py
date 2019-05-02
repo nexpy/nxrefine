@@ -18,7 +18,7 @@ from nexpy.gui.pyqt import QtCore
 from nexpy.gui.utils import timestamp
 
 import nxrefine.nxdatabase as nxdb
-from .nxrefine import NXRefine, NXpeak
+from .nxrefine import NXRefine, NXPeak
 from .nxlock import Lock
 from .nxserver import NXServer
 from . import blobcorrector, __version__
@@ -126,7 +126,10 @@ class NXReduce(QtCore.QObject):
 
         self.init_logs()
         db_file = os.path.join(self.task_directory, 'nxdatabase.db')
-        nxdb.init('sqlite:///' + db_file)
+        try:
+            nxdb.init('sqlite:///' + db_file)
+        except Exception:
+            pass
         try:
             self.server = NXServer(self.root_directory)
         except Exception as error:
@@ -755,7 +758,7 @@ class NXReduce(QtCore.QObject):
                                     blob_moments(lio.res)
                                     for k in range(lio.res.shape[0]):
                                         res = lio.res[k]
-                                        peak = Peak(res[0], res[22],
+                                        peak = NXBlob(res[0], res[22],
                                             res[23], res[24], omega,
                                             res[27], res[26], res[29],
                                             self.threshold,
@@ -1013,11 +1016,156 @@ class NXReduce(QtCore.QObject):
             self.logger.info('Invalid HKL grid')
             return None
 
+    def nxprepare(self):
+        if self.not_complete('nxprepare_mask') and self.prepare:
+            if not self.complete('nxrefine'):
+                self.logger.info('Cannot prepare mask until the orientation is complete')
+                return
+            self.record_start('nxprepare_mask')
+            with Lock(self.wrapper_file):
+                self.calculate_peaks()
+        elif self.prepare:
+            self.logger.info('Mask already prepared')
+            self.record_end('nxprepare_mask')
+
+    def calculate_peaks(self):
+        self.logger.info("Calculating peaks to be masked")
+        refine = NXRefine(self.entry)
+        peaks = refine.get_xyzs()
+        for peak in peaks:
+            self.get_xyz_frame(peak)
+        self.write_xyz_peaks(peaks)
+        self.prepare_xyz_mask()
+        entry = root['entry']
+        if 'mask' in entry:
+            del entry['mask']
+        entry['mask'] = mask
+        mask_file = os.path.relpath(self.mask_file, os.path.dirname(self.wrapper_file))
+        if 'data_mask' in self.data:
+            del self.data['data_mask']
+        self.data['data_mask'] = NXlink('entry/mask', mask_file)
+        toc = self.stop_progress()
+        self.logger.info("3D Mask stored in '%s' (%g seconds)"
+                         % (self.mask_file, toc-tic))
+
+    def get_xyz_frame(self, peak):
+        slab = self.get_xyz_slab(peak)
+        cut = slab.sum((1,2))
+        x, y = cut.nxaxes[0], cut.nxsignal
+        if y.min() < 0: #Slab includes gaps in the detector
+            slab = self.get_xyz_slab(peak, width=30)
+            cut = slab.sum((1,2))
+            x, y = cut.nxaxes[0], cut.nxsignal
+        try:
+            slope = (y[-1]-y[0]) / (x[-1]-x[0])
+            constant = y[0] - slope * x[0]
+            z = (cut - constant - slope*x).moment().nxvalue
+        except Exception:
+            pass
+        if z > zmin and z < zmax:
+            peak.z = z
+        peak.pixel_count = self.data[z, y, x].nxsignal.nxvalue
+
+    def get_xyz_slab(self, peak, width=10):
+        xmin, xmax = max(peak.x-width, 0), min(peak.x+width+1, self.shape[1]-1)
+        ymin, ymax = max(peak.y-width, 0), min(peak.y+width+1, self.shape[0]-1)
+        zmin, zmax = max(peak.z-10, 0), min(peak.z+11, 3648)
+        return self.data[zmin:zmax, ymin:ymax, xmin:xmax]
+
+    def write_xyz_peaks(self, peaks):
+        if 'peaks_inferred' not in self.entry:
+            self.entry['peaks_inferred'] = NXcollection()
+        peak_array = np.array(list(zip(*[(peak.x, peak.y, peak.z, peak.intensity,
+                                          peak.pixel_count, peak.H, peak.K, peak.L) 
+                                         for peak in peaks])))
+        self.entry['peaks_inferred/x'] = peak_array[0]
+        self.entry['peaks_inferred/y'] = peak_array[1]
+        self.entry['peaks_inferred/z'] = peak_array[2]
+        self.entry['peaks_inferred/intensity'] = peak_array[3]
+        self.entry['peaks_inferred/pixel_count'] = peak_array[4]
+        self.entry['peaks_inferred/H'] = peak_array[5]
+        self.entry['peaks_inferred/K'] = peak_array[6]
+        self.entry['peaks_inferred/L'] = peak_array[7]
+
+    def read_xyz_peaks(self):
+        if 'peaks_inferred' not in self.entry:
+            return
+        p = self.entry['peaks_inferred']
+        peaks=list(zip(p.x, p.y, p.z, p.intensity, p.pixel_count, p.H, p.K, p.L))
+        return [NXPeak(*args) for args in peaks]
+
+    def determine_mask(self, peak):
+        masked_peaks = []
+        slab = self.get_xyz_slab(peak)
+        s = slab.nxsignal.nxdata
+        frames = np.array([np.average(np.ma.masked_where(s[i]<0,s[i]))*np.prod(s[i].shape) 
+                           for i in range(s.shape[0])])
+        masked_frames = np.ma.masked_where(frames<350000, frames)
+        mask = masked_frames.mask
+        if mask.size == 1:
+            mask = np.zeros(shape=masked_frames.shape, dtype=np.bool)
+        for f, z in zip(masked_frames[~mask], slab.nxaxes[0].nxdata[~mask]):
+            masked_peaks.append(NXPeak(peak.x, peak.y, z, H=peak.H, K=peak.K, L=peak.L, 
+                                       pixel_count=peak.pixel_count, radius=mask_size(f)))
+        return masked_peaks
+
+    def prepare_xyz_mask(self):
+        masks = []
+        peaks = self.read_xyz_peaks()
+        for p in peaks:
+            if p.pixel_count > 0:
+                masks.extend(self.determine_mask(p))
+        return masks
+#        self.write_xyz_mask(masks)
+#        if self.all_complete('mask_xyz'):
+#            self.complete_xyz_mask()                
+
+    def complete_xyz_mask(self):
+        mask_xyz = []
+        peaks = {}
+        for entry in self.entries:
+            peaks[entry] = self.read_xyz_mask(entry)
+        for entry in self.entries:
+            for p in peaks[entry]:
+                width = 0
+                if p.pixel_count < 0:
+                    for e in [e for e in self.entries if e is not entry]:
+                        other_peaks = [op for op in peaks[e] if peaks[e].H == p.H and
+                                                                peaks[e].K == p.K and 
+                                                                peaks[e].L == p.L and
+                                                                peaks[e].pixel_count > 0]
+                        for op in other_peaks:
+                        	radius, width = self.determine_mask(op)
+
+    def write_xyz_mask(self, peaks):
+        if 'mask_xyz' not in self.entry:
+            self.entry['mask_xyz'] = NXcollection()
+        peak_array = np.array(list(zip(*[(peak.x, peak.y, peak.z, peak.H, peak.K, peak.L,
+                                          peak.radius) for peak in peaks])))
+        self.entry['mask_xyz/x'] = peak_array[0]
+        self.entry['mask_xyz/y'] = peak_array[1]
+        self.entry['mask_xyz/z'] = peak_array[2]
+        self.entry['mask_xyz/H'] = peak_array[3]
+        self.entry['mask_xyz/K'] = peak_array[4]
+        self.entry['mask_xyz/L'] = peak_array[5]
+        self.entry['mask_xyz/radius'] = peak_array[6]
+
+    def read_xyz_mask(self, entry=None):
+        if entry is None:
+            entry = self.entry
+        if 'mask_xyz' not in entry:
+            return
+        p = entry['mask_xyz']
+        peaks = [NXPeak(*args) for args in list(zip(p.x, p.y, p.z, p.H, p.K, p.L))]
+        for (i,peak) in enumerate(peaks):
+            peak.radius = p.radius[i]
+        return peaks
+
     def nxmasked_transform(self):
-        if self.not_complete('nxmasked_transform') and self.mask:
+        if (self.not_complete('nxmasked_transform') and self.mask and
+            self.all_complete('nxprepare_mask')):
             self.record_start('nxmasked_transform')
             with Lock(self.wrapper_file):
-                self.calculate_mask()
                 cctw_command = self.prepare_transform(mask=True)
             if cctw_command:
                 self.logger.info('Masked transform launched')
@@ -1046,73 +1194,6 @@ class NXReduce(QtCore.QObject):
         elif self.mask:
             self.logger.info('Masked data already transformed')
             self.record_end('nxmasked_transform')
-
-    def calculate_peaks(self):
-        self.logger.info("Calculating peaks to be masked")
-        refine = NXRefine(self.entry)
-        peaks = refine.get_xyzs()
-        self.write_xyz_peaks(peaks)
-        if self.all_complete('nxmasked_transform'):
-            self.prepare_xyz_mask()
-        entry = root['entry']
-        if 'mask' in entry:
-            del entry['mask']
-        entry['mask'] = mask
-        mask_file = os.path.relpath(self.mask_file, os.path.dirname(self.wrapper_file))
-        if 'data_mask' in self.data:
-            del self.data['data_mask']
-        self.data['data_mask'] = NXlink('entry/mask', mask_file)
-        toc = self.stop_progress()
-        self.logger.info("3D Mask stored in '%s' (%g seconds)"
-                         % (self.mask_file, toc-tic))
-
-    def write_xyz_peaks(self, peaks):
-        if 'peaks_inferred' not in self.entry:
-            self.entry['peaks_inferred'] = NXcollection()
-        peak_array = np.array(list(zip(*[(peak.x, peak.y, peak.z, peak.intensity,
-                                          peak.pixel_count, peak.H, peak.K, peak.L,
-                                          peak.radius) 
-                                         for peak in peaks])))
-        self.entry['peaks_inferred/x'] = peak_array[0]
-        self.entry['peaks_inferred/y'] = peak_array[1]
-        self.entry['peaks_inferred/z'] = peak_array[2]
-        self.entry['peaks_inferred/intensity'] = peak_array[3]
-        self.entry['peaks_inferred/pixel_count'] = peak_array[4]
-        self.entry['peaks_inferred/H'] = peak_array[5]
-        self.entry['peaks_inferred/K'] = peak_array[6]
-        self.entry['peaks_inferred/L'] = peak_array[7]
-        self.entry['peaks_inferred/radius'] = peak_array[8]
-
-    def read_xyz_peaks(self, entry):
-        if 'peaks_inferred' not in self.entry:
-            return
-        p = entry['peaks_inferred']
-        peaks=list(zip(p.x, p.y, p.z, p.intensity, p.pixel_count, 
-                       p.H, p.K, p.L, p.radius))
-        return [NXpeak(*args) for args in peaks]
-
-    def determine_mask(self, peak):
-        frame = np.ma.masked_where(frame<0, frame)
-        peak.intensity = np.ma.average(frame) * np.prod(frame.shape)
-
-    def prepare_xyz_mask(self):
-        mask_xyz = []
-        peaks = {}
-        for entry in self.entries:
-            peaks[entry] = self.read_xyz_peaks(entry)
-        for entry in self.entries:
-            for p in peaks[entry]:
-                width = 0
-                if p.pixel_count > 0:
-                    mask_xyz.append(determine_mask(p))
-                elif p.pixel_count < 0:
-                    for e in [e for e in self.entries if e is not entry]:
-                        other_peaks = [op for op in peaks[e] if peaks[e].H == p.H and
-                                                                peaks[e].K == p.K and 
-                                                                peaks[e].L == p.L and
-                                                                peaks[e].pixel_count > 0]
-                        for op in other_peaks:
-                        	radius, width = determine_mask(op)
 
     def nxsum(self, scan_list):
         if self.overwrite or not os.path.exists(self.data_file):
@@ -1366,7 +1447,7 @@ class NXMultiReduce(NXReduce):
             nxdb.queue_task(self.wrapper_file, 'nxcombine', 'entry')
 
 
-class Peak(object):
+class NXBlob(object):
 
     def __init__(self, np, average, x, y, z, sigx, sigy, covxy, threshold,
                  pixel_tolerance, frame_tolerance):
@@ -1386,10 +1467,10 @@ class Peak(object):
         self.combined = False
 
     def __str__(self):
-        return "Peak x=%f y=%f z=%f np=%i avg=%f" % (self.x, self.y, self.z, self.np, self.average)
+        return "NXBlob x=%f y=%f z=%f np=%i avg=%f" % (self.x, self.y, self.z, self.np, self.average)
 
     def __repr__(self):
-        return "Peak x=%f y=%f z=%f np=%i avg=%f" % (self.x, self.y, self.z, self.np, self.average)
+        return "NXBlob x=%f y=%f z=%f np=%i avg=%f" % (self.x, self.y, self.z, self.np, self.average)
 
     def __lt__(self, other):
         return self.z < other.z
@@ -1439,3 +1520,19 @@ class Peak(object):
             return False
         else:
             return True
+
+def mask_size(intensity):
+    a = 1.3858
+    b = 0.330556764635949
+    c = -134.21 + 40 #radius_add
+    try:
+        if len(intensity) > 1:
+            pass
+    except Exception:
+        pass
+    if (intensity<1):
+        return 0
+    else:
+        radius = np.real(c + a * (intensity**b))
+        return max(1,np.int(radius))
+
