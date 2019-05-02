@@ -1126,16 +1126,18 @@ class NXReduce(QtCore.QObject):
         for entry in self.entries:
             peaks[entry] = self.read_xyz_mask(entry)
         for entry in self.entries:
-            for p in peaks[entry]:
+            for p in [p for p in peaks[entry] if p.pixel_count < 0]:
+                radius = 0
                 width = 0
-                if p.pixel_count < 0:
-                    for e in [e for e in self.entries if e is not entry]:
-                        other_peaks = [op for op in peaks[e] if peaks[e].H == p.H and
-                                                                peaks[e].K == p.K and 
-                                                                peaks[e].L == p.L and
-                                                                peaks[e].pixel_count > 0]
-                        for op in other_peaks:
-                        	radius, width = self.determine_mask(op)
+                for e in [e for e in self.entries if e is not entry]:
+                    other_peaks = [op for op in peaks[e] if peaks[e].H == p.H and
+                                                            peaks[e].K == p.K and 
+                                                            peaks[e].L == p.L and
+                                                            peaks[e].pixel_count > 0]
+                    for op in other_peaks:
+                        radius = max(radius, op.radius)
+                    width = max(width, len(other_peaks))
+        
 
     def write_xyz_mask(self, peaks):
         if 'mask_xyz' not in self.entry:
