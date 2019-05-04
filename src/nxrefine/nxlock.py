@@ -44,7 +44,10 @@ class Lock(object):
     def release(self):
         if self.fd is not None:
             os.close(self.fd)
-            os.remove(self.lock_file)
+            try:
+                os.remove(self.lock_file)
+            except FileNotFoundError:
+                pass
             self.fd = None
 
     def __enter__(self):
