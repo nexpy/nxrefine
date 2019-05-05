@@ -1212,22 +1212,22 @@ class NXRefine(object):
 
 class NXPeak(object):
 
-    def __init__(self, x, y, z, intensity=None, pixel_count=None, H=None, K=None, L=None, 
-                 polar_angle=None, azimuthal_angle=None, rotation_angle=None, 
-                 radius=None):
+    def __init__(self, x, y, z, intensity=None, pixel_count=None, 
+                 H=None, K=None, L=None, radius=None, 
+                 polar_angle=None, azimuthal_angle=None, rotation_angle=None):
         self.x = x
         self.y = y
         self.z = z
         self.intensity = intensity
         self.pixel_count = pixel_count
-        self.polar_angle = polar_angle
-        self.azimuthal_angle = azimuthal_angle
-        self.rotation_angle = rotation_angle
-        self.radius = radius
-        self.ring = None
         self.H = H
         self.K = K
         self.L = L
+        self.radius = radius
+        self.polar_angle = polar_angle
+        self.azimuthal_angle = azimuthal_angle
+        self.rotation_angle = rotation_angle
+        self.ring = None
         self.Umat = None
 
     def __repr__(self):
