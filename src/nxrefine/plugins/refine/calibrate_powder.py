@@ -47,7 +47,7 @@ class CalibrateDialog(BaseDialog):
         self.parameters.add('pitch', 0.0, 'Pitch (degrees)', True)
         self.parameters.add('roll', 0.0, 'Roll (degrees)', True)
         self.parameters.add('search_size', 10, 'Search Size (pixels)')
-        rings = ['Ring1', 'Ring2', 'Ring3', 'Ring4', 'Ring5']
+        rings = ['Ring%s' % i for i in range(1,21)]
         self.rings_box = self.select_box(rings)
         self.set_layout(self.select_entry(self.choose_entry),
                         self.action_buttons(('Plot Calibration', self.plot_data)),
@@ -89,11 +89,11 @@ class CalibrateDialog(BaseDialog):
 
     @property
     def ring(self):
-        return int(self.rings_box.currentText()[-1]) - 1
+        return int(self.rings_box.currentText()[4:]) - 1
 
     @property
     def ring_color(self):
-        colors = ['r', 'b', 'g', 'c', 'm']
+        colors = ['r', 'b', 'g', 'c', 'm'] * 4
         return colors[self.ring]
 
     def plot_data(self):

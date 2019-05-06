@@ -14,25 +14,25 @@ from nxrefine.nxreduce import NXReduce
 def main():
 
     parser = argparse.ArgumentParser(
-        description="Perform transform with 3D mask around Bragg peaks")
+        description="Prepare 3D mask around Bragg peaks")
     parser.add_argument('-d', '--directory', required=True, 
                         help='scan directory')
     parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
         nargs='+', help='names of entries to be processed')
-    parser.add_argument('-r', '--radius', default=200, 
-                        help='radius of mask around each peak (in pixels)')
-    parser.add_argument('-w', '--width', default=3, 
-                        help='width of masked region (in frames)')
     parser.add_argument('-o', '--overwrite', action='store_true', 
-                        help='overwrite existing maximum')
+                        help='overwrite existing mask')
+    parser.add_argument('-q', '--queue', action='store_true',
+                        help='add to server task queue')
 
     args = parser.parse_args()
 
     for entry in args.entries:
-        reduce = NXReduce(entry, args.directory, mask=True,
-                          radius=args.radius, width=args.width,
+        reduce = NXReduce(entry, args.directory, mask=True, prepare=True,
                           overwrite=args.overwrite)
-        reduce.nxmask()
+        if args.queue:
+            reduce.queue()
+        else:
+            reduce.nxprepare()
 
 
 if __name__=="__main__":

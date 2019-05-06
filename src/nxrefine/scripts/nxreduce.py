@@ -28,6 +28,8 @@ def main():
                         help='copy parameters')
     parser.add_argument('-r', '--refine', action='store_true',
                         help='refine lattice parameters')
+    parser.add_argument('-p', '--prepare', action='store_true',
+                        help='prepare 3D masks')
     parser.add_argument('-t', '--transform', action='store_true',
                         help='perform CCTW transforms')
     parser.add_argument('-M', '--mask', action='store_true',
@@ -44,8 +46,9 @@ def main():
     for entry in args.entries:
         reduce = NXReduce(entry, args.directory, link=args.link,
                           maxcount=args.max, find=args.find, copy=args.copy,
-                          refine=args.refine, transform=args.transform,
-                          mask=args.mask, overwrite=args.overwrite)
+                          refine=args.refine, prepare=args.prepare,
+                          transform=args.transform, mask=args.mask, 
+                          overwrite=args.overwrite)
         if args.queue:
             reduce.queue()
         else:
