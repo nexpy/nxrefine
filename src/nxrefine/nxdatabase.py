@@ -44,9 +44,9 @@ Base = declarative_base();
     # but not started, started processing, finished processing
 _prog = {'not started':0, 'queued':1, 'in progress':2, 'done':3}
 NOT_STARTED, QUEUED, IN_PROGRESS, DONE, FAILED = 0,1,2,3,-1
-task_names = ('data', 'nxlink', 'nxmax', 'nxfind', 'nxcopy',
-              'nxrefine', 'nxtransform', 'nxmasked_transform', 'nxcombine',
-              'nxmasked_combine', 'nxpdf')
+task_names = ('data', 'nxlink', 'nxmax', 'nxfind', 'nxcopy', 'nxrefine', 'nxprepare',
+              'nxtransform', 'nxmasked_transform', 'nxcombine', 'nxmasked_combine',
+              'nxpdf')
 
 class File(Base):
     __tablename__ = 'files'
@@ -58,6 +58,7 @@ class File(Base):
     nxfind = Column(Integer, default=NOT_STARTED)
     nxcopy = Column(Integer, default=NOT_STARTED)
     nxrefine = Column(Integer, default=NOT_STARTED)
+    nxprepare = Column(Integer, default=NOT_STARTED)
     nxtransform = Column(Integer, default=NOT_STARTED)
     nxmasked_transform = Column(Integer, default=NOT_STARTED)
     nxcombine = Column(Integer, default=NOT_STARTED)
@@ -185,6 +186,8 @@ def sync_file(filename):
                         tasks['nxcopy'] += 1
                     if 'nxrefine' in nxentry:
                         tasks['nxrefine'] += 1
+                    if 'nxprepare' in nxentry:
+                        tasks['nxprepare'] += 1
                     if 'nxtransform' in nxentry:
                         tasks['nxtransform'] += 1
                     if 'nxmasked_transform' in nxentry or 'nxmask' in nxentry:
