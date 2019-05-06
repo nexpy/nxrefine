@@ -21,13 +21,18 @@ def main():
         nargs='+', help='names of entries to be processed')
     parser.add_argument('-o', '--overwrite', action='store_true', 
                         help='overwrite existing mask')
+    parser.add_argument('-q', '--queue', action='store_true',
+                        help='add to server task queue')
 
     args = parser.parse_args()
 
     for entry in args.entries:
         reduce = NXReduce(entry, args.directory, mask=True, prepare=True,
                           overwrite=args.overwrite)
-        reduce.nxprepare()
+        if args.queue:
+            reduce.queue()
+        else:
+            reduce.nxprepare()
 
 
 if __name__=="__main__":
