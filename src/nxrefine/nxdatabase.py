@@ -186,7 +186,7 @@ def sync_file(filename):
                         tasks['nxcopy'] += 1
                     if 'nxrefine' in nxentry:
                         tasks['nxrefine'] += 1
-                    if 'nxprepare' in nxentry:
+                    if 'nxprepare_mask' in nxentry:
                         tasks['nxprepare'] += 1
                     if 'nxtransform' in nxentry:
                         tasks['nxtransform'] += 1
