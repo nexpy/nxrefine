@@ -976,7 +976,9 @@ class NXRefine(object):
             x, y = get_ij(phi)
             z = ((phi - self.phi_start) / self.phi_step) % 3600
             if z < 25:
-                z += 3600
+                z = z + 3600
+            elif z > 3625:
+                z = z - 3600
             if x > 0 and x < self.shape[1] and y > 0 and y < self.shape[0]:
                 peaks.append(NXPeak(x, y, z, H=h, K=k, L=l))
 
