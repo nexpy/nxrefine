@@ -9,6 +9,8 @@ import sys
 import time
 import timeit
 import datetime
+from copy import copy
+
 import numpy as np
 import h5py as h5
 from h5py import is_hdf5
@@ -1101,6 +1103,17 @@ class NXReduce(QtCore.QObject):
         return self.data[zmin:zmax, ymin:ymax, xmin:xmax]
 
     def write_xyz_peaks(self, peaks):
+        extra_peaks = []
+        for peak in [p for p in peaks if p.z >= 3600]:
+            extra_peak = copy(peak)
+            extra_peak.z = peak.z - 3600
+            extra_peaks.append(extra_peak)
+        for peak in [p for p in peaks if p.z < 50]:
+            extra_peak = copy(peak)
+            extra_peak.z = peak.z + 3600
+            extra_peaks.append(extra_peak)
+        peaks.extend(extra_peaks)            
+        peaks = sorted(peaks, key=operator.attrgetter('z'))
         peak_array = np.array(list(zip(*[(peak.x, peak.y, peak.z, peak.pixel_count, 
                                           peak.H, peak.K, peak.L) for peak in peaks])))
         collection = NXcollection()
@@ -1116,10 +1129,22 @@ class NXReduce(QtCore.QObject):
             del entry['peaks_inferred']
         entry['peaks_inferred'] = collection
 
-    def read_xyz_peaks(self):
-        if 'peaks_inferred' not in self.mask_root['entry']:
+    def read_peaks(self, peak_group):
+        if peak_group not in self.mask_root['entry']:
             return []
-        return read_peaks(self.mask_root['entry/peaks_inferred'])
+        else:
+            pg = self.mask_root['entry'][peak_group].copy()
+        if 'intensity' not in pg:
+            pg.intensity = np.zeros(len(pg.x))
+        if 'radius' not in pg:
+            pg.radius = np.zeros(len(pg.x))
+        peaks = [NXPeak(*args) for args in 
+                 list(zip(pg.x, pg.y, pg.z, pg.intensity, pg.pixel_count, 
+                          pg.H, pg.K, pg.L, pg.radius))]
+        return sorted(peaks, key=operator.attrgetter('z'))
+
+    def read_xyz_peaks(self):
+        return self.read_peaks('peaks_inferred')
 
     def prepare_xyz_masks(self, peaks):
         masks = []
@@ -1154,6 +1179,7 @@ class NXReduce(QtCore.QObject):
         return masked_peaks
 
     def write_xyz_masks(self, peaks):
+        peaks = sorted(peaks, key=operator.attrgetter('z'))
         peak_array = np.array(list(zip(*[(peak.x, peak.y, peak.z, peak.H, peak.K, peak.L,
                                           peak.radius, peak.pixel_count) 
                                          for peak in peaks])))
@@ -1173,9 +1199,7 @@ class NXReduce(QtCore.QObject):
         self.write_mask(peaks)
     
     def read_xyz_masks(self):
-        if 'mask_xyz' not in self.mask_root['entry']:
-            return []
-        return read_peaks(self.mask_root['entry/mask_xyz'])
+        return self.read_peaks('mask_xyz')
 
     def write_mask(self, peaks):
         entry = self.mask_root['entry']
@@ -1183,7 +1207,6 @@ class NXReduce(QtCore.QObject):
             entry['mask'] = np.zeros(shape=self.shape, dtype=np.int8)
         mask = entry['mask']
         x, y = np.arange(self.shape[2]), np.arange(self.shape[1])
-        peaks = sorted(peaks, key=operator.attrgetter('z'))
         frames = self.shape[0]
         chunk_size = mask.chunks[0]
         for frame in range(0, frames, chunk_size):
@@ -1240,6 +1263,7 @@ class NXReduce(QtCore.QObject):
                     reduce[entry].write_xyz_extras(extra_masks)
 
     def write_xyz_extras(self, peaks):
+        peaks = sorted(peaks, key=operator.attrgetter('z'))
         peak_array = np.array(list(zip(*[(peak.x, peak.y, peak.z, peak.H, peak.K, peak.L,
                                           peak.radius, peak.pixel_count) 
                                          for peak in peaks])))
@@ -1257,6 +1281,9 @@ class NXReduce(QtCore.QObject):
             del entry['mask_xyz_extras']
         entry['mask_xyz_extras'] = collection
         self.write_mask(peaks)
+
+    def read_xyz_extras(self):
+        return self.read_peaks('mask_xyz_extras')
 
     def nxmasked_transform(self):
         if (self.not_complete('nxmasked_transform') and self.mask and
@@ -1617,16 +1644,6 @@ class NXBlob(object):
             return False
         else:
             return True
-
-def read_peaks(peak_group):
-    pg = peak_group.copy()
-    if 'intensity' not in pg:
-        pg.intensity = np.zeros(len(pg.x))
-    if 'radius' not in pg:
-        pg.radius = np.zeros(len(pg.x))
-    return [NXPeak(*args) for args in 
-            list(zip(pg.x, pg.y, pg.z, pg.intensity, pg.pixel_count, 
-                     pg.H, pg.K, pg.L, pg.radius))]
 
 def mask_size(intensity):
     a = 1.3858
