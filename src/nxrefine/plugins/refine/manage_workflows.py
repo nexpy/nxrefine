@@ -107,9 +107,9 @@ class WorkflowDialog(BaseDialog):
         self.insert_layout(2, self.grid)
         self.grid.setSpacing(1)
         row = 0
-        columns = ['Scan', 'data', 'link', 'max', 'find', 'copy', 'refine', 
-                   'transform', 'masked_transform', 'combine', 
-                   'masked_combine', 'pdf', 'overwrite', 'reduce', 'sync']
+        columns = ['Scan', 'data', 'link', 'max', 'find', 'copy', 'refine', 'prepare',
+                   'transform', 'masked_transform', 'combine', 'masked_combine', 'pdf', 
+                   'overwrite', 'reduce', 'sync']
         header = {}
         for col, column in enumerate(columns):
             header[column] = QtWidgets.QLabel(column)
@@ -127,7 +127,7 @@ class WorkflowDialog(BaseDialog):
             header[column] = QtWidgets.QLabel(column)
             header[column].setFixedWidth(75)
             header[column].setAlignment(QtCore.Qt.AlignHCenter)
-            self.grid.addWidget(header[column], row, col+7)
+            self.grid.addWidget(header[column], row, col+8)
 
         self.scans = {}
         self.scans_backup = {}
@@ -146,6 +146,7 @@ class WorkflowDialog(BaseDialog):
             status['find'] = self.new_checkbox()
             status['copy'] = self.new_checkbox()
             status['refine'] = self.new_checkbox()
+            status['prepare'] = self.new_checkbox()
             status['transform'] = self.new_checkbox()
             status['masked_transform'] = self.new_checkbox()
             status['combine'] = self.new_checkbox()
@@ -161,14 +162,15 @@ class WorkflowDialog(BaseDialog):
             self.grid.addWidget(status['find'], row, 4, QtCore.Qt.AlignCenter)
             self.grid.addWidget(status['copy'], row, 5, QtCore.Qt.AlignCenter)
             self.grid.addWidget(status['refine'], row, 6, QtCore.Qt.AlignCenter)
-            self.grid.addWidget(status['transform'], row, 7, QtCore.Qt.AlignCenter)
-            self.grid.addWidget(status['masked_transform'], row, 8, QtCore.Qt.AlignCenter)
-            self.grid.addWidget(status['combine'], row, 9, QtCore.Qt.AlignCenter)
-            self.grid.addWidget(status['masked_combine'], row, 10, QtCore.Qt.AlignCenter)
-            self.grid.addWidget(status['pdf'], row, 11, QtCore.Qt.AlignCenter)
-            self.grid.addWidget(status['overwrite'], row, 12, QtCore.Qt.AlignCenter)
-            self.grid.addWidget(status['reduce'], row, 13, QtCore.Qt.AlignCenter)
-            self.grid.addWidget(status['sync'], row, 14, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['prepare'], row, 7, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['transform'], row, 8, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['masked_transform'], row, 9, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['combine'], row, 10, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['masked_combine'], row, 11, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['pdf'], row, 12, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['overwrite'], row, 13, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['reduce'], row, 14, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['sync'], row, 15, QtCore.Qt.AlignCenter)
             self.scans[scan] = status
         row += 1
         self.grid.addWidget(QtWidgets.QLabel('All'), row, 0, QtCore.Qt.AlignCenter)
@@ -178,6 +180,7 @@ class WorkflowDialog(BaseDialog):
         all_boxes['find'] = self.new_checkbox(lambda:self.select_status('find'))
         all_boxes['copy'] = self.new_checkbox(lambda:self.select_status('copy'))
         all_boxes['refine'] = self.new_checkbox(lambda:self.select_status('refine'))
+        all_boxes['prepare'] = self.new_checkbox(lambda:self.select_status('prepare'))
         all_boxes['transform'] = self.new_checkbox(lambda:self.select_status('transform'))
         all_boxes['masked_transform'] = self.new_checkbox(lambda:self.select_status('masked_transform'))
         all_boxes['combine'] = self.new_checkbox(lambda:self.select_status('combine'))
@@ -191,14 +194,15 @@ class WorkflowDialog(BaseDialog):
         self.grid.addWidget(all_boxes['find'], row, 4, QtCore.Qt.AlignCenter)
         self.grid.addWidget(all_boxes['copy'], row, 5, QtCore.Qt.AlignCenter)
         self.grid.addWidget(all_boxes['refine'], row, 6, QtCore.Qt.AlignCenter)
-        self.grid.addWidget(all_boxes['transform'], row, 7, QtCore.Qt.AlignCenter)
-        self.grid.addWidget(all_boxes['masked_transform'], row, 8, QtCore.Qt.AlignCenter)
-        self.grid.addWidget(all_boxes['combine'], row, 9, QtCore.Qt.AlignCenter)
-        self.grid.addWidget(all_boxes['masked_combine'], row, 10, QtCore.Qt.AlignCenter)
-        self.grid.addWidget(all_boxes['pdf'], row, 11, QtCore.Qt.AlignCenter)
-        self.grid.addWidget(all_boxes['overwrite'], row, 12, QtCore.Qt.AlignCenter)
-        self.grid.addWidget(all_boxes['reduce'], row, 13, QtCore.Qt.AlignCenter)
-        self.grid.addWidget(all_boxes['sync'], row, 14, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['prepare'], row, 7, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['transform'], row, 8, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['masked_transform'], row, 9, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['combine'], row, 10, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['masked_combine'], row, 11, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['pdf'], row, 12, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['overwrite'], row, 13, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['reduce'], row, 14, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['sync'], row, 15, QtCore.Qt.AlignCenter)
         self.all_scans = all_boxes
         self.start_progress((0, len(wrapper_files)))
 
@@ -274,7 +278,7 @@ class WorkflowDialog(BaseDialog):
 
     @property
     def programs(self):
-        return ['link', 'max', 'find', 'copy', 'refine', 'transform', 
+        return ['link', 'max', 'find', 'copy', 'refine', 'prepare', 'transform', 
                 'masked_transform', 'combine', 'masked_combine', 'pdf']
 
     @property
@@ -382,6 +386,8 @@ class WorkflowDialog(BaseDialog):
                     reduce.copy = True
                 if self.selected(scan, 'refine'):
                     reduce.refine = True
+                if self.selected(scan, 'prepare'):
+                    reduce.prepare = True
                 if self.selected(scan, 'transform'):
                     reduce.transform = True
                 if self.selected(scan, 'masked_transform'):
@@ -399,6 +405,8 @@ class WorkflowDialog(BaseDialog):
                 self.queued(scan, 'copy')
             if self.selected(scan, 'refine'):
                 self.queued(scan, 'refine')
+            if self.selected(scan, 'prepare'):
+                self.queued(scan, 'prepare')
             if self.selected(scan, 'transform'):
                 self.queued(scan, 'transform')
             if self.selected(scan, 'masked_transform'):
