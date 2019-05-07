@@ -28,7 +28,7 @@ file) will be queued or running at the same time
 
 import os
 import datetime
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey
+from sqlalchemy import create_engine, types, inspect, Column, Integer, String, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.dialects import mysql
@@ -131,6 +131,7 @@ def get_file(filename):
 
         filename: string, path of wrapper file relative to GUP directory
      """
+    check_tasks()
     f = session.query(File) \
             .filter(File.filename == get_filename(filename)) \
             .one_or_none()
@@ -367,3 +368,37 @@ def is_parent(wrapper_file, sample_dir):
         return wrapper_file == os.path.realpath(parent_file)
     else:
         return False
+
+def check_tasks():
+    inspector = inspect(session.bind.engine)
+    tasks = [task['name'] for task in inspector.get_columns('files')]
+    for task in task_names:
+        if task not in tasks:
+            add_column(task)
+
+def add_column(column_name, table_name = 'files', data_type=types.Integer, default=0):
+    """Add a missing column to the database"""
+    ret = False
+    if default is not None:
+        try:
+            ddl = ("ALTER TABLE '{table_name}' ADD COLUMN '{column_name}' '{data_type}' DEFAULT {default}")
+        except:
+            ddl = ("ALTER TABLE '{table_name}' ADD COLUMN '{column_name}' '{data_type}' DEFAULT '{default}'")
+    else:
+        ddl = ("ALTER TABLE '{table_name}' ADD column '{column_name}' '{data_type}'")
+
+    sql_command = ddl.format(table_name=table_name, column_name=column_name, 
+                             data_type=data_type.__name__,
+                             default=default)
+    try:
+        import sqlite3
+        connection = sqlite3.connect(os.path.realpath(session.bind.url.database))
+        cursor = connection.cursor()
+        cursor.execute(sql_command)
+        connection.commit()
+        connection.close()
+        ret = True
+    except Exception as e:
+        print(e)
+        ret = False
+    return ret
