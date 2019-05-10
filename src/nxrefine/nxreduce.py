@@ -1196,33 +1196,9 @@ class NXReduce(QtCore.QObject):
         if 'mask_xyz' in entry:
             del entry['mask_xyz']
         entry['mask_xyz'] = collection
-        self.write_mask(peaks)
     
     def read_xyz_masks(self):
         return self.read_peaks('mask_xyz')
-
-    def write_mask(self, peaks):
-        entry = self.mask_root['entry']
-        if 'mask' not in entry:
-            entry['mask'] = np.zeros(shape=self.shape, dtype=np.int8)
-        mask = entry['mask']
-        x, y = np.arange(self.shape[2]), np.arange(self.shape[1])
-        frames = self.shape[0]
-        chunk_size = mask.chunks[0]
-        for frame in range(0, frames, chunk_size):
-            mask_chunk = np.zeros(shape=(chunk_size, self.shape[1], self.shape[2]),
-                                  dtype=np.int8)
-            for peak in [p for p in peaks if p.z >= frame and p.z < frame+chunk_size]:
-                xp, yp, zp, radius = int(peak.x), int(peak.y), int(peak.z), peak.radius
-                inside = np.array(((x[np.newaxis,:]-xp)**2 + (y[:,np.newaxis]-yp)**2 
-                                    < radius**2), dtype=np.int8)
-                mask_chunk[zp-frame] = mask_chunk[zp-frame] | inside
-            try:
-                mask[frame:frame+chunk_size] = (mask[frame:frame+chunk_size].nxvalue | 
-                                                mask_chunk)
-            except ValueError as error:
-                i, j, k= frame, frames, frames-frame
-                mask[i:j] = mask[i:j].nxvalue | mask_chunk[:k]
 
     def complete_xyz_masks(self):
         mask_xyz = []
@@ -1258,9 +1234,10 @@ class NXReduce(QtCore.QObject):
                                                   H=p.H, K=p.K, L=p.L, 
                                                   pixel_count=p.pixel_count,
                                                   radius=radius))
-            if extra_masks:
-                with Lock(reduce[entry].mask_file):
-                    reduce[entry].write_xyz_extras(extra_masks)
+            with Lock(reduce[entry].mask_file):
+                if extra_masks:
+                        reduce[entry].write_xyz_extras(extra_masks)
+                reduce[entry].write_mask()
 
     def write_xyz_extras(self, peaks):
         peaks = sorted(peaks, key=operator.attrgetter('z'))
@@ -1280,10 +1257,39 @@ class NXReduce(QtCore.QObject):
         if 'mask_xyz_extras' in entry:
             del entry['mask_xyz_extras']
         entry['mask_xyz_extras'] = collection
-        self.write_mask(peaks)
 
     def read_xyz_extras(self):
         return self.read_peaks('mask_xyz_extras')
+
+    def read_xyz_edges(self):
+        return self.read_peaks('mask_xyz_edges')
+
+    def write_mask(self):
+        peaks = self.read_xyz_masks()
+        peaks.extend(self.read_xyz_extras())
+        peaks.extend(self.read_xyz_edges())
+        peaks = sorted(peaks, key=operator.attrgetter('z'))
+        entry = self.mask_root['entry']
+        if 'mask' not in entry:
+            entry['mask'] = np.zeros(shape=self.shape, dtype=np.int8)
+        mask = entry['mask']
+        x, y = np.arange(self.shape[2]), np.arange(self.shape[1])
+        frames = self.shape[0]
+        chunk_size = mask.chunks[0]
+        for frame in range(0, frames, chunk_size):
+            mask_chunk = np.zeros(shape=(chunk_size, self.shape[1], self.shape[2]),
+                                  dtype=np.int8)
+            for peak in [p for p in peaks if p.z >= frame and p.z < frame+chunk_size]:
+                xp, yp, zp, radius = int(peak.x), int(peak.y), int(peak.z), peak.radius
+                inside = np.array(((x[np.newaxis,:]-xp)**2 + (y[:,np.newaxis]-yp)**2 
+                                    < radius**2), dtype=np.int8)
+                mask_chunk[zp-frame] = mask_chunk[zp-frame] | inside
+            try:
+                mask[frame:frame+chunk_size] = (mask[frame:frame+chunk_size].nxvalue | 
+                                                mask_chunk)
+            except ValueError as error:
+                i, j, k= frame, frames, frames-frame
+                mask[i:j] = mask[i:j].nxvalue | mask_chunk[:k]
 
     def nxmasked_transform(self):
         if (self.not_complete('nxmasked_transform') and self.mask and
