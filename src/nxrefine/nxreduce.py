@@ -1374,6 +1374,7 @@ class NXReduce(QtCore.QObject):
         if self.complete('nxcopy'):
             self.nxrefine()
         if self.complete('nxrefine'):
+            self.nxprepare()
             self.nxtransform()
             self.nxmasked_transform()
         else:
@@ -1410,6 +1411,8 @@ class NXReduce(QtCore.QObject):
                 switches.append('-c')
             if self.refine:
                 switches.append('-r')
+            if self.refine:
+                switches.append('-p')
             if self.transform:
                 switches.append('-t')
             if self.mask:
@@ -1436,6 +1439,8 @@ class NXReduce(QtCore.QObject):
                 nxdb.queue_task(self.wrapper_file, 'nxcopy', self.entry_name)
             if self.refine:
                 nxdb.queue_task(self.wrapper_file, 'nxrefine', self.entry_name)
+            if self.prepare:
+                nxdb.queue_task(self.wrapper_file, 'nxprepare', self.entry_name)
             if self.transform:
                 if self.mask:
                     nxdb.queue_task(self.wrapper_file, 'nxmasked_transform', 
