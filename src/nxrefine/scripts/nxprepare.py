@@ -27,7 +27,7 @@ def main():
     args = parser.parse_args()
 
     for entry in args.entries:
-        reduce = NXReduce(entry, args.directory, mask=True, prepare=True,
+        reduce = NXReduce(entry, args.directory, prepare=True,
                           overwrite=args.overwrite)
         if args.queue:
             reduce.queue()
