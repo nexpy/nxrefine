@@ -1412,7 +1412,7 @@ class NXReduce(QtCore.QObject):
                 switches.append('-c')
             if self.refine:
                 switches.append('-r')
-            if self.refine:
+            if self.prepare:
                 switches.append('-p')
             if self.transform:
                 switches.append('-t')
