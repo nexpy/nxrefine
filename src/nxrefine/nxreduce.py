@@ -1044,12 +1044,8 @@ class NXReduce(QtCore.QObject):
             self.logger.info("3D Mask stored in '%s' (%g seconds)"
                              % (self.mask_file, toc-tic))
         elif self.prepare:
-            self.logger.info('Mask already prepared')
+            self.logger.info('3D Mask already prepared')
             self.record_end('nxprepare_mask')
-        if self.all_complete('nxprepare_mask'):
-            self.logger.info("Adding masks to peaks in the detector gaps")
-            self.complete_xyz_masks()
-            self.logger.info("Extra masks added")
 
     def prepare_mask(self):
         self.logger.info("Calculating peaks to be masked")
@@ -1062,10 +1058,10 @@ class NXReduce(QtCore.QObject):
                 self.get_xyz_frame(peak)
         with Lock(self.mask_file):
             self.write_xyz_peaks(peaks)
-        self.logger.info("Determining mask radii")
+        self.logger.info("Determining 3D mask radii")
         with Lock(self.data_file):
             masks = self.prepare_xyz_masks(peaks)
-        self.logger.info("Writing masks")
+        self.logger.info("Writing 3D mask parameters")
         with Lock(self.mask_file):
             self.write_xyz_masks(masks)
         self.logger.info("Masked frames stored in %s" % self.mask_file)
@@ -1161,45 +1157,6 @@ class NXReduce(QtCore.QObject):
                                            radius=mask_size(f)))
         return masked_peaks
 
-    def complete_xyz_masks(self):
-        mask_xyz = []
-        peaks = {}
-        masks = {}
-        reduce = {}
-        for entry in self.entries:
-            if entry == self.entry.nxname:
-                reduce[entry] = self
-            else:
-                reduce[entry] = NXReduce(self.root[entry])
-            with Lock(reduce[entry].mask_file):
-                peaks[entry] = reduce[entry].read_xyz_peaks()
-                masks[entry] = reduce[entry].read_xyz_masks()
-        for entry in self.entries:
-            extra_masks = []
-            for p in [p for p in peaks[entry] if p.pixel_count < 0]:
-                radius = 0
-                width = 0
-                for e in [e for e in self.entries if e is not entry]:
-                    other_masks = [om for om in masks[e] if om.H == p.H and
-                                                            om.K == p.K and 
-                                                            om.L == p.L]
-                    for om in other_masks:
-                        radius = max(radius, om.radius)
-                    width = max(width, len(other_masks))
-                if radius > 0:
-                    radius += 20.
-                    width = int((width + 2) / 2)
-                    p.z = int(np.rint(p.z))
-                    for z in [z for z in range(p.z-width, p.z+width+1)]:
-                        extra_masks.append(NXPeak(p.x, p.y, z, 
-                                                  H=p.H, K=p.K, L=p.L, 
-                                                  pixel_count=p.pixel_count,
-                                                  radius=radius))
-            with Lock(reduce[entry].mask_file):
-                if extra_masks:
-                        reduce[entry].write_xyz_extras(extra_masks)
-                reduce[entry].write_mask()
-
     def write_xyz_masks(self, peaks):
         peaks = sorted(peaks, key=operator.attrgetter('z'))
         peak_array = np.array(list(zip(*[(peak.x, peak.y, peak.z, peak.H, peak.K, peak.L,
@@ -1264,6 +1221,45 @@ class NXReduce(QtCore.QObject):
                           pg.H, pg.K, pg.L, pg.radius))]
         return sorted(peaks, key=operator.attrgetter('z'))
 
+    def complete_xyz_masks(self):
+        mask_xyz = []
+        peaks = {}
+        masks = {}
+        reduce = {}
+        for entry in self.entries:
+            if entry == self.entry.nxname:
+                reduce[entry] = self
+            else:
+                reduce[entry] = NXReduce(self.root[entry])
+            with Lock(reduce[entry].mask_file):
+                peaks[entry] = reduce[entry].read_xyz_peaks()
+                masks[entry] = reduce[entry].read_xyz_masks()
+        for entry in self.entries:
+            extra_masks = []
+            for p in [p for p in peaks[entry] if p.pixel_count < 0]:
+                radius = 0
+                width = 0
+                for e in [e for e in self.entries if e is not entry]:
+                    other_masks = [om for om in masks[e] if om.H == p.H and
+                                                            om.K == p.K and 
+                                                            om.L == p.L]
+                    for om in other_masks:
+                        radius = max(radius, om.radius)
+                    width = max(width, len(other_masks))
+                if radius > 0:
+                    radius += 20.
+                    width = int((width + 2) / 2)
+                    p.z = int(np.rint(p.z))
+                    for z in [z for z in range(p.z-width, p.z+width+1)]:
+                        extra_masks.append(NXPeak(p.x, p.y, z, 
+                                                  H=p.H, K=p.K, L=p.L, 
+                                                  pixel_count=p.pixel_count,
+                                                  radius=radius))
+            with Lock(reduce[entry].mask_file):
+                if extra_masks:
+                        reduce[entry].write_xyz_extras(extra_masks)
+                reduce[entry].write_mask()
+
     def write_mask(self, peaks=None):
         if peaks is None:
             peaks = self.read_xyz_masks()
@@ -1293,9 +1289,15 @@ class NXReduce(QtCore.QObject):
                 mask[i:j] = mask[i:j].nxvalue | mask_chunk[:k]
 
     def nxmasked_transform(self):
-        if (self.not_complete('nxmasked_transform') and self.mask and
-            self.all_complete('nxprepare_mask')):
+        if self.not_complete('nxmasked_transform') and self.transform and self.mask:
+            if not self.all_complete('nxprepare_mask'):
+                self.logger.info('Cannot perform masked transform until the 3D mask ' + 
+                                 'is prepared for all entries')
+                return
             self.record_start('nxmasked_transform')
+            self.logger.info("Completing and writing 3D masks")
+            self.complete_xyz_masks()
+            self.logger.info("3D masks written")
             with Lock(self.wrapper_file):
                 cctw_command = self.prepare_transform(mask=True)
             if cctw_command:
@@ -1322,7 +1324,7 @@ class NXReduce(QtCore.QObject):
             else:
                 self.logger.info('CCTW command invalid')
                 self.record_fail('nxmasked_transform')
-        elif self.mask:
+        elif self.transform and self.mask:
             self.logger.info('Masked data already transformed')
             self.record_end('nxmasked_transform')
 
