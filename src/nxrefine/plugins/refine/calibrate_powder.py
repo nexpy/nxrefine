@@ -47,19 +47,19 @@ class CalibrateDialog(BaseDialog):
         self.parameters.add('pitch', 0.0, 'Pitch (degrees)', True)
         self.parameters.add('roll', 0.0, 'Roll (degrees)', True)
         self.parameters.add('search_size', 10, 'Search Size (pixels)')
-        rings = ['Ring%s' % i for i in range(1,21)]
-        self.rings_box = self.select_box(rings)
+        self.rings_box = self.select_box(['Ring%s' % i for i in range(1,21)])
         self.set_layout(self.select_entry(self.choose_entry),
                         self.action_buttons(('Plot Calibration', self.plot_data)),
                         self.parameters.grid(header=False),
-                        self.make_layout(
-                            self.action_buttons(('Select Points', self.select)),
-                            self.rings_box),
+                        self.action_buttons(('Select Points', self.select),
+                                            ('Autogenerate Rings', self.auto),
+                                            ('Clear Points', self.clear_points)),
+                        self.make_layout(self.rings_box),
                         self.action_buttons(('Calibrate', self.calibrate),
                                             ('Plot Cake', self.plot_cake),
                                             ('Restore', self.restore_parameters),
                                             ('Save', self.save_parameters)), 
-                        self.close_buttons(close=True))
+                        self.progress_layout(close=True))
         self.set_title('Calibrating Powder')
 
     def choose_entry(self):
@@ -81,15 +81,17 @@ class CalibrateDialog(BaseDialog):
             self.parameters['yc'].value = detector['beam_center_y']
         self.data = self.entry['instrument/calibration']
         self.counts = self.data.nxsignal.nxvalue
-
+        self.pixel_size = self.entry['instrument/detector/pixel_size'].nxvalue * 1e-3
+        self.pixel_mask = self.entry['instrument/detector/pixel_mask'].nxvalue
+        self.ring = self.selected_ring
 
     @property
     def search_size(self):
         return int(self.parameters['search_size'].value)
 
     @property
-    def ring(self):
-        return int(self.rings_box.currentText()[4:]) - 1
+    def selected_ring(self):
+        return int(self.rings_box.currentText()[4:])
 
     @property
     def ring_color(self):
@@ -105,7 +107,7 @@ class CalibrateDialog(BaseDialog):
         self.plotview.plot(self.data, log=True)
         self.plotview.aspect='equal'
         self.plotview.ytab.flipped = True
-        self.clear_peaks()
+        self.clear_points()
 
     def on_button_press(self, event):
         self.plotview.make_active()
@@ -115,6 +117,7 @@ class CalibrateDialog(BaseDialog):
             self.xp, self.yp = 0, 0
 
     def on_button_release(self, event):
+        self.ring = self.selected_ring
         if event.inaxes:
             if abs(event.x - self.xp) > 5 or abs(event.y - self.yp) > 5:
                 return
@@ -127,15 +130,7 @@ class CalibrateDialog(BaseDialog):
                         circle.remove()
                     del self.points[i]
                     return
-            idx, idy = self.find_peak(x, y)
-            points = [(idy, idx)]
-            circles = []
-            massif = Massif(self.counts)
-            extra_points = massif.find_peaks((idy, idx))
-            for point in extra_points:
-                points.append(point)
-                circles.append(self.circle(point[1], point[0], alpha=0.3))
-            self.points.append([self.circle(idx, idy), points, circles, self.ring])
+            self.add_points(x, y)
 
     def circle(self, idx, idy, alpha=1.0):
         return self.plotview.circle(idx, idy, self.search_size,
@@ -147,6 +142,37 @@ class CalibrateDialog(BaseDialog):
                                     'button_press_event', self.on_button_press)
         self.plotview.cidrelease = self.plotview.mpl_connect(
                                     'button_release_event', self.on_button_release)
+
+    def auto(self):
+        xc, yc = self.parameters['xc'].value, self.parameters['yc'].value
+        wavelength = self.parameters['wavelength'].value
+        distance = self.parameters['distance'].value * 1e-3
+        self.start_progress((0, self.selected_ring))
+        for ring in range(self.selected_ring):
+            self.update_progress(ring)
+            if len([p for p in self.points if p[3] == ring]) > 0:
+                continue
+            self.ring = ring
+            theta = 2 * np.arcsin(wavelength / (2*self.calibrant.dSpacing[ring]))
+            r = distance * np.tan(theta) / self.pixel_size
+            for phi in [n * np.pi/8.0 for n in range(1,16)]:
+                x, y = np.int(xc + r * np.cos(phi)), np.int(yc + r * np.sin(phi))
+                if ((x > 0 and x < self.data.x.max()) and
+                    (y > 0 and y < self.data.y.max()) and 
+                    not self.pixel_mask[y, x]):
+                    self.add_points(x, y)
+        self.stop_progress()
+
+    def add_points(self, x, y):
+        idx, idy = self.find_peak(x, y)
+        points = [(idy, idx)]
+        circles = []
+        massif = Massif(self.counts)
+        extra_points = massif.find_peaks((idy, idx))
+        for point in extra_points:
+            points.append(point)
+            circles.append(self.circle(point[1], point[0], alpha=0.3))
+        self.points.append([self.circle(idx, idy), points, circles, self.ring])
 
     def find_peak(self, x, y):
         s = self.search_size
@@ -162,7 +188,12 @@ class CalibrateDialog(BaseDialog):
         idy = top + idy[0]
         return idx, idy
 
-    def clear_peaks(self):
+    def clear_points(self):
+        for i, point in enumerate(self.points):
+            circle = point[0]
+            circle.remove()
+            for circle in point[2]:
+                circle.remove()
         self.points = []
         
     @property
@@ -184,7 +215,6 @@ class CalibrateDialog(BaseDialog):
         self.yaw = np.radians(self.parameters['yaw'].value)
         self.pitch = np.radians(self.parameters['pitch'].value)
         self.roll = np.radians(self.parameters['roll'].value)
-        self.pixel_size = self.entry['instrument/detector/pixel_size'].nxvalue * 1e-3
         self.xc = self.parameters['xc'].value
         self.yc = self.parameters['yc'].value
 
