@@ -121,7 +121,7 @@ class CalibrateDialog(BaseDialog):
             x, y = self.plotview.inverse_transform(event.xdata, event.ydata)
             for i, point in enumerate(self.points):
                 circle = point[0]
-                if circle.contains_point(self.plotview.ax.transData.transform((x,y))):
+                if circle.shape.contains_point(self.plotview.ax.transData.transform((x,y))):
                     circle.remove()
                     for circle in point[2]:
                         circle.remove()
