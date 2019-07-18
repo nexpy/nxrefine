@@ -155,15 +155,20 @@ class CalibrateDialog(BaseDialog):
             self.ring = ring
             theta = 2 * np.arcsin(wavelength / (2*self.calibrant.dSpacing[ring]))
             r = distance * np.tan(theta) / self.pixel_size
-            for phi in [n * np.pi/8.0 for n in range(1,16)]:
-                x, y = np.int(xc + r * np.cos(phi)), np.int(yc + r * np.sin(phi))
+            phi = self.phi_max = -np.pi
+            while phi < np.pi:
+                x, y = np.int(xc + r*np.cos(phi)), np.int(yc + r*np.sin(phi))
                 if ((x > 0 and x < self.data.x.max()) and
                     (y > 0 and y < self.data.y.max()) and 
                     not self.pixel_mask[y, x]):
-                    self.add_points(x, y)
+                    self.add_points(x, y, phi)
+                    phi = self.phi_max + 0.2
+                else:
+                    phi = phi + 0.2
         self.stop_progress()
 
-    def add_points(self, x, y):
+    def add_points(self, x, y, phi=0.0):
+        xc, yc = self.parameters['xc'].value, self.parameters['yc'].value
         idx, idy = self.find_peak(x, y)
         points = [(idy, idx)]
         circles = []
@@ -172,6 +177,10 @@ class CalibrateDialog(BaseDialog):
         for point in extra_points:
             points.append(point)
             circles.append(self.circle(point[1], point[0], alpha=0.3))
+        phis = np.array([np.arctan2(p[0]-yc, p[1]-xc) for p in points])
+        if phi < -0.5*np.pi:
+            phis[np.where(phis>0.0)] -= 2 * np.pi
+        self.phi_max = max(*phis, self.phi_max)
         self.points.append([self.circle(idx, idy), points, circles, self.ring])
 
     def find_peak(self, x, y):
