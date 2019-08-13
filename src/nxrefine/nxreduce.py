@@ -145,6 +145,9 @@ class NXReduce(QtCore.QObject):
     result = QtCore.Signal(object)
     stop = QtCore.Signal()
 
+    def __repr__(self):
+        return "NXReduce('"+self.sample+"_"+self.scan+"/"+self.entry_name+"')"
+
     def init_logs(self):
         self.logger = logging.getLogger("%s_%s['%s']"
                                         % (self.sample, self.scan, self.entry_name))
