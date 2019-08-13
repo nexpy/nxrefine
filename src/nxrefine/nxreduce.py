@@ -473,15 +473,16 @@ class NXReduce(QtCore.QObject):
 
     def record(self, program, **kwds):
         """ Record that a task has finished. Update NeXus file and database """
+        process = kwds.pop('process', program)
         parameters = '\n'.join(
             [('%s: %s' % (k, v)).replace('_', ' ').capitalize()
              for (k,v) in kwds.items()])
-        note = NXnote(program, ('Current machine: %s\n' % platform.node() +
+        note = NXnote(process, ('Current machine: %s\n' % platform.node() +
                                 'Current directory: %s\n' % self.directory +
                                 parameters))
-        if program in self.entry:
-            del self.entry[program]
-        self.entry[program] = NXprocess(program='%s' % program,
+        if process in self.entry:
+            del self.entry[process]
+        self.entry[process] = NXprocess(program='%s' % process,
                                 sequence_index=len(self.entry.NXprocess)+1,
                                 version='nxrefine v'+__version__,
                                 note=note)
@@ -1036,19 +1037,20 @@ class NXReduce(QtCore.QObject):
             if not self.complete('nxrefine'):
                 self.logger.info('Cannot prepare mask until the orientation is complete')
                 return
-            self.record_start('nxprepare_mask')
+            self.record_start('nxprepare')
             self.logger.info('Preparing 3D mask')
             tic = timeit.default_timer()
             self.prepare_mask()
             with Lock(self.wrapper_file):
                 self.link_mask()
-                self.record('nxprepare_mask', masked_file = self.mask_file)
+                self.record('nxprepare', masked_file = self.mask_file, 
+                            process='nxprepare_mask')
             toc = timeit.default_timer()
             self.logger.info("3D Mask stored in '%s' (%g seconds)"
                              % (self.mask_file, toc-tic))
         elif self.prepare:
             self.logger.info('3D Mask already prepared')
-            self.record_end('nxprepare_mask')
+            self.record_end('nxprepare')
 
     def prepare_mask(self):
         self.logger.info("Calculating peaks to be masked")
