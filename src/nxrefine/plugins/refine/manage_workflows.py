@@ -391,6 +391,7 @@ class WorkflowDialog(BaseDialog):
                 if self.selected(scan, 'transform'):
                     reduce.transform = True
                 if self.selected(scan, 'masked_transform'):
+                    reduce.transform = True
                     reduce.mask = True
                 if self.selected(scan, 'overwrite'):
                     reduce.overwrite = True
