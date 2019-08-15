@@ -390,7 +390,7 @@ class WorkflowDialog(BaseDialog):
                     reduce.prepare = True
                 if self.selected(scan, 'transform'):
                     reduce.transform = True
-                if self.selected(scan, 'masked_transform'):
+                elif self.selected(scan, 'masked_transform'):
                     reduce.transform = True
                     reduce.mask = True
                 if self.selected(scan, 'overwrite'):
@@ -418,7 +418,7 @@ class WorkflowDialog(BaseDialog):
                     reduce.overwrite = True
                 reduce.queue()
                 self.queued(scan, 'combine')
-            if self.selected(scan, 'masked_combine'):
+            elif self.selected(scan, 'masked_combine'):
                 reduce = NXMultiReduce(scan, self.entries, mask=True)
                 if self.selected(scan, 'overwrite'):
                     reduce.overwrite = True
