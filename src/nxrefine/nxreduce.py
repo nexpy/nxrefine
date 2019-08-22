@@ -1310,9 +1310,8 @@ class NXReduce(QtCore.QObject):
             peaks.extend(self.read_xyz_edges())
         peaks = sorted(peaks, key=operator.attrgetter('z'))
         entry = self.mask_root['entry']
-        if 'mask' in entry:
-            del entry['mask']
-        entry['mask'] = NXfield(shape=self.shape, dtype=np.int8, fillvalue=0)
+        if 'mask' not in entry:
+            entry['mask'] = NXfield(shape=self.shape, dtype=np.int8, fillvalue=0)
         mask = entry['mask']
         x, y = np.arange(self.shape[2]), np.arange(self.shape[1])
         frames = self.shape[0]
