@@ -18,7 +18,7 @@ from h5py import is_hdf5
 from nexusformat.nexus import *
 
 from nexpy.gui.pyqt import QtCore
-from nexpy.gui.utils import clamp, timestamp
+from nexpy.gui.utils import clamp, timestamp, NXConfigParser
 
 import nxrefine.nxdatabase as nxdb
 from .nxrefine import NXRefine, NXPeak
@@ -129,7 +129,10 @@ class NXReduce(QtCore.QObject):
 
         self._stopped = False
 
+        self.init_backups()
+
         self.init_logs()
+
         db_file = os.path.join(self.task_directory, 'nxdatabase.db')
         try:
             nxdb.init('sqlite:///' + db_file)
@@ -170,11 +173,20 @@ class NXReduce(QtCore.QObject):
             streamHandler = logging.StreamHandler()
             self.logger.addHandler(streamHandler)
 
+    def init_backups(self):
+        nexpy_dir = os.path.join(os.path.abspath(os.path.expanduser('~')), '.nexpy')
+        self.backup_directory = os.path.join(nexpy_dir, 'backups', timestamp())
+        os.makedirs(self.backup_directory)
+        self.backup_settings = NXConfigParser(os.path.join(nexpy_dir, 'settings.ini'))
+        
     @property
     def root(self):
         if self._root is None:
             with Lock(self.wrapper_file):
                 self._root = nxload(self.wrapper_file, 'rw')
+            self._root.backup(dir=self.backup_directory)
+            self.backup_settings.set('backups', self._root.nxbackup)
+            self.backup_settings.save()
         return self._root
 
     @property
@@ -270,11 +282,11 @@ class NXReduce(QtCore.QObject):
             elif self.parent:
                 with Lock(self.parent):
                     root = nxload(self.parent)
-                    if ('peaks' in root[self.entry_name] and
-                        'first' in root[self.entry_name]['peaks'].attrs):
-                        _first = np.int32(root[self.entry_name]['peaks'].attrs['first'])
-                    elif 'first' in root[self.entry_name]['data'].attrs:
-                        _first = np.int32(root[self.entry_name]['data'].attrs['first'])
+                if ('peaks' in root[self.entry_name] and
+                    'first' in root[self.entry_name]['peaks'].attrs):
+                    _first = np.int32(root[self.entry_name]['peaks'].attrs['first'])
+                elif 'first' in root[self.entry_name]['data'].attrs:
+                    _first = np.int32(root[self.entry_name]['data'].attrs['first'])
         try:
             self._first = np.int(_first)
         except Exception as error:
@@ -299,11 +311,11 @@ class NXReduce(QtCore.QObject):
             elif self.parent:
                 with Lock(self.parent):
                     root = nxload(self.parent)
-                    if ('peaks' in root[self.entry_name] and
-                        'last' in root[self.entry_name]['peaks'].attrs):
-                        _last = np.int32(root[self.entry_name]['peaks'].attrs['last'])
-                    elif 'last' in root[self.entry_name]['data'].attrs:
-                        _last = np.int32(root[self.entry_name]['data'].attrs['last'])
+                if ('peaks' in root[self.entry_name] and
+                    'last' in root[self.entry_name]['peaks'].attrs):
+                    _last = np.int32(root[self.entry_name]['peaks'].attrs['last'])
+                elif 'last' in root[self.entry_name]['data'].attrs:
+                    _last = np.int32(root[self.entry_name]['data'].attrs['last'])
         try:
             self._last = np.int(_last)
         except Exception as error:
@@ -326,9 +338,9 @@ class NXReduce(QtCore.QObject):
             elif self.parent:
                 with Lock(self.parent):
                     root = nxload(self.parent)
-                    if ('peaks' in root[self.entry_name] and
-                        'threshold' in root[self.entry_name]['peaks'].attrs):
-                        _threshold = np.int32(root[self.entry_name]['peaks'].attrs['threshold'])
+                if ('peaks' in root[self.entry_name] and
+                    'threshold' in root[self.entry_name]['peaks'].attrs):
+                    _threshold = np.int32(root[self.entry_name]['peaks'].attrs['threshold'])
         if _threshold is None:
             if self.maximum is not None:
                 _threshold = self.maximum / 10
@@ -353,9 +365,9 @@ class NXReduce(QtCore.QObject):
             elif self.parent:
                 with Lock(self.parent):
                     root = nxload(self.parent)
-                    if ('peaks' in root[self.entry_name] and
-                        'radius' in root[self.entry_name]['peaks'].attrs):
-                        _radius = np.int32(root[self.entry_name]['peaks'].attrs['radius'])
+                if ('peaks' in root[self.entry_name] and
+                    'radius' in root[self.entry_name]['peaks'].attrs):
+                    _radius = np.int32(root[self.entry_name]['peaks'].attrs['radius'])
         if _radius is None:
             _radius = 200
         try:
@@ -377,9 +389,9 @@ class NXReduce(QtCore.QObject):
             elif self.parent:
                 with Lock(self.parent):
                     root = nxload(self.parent)
-                    if ('peaks' in root[self.entry_name] and
-                        'width' in root[self.entry_name]['peaks'].attrs):
-                        _width = np.int32(root[self.entry_name]['peaks'].attrs['width'])
+                if ('peaks' in root[self.entry_name] and
+                    'width' in root[self.entry_name]['peaks'].attrs):
+                    _width = np.int32(root[self.entry_name]['peaks'].attrs['width'])
         try:
             self._width = np.int(_width)
         except:
@@ -399,9 +411,9 @@ class NXReduce(QtCore.QObject):
             elif self.parent:
                 with Lock(self.parent):
                     root = nxload(self.parent)
-                    if ('peaks' in root[self.entry_name] and
-                        'norm' in root[self.entry_name]['peaks'].attrs):
-                        _norm = np.int32(root[self.entry_name]['peaks'].attrs['norm'])
+                if ('peaks' in root[self.entry_name] and
+                    'norm' in root[self.entry_name]['peaks'].attrs):
+                    _norm = np.int32(root[self.entry_name]['peaks'].attrs['norm'])
         try:
             self._norm = np.float(_norm)
             if self._norm <= 0:
