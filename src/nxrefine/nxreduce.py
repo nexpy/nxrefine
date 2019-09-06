@@ -300,8 +300,8 @@ class NXReduce(QtCore.QObject):
                 if ('peaks' in root[self.entry_name] and
                     'last' in root[self.entry_name]['peaks'].attrs):
                     _last = np.int32(root[self.entry_name]['peaks'].attrs['last'])
-                    elif 'last' in root[self.entry_name]['data'].attrs:
-                        _last = np.int32(root[self.entry_name]['data'].attrs['last'])
+                elif 'last' in root[self.entry_name]['data'].attrs:
+                    _last = np.int32(root[self.entry_name]['data'].attrs['last'])
         try:
             self._last = np.int(_last)
         except Exception as error:
