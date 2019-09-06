@@ -17,9 +17,6 @@ class Lock(object):
     def acquire(self, timeout=None, check_interval=None):
         if timeout is None:
             timeout = self.timeout
-        if timeout is None:
-            timeout = 0
-
         if check_interval is None:
             check_interval = self.check_interval
 
