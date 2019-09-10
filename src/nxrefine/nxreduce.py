@@ -480,12 +480,12 @@ class NXReduce(QtCore.QObject):
     def stopped(self, value):
         self._stopped = value
 
-    def record(self, program, **kwds):
+    def record(self, program, **kwargs):
         """ Record that a task has finished. Update NeXus file and database """
-        process = kwds.pop('process', program)
+        process = kwargs.pop('process', program)
         parameters = '\n'.join(
             [('%s: %s' % (k, v)).replace('_', ' ').capitalize()
-             for (k,v) in kwds.items()])
+             for (k,v) in kwargs.items()])
         note = NXnote(process, ('Current machine: %s\n' % platform.node() +
                                 'Current directory: %s\n' % self.directory +
                                 parameters))
