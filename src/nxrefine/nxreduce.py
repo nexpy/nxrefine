@@ -646,40 +646,42 @@ class NXReduce(QtCore.QObject):
 
     def find_maximum(self):
         self.logger.info('Finding maximum counts')
-        maximum = 0.0
-        nframes = self.shape[0]
-        chunk_size = self.field.chunks[0]
-        if chunk_size < 20:
-            chunk_size = 50
-        data = self.field.nxfile[self.path]
-        if self.first == None:
-            self.first = 0
-        if self.last == None:
-            self.last = nframes
-        tic = self.start_progress(self.first, self.last)
-        fsum = np.zeros(self.entry['data'].nxaxes[0].shape, dtype=np.float64)
-        for i in range(self.first, self.last, chunk_size):
-            if self.stopped:
-                return None
-            self.update_progress(i)
-            try:
-                v = data[i:i+chunk_size,:,:]
-            except IndexError as error:
-                pass
-            if i == self.first:
-                vsum = v.sum(0)
-            else:
-                vsum += v.sum(0)
-            fsum[i:i+chunk_size] = v.sum((1,2))
-            if self.pixel_mask is not None:
-                v = np.ma.masked_array(v)
-                v.mask = self.pixel_mask
-            if maximum < v.max():
-                maximum = v.max()
-            del v
-        if self.pixel_mask is not None:
+        with self.field_root.nxfile:
+            maximum = 0.0
+            nframes = self.shape[0]
+            chunk_size = self.field.chunks[0]
+            if chunk_size < 20:
+                chunk_size = 50
+            if self.first == None:
+                self.first = 0
+            if self.last == None:
+                self.last = nframes
+            data = self.field.nxfile[self.path]
+            fsum = np.zeros(nframes, dtype=np.float64)
+            pixel_mask = self.pixel_mask
+            tic = self.start_progress(self.first, self.last)
+            for i in range(self.first, self.last, chunk_size):
+                if self.stopped:
+                    return None
+                self.update_progress(i)
+                try:
+                    v = data[i:i+chunk_size,:,:]
+                except IndexError as error:
+                    pass
+                if i == self.first:
+                    vsum = v.sum(0)
+                else:
+                    vsum += v.sum(0)
+                fsum[i:i+chunk_size] = v.sum((1,2))
+                if pixel_mask is not None:
+                    v = np.ma.masked_array(v)
+                    v.mask = pixel_mask
+                if maximum < v.max():
+                    maximum = v.max()
+                del v
+        if pixel_mask is not None:
             vsum = np.ma.masked_array(vsum)
-            vsum.mask = self.pixel_mask
+            vsum.mask = pixel_mask
         self.summed_data = NXfield(vsum, name='summed_data')
         self.summed_frames = NXfield(fsum, name='summed_frames')
         toc = self.stop_progress()
@@ -687,43 +689,43 @@ class NXReduce(QtCore.QObject):
         return maximum
 
     def write_maximum(self, maximum):
-        self.entry['data'].attrs['maximum'] = maximum
-        self.entry['data'].attrs['first'] = self.first
-        self.entry['data'].attrs['last'] = self.last
-        if 'summed_data' in self.entry:
-            del self.entry['summed_data']
-        self.entry['summed_data'] = NXdata(self.summed_data,
-                                           self.entry['data'].nxaxes[-2:])
-        if 'summed_frames' in self.entry:
-            del self.entry['summed_frames']
-        self.entry['summed_frames'] = NXdata(self.summed_frames,
-                                             self.entry['data'].nxaxes[0])
-        try:
-            from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
-            parameters = self.entry['instrument/calibration/refinement/parameters']
-            cake = AzimuthalIntegrator(dist=parameters['Distance'].nxvalue,
-                                       poni1=parameters['Poni1'].nxvalue,
-                                       poni2=parameters['Poni2'].nxvalue,
-                                       rot1=parameters['Rot1'].nxvalue,
-                                       rot2=parameters['Rot2'].nxvalue,
-                                       rot3=parameters['Rot3'].nxvalue,
-                                       pixel1=parameters['PixelSize1'].nxvalue,
-                                       pixel2=parameters['PixelSize2'].nxvalue,
-                                       wavelength = parameters['Wavelength'].nxvalue)
-            counts = self.entry['summed_data/summed_data'].nxvalue
-            polar_angle, intensity = cake.integrate1d(counts, 2048,
-                                                      unit='2th_deg',
-                                                      mask=self.pixel_mask,
-                                                      correctSolidAngle=True)
-            if 'radial_sum' in self.entry:
-                del self.entry['radial_sum']
-            self.entry['radial_sum'] = NXdata(
-                NXfield(intensity, name='radial_sum'),
-                NXfield(polar_angle, name='polar_angle'))
-        except Exception as error:
-            self.logger.info('Unable to create radial sum')
-        self.record('nxmax', maximum=maximum,
-                    first_frame=self.first, last_frame=self.last)
+        with self.root.nxfile:
+            self.entry['data'].attrs['maximum'] = maximum
+            self.entry['data'].attrs['first'] = self.first
+            self.entry['data'].attrs['last'] = self.last
+            if 'summed_data' in self.entry:
+                del self.entry['summed_data']
+            self.entry['summed_data'] = NXdata(self.summed_data,
+                                               self.entry['data'].nxaxes[-2:])
+            if 'summed_frames' in self.entry:
+                del self.entry['summed_frames']
+            self.entry['summed_frames'] = NXdata(self.summed_frames,
+                                                 self.entry['data'].nxaxes[0])
+            try:
+                from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
+                parameters = self.entry['instrument/calibration/refinement/parameters']
+                cake = AzimuthalIntegrator(dist=parameters['Distance'].nxvalue,
+                                           poni1=parameters['Poni1'].nxvalue,
+                                           poni2=parameters['Poni2'].nxvalue,
+                                           rot1=parameters['Rot1'].nxvalue,
+                                           rot2=parameters['Rot2'].nxvalue,
+                                           rot3=parameters['Rot3'].nxvalue,
+                                           pixel1=parameters['PixelSize1'].nxvalue,
+                                           pixel2=parameters['PixelSize2'].nxvalue,
+                                           wavelength = parameters['Wavelength'].nxvalue)
+                counts = self.entry['summed_data/summed_data'].nxvalue
+                polar_angle, intensity = cake.integrate1d(counts, 2048,
+                                                          unit='2th_deg',
+                                                          mask=self.pixel_mask,
+                                                          correctSolidAngle=True)
+                if 'radial_sum' in self.entry:
+                    del self.entry['radial_sum']
+                self.entry['radial_sum'] = NXdata(NXfield(intensity, name='radial_sum'),
+                                                  NXfield(polar_angle, name='polar_angle'))
+            except Exception as error:
+                self.logger.info('Unable to create radial sum')
+            self.record('nxmax', maximum=maximum,
+                        first_frame=self.first, last_frame=self.last)
 
     def nxfind(self):
         if self.not_complete('nxfind') and self.find:
@@ -744,54 +746,59 @@ class NXReduce(QtCore.QObject):
 
     def find_peaks(self):
         self.logger.info("Finding peaks")
+        with self.root.nxfile:
+            self._threshold, self._maximum = self.threshold, self.maximum
+
         if self.threshold is None:
             if self.maximum is None:
+                self.maxcount = True
                 self.nxmax()
             self.threshold = self.maximum / 10
 
-        if self.first == None:
-            self.first = 0
-        if self.last == None:
-            self.last = self.shape[0]
-        z_min, z_max = self.first, self.last
+        with self.field_root.nxfile:
+            if self.first == None:
+                self.first = 0
+            if self.last == None:
+                self.last = self.shape[0]
+            z_min, z_max = self.first, self.last
 
-        tic = self.start_progress(z_min, z_max)
+            tic = self.start_progress(z_min, z_max)
 
-        lio = labelimage(self.shape[-2:], flipper=flip1)
-        allpeaks = []
-        if len(self.shape) == 2:
-            res = None
-        else:
-            chunk_size = self.field.chunks[0]
-            pixel_tolerance = 50
-            frame_tolerance = 10
-            nframes = z_max
-            data = self.field.nxfile[self.path]
-            for i in range(0, nframes, chunk_size):
-                if self.stopped:
-                    return None
-                try:
-                    if i + chunk_size > z_min and i < z_max:
-                        self.update_progress(i)
-                        v = data[i:i+chunk_size,:,:]
-                        for j in range(chunk_size):
-                            if i+j >= z_min and i+j <= z_max:
-                                omega = np.float32(i+j)
-                                lio.peaksearch(v[j], self.threshold, omega)
-                                if lio.res is not None:
-                                    blob_moments(lio.res)
-                                    for k in range(lio.res.shape[0]):
-                                        res = lio.res[k]
-                                        peak = NXBlob(res[0], res[22],
-                                            res[23], res[24], omega,
-                                            res[27], res[26], res[29],
-                                            self.threshold,
-                                            pixel_tolerance,
-                                            frame_tolerance)
-                                        if peak.isvalid(self.pixel_mask):
-                                            allpeaks.append(peak)
-                except IndexError as error:
-                    pass
+            lio = labelimage(self.shape[-2:], flipper=flip1)
+            allpeaks = []
+            if len(self.shape) == 2:
+                res = None
+            else:
+                chunk_size = self.field.chunks[0]
+                pixel_tolerance = 50
+                frame_tolerance = 10
+                nframes = z_max
+                data = self.field.nxfile[self.path]
+                for i in range(0, nframes, chunk_size):
+                    if self.stopped:
+                        return None
+                    try:
+                        if i + chunk_size > z_min and i < z_max:
+                            self.update_progress(i)
+                            v = data[i:i+chunk_size,:,:]
+                            for j in range(chunk_size):
+                                if i+j >= z_min and i+j <= z_max:
+                                    omega = np.float32(i+j)
+                                    lio.peaksearch(v[j], self.threshold, omega)
+                                    if lio.res is not None:
+                                        blob_moments(lio.res)
+                                        for k in range(lio.res.shape[0]):
+                                            res = lio.res[k]
+                                            peak = NXBlob(res[0], res[22],
+                                                res[23], res[24], omega,
+                                                res[27], res[26], res[29],
+                                                self.threshold,
+                                                pixel_tolerance,
+                                                frame_tolerance)
+                                            if peak.isvalid(self.pixel_mask):
+                                                allpeaks.append(peak)
+                    except IndexError as error:
+                        pass
 
         if not allpeaks:
             toc = self.stop_progress()
@@ -865,16 +872,17 @@ class NXReduce(QtCore.QObject):
         group.attrs['first'] = self.first
         group.attrs['last'] = self.last
         group.attrs['threshold'] = self.threshold
-        if 'peaks' in self.entry:
-            del self.entry['peaks']
-        self.entry['peaks'] = group
-        refine = NXRefine(self.entry)
-        polar_angles, azimuthal_angles = refine.calculate_angles(refine.xp,
-                                                                 refine.yp)
-        refine.write_angles(polar_angles, azimuthal_angles)
-        self.record('nxfind', threshold=self.threshold,
-                    first_frame=self.first, last_frame=self.last,
-                    peak_number=len(peaks))
+        with self.root.nxfile:
+            if 'peaks' in self.entry:
+                del self.entry['peaks']
+            self.entry['peaks'] = group
+            refine = NXRefine(self.entry)
+            polar_angles, azimuthal_angles = refine.calculate_angles(refine.xp,
+                                                                     refine.yp)
+            refine.write_angles(polar_angles, azimuthal_angles)
+            self.record('nxfind', threshold=self.threshold,
+                        first_frame=self.first, last_frame=self.last,
+                        peak_number=len(peaks))
 
     def nxcopy(self):
         if self.is_parent():
@@ -892,10 +900,12 @@ class NXReduce(QtCore.QObject):
             self.record_end('nxcopy')
 
     def copy_parameters(self):
-        input = nxload(self.parent)
-        input_ref = NXRefine(input[self.entry_name])
-        output_ref = NXRefine(self.entry)
-        input_ref.copy_parameters(output_ref, sample=True, instrument=True)
+        with self.parent_root.nxfile:
+            input = self.parent_root
+            input_ref = NXRefine(input[self.entry_name])
+            with self.root.nxfile:
+                output_ref = NXRefine(self.entry)
+                input_ref.copy_parameters(output_ref, sample=True, instrument=True)
         self.logger.info("Parameters copied from '%s'" %
                          os.path.basename(os.path.realpath(self.parent)))
 
@@ -920,24 +930,26 @@ class NXReduce(QtCore.QObject):
             self.record_end('nxrefine')
 
     def refine_parameters(self, lattice=False):
-        refine = NXRefine(self.entry)
-        refine.refine_hkls(lattice=lattice, chi=True, omega=True)
-        fit_report=refine.fit_report
-        refine.refine_hkls(chi=True, omega=True, phi=True)
-        fit_report = fit_report + '\n' + refine.fit_report
-        refine.refine_orientation_matrix()
-        fit_report = fit_report + '\n' + refine.fit_report
-        if refine.result.success:
-            refine.fit_report = fit_report
-            self.logger.info('Refined HKL values')
-            return refine
-        else:
-            self.logger.info('HKL refinement not successful')
-            return None
+        with self.root.nxfile:
+            refine = NXRefine(self.entry)
+            refine.refine_hkls(lattice=lattice, chi=True, omega=True)
+            fit_report=refine.fit_report
+            refine.refine_hkls(chi=True, omega=True, phi=True)
+            fit_report = fit_report + '\n' + refine.fit_report
+            refine.refine_orientation_matrix()
+            fit_report = fit_report + '\n' + refine.fit_report
+            if refine.result.success:
+                refine.fit_report = fit_report
+                self.logger.info('Refined HKL values')
+                return refine
+            else:
+                self.logger.info('HKL refinement not successful')
+                return None
 
     def write_refinement(self, refine):
-        refine.write_parameters()
-        self.record('nxrefine', fit_report=refine.fit_report)
+        with self.root.nxfile:
+            refine.write_parameters()
+            self.record('nxrefine', fit_report=refine.fit_report)
 
     def nxtransform(self):
         if self.not_complete('nxtransform') and self.transform:
@@ -985,7 +997,7 @@ class NXReduce(QtCore.QObject):
             elif 'masked_transform' in self.entry:
                 transform = self.entry['masked_transform']
             elif self.parent:
-                root = nxload(self.parent)
+                root = self.parent_root
                 if 'transform' in root[self.entry_name]:
                     transform = root[self.entry_name]['transform']
                 elif 'masked_transform' in root[self.entry_name]:
@@ -1484,7 +1496,6 @@ class NXMultiReduce(NXReduce):
                 return
             self.record_start(task)
             cctw_command = self.prepare_combine()
-            root = nxload(self.wrapper_file, 'r')
             if cctw_command:
                 if self.mask:
                     self.logger.info('Combining masked transforms (%s)'
@@ -1525,15 +1536,16 @@ class NXMultiReduce(NXReduce):
         else:
             transform = 'transform'
         try:
-            entry = self.entries[0]
-            Qh, Qk, Ql = (self.root[entry][transform]['Qh'],
-                          self.root[entry][transform]['Qk'],
-                          self.root[entry][transform]['Ql'])
-            data = NXlink('/entry/data/v',
-                          file=os.path.join(self.scan, transform+'.nxs'), name='data')
-            if transform in self.entry:
-                del self.entry[transform]
-            self.entry[transform] = NXdata(data, [Ql,Qk,Qh])
+            with self.root.nxfile:
+                entry = self.entries[0]
+                Qh, Qk, Ql = (self.root[entry][transform]['Qh'],
+                              self.root[entry][transform]['Qk'],
+                              self.root[entry][transform]['Ql'])
+                data = NXlink('/entry/data/v',
+                              file=os.path.join(self.scan, transform+'.nxs'), name='data')
+                if transform in self.entry:
+                    del self.entry[transform]
+                self.entry[transform] = NXdata(data, [Ql,Qk,Qh])
         except Exception as error:
             self.logger.info('Unable to initialize transform group')
             return None
