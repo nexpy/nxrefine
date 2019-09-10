@@ -533,11 +533,11 @@ class NXReduce(QtCore.QObject):
             self.link_data()
             logs = self.read_logs()
             if logs:
-                    self.transfer_logs(logs)
-                    self.record('nxlink', logs='Transferred')
-                    self.logger.info('Entry linked to raw data')
-                else:
-                    self.record_fail('nxlink')
+                self.transfer_logs(logs)
+                self.record('nxlink', logs='Transferred')
+                self.logger.info('Entry linked to raw data')
+            else:
+                self.record_fail('nxlink')
         elif self.link:
             self.logger.info('Data already linked')
             self.record_end('nxlink')
