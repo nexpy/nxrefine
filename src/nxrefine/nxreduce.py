@@ -967,9 +967,10 @@ class NXReduce(QtCore.QObject):
                 self.logger.info('Transform process launched')
                 tic = timeit.default_timer()
                 with self.field_root.nxfile:
-                    process = subprocess.run(cctw_command, shell=True,
-                                             stdout=subprocess.PIPE,
-                                             stderr=subprocess.PIPE)
+                    with NXLock(self.transform_file):
+                        process = subprocess.run(cctw_command, shell=True,
+                                                 stdout=subprocess.PIPE,
+                                                 stderr=subprocess.PIPE)
                 toc = timeit.default_timer()
                 if process.returncode == 0:
                     self.logger.info('Transform completed (%g seconds)'
@@ -1046,7 +1047,8 @@ class NXReduce(QtCore.QObject):
                 refine.write_settings(self.settings_file)
                 command = refine.cctw_command(mask)
                 if command and os.path.exists(transform_file):
-                    os.remove(transform_file)
+                    with NXLock(transform_file):
+                        os.remove(transform_file)
                 return command
             else:
                 self.logger.info('Invalid HKL grid')
@@ -1148,6 +1150,7 @@ class NXReduce(QtCore.QObject):
             entry = self.mask_root['entry']
             if 'peaks_inferred' in entry:
                 del entry['peaks_inferred']
+            entry['peaks_inferred'] = collection
 
     def prepare_xyz_masks(self, peaks):
         masks = []
@@ -1265,9 +1268,11 @@ class NXReduce(QtCore.QObject):
             if cctw_command:
                 self.logger.info('Masked transform launched')
                 tic = timeit.default_timer()
-                process = subprocess.run(cctw_command, shell=True,
-                                         stdout=subprocess.PIPE,
-                                         stderr=subprocess.PIPE)
+                with self.field_root.nxfile:
+                    with NXLock(self.masked_transform_file):
+                        process = subprocess.run(cctw_command, shell=True,
+                                                 stdout=subprocess.PIPE,
+                                                 stderr=subprocess.PIPE)
                 toc = timeit.default_timer()
                 if process.returncode == 0:
                     self.logger.info('Masked transform completed (%g seconds)'
@@ -1528,11 +1533,19 @@ class NXMultiReduce(NXReduce):
                     transform_file = self.transform_file
                     transform_path = 'transform/data'
                 tic = timeit.default_timer()
-                if os.path.exists(transform_file):
-                    os.remove(transform_file)
-                process = subprocess.run(cctw_command, shell=True,
-                                         stdout=subprocess.PIPE,
-                                         stderr=subprocess.PIPE)
+                with NXLock(transform_file):
+                    if os.path.exists(transform_file):
+                        os.remove(transform_file)
+                    data_lock = {}
+                    for entry in self.entries:
+                        data_lock[entry] = NXLock(
+                                            self.root[entry][transform_path].nxfilename)
+                        data_lock[entry].acquire()
+                    process = subprocess.run(cctw_command, shell=True,
+                                             stdout=subprocess.PIPE,
+                                             stderr=subprocess.PIPE)
+                    for entry in self.entries:
+                        data_lock[entry].release()
                 toc = timeit.default_timer()
                 if process.returncode == 0:
                     self.logger.info('%s (%s)completed (%g seconds)'
