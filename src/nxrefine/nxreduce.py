@@ -231,6 +231,7 @@ class NXReduce(QtCore.QObject):
             if 'entry' not in self.mask_root:
                 self.mask_root['entry'] = NXentry()
         return self._mask_root
+
     @property
     def pixel_mask(self):
         if self._pixel_mask is None:
@@ -528,17 +529,20 @@ class NXReduce(QtCore.QObject):
                 self.logger.info('Data file not available')                
                 return
             self.record_start('nxlink')
-            self.link_data()
-            logs = self.read_logs()
-            if logs:
-                if 'logs' in self.entry['instrument']:
-                    del self.entry['instrument']['logs']
-                self.entry['instrument']['logs'] = logs
-                self.transfer_logs()
-                self.record('nxlink', logs='Transferred')
-                self.logger.info('Entry linked to raw data')
-            else:
-                self.record_fail('nxlink')
+            with self.root.nxfile:
+                self.link_data()
+                logs = self.read_logs()
+                if logs:
+                    if 'instrument' not in self.entry:
+                        self.entry['instrument'] = NXinstrument()
+                    if 'logs' in self.entry['instrument']:
+                        del self.entry['instrument/logs']
+                    self.entry['instrument/logs'] = logs
+                    self.transfer_logs()
+                    self.record('nxlink', logs='Transferred')
+                    self.logger.info('Entry linked to raw data')
+                else:
+                    self.record_fail('nxlink')
         elif self.link:
             self.logger.info('Data already linked')
             self.record_end('nxlink')
