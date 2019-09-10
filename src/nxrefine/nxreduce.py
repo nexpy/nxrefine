@@ -490,12 +490,13 @@ class NXReduce(QtCore.QObject):
         note = NXnote(process, ('Current machine: %s\n' % platform.node() +
                                 'Current directory: %s\n' % self.directory +
                                 parameters))
-        if process in self.entry:
-            del self.entry[process]
-        self.entry[process] = NXprocess(program='%s' % process,
-                                sequence_index=len(self.entry.NXprocess)+1,
-                                version='nxrefine v'+__version__,
-                                note=note)
+        with self.root.nxfile:
+            if process in self.entry:
+                del self.entry[process]
+            self.entry[process] = NXprocess(program='%s' % process,
+                                            sequence_index=len(self.entry.NXprocess)+1,
+                                            version='nxrefine v'+__version__,
+                                            note=note)
         self.record_end(program)
         
         # check if all 3 entries are done - update File
