@@ -1117,7 +1117,7 @@ class NXRefine(object):
             self.define_lattice_parameters()
             del opts['lattice']
         for opt in opts:
-            self.parameters.add(opt, vars(self)[opt], vary=opts[opt])
+            self.parameters.add(opt, getattr(self, opt), vary=opts[opt])
         return self.parameters
 
     def define_lattice_parameters(self, lattice=True):
