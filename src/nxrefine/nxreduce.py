@@ -89,10 +89,12 @@ class NXReduce(QtCore.QObject):
 
         self._root = None
         self._data = data
+        self._field_root = None
         self._field = None
         self._shape = None
         self._mask_root = None
         self._pixel_mask = None
+        self._parent_root = None
         self._parent = parent
         self._entries = entries
 
@@ -197,9 +199,16 @@ class NXReduce(QtCore.QObject):
         return self.entry['data']
 
     @property
+    def field_root(self):
+        if self._field_root is None:
+            self._field_root = nxload(self.data_file, 'r')
+        return self._field_root
+
+    @property
     def field(self):
         if self._field is None:
-            self._field = nxload(self.data_file, 'r')[self.path]
+            self._field = self.field_root[self.path]
+            self._shape = self._field.shape
         return self._field
 
     @property
@@ -230,6 +239,12 @@ class NXReduce(QtCore.QObject):
             except Exception as error:
                 pass
         return self._pixel_mask
+
+    @property
+    def parent_root(self):
+        if self._parent_root is None:
+            self._parent_root = nxload(self.parent_file, 'r')
+        return self._parent_root
 
     @property
     def parent(self):
@@ -268,7 +283,7 @@ class NXReduce(QtCore.QObject):
             elif 'first' in self.entry['data'].attrs:
                 _first = np.int32(self.entry['data'].attrs['first'])
             elif self.parent:
-                root = nxload(self.parent)
+                root = self.parent_root
                 if ('peaks' in root[self.entry_name] and
                     'first' in root[self.entry_name]['peaks'].attrs):
                     _first = np.int32(root[self.entry_name]['peaks'].attrs['first'])
@@ -296,7 +311,7 @@ class NXReduce(QtCore.QObject):
             elif 'last' in self.entry['data'].attrs:
                 _last = np.int32(self.entry['data'].attrs['last'])
             elif self.parent:
-                root = nxload(self.parent)
+                root = self.parent_root
                 if ('peaks' in root[self.entry_name] and
                     'last' in root[self.entry_name]['peaks'].attrs):
                     _last = np.int32(root[self.entry_name]['peaks'].attrs['last'])
@@ -322,7 +337,7 @@ class NXReduce(QtCore.QObject):
             if 'peaks' in self.entry and 'threshold' in self.entry['peaks'].attrs:
                 _threshold = np.int32(self.entry['peaks'].attrs['threshold'])
             elif self.parent:
-                root = nxload(self.parent)
+                root = self.parent_root
                 if ('peaks' in root[self.entry_name] and
                     'threshold' in root[self.entry_name]['peaks'].attrs):
                     _threshold = np.int32(root[self.entry_name]['peaks'].attrs['threshold'])
@@ -348,7 +363,7 @@ class NXReduce(QtCore.QObject):
             if 'peaks' in self.entry and 'radius' in self.entry['peaks'].attrs:
                 _radius = np.int32(self.entry['peaks'].attrs['radius'])
             elif self.parent:
-                root = nxload(self.parent)
+                root = self.parent_root
                 if ('peaks' in root[self.entry_name] and
                     'radius' in root[self.entry_name]['peaks'].attrs):
                     _radius = np.int32(root[self.entry_name]['peaks'].attrs['radius'])
@@ -371,7 +386,7 @@ class NXReduce(QtCore.QObject):
             if 'peaks' in self.entry and 'width' in self.entry['peaks'].attrs:
                 _width = np.int32(self.entry['peaks'].attrs['width'])
             elif self.parent:
-                root = nxload(self.parent)
+                root = self.parent_root
                 if ('peaks' in root[self.entry_name] and
                     'width' in root[self.entry_name]['peaks'].attrs):
                     _width = np.int32(root[self.entry_name]['peaks'].attrs['width'])
@@ -392,7 +407,7 @@ class NXReduce(QtCore.QObject):
             if 'peaks' in self.entry and 'norm' in self.entry['peaks'].attrs:
                 _norm = np.int32(self.entry['peaks'].attrs['norm'])
             elif self.parent:
-                root = nxload(self.parent)
+                root = self.parent_root
                 if ('peaks' in root[self.entry_name] and
                     'norm' in root[self.entry_name]['peaks'].attrs):
                     _norm = np.int32(root[self.entry_name]['peaks'].attrs['norm'])
