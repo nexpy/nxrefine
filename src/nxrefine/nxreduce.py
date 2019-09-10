@@ -530,16 +530,10 @@ class NXReduce(QtCore.QObject):
                 self.logger.info('Data file not available')                
                 return
             self.record_start('nxlink')
-            with self.root.nxfile:
-                self.link_data()
-                logs = self.read_logs()
-                if logs:
-                    if 'instrument' not in self.entry:
-                        self.entry['instrument'] = NXinstrument()
-                    if 'logs' in self.entry['instrument']:
-                        del self.entry['instrument/logs']
-                    self.entry['instrument/logs'] = logs
-                    self.transfer_logs()
+            self.link_data()
+            logs = self.read_logs()
+            if logs:
+                    self.transfer_logs(logs)
                     self.record('nxlink', logs='Transferred')
                     self.logger.info('Entry linked to raw data')
                 else:
@@ -550,23 +544,27 @@ class NXReduce(QtCore.QObject):
 
     def link_data(self):
         if self.field:
-            if 'data' not in self.entry:
-                self.entry['data'] = NXdata()
-                self.entry['data/x_pixel'] = np.arange(self.shape[2], dtype=np.int32)
-                self.entry['data/y_pixel'] = np.arange(self.shape[1], dtype=np.int32)
-                self.entry['data/frame_number'] = np.arange(self.shape[0], dtype=np.int32)
-                data_file = os.path.relpath(self.data_file, os.path.dirname(self.wrapper_file))
-                self.entry['data/data'] = NXlink(self.path, data_file)
-                self.entry['data'].nxsignal = self.entry['data/data']
-                self.logger.info('Data group created and linked to external data')
-            else:
-                if self.entry['data/frame_number'].shape != self.shape[0]:
-                    del self.entry['data/frame_number']
-                    self.entry['data/frame_number'] = np.arange(self.shape[0], dtype=np.int32)
-                    self.logger.info('Fixed frame number axis')
-            self.entry['data'].nxaxes = [self.entry['data/frame_number'],
-                                         self.entry['data/y_pixel'],
-                                         self.entry['data/x_pixel']]
+            with self.root.nxfile:
+                if 'data' not in self.entry:
+                    self.entry['data'] = NXdata()
+                    self.entry['data/x_pixel'] = np.arange(self.shape[2], dtype=np.int32)
+                    self.entry['data/y_pixel'] = np.arange(self.shape[1], dtype=np.int32)
+                    self.entry['data/frame_number'] = np.arange(self.shape[0], 
+                                                                dtype=np.int32)
+                    data_file = os.path.relpath(self.data_file, 
+                                                os.path.dirname(self.wrapper_file))
+                    self.entry['data/data'] = NXlink(self.path, data_file)
+                    self.entry['data'].nxsignal = self.entry['data/data']
+                    self.logger.info('Data group created and linked to external data')
+                else:
+                    if self.entry['data/frame_number'].shape != self.shape[0]:
+                        del self.entry['data/frame_number']
+                        self.entry['data/frame_number'] = np.arange(self.shape[0], 
+                                                                    dtype=np.int32)
+                        self.logger.info('Fixed frame number axis')
+                self.entry['data'].nxaxes = [self.entry['data/frame_number'],
+                                             self.entry['data/y_pixel'],
+                                             self.entry['data/x_pixel']]
         else:
             self.logger.info('No raw data loaded')
 
@@ -595,38 +593,44 @@ class NXReduce(QtCore.QObject):
                 logs[key] = [array[i] for array in meta_input]
         return logs
 
-    def transfer_logs(self):
-        logs = self.entry['instrument/logs']
-        frames = self.entry['data/frame_number'].size
-        if 'MCS1' in logs:
-            if 'monitor1' in self.entry:
-                del self.entry['monitor1']
-            data = logs['MCS1'][:frames]
-            self.entry['monitor1'] = NXmonitor(NXfield(data, name='MCS1'),
-                                               NXfield(np.arange(frames,
-                                                                 dtype=np.int32),
-                                                       name='frame_number'))
-        if 'MCS2' in logs:
-            if 'monitor2' in self.entry:
-                del self.entry['monitor2']
-            data = logs['MCS2'][:frames]
-            self.entry['monitor2'] = NXmonitor(NXfield(data, name='MCS2'),
-                                               NXfield(np.arange(frames,
-                                                                 dtype=np.int32),
-                                                       name='frame_number'))
-        if 'source' not in self.entry['instrument']:
-            self.entry['instrument/source'] = NXsource()
-        self.entry['instrument/source/name'] = 'Advanced Photon Source'
-        self.entry['instrument/source/type'] = 'Synchrotron X-ray Source'
-        self.entry['instrument/source/probe'] = 'x-ray'
-        if 'Storage_Ring_Current' in logs:
-            self.entry['instrument/source/current'] = logs['Storage_Ring_Current']
-        if 'UndulatorA_gap' in logs:
-            self.entry['instrument/source/undulator_gap'] = logs['UndulatorA_gap']
-        if 'Calculated_filter_transmission' in logs:
-            if 'attenuator' not in self.entry['instrument']:
-                self.entry['instrument/attenuator'] = NXattenuator()
-            self.entry['instrument/attenuator/attenuator_transmission'] = logs['Calculated_filter_transmission']
+    def transfer_logs(self, logs):
+        with self.root.nxfile:
+            if 'instrument' not in self.entry:
+                self.entry['instrument'] = NXinstrument()
+            if 'logs' in self.entry['instrument']:
+                del self.entry['instrument/logs']
+            self.entry['instrument/logs'] = logs
+            frames = self.entry['data/frame_number'].size
+            if 'MCS1' in logs:
+                if 'monitor1' in self.entry:
+                    del self.entry['monitor1']
+                data = logs['MCS1'][:frames]
+                self.entry['monitor1'] = NXmonitor(NXfield(data, name='MCS1'),
+                                                   NXfield(np.arange(frames,
+                                                                     dtype=np.int32),
+                                                           name='frame_number'))
+            if 'MCS2' in logs:
+                if 'monitor2' in self.entry:
+                    del self.entry['monitor2']
+                data = logs['MCS2'][:frames]
+                self.entry['monitor2'] = NXmonitor(NXfield(data, name='MCS2'),
+                                                   NXfield(np.arange(frames,
+                                                                     dtype=np.int32),
+                                                           name='frame_number'))
+            if 'source' not in self.entry['instrument']:
+                self.entry['instrument/source'] = NXsource()
+            self.entry['instrument/source/name'] = 'Advanced Photon Source'
+            self.entry['instrument/source/type'] = 'Synchrotron X-ray Source'
+            self.entry['instrument/source/probe'] = 'x-ray'
+            if 'Storage_Ring_Current' in logs:
+                self.entry['instrument/source/current'] = logs['Storage_Ring_Current']
+            if 'UndulatorA_gap' in logs:
+                self.entry['instrument/source/undulator_gap'] = logs['UndulatorA_gap']
+            if 'Calculated_filter_transmission' in logs:
+                if 'attenuator' not in self.entry['instrument']:
+                    self.entry['instrument/attenuator'] = NXattenuator()
+                self.entry['instrument/attenuator/attenuator_transmission'] = (
+                                                logs['Calculated_filter_transmission'])
 
     def nxmax(self):
         if self.not_complete('nxmax') and self.maxcount:
@@ -641,6 +645,8 @@ class NXReduce(QtCore.QObject):
                 self.stop.emit()
             else:
                 self.write_maximum(maximum)
+                self.record('nxmax', maximum=maximum,
+                            first_frame=self.first, last_frame=self.last)
         elif self.maxcount:
             self.logger.info('Maximum counts already found')
             self.record_end('nxmax')
@@ -725,8 +731,6 @@ class NXReduce(QtCore.QObject):
                                                   NXfield(polar_angle, name='polar_angle'))
             except Exception as error:
                 self.logger.info('Unable to create radial sum')
-            self.record('nxmax', maximum=maximum,
-                        first_frame=self.first, last_frame=self.last)
 
     def nxfind(self):
         if self.not_complete('nxfind') and self.find:
@@ -741,6 +745,9 @@ class NXReduce(QtCore.QObject):
                 self.stop.emit()
             else:
                 self.write_peaks(peaks)
+                self.record('nxfind', threshold=self.threshold,
+                            first_frame=self.first, last_frame=self.last,
+                            peak_number=len(peaks))
         elif self.find:
             self.logger.info('Peaks already found')
             self.record_end('nxfind')
@@ -881,9 +888,6 @@ class NXReduce(QtCore.QObject):
             polar_angles, azimuthal_angles = refine.calculate_angles(refine.xp,
                                                                      refine.yp)
             refine.write_angles(polar_angles, azimuthal_angles)
-            self.record('nxfind', threshold=self.threshold,
-                        first_frame=self.first, last_frame=self.last,
-                        peak_number=len(peaks))
 
     def nxcopy(self):
         if self.is_parent():
@@ -924,6 +928,7 @@ class NXReduce(QtCore.QObject):
             if result:
                 if not self.gui:
                     self.write_refinement(result)
+                self.record('nxrefine', fit_report=result.fit_report)
             else:
                 self.record_fail('nxrefine')
         elif self.refine:
@@ -950,7 +955,6 @@ class NXReduce(QtCore.QObject):
     def write_refinement(self, refine):
         with self.root.nxfile:
             refine.write_parameters()
-            self.record('nxrefine', fit_report=refine.fit_report)
 
     def nxtransform(self):
         if self.not_complete('nxtransform') and self.transform:
@@ -962,9 +966,10 @@ class NXReduce(QtCore.QObject):
             if cctw_command:
                 self.logger.info('Transform process launched')
                 tic = timeit.default_timer()
-                process = subprocess.run(cctw_command, shell=True,
-                                         stdout=subprocess.PIPE,
-                                         stderr=subprocess.PIPE)
+                with self.field_root.nxfile:
+                    process = subprocess.run(cctw_command, shell=True,
+                                             stdout=subprocess.PIPE,
+                                             stderr=subprocess.PIPE)
                 toc = timeit.default_timer()
                 if process.returncode == 0:
                     self.logger.info('Transform completed (%g seconds)'
@@ -1014,36 +1019,38 @@ class NXReduce(QtCore.QObject):
                 self.Qh = self.Qk = self.Ql = None
 
     def get_normalization(self):
-        if self.norm and 'monitor1' in self.entry:
-            self.data['monitor_weight'] = self.entry['monitor1'].nxsignal / self.norm
-            self.data['monitor_weight'].attrs['axes'] = 'frame_number'
-            self.data['monitor_weight'][0] = self.data['monitor_weight'][1]
-            self.data['monitor_weight'][-1] = self.data['monitor_weight'][-2]
+        with self.root.nxfile:
+            if self.norm and 'monitor1' in self.entry:
+                self.data['monitor_weight'] = self.entry['monitor1'].nxsignal / self.norm
+                self.data['monitor_weight'].attrs['axes'] = 'frame_number'
+                self.data['monitor_weight'][0] = self.data['monitor_weight'][1]
+                self.data['monitor_weight'][-1] = self.data['monitor_weight'][-2]
 
     def prepare_transform(self, mask=False):
         if mask:
             transform_file = self.masked_transform_file
         else:
             transform_file = self.transform_file
-        self.get_transform_grid()
-        if self.norm:
-            self.get_normalization()
-        if self.Qh and self.Qk and self.Ql:
-            refine = NXRefine(self.entry)
-            refine.read_parameters()
-            refine.h_start, refine.h_step, refine.h_stop = self.Qh
-            refine.k_start, refine.k_step, refine.k_stop = self.Qk
-            refine.l_start, refine.l_step, refine.l_stop = self.Ql
-            refine.define_grid()
-            refine.prepare_transform(transform_file, mask=mask)
-            refine.write_settings(self.settings_file)
-            command = refine.cctw_command(mask)
-            if command and os.path.exists(transform_file):
-                os.remove(transform_file)
-            return command
-        else:
-            self.logger.info('Invalid HKL grid')
-            return None
+        with self.root.nxfile:
+            self.get_transform_grid()
+            if self.norm:
+                self.get_normalization()
+            if self.Qh and self.Qk and self.Ql:
+                refine = NXRefine(self.entry)
+                refine.read_parameters()
+                refine.h_start, refine.h_step, refine.h_stop = self.Qh
+                refine.k_start, refine.k_step, refine.k_stop = self.Qk
+                refine.l_start, refine.l_step, refine.l_stop = self.Ql
+                refine.define_grid()
+                refine.prepare_transform(transform_file, mask=mask)
+                refine.write_settings(self.settings_file)
+                command = refine.cctw_command(mask)
+                if command and os.path.exists(transform_file):
+                    os.remove(transform_file)
+                return command
+            else:
+                self.logger.info('Invalid HKL grid')
+                return None
 
     def nxprepare(self):
         if self.not_complete('nxprepare_mask') and self.prepare:
@@ -1079,10 +1086,11 @@ class NXReduce(QtCore.QObject):
         self.logger.info("Masked frames stored in %s" % self.mask_file)
 
     def link_mask(self):
-        mask_file = os.path.relpath(self.mask_file, os.path.dirname(self.wrapper_file))
-        if 'data_mask' in self.data:
-            del self.data['data_mask']
-        self.data['data_mask'] = NXlink('entry/mask', mask_file)
+        with self.root.nxfile:
+            mask_file = os.path.relpath(self.mask_file, os.path.dirname(self.wrapper_file))
+            if 'data_mask' in self.data:
+                del self.data['data_mask']
+            self.data['data_mask'] = NXlink('entry/mask', mask_file)
 
     def get_xyz_frame(self, peak):
         slab = self.get_xyz_slab(peak)
