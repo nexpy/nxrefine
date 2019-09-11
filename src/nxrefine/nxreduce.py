@@ -1079,13 +1079,13 @@ class NXReduce(QtCore.QObject):
             refine = NXRefine(self.entry)
             peaks = refine.get_xyzs()
         self.logger.info("Optimizing peak frames")
-        with self.root.nxfile:
-            with self.field_root.nxfile:
+        with self.field_root.nxfile:
+            with self.root.nxfile:
                 for peak in peaks:
                     self.get_xyz_frame(peak)
-        self.write_xyz_peaks(peaks)
-        self.logger.info("Determining 3D mask radii")
-        masks = self.prepare_xyz_masks(peaks)
+            self.write_xyz_peaks(peaks)
+            self.logger.info("Determining 3D mask radii")
+            masks = self.prepare_xyz_masks(peaks)
         self.logger.info("Writing 3D mask parameters")
         self.write_xyz_masks(masks)
         self.logger.info("Masked frames stored in %s" % self.mask_file)
