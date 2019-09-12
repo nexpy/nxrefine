@@ -34,8 +34,7 @@ from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.dialects import mysql
 from sqlalchemy.exc import IntegrityError
 
-from nexusformat.nexus import nxload, NeXusError
-from .nxlock import Lock
+from nexusformat.nexus import nxload, NXLock, NeXusError
 
 NUM_ENTRIES = 3
 
@@ -117,7 +116,7 @@ def init(connect, echo=False):
     session = sessionmaker(bind=engine)()
 
 def commit(session):
-    with Lock(os.path.realpath(session.bind.url.database)):
+    with NXLock(os.path.realpath(session.bind.url.database)):
         session.commit()
 
 def get_filename(filename):
@@ -169,36 +168,35 @@ def sync_file(filename):
             scan_files = []
 
         tasks = { t: 0 for t in task_names }
-        with Lock(filename):
-            root = nxload(filename)
-            entries = (e for e in root.entries if e != 'entry')
-            for e in entries:
-                nxentry = root[e]
-                if e in root and 'data' in nxentry and 'instrument' in nxentry:
-                    if e+'.h5' in scan_files or e+'.nxs' in scan_files:
-                        tasks['data'] += 1
-                    if 'nxlink' in nxentry:
-                        tasks['nxlink'] += 1
-                    if 'nxmax' in nxentry:
-                        tasks['nxmax'] += 1
-                    if 'nxfind' in nxentry:
-                        tasks['nxfind'] += 1
-                    if 'nxcopy' in nxentry or is_parent(filename, sample_dir):
-                        tasks['nxcopy'] += 1
-                    if 'nxrefine' in nxentry:
-                        tasks['nxrefine'] += 1
-                    if 'nxprepare_mask' in nxentry:
-                        tasks['nxprepare'] += 1
-                    if 'nxtransform' in nxentry:
-                        tasks['nxtransform'] += 1
-                    if 'nxmasked_transform' in nxentry or 'nxmask' in nxentry:
-                        tasks['nxmasked_transform'] += 1
-                    if 'nxcombine' in root['entry']:
-                        tasks['nxcombine'] += 1
-                    if 'nxmasked_combine' in root['entry']:
-                        tasks['nxmasked_combine'] += 1
-                    if 'nxpdf' in root['entry']:
-                        tasks['nxpdf'] += 1
+        root = nxload(filename)
+        entries = (e for e in root.entries if e != 'entry')
+        for e in entries:
+            nxentry = root[e]
+            if e in root and 'data' in nxentry and 'instrument' in nxentry:
+                if e+'.h5' in scan_files or e+'.nxs' in scan_files:
+                    tasks['data'] += 1
+                if 'nxlink' in nxentry:
+                    tasks['nxlink'] += 1
+                if 'nxmax' in nxentry:
+                    tasks['nxmax'] += 1
+                if 'nxfind' in nxentry:
+                    tasks['nxfind'] += 1
+                if 'nxcopy' in nxentry or is_parent(filename, sample_dir):
+                    tasks['nxcopy'] += 1
+                if 'nxrefine' in nxentry:
+                    tasks['nxrefine'] += 1
+                if 'nxprepare_mask' in nxentry:
+                    tasks['nxprepare'] += 1
+                if 'nxtransform' in nxentry:
+                    tasks['nxtransform'] += 1
+                if 'nxmasked_transform' in nxentry or 'nxmask' in nxentry:
+                    tasks['nxmasked_transform'] += 1
+                if 'nxcombine' in root['entry']:
+                    tasks['nxcombine'] += 1
+                if 'nxmasked_combine' in root['entry']:
+                    tasks['nxmasked_combine'] += 1
+                if 'nxpdf' in root['entry']:
+                    tasks['nxpdf'] += 1
         for task, val in tasks.items():
             if val == 0:
                 setattr(f, task, NOT_STARTED)
