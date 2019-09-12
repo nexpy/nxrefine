@@ -56,6 +56,7 @@ class NXReduce(QtCore.QObject):
                                     os.path.dirname(
                                       os.path.dirname(
                                         os.path.dirname(self.directory))))
+            self._root = entry.nxroot
         elif directory is None:
             raise NeXusError('Directory not specified')
         else:
@@ -73,6 +74,7 @@ class NXReduce(QtCore.QObject):
                                              '%s_%s.nxs' %
                                              (self.sample, self.scan))
             self.entry_name = entry
+            self._root = None
         self.base_directory = os.path.dirname(self.wrapper_file)
         self.task_directory = os.path.join(self.root_directory, 'tasks')
         self.parent_file = os.path.join(self.base_directory,
@@ -87,7 +89,6 @@ class NXReduce(QtCore.QObject):
         self.settings_file = os.path.join(self.directory,
                                            self.entry_name+'_transform.pars')
 
-        self._root = None
         self._data = data
         self._field_root = None
         self._field = None
