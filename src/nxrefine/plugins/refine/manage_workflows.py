@@ -5,7 +5,6 @@ from nexpy.gui.pyqt import QtCore, QtWidgets
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.utils import report_error, natural_sort
 
-from nxrefine.nxlock import Lock
 from nxrefine.nxreduce import NXReduce, NXMultiReduce
 import nxrefine.nxdatabase as nxdb
 
@@ -489,8 +488,7 @@ class WorkflowDialog(BaseDialog):
             program == 'nxpdf'):
             entry = 'entry'
         wrapper_file = os.path.join(self.sample_directory, scan+'.nxs')
-        with Lock(wrapper_file):
-            root = nxload(wrapper_file)
+        root = nxload(wrapper_file)
         if program in root[entry]:
             text = 'Date: ' + root[entry][program]['date'].nxvalue + '\n'
             text = text + root[entry][program]['note/data'].nxvalue

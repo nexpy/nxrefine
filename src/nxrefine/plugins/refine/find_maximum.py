@@ -1,9 +1,8 @@
 from nexpy.gui.pyqt import QtCore, QtWidgets 
 import numpy as np
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
-from nexpy.gui.utils import report_error
+from nexpy.gui.utils import report_error, is_file_locked
 from nexusformat.nexus import NeXusError, NXfield
-from nxrefine.nxlock import Lock, LockException
 from nxrefine.nxreduce import NXReduce
 
 
@@ -75,7 +74,8 @@ class MaximumDialog(BaseDialog):
         self.output.setText('Maximum Value: %s' % value)
 
     def find_maximum(self):
-        self.check_lock(self.reduce.data_file)
+        if is_file_locked(self.reduce.data_file):
+            return
         self.start_thread()
         self.reduce = NXReduce(self.entry, first=self.first, last=self.last,
                                maxcount=True, overwrite=True, gui=True)

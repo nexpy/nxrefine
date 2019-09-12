@@ -1,10 +1,9 @@
 from nexpy.gui.pyqt import QtCore, QtWidgets
 import numpy as np
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
-from nexpy.gui.utils import report_error
+from nexpy.gui.utils import report_error, is_file_locked
 from nexusformat.nexus import *
 
-from nxrefine.nxlock import Lock, LockException
 from nxrefine.nxreduce import NXReduce
 
 
@@ -93,7 +92,8 @@ class FindDialog(BaseDialog):
             return None
 
     def find_peaks(self):
-        self.check_lock(self.reduce.data_file)
+        if is_file_locked(self.reduce.data_file):
+            return
         self.start_thread()
         self.reduce = NXReduce(self.entry, threshold=self.threshold, 
                                first=self.first, last=self.last,

@@ -118,25 +118,24 @@ class SumDialog(BaseDialog):
                             % (scan_dir, entry, self.scan_list))
 
     def clean_scan(self, scan_file):
-        with Lock(scan_file):
-            scan_root = nxload(scan_file, 'rw')
-            for entry in scan_root:
-                if 'transform' in scan_root[entry]:
-                    del scan_root[entry]['transform']
-                if 'masked_transform' in scan_root[entry]:
-                    del scan_root[entry]['masked_transform']
-                if 'nxtransform' in scan_root[entry]:
-                    del scan_root[entry]['nxtransform']
-                if 'nxcombine' in scan_root[entry]:
-                    del scan_root[entry]['nxcombine']
-                if 'nxmasked_transform' in scan_root[entry]:
-                    del scan_root[entry]['nxmasked_transform']
-                if 'nxmasked_combine' in scan_root[entry]:
-                    del scan_root[entry]['nxmasked_combine']
-                if 'data' in scan_root[entry]:
-                    if 'data' in scan_root[entry]['data']:
-                        del scan_root[entry]['data/data']
-                        scan_root[entry]['data/data'] = NXlink(
-                            '/entry/data/data', self.scan_label+'/'+entry+'.h5')
-                    if 'data_mask' in scan_root[entry]['data']:
-                        del scan_root[entry]['data/data_mask']
+        scan_root = nxload(scan_file, 'rw')
+        for entry in scan_root:
+            if 'transform' in scan_root[entry]:
+                del scan_root[entry]['transform']
+            if 'masked_transform' in scan_root[entry]:
+                del scan_root[entry]['masked_transform']
+            if 'nxtransform' in scan_root[entry]:
+                del scan_root[entry]['nxtransform']
+            if 'nxcombine' in scan_root[entry]:
+                del scan_root[entry]['nxcombine']
+            if 'nxmasked_transform' in scan_root[entry]:
+                del scan_root[entry]['nxmasked_transform']
+            if 'nxmasked_combine' in scan_root[entry]:
+                del scan_root[entry]['nxmasked_combine']
+            if 'data' in scan_root[entry]:
+                if 'data' in scan_root[entry]['data']:
+                    del scan_root[entry]['data/data']
+                    scan_root[entry]['data/data'] = NXlink('/entry/data/data', 
+                                                        self.scan_label+'/'+entry+'.h5')
+                if 'data_mask' in scan_root[entry]['data']:
+                    del scan_root[entry]['data/data_mask']

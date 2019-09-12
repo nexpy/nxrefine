@@ -1,10 +1,9 @@
 from nexpy.gui.pyqt import QtCore, QtWidgets
 import numpy as np
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
-from nexpy.gui.utils import report_error
+from nexpy.gui.utils import report_error, is_file_locked
 from nexusformat.nexus import *
 
-from nxrefine.nxlock import Lock, LockException
 from nxrefine.nxreduce import NXReduce
 
 
@@ -47,7 +46,8 @@ class Mask3DDialog(BaseDialog):
         return self.parameters['width'].value
 
     def calculate_mask(self):
-        self.check_lock(self.reduce.wrapper_file)
+        if is_file_locked(self.reduce.wrapper_file):
+            return
         self.thread = QtCore.QThread()
         self.reduce = NXReduce(self.entry, radius=self.radius, width=self.width,
                                mask=True, overwrite=True, gui=True)
@@ -59,14 +59,6 @@ class Mask3DDialog(BaseDialog):
         self.thread.started.connect(self.reduce.nxfind)
         self.thread.start(QtCore.QThread.LowestPriority)
 
-    def check_lock(self, file_name):
-        try:
-            with Lock(file_name, timeout=2):
-                pass
-        except LockException as error:
-            if self.confirm_action('Clear lock?', str(error)):
-                Lock(file_name).release()
-
     def calculate_mask(self, mask):
         self.mask = mask
 
@@ -77,12 +69,9 @@ class Mask3DDialog(BaseDialog):
             self.thread.exit()
 
     def accept(self):
-        try:
-            with Lock(self.reduce.wrapper_file):
-                self.reduce.write_peaks(self.peaks)
-        except LockException as error:
-            if self.confirm_action('Clear lock?', str(error)):
-                Lock(self.reduce.wrapper_file).release()
+        if is_file_locked(self.reduce.wrapper_file):
+            return
+        self.reduce.write_peaks(self.peaks)
         if self.thread:
             self.stop()
         super(Mask3DDialog, self).accept()
