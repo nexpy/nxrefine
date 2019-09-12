@@ -160,7 +160,9 @@ class RefineLatticeDialog(BaseDialog):
         reduce = NXReduce(self.entry)
         reduce.record('nxrefine', fit_report='\n'.join(self.fit_report))
         root = self.entry.nxroot
-        entries = [entry for entry in root.entries if entry != 'entry']
+        entries = [entry for entry in root.entries 
+                   if entry != 'entry' and entry != self.entry.nxname and
+                   'nxrefine' not in root[entry]]
         if entries and self.confirm_action(
             'Copy orientation to other entries? (%s)' % (', '.join(entries))):
             om = self.entry['instrument/detector/orientation_matrix']
