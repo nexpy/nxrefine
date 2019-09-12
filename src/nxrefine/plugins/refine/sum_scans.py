@@ -7,7 +7,6 @@ from nexusformat.nexus import *
 from nexpy.gui.datadialogs import BaseDialog
 from nexpy.gui.utils import report_error, confirm_action, natural_sort
 from nexpy.gui.pyqt import QtCore, getSaveFileName
-from nxrefine.nxlock import Lock
 from nxrefine.nxserver import NXServer
 from nxrefine.nxreduce import NXReduce
 
