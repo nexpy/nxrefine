@@ -138,81 +138,79 @@ class NXRefine(object):
     def read_parameters(self, entry=None):
         if entry:
             self.entry = entry
-        self.a = self.read_parameter('sample/unitcell_a', self.a)
-        self.b = self.read_parameter('sample/unitcell_b', self.b)
-        self.c = self.read_parameter('sample/unitcell_c', self.c)
-        self.alpha = self.read_parameter('sample/unitcell_alpha', self.alpha)
-        self.beta = self.read_parameter('sample/unitcell_beta', self.beta)
-        self.gamma = self.read_parameter('sample/unitcell_gamma', self.gamma)
-        self.wavelength = self.read_parameter(
-                              'instrument/monochromator/wavelength', 
-                              self.wavelength)
-        self.distance = self.read_parameter('instrument/detector/distance', 
-                                            self.distance)
-        self.yaw = self.read_parameter('instrument/detector/yaw', self.yaw)
-        self.pitch = self.read_parameter('instrument/detector/pitch', 
-                                         self.pitch)
-        self.roll = self.read_parameter('instrument/detector/roll', self.roll)
-        self.xc = self.read_parameter('instrument/detector/beam_center_x', 
-                                      self.xc)
-        self.yc = self.read_parameter('instrument/detector/beam_center_y', 
-                                      self.yc)
-        self.xd = self.read_parameter('instrument/detector/translation_x', 
-                                      self.xd)
-        self.yd = self.read_parameter('instrument/detector/translation_y', 
-                                      self.yd)
-        self.frame_time = self.read_parameter('instrument/detector/frame_time', 
-                                              self.frame_time)
-        self.shape = self.read_parameter('instrument/detector/shape', self.shape)
-        phi = self.read_parameter('instrument/goniometer/phi', self.phi)
-        if isinstance(phi, np.ndarray) and len(phi) > 1:
-            self.phi = phi[0]
-            self.phi_step = phi[1] - phi[0]
-        else:
-            self.phi = phi
-            try:
-                self.phi_step = self.read_parameter('instrument/goniometer/phi', 
-                                                    self.phi, attr='step')
-            except Exception:
-                pass
-        self.chi = self.read_parameter('instrument/goniometer/chi', self.chi)
-        self.omega = self.read_parameter('instrument/goniometer/omega', 
-                                         self.omega)
-        self.twotheta = self.read_parameter('instrument/goniometer/two_theta', 
-                                            self.twotheta)
-        self.gonpitch = self.read_parameter(
-            'instrument/goniometer/goniometer_pitch', 
-            self.gonpitch)
-        self.symmetry = self.read_parameter('sample/unit_cell_group', 
-                                            self.symmetry)
-        self.centring = self.read_parameter('sample/lattice_centring', 
-                                            self.centring)
-        self.xp = self.read_parameter('peaks/x')
-        self.yp = self.read_parameter('peaks/y')
-        self.zp = self.read_parameter('peaks/z')
-        self.polar_angle = self.read_parameter('peaks/polar_angle')
-        self.azimuthal_angle = self.read_parameter('peaks/azimuthal_angle')
-        self.intensity = self.read_parameter('peaks/intensity')
-        self.pixel_size = self.read_parameter('instrument/detector/pixel_size', 
-                                              self.pixel_size)
-        self.pixel_mask = self.read_parameter('instrument/detector/pixel_mask')
-        self.pixel_mask_applied = self.read_parameter(
-                                      'instrument/detector/pixel_mask_applied')
-        self.rotation_angle = self.read_parameter('peaks/rotation_angle')
-        self.primary = self.read_parameter('peaks/primary_reflection')
-        self.secondary = self.read_parameter('peaks/secondary_reflection')
-        self.Umat = self.read_parameter(
-                        'instrument/detector/orientation_matrix')
-        if isinstance(self.polar_angle, np.ndarray):
-            try:
-                self.set_polar_max(np.sort(self.polar_angle)[200] + 0.1)
-            except IndexError:
-                self.set_polar_max(self.polar_angle.max())
-        else:
-            self.set_polar_max(10.0)
-        self.Qh = self.read_parameter('transform/Qh')
-        self.Qk = self.read_parameter('transform/Qk')
-        self.Ql = self.read_parameter('transform/Ql')
+        with self.entry.nxfile:
+            self.a = self.read_parameter('sample/unitcell_a', self.a)
+            self.b = self.read_parameter('sample/unitcell_b', self.b)
+            self.c = self.read_parameter('sample/unitcell_c', self.c)
+            self.alpha = self.read_parameter('sample/unitcell_alpha', self.alpha)
+            self.beta = self.read_parameter('sample/unitcell_beta', self.beta)
+            self.gamma = self.read_parameter('sample/unitcell_gamma', self.gamma)
+            self.wavelength = self.read_parameter('instrument/monochromator/wavelength', 
+                                                  self.wavelength)
+            self.distance = self.read_parameter('instrument/detector/distance', 
+                                                self.distance)
+            self.yaw = self.read_parameter('instrument/detector/yaw', self.yaw)
+            self.pitch = self.read_parameter('instrument/detector/pitch', 
+                                             self.pitch)
+            self.roll = self.read_parameter('instrument/detector/roll', self.roll)
+            self.xc = self.read_parameter('instrument/detector/beam_center_x', 
+                                          self.xc)
+            self.yc = self.read_parameter('instrument/detector/beam_center_y', 
+                                          self.yc)
+            self.xd = self.read_parameter('instrument/detector/translation_x', 
+                                          self.xd)
+            self.yd = self.read_parameter('instrument/detector/translation_y', 
+                                          self.yd)
+            self.frame_time = self.read_parameter('instrument/detector/frame_time', 
+                                                  self.frame_time)
+            self.shape = self.read_parameter('instrument/detector/shape', self.shape)
+            phi = self.read_parameter('instrument/goniometer/phi', self.phi)
+            if isinstance(phi, np.ndarray) and len(phi) > 1:
+                self.phi = phi[0]
+                self.phi_step = phi[1] - phi[0]
+            else:
+                self.phi = phi
+                try:
+                    self.phi_step = self.read_parameter('instrument/goniometer/phi', 
+                                                        self.phi, attr='step')
+                except Exception:
+                    pass
+            self.chi = self.read_parameter('instrument/goniometer/chi', self.chi)
+            self.omega = self.read_parameter('instrument/goniometer/omega', 
+                                             self.omega)
+            self.twotheta = self.read_parameter('instrument/goniometer/two_theta', 
+                                                self.twotheta)
+            self.gonpitch = self.read_parameter('instrument/goniometer/goniometer_pitch', 
+                                                self.gonpitch)
+            self.symmetry = self.read_parameter('sample/unit_cell_group', 
+                                                self.symmetry)
+            self.centring = self.read_parameter('sample/lattice_centring', 
+                                                self.centring)
+            self.xp = self.read_parameter('peaks/x')
+            self.yp = self.read_parameter('peaks/y')
+            self.zp = self.read_parameter('peaks/z')
+            self.polar_angle = self.read_parameter('peaks/polar_angle')
+            self.azimuthal_angle = self.read_parameter('peaks/azimuthal_angle')
+            self.intensity = self.read_parameter('peaks/intensity')
+            self.pixel_size = self.read_parameter('instrument/detector/pixel_size', 
+                                                  self.pixel_size)
+            self.pixel_mask = self.read_parameter('instrument/detector/pixel_mask')
+            self.pixel_mask_applied = self.read_parameter(
+                                          'instrument/detector/pixel_mask_applied')
+            self.rotation_angle = self.read_parameter('peaks/rotation_angle')
+            self.primary = self.read_parameter('peaks/primary_reflection')
+            self.secondary = self.read_parameter('peaks/secondary_reflection')
+            self.Umat = self.read_parameter('instrument/detector/orientation_matrix')
+            if isinstance(self.polar_angle, np.ndarray):
+                try:
+                    self.set_polar_max(np.sort(self.polar_angle)[200] + 0.1)
+                except IndexError:
+                    self.set_polar_max(self.polar_angle.max())
+            else:
+                self.set_polar_max(10.0)
+            self.Qh = self.read_parameter('transform/Qh')
+            self.Qk = self.read_parameter('transform/Qk')
+            self.Ql = self.read_parameter('transform/Ql')
 
     def write_parameter(self, path, value, attr=None):
         if value is not None:
@@ -226,111 +224,114 @@ class NXRefine(object):
     def write_parameters(self, entry=None):
         if entry:
             self.entry = entry
-        if 'sample' not in self.entry:
-            self.entry['sample'] = NXsample()
-        self.write_parameter('sample/unit_cell_group', self.symmetry)
-        self.write_parameter('sample/lattice_centring', self.centring)
-        self.write_parameter('sample/unitcell_a', self.a)
-        self.write_parameter('sample/unitcell_b', self.b)
-        self.write_parameter('sample/unitcell_c', self.c)
-        self.write_parameter('sample/unitcell_alpha', self.alpha)
-        self.write_parameter('sample/unitcell_beta', self.beta)
-        self.write_parameter('sample/unitcell_gamma', self.gamma)
-        if 'instrument' not in self.entry:
-            self.entry['instrument'] = NXinstrument()
-        if 'detector' not in self.entry['instrument']:
-            self.entry['instrument/detector'] = NXdetector()
-        if 'monochromator' not in self.entry['instrument']:
-            self.entry['instrument/monochromator'] = NXmonochromator()
-        if 'goniometer' not in self.entry['instrument']:
-            self.entry['instrument/goniometer'] = NXgoniometer()
-        self.write_parameter('instrument/monochromator/wavelength', 
-                             self.wavelength)
-        self.write_parameter('instrument/detector/distance', self.distance)
-        self.write_parameter('instrument/detector/yaw', self.yaw)
-        self.write_parameter('instrument/detector/pitch', self.pitch)
-        self.write_parameter('instrument/detector/roll', self.roll)
-        self.write_parameter('instrument/detector/beam_center_x', self.xc)
-        self.write_parameter('instrument/detector/beam_center_y', self.yc)
-        self.write_parameter('instrument/detector/pixel_size', self.pixel_size)
-        self.write_parameter('instrument/detector/pixel_mask', self.pixel_mask)
-        self.write_parameter('instrument/detector/pixel_mask_applied', 
-                             self.pixel_mask_applied)
-        self.write_parameter('instrument/detector/translation_x', self.xd)
-        self.write_parameter('instrument/detector/translation_y', self.yd)
-        self.write_parameter('instrument/detector/frame_time', self.frame_time)
-        if self.Umat is not None:
-            self.write_parameter('instrument/detector/orientation_matrix', 
-                                 np.array(self.Umat))
-        self.write_parameter('instrument/goniometer/phi', self.phi)
-        self.write_parameter('instrument/goniometer/phi', self.phi_step, 
-                             attr='step')
-        self.write_parameter('instrument/goniometer/chi', self.chi)
-        self.write_parameter('instrument/goniometer/omega', self.omega)
-        self.write_parameter('instrument/goniometer/two_theta', self.twotheta)
-        self.write_parameter('instrument/goniometer/goniometer_pitch', 
-                             self.gonpitch)
-        self.write_parameter('peaks/primary_reflection', self.primary)
-        self.write_parameter('peaks/secondary_reflection', self.secondary)        
-        if isinstance(self.z, np.ndarray):
-            self.rotation_angle = self.phi + (self.phi_step * self.z)
+        with self.entry.nxfile:
+            if 'sample' not in self.entry:
+                self.entry['sample'] = NXsample()
+            self.write_parameter('sample/unit_cell_group', self.symmetry)
+            self.write_parameter('sample/lattice_centring', self.centring)
+            self.write_parameter('sample/unitcell_a', self.a)
+            self.write_parameter('sample/unitcell_b', self.b)
+            self.write_parameter('sample/unitcell_c', self.c)
+            self.write_parameter('sample/unitcell_alpha', self.alpha)
+            self.write_parameter('sample/unitcell_beta', self.beta)
+            self.write_parameter('sample/unitcell_gamma', self.gamma)
+            if 'instrument' not in self.entry:
+                self.entry['instrument'] = NXinstrument()
+            if 'detector' not in self.entry['instrument']:
+                self.entry['instrument/detector'] = NXdetector()
+            if 'monochromator' not in self.entry['instrument']:
+                self.entry['instrument/monochromator'] = NXmonochromator()
+            if 'goniometer' not in self.entry['instrument']:
+                self.entry['instrument/goniometer'] = NXgoniometer()
+            self.write_parameter('instrument/monochromator/wavelength', 
+                                 self.wavelength)
+            self.write_parameter('instrument/detector/distance', self.distance)
+            self.write_parameter('instrument/detector/yaw', self.yaw)
+            self.write_parameter('instrument/detector/pitch', self.pitch)
+            self.write_parameter('instrument/detector/roll', self.roll)
+            self.write_parameter('instrument/detector/beam_center_x', self.xc)
+            self.write_parameter('instrument/detector/beam_center_y', self.yc)
+            self.write_parameter('instrument/detector/pixel_size', self.pixel_size)
+            self.write_parameter('instrument/detector/pixel_mask', self.pixel_mask)
+            self.write_parameter('instrument/detector/pixel_mask_applied', 
+                                 self.pixel_mask_applied)
+            self.write_parameter('instrument/detector/translation_x', self.xd)
+            self.write_parameter('instrument/detector/translation_y', self.yd)
+            self.write_parameter('instrument/detector/frame_time', self.frame_time)
+            if self.Umat is not None:
+                self.write_parameter('instrument/detector/orientation_matrix', 
+                                     np.array(self.Umat))
+            self.write_parameter('instrument/goniometer/phi', self.phi)
+            self.write_parameter('instrument/goniometer/phi', self.phi_step, 
+                                 attr='step')
+            self.write_parameter('instrument/goniometer/chi', self.chi)
+            self.write_parameter('instrument/goniometer/omega', self.omega)
+            self.write_parameter('instrument/goniometer/two_theta', self.twotheta)
+            self.write_parameter('instrument/goniometer/goniometer_pitch', 
+                                 self.gonpitch)
+            self.write_parameter('peaks/primary_reflection', self.primary)
+            self.write_parameter('peaks/secondary_reflection', self.secondary)        
+            if isinstance(self.z, np.ndarray):
+                self.rotation_angle = self.phi + (self.phi_step * self.z)
 
     def copy_parameters(self, other, sample=False, instrument=False):
-        if sample:
-            if 'sample' not in other.entry:
-                other.entry['sample'] = NXsample()
-            other.write_parameter('sample/unit_cell_group', self.symmetry)
-            other.write_parameter('sample/lattice_centring', self.centring)
-            other.write_parameter('sample/unitcell_a', self.a)
-            other.write_parameter('sample/unitcell_b', self.b)
-            other.write_parameter('sample/unitcell_c', self.c)
-            other.write_parameter('sample/unitcell_alpha', self.alpha)
-            other.write_parameter('sample/unitcell_beta', self.beta)
-            other.write_parameter('sample/unitcell_gamma', self.gamma)
-        if instrument:
-            if 'instrument' not in other.entry:
-                other.entry['instrument'] = NXinstrument()
-            if 'detector' not in other.entry['instrument']:
-                other.entry['instrument/detector'] = NXdetector()
-            if 'monochromator' not in other.entry['instrument']:
-                other.entry['instrument/monochromator'] = NXmonochromator()
-            if 'goniometer' not in other.entry['instrument']:
-                other.entry['instrument/goniometer'] = NXgoniometer()
-            other.write_parameter('instrument/monochromator/wavelength', 
-                                  self.wavelength)
-            other.write_parameter('instrument/goniometer/phi', self.phi)
-            other.write_parameter('instrument/goniometer/phi', self.phi_step,
-                                  attr='step')
-            other.write_parameter('instrument/goniometer/chi', self.chi)
-            other.write_parameter('instrument/goniometer/omega', self.omega)
-            other.write_parameter('instrument/goniometer/two_theta', self.twotheta)
-            other.write_parameter('instrument/goniometer/goniometer_pitch', 
-                                  self.gonpitch)
-            other.write_parameter('instrument/detector/distance', self.distance)
-            other.write_parameter('instrument/detector/yaw', self.yaw)
-            other.write_parameter('instrument/detector/pitch', self.pitch)
-            other.write_parameter('instrument/detector/roll', self.roll)
-            other.write_parameter('instrument/detector/beam_center_x', self.xc)
-            other.write_parameter('instrument/detector/beam_center_y', self.yc)
-            other.write_parameter('instrument/detector/pixel_size', 
-                                  self.pixel_size)
-            other.write_parameter('instrument/detector/pixel_mask', 
-                                  self.pixel_mask)
-            other.write_parameter('instrument/detector/pixel_mask_applied', 
-                                  self.pixel_mask_applied)
-            other.write_parameter('instrument/detector/translation_x', self.xd)
-            other.write_parameter('instrument/detector/translation_y', self.yd)
-            other.write_parameter('instrument/detector/frame_time', 
-                                  self.frame_time)
-            if self.Umat is not None:
-                other.write_parameter('instrument/detector/orientation_matrix', 
-                                      np.array(self.Umat))        
+        with other.entry.nxfile:
+            if sample:
+                if 'sample' not in other.entry:
+                    other.entry['sample'] = NXsample()
+                other.write_parameter('sample/unit_cell_group', self.symmetry)
+                other.write_parameter('sample/lattice_centring', self.centring)
+                other.write_parameter('sample/unitcell_a', self.a)
+                other.write_parameter('sample/unitcell_b', self.b)
+                other.write_parameter('sample/unitcell_c', self.c)
+                other.write_parameter('sample/unitcell_alpha', self.alpha)
+                other.write_parameter('sample/unitcell_beta', self.beta)
+                other.write_parameter('sample/unitcell_gamma', self.gamma)
+            if instrument:
+                if 'instrument' not in other.entry:
+                    other.entry['instrument'] = NXinstrument()
+                if 'detector' not in other.entry['instrument']:
+                    other.entry['instrument/detector'] = NXdetector()
+                if 'monochromator' not in other.entry['instrument']:
+                    other.entry['instrument/monochromator'] = NXmonochromator()
+                if 'goniometer' not in other.entry['instrument']:
+                    other.entry['instrument/goniometer'] = NXgoniometer()
+                other.write_parameter('instrument/monochromator/wavelength', 
+                                      self.wavelength)
+                other.write_parameter('instrument/goniometer/phi', self.phi)
+                other.write_parameter('instrument/goniometer/phi', self.phi_step,
+                                      attr='step')
+                other.write_parameter('instrument/goniometer/chi', self.chi)
+                other.write_parameter('instrument/goniometer/omega', self.omega)
+                other.write_parameter('instrument/goniometer/two_theta', self.twotheta)
+                other.write_parameter('instrument/goniometer/goniometer_pitch', 
+                                      self.gonpitch)
+                other.write_parameter('instrument/detector/distance', self.distance)
+                other.write_parameter('instrument/detector/yaw', self.yaw)
+                other.write_parameter('instrument/detector/pitch', self.pitch)
+                other.write_parameter('instrument/detector/roll', self.roll)
+                other.write_parameter('instrument/detector/beam_center_x', self.xc)
+                other.write_parameter('instrument/detector/beam_center_y', self.yc)
+                other.write_parameter('instrument/detector/pixel_size', 
+                                      self.pixel_size)
+                other.write_parameter('instrument/detector/pixel_mask', 
+                                      self.pixel_mask)
+                other.write_parameter('instrument/detector/pixel_mask_applied', 
+                                      self.pixel_mask_applied)
+                other.write_parameter('instrument/detector/translation_x', self.xd)
+                other.write_parameter('instrument/detector/translation_y', self.yd)
+                other.write_parameter('instrument/detector/frame_time', 
+                                      self.frame_time)
+                if self.Umat is not None:
+                    other.write_parameter('instrument/detector/orientation_matrix', 
+                                          np.array(self.Umat))        
 
     def link_sample(self, other):
-        if 'sample' in self.entry:
-            if 'sample' in other.entry:
-                del other.entry['sample']
-            other.entry.makelink(self.entry['sample'])
+        with other.entry.nxfile:
+            if 'sample' in self.entry:
+                if 'sample' in other.entry:
+                    del other.entry['sample']
+                other.entry.makelink(self.entry['sample'])
 
     def read_settings(self, settings_file):
         import configparser, itertools
@@ -413,17 +414,18 @@ class NXRefine(object):
         f.close()
 
     def write_angles(self, polar_angles, azimuthal_angles):
-        if 'sample' not in self.entry:
-            self.entry['sample'] = NXsample()
-        if 'peaks' not in self.entry:
-            self.entry['peaks'] = NXdata()
-        else:
-            if 'polar_angle' in self.entry['peaks']:
-                del self.entry['peaks/polar_angle']
-            if 'azimuthal_angle' in self.entry['peaks']:
-                del self.entry['peaks/azimuthal_angle']
-        self.write_parameter('peaks/polar_angle', polar_angles)
-        self.write_parameter('peaks/azimuthal_angle', azimuthal_angles)
+        with self.entry.nxfile:
+            if 'sample' not in self.entry:
+                self.entry['sample'] = NXsample()
+            if 'peaks' not in self.entry:
+                self.entry['peaks'] = NXdata()
+            else:
+                if 'polar_angle' in self.entry['peaks']:
+                    del self.entry['peaks/polar_angle']
+                if 'azimuthal_angle' in self.entry['peaks']:
+                    del self.entry['peaks/azimuthal_angle']
+            self.write_parameter('peaks/polar_angle', polar_angles)
+            self.write_parameter('peaks/azimuthal_angle', azimuthal_angles)
 
     def initialize_peaks(self):
         peaks=list(zip(self.xp,  self.yp, self.zp, self.intensity))
@@ -485,15 +487,16 @@ class NXRefine(object):
         else:
             transform = 'transform'
         
-        if transform in self.entry:
-            del self.entry[transform]            
+        with self.entry.nxfile:
+            if transform in self.entry:
+                del self.entry[transform]            
         
-        self.entry[transform] = NXdata(NXlink(name = 'data', 
-                                       target='/entry/data/v',
-                                       file=output_link), [l, k, h])
-        self.entry[transform+'/weights'] = NXlink(target='/entry/data/n',
-                                                  file=output_link)
-        self.entry[transform+'/command'] = command
+            self.entry[transform] = NXdata(NXlink(name = 'data', 
+                                           target='/entry/data/v',
+                                           file=output_link), [l, k, h])
+            self.entry[transform+'/weights'] = NXlink(target='/entry/data/n',
+                                                      file=output_link)
+            self.entry[transform+'/command'] = command
 
     def cctw_command(self, mask=False):
         entry = self.entry.nxname
