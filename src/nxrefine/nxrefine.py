@@ -125,6 +125,12 @@ class NXRefine(object):
         if self.entry:
             self.read_parameters()
 
+    def __repr__(self):
+        if self.entry is not None:
+            return "NXRefine('"+self.entry.nxroot.nxname+"/"+self.entry.nxname+"')"
+        else:
+            return "NXRefine()"
+
     def read_parameter(self, path, default=None, attr=None):
         try:
             if attr:
