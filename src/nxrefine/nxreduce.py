@@ -200,15 +200,9 @@ class NXReduce(QtCore.QObject):
         return self.entry['data']
 
     @property
-    def field_root(self):
-        if self._field_root is None:
-            self._field_root = nxload(self.data_file, 'r')
-        return self._field_root
-
-    @property
     def field(self):
         if self._field is None:
-            self._field = self.field_root[self.path]
+            self._field = self.data.nxsignal
             self._shape = self._field.shape
         return self._field
 
@@ -654,7 +648,7 @@ class NXReduce(QtCore.QObject):
 
     def find_maximum(self):
         self.logger.info('Finding maximum counts')
-        with self.field_root.nxfile:
+        with self.field.nxfile:
             maximum = 0.0
             nframes = self.shape[0]
             chunk_size = self.field.chunks[0]
@@ -764,7 +758,7 @@ class NXReduce(QtCore.QObject):
                 self.nxmax()
             self.threshold = self.maximum / 10
 
-        with self.field_root.nxfile:
+        with self.field.nxfile:
             if self.first == None:
                 self.first = 0
             if self.last == None:
@@ -967,7 +961,7 @@ class NXReduce(QtCore.QObject):
             if cctw_command:
                 self.logger.info('Transform process launched')
                 tic = timeit.default_timer()
-                with self.field_root.nxfile:
+                with self.field.nxfile:
                     with NXLock(self.transform_file):
                         process = subprocess.run(cctw_command, shell=True,
                                                  stdout=subprocess.PIPE,
@@ -1078,9 +1072,9 @@ class NXReduce(QtCore.QObject):
         self.logger.info("Calculating peaks to be masked")
         with self.root.nxfile:
             refine = NXRefine(self.entry)
-            peaks = refine.get_xyzs()
+        peaks = refine.get_xyzs()
         self.logger.info("Optimizing peak frames")
-        with self.field_root.nxfile:
+        with self.field.nxfile:
             with self.root.nxfile:
                 for peak in peaks:
                     self.get_xyz_frame(peak)
@@ -1154,16 +1148,17 @@ class NXReduce(QtCore.QObject):
             entry['peaks_inferred'] = collection
 
     def prepare_xyz_masks(self, peaks):
-        masks = []
-        peaks = sorted(peaks, key=operator.attrgetter('z'))
-        for p in peaks:
-            if p.pixel_count > 0:
-                masks.extend(self.determine_mask(p))
+        with self.root.nxfile:
+            masks = []
+            peaks = sorted(peaks, key=operator.attrgetter('z'))
+            for p in peaks:
+                if p.pixel_count > 0:
+                    masks.extend(self.determine_mask(p))
         return masks
 
     def determine_mask(self, peak):
         with self.root.nxfile:
-            with self.field_root.nxfile:
+            with self.field.nxfile:
                 slab = self.get_xyz_slab(peak)
                 s = slab.nxsignal.nxdata
                 slab_axis = slab.nxaxes[0].nxdata
@@ -1269,7 +1264,7 @@ class NXReduce(QtCore.QObject):
             if cctw_command:
                 self.logger.info('Masked transform launched')
                 tic = timeit.default_timer()
-                with self.field_root.nxfile:
+                with self.field.nxfile:
                     with NXLock(self.masked_transform_file):
                         process = subprocess.run(cctw_command, shell=True,
                                                  stdout=subprocess.PIPE,
