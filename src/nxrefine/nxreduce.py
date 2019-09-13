@@ -77,8 +77,12 @@ class NXReduce(QtCore.QObject):
             self._root = None
         self.base_directory = os.path.dirname(self.wrapper_file)
         self.task_directory = os.path.join(self.root_directory, 'tasks')
-        self.parent_file = os.path.join(self.base_directory,
-                                        self.sample+'_parent.nxs')
+        if parent is None:
+            self.parent_file = os.path.join(self.base_directory,
+                                            self.sample+'_parent.nxs')
+        else:
+            self.parent_file = os.path.realpath(parent)
+        
         self.mask_file = os.path.join(self.directory,
                                       self.entry_name+'_mask.nxs')
         self.log_file = os.path.join(self.task_directory, 'nxlogger.log')
