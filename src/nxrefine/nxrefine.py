@@ -112,6 +112,7 @@ class NXRefine(object):
         self.grid_step = None
         self.standard = True
 
+        self._name = ""
         self._idx = None
         self._Dmat_cache = inv(rotmat(1, self.roll) * rotmat(2, self.pitch) *
                                rotmat(3, self.yaw))
@@ -122,14 +123,11 @@ class NXRefine(object):
         
         self.grains = None
         
-        if self.entry:
+        if self.entry is not None:
             self.read_parameters()
 
     def __repr__(self):
-        if self.entry is not None:
-            return "NXRefine('"+self.entry.nxroot.nxname+"/"+self.entry.nxname+"')"
-        else:
-            return "NXRefine()"
+        return "NXRefine('" + self._name + "')"
 
     def read_parameter(self, path, default=None, attr=None):
         try:
@@ -145,6 +143,7 @@ class NXRefine(object):
         if entry:
             self.entry = entry
         with self.entry.nxfile:
+            self._name = self.entry.nxroot.nxname + "/" + self.entry.nxname
             self.a = self.read_parameter('sample/unitcell_a', self.a)
             self.b = self.read_parameter('sample/unitcell_b', self.b)
             self.c = self.read_parameter('sample/unitcell_c', self.c)
