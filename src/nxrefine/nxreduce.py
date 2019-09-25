@@ -9,7 +9,7 @@ import sys
 import time
 import timeit
 import datetime
-from copy import copy
+from copy import deepcopy
 
 import numpy as np
 import h5py as h5
@@ -1126,11 +1126,11 @@ class NXReduce(QtCore.QObject):
     def write_xyz_peaks(self, peaks):
         extra_peaks = []
         for peak in [p for p in peaks if p.z >= 3600]:
-            extra_peak = copy(peak)
+            extra_peak = deepcopy(peak)
             extra_peak.z = peak.z - 3600
             extra_peaks.append(extra_peak)
         for peak in [p for p in peaks if p.z < 50]:
-            extra_peak = copy(peak)
+            extra_peak = deepcopy(peak)
             extra_peak.z = peak.z + 3600
             extra_peaks.append(extra_peak)
         peaks.extend(extra_peaks)            
@@ -1244,7 +1244,7 @@ class NXReduce(QtCore.QObject):
             if peak_group not in self.mask_root['entry']:
                 return []
             else:
-                pg = self.mask_root['entry'][peak_group].copy()
+                pg = deepcopy(self.mask_root['entry'][peak_group])
         if 'intensity' not in pg:
             pg.intensity = np.zeros(len(pg.x))
         if 'radius' not in pg:
