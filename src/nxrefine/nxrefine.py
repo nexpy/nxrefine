@@ -999,8 +999,12 @@ class NXRefine(object):
         Qk = range(int(self.Qk[0])-1, int(self.Qk[-1])+1)
         Ql = range(int(self.Ql[0])-1, int(self.Ql[-1])+1)
         peaks = []
-        return [self.get_xyz(h, k, l)) for l in Qh for k in Qk for l in Ql 
-                if not self.absent(h, k, l)]
+        for h in Qh:
+            for k in Qk:
+                for l in Ql:
+                    if not self.absent(h, k, l):
+                        peaks.extend(self.get_xyz(h, k, l))
+        return peaks                       
 
     def polar(self, i):
         """Return the polar angle for the specified peak"""
