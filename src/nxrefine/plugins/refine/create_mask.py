@@ -81,7 +81,7 @@ class MaskDialog(BaseDialog):
         p = self.parameters[shape] = GridParameters()
         if isinstance(shape, NXrectangle):
             x, y = shape.rectangle.xy
-            w, h = shape.rectangle.get_width(), self.rectangle.get_height()
+            w, h = shape.rectangle.get_width(), shape.rectangle.get_height()
             p.add('x', x, 'Left Pixel')
             p.add('y', y, 'Bottom Pixel')
             p.add('w', w, 'Width')
