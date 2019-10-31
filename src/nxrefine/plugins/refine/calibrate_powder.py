@@ -91,7 +91,7 @@ class CalibrateDialog(BaseDialog):
 
     @property
     def selected_ring(self):
-        return int(self.rings_box.currentText()[4:])
+        return int(self.rings_box.currentText()[4:]) - 1
 
     @property
     def ring_color(self):
