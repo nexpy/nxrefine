@@ -168,6 +168,7 @@ class CalibrateDialog(BaseDialog):
         self.stop_progress()
 
     def add_points(self, x, y, phi=0.0):
+        self.phi_max = -np.pi
         xc, yc = self.parameters['xc'].value, self.parameters['yc'].value
         idx, idy = self.find_peak(x, y)
         points = [(idy, idx)]
