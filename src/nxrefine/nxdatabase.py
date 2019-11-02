@@ -14,15 +14,15 @@ Usage:
 ----------------------
 Before any other calls, use init() to establish a connection to the database
 
-    >>> import nxrefine.nxdatabase as nxdb
-    >>> nxdb.init('sqlite:///relative/path/to/database/file')
+    >>> from nxrefine.nxdatabase import NXDatabase
+    >>> nxdb = NXDatabase('sqlite:///relative/path/to/database/file')
 
 Use sync_db() to scan the sample directory and update the database to match
 the contents of the wrapper files. This only needs to be run if there are
 changes to the files outside of NXrefine code (eg manually deleting an entry
-or adding a new .nxs file). Other changes are tracked automatically.
+or adding a new .nxs files). Other changes are tracked automatically.
 
-NXdatabase assumes that no identical tasks (i.e., same task, entry, and wrapper 
+NXDatabase assumes that no identical tasks (i.e., same task, entry, and wrapper 
 file) will be queued or running at the same time
 """
 
@@ -43,9 +43,6 @@ Base = declarative_base();
     # but not started, started processing, finished processing
 _prog = {'not started':0, 'queued':1, 'in progress':2, 'done':3}
 NOT_STARTED, QUEUED, IN_PROGRESS, DONE, FAILED = 0,1,2,3,-1
-task_names = ('data', 'nxlink', 'nxmax', 'nxfind', 'nxcopy', 'nxrefine', 'nxprepare',
-              'nxtransform', 'nxmasked_transform', 'nxcombine', 'nxmasked_combine',
-              'nxpdf')
 
 class File(Base):
     __tablename__ = 'files'
@@ -98,305 +95,306 @@ class Task(Base):
 
 File.tasks = relationship('Task', back_populates='file', order_by=Task.id)
 
-session = None
+class NXDatabase(object):
 
-def init(connect, echo=False):
-    """ Connect to the database, creating tables if necessary
+    task_names = ('data', 'nxlink', 'nxmax', 'nxfind', 'nxcopy', 'nxrefine', 
+                  'nxprepare', 'nxtransform', 'nxmasked_transform', 'nxcombine', 
+                  'nxmasked_combine', 'nxpdf')
+    NOT_STARTED, QUEUED, IN_PROGRESS, DONE, FAILED = 0,1,2,3,-1
 
-        connect: connect string as specified by SQLAlchemy
-        echo: whether or not to echo the emmited SQL statements to stdout
-    """
-    global session
-    try:
-        session.close()
-    except Exception:
-        pass
-    engine = create_engine(connect, echo=echo)
-    Base.metadata.create_all(engine)
-    session = sessionmaker(bind=engine)()
+    def __init__(self, connect, echo=False):
+        """ Connect to the database, creating tables if necessary
 
-def commit(session):
-    with NXLock(os.path.realpath(session.bind.url.database)):
-        session.commit()
+            connect: connect string as specified by SQLAlchemy
+            echo: whether or not to echo the emmited SQL statements to stdout
+        """
+        self.engine = create_engine(connect, echo=echo)
+        Base.metadata.create_all(self.engine)
+        self.session = sessionmaker(bind=self.engine)()
+        self.database = os.path.realpath(self.session.bind.url.database)
 
-def get_filename(filename):
-    """Return the relative path of the requested filename"""
-    database = os.path.realpath(session.bind.url.database)
-    root = os.path.dirname(os.path.dirname(database))
-    return os.path.relpath(os.path.realpath(filename), root)
+    def commit(self):
+        with NXLock(self.database):
+            self.session.commit()
 
-def get_file(filename):
-    """ Return the File object (and associated tasks) matching filename
+    def get_filename(self, filename):
+        """Return the relative path of the requested filename"""
+        root = os.path.dirname(os.path.dirname(self.database))
+        return os.path.relpath(os.path.realpath(filename), root)
 
-        filename: string, path of wrapper file relative to GUP directory
-     """
-    check_tasks()
-    f = session.query(File) \
-            .filter(File.filename == get_filename(filename)) \
-            .one_or_none()
+    def get_file(self, filename):
+        """ Return the File object (and associated tasks) matching filename
 
-    if f is None:
-        filename = os.path.realpath(filename)
-        if not os.path.exists(filename):
-            raise NeXusError("'%s' does not exist" % filename)
-        session.add(File(filename = get_filename(filename)))        
-        commit(session)
-        f = sync_file(filename)
-    else:
-        f = sync_data(filename)
-    return f
+            filename: string, path of wrapper file relative to GUP directory
+        """
+        self.check_tasks()
+        f = self.session.query(File) \
+                .filter(File.filename == self.get_filename(filename)) \
+                .one_or_none()
 
-def get_directory(filename):
-    """Return the directory path containing the raw data"""
-    base_name = os.path.basename(os.path.splitext(filename)[0])
-    sample_dir = os.path.dirname(filename)
-    sample = os.path.basename(os.path.dirname(sample_dir))
-    scan_label = base_name.replace(sample+'_', '')
-    return os.path.join(sample_dir, scan_label)
-
-def sync_file(filename):
-    """ Return the File object (and associated tasks) matching filename
-
-        filename: string, path of wrapper file relative to GUP directory
-     """
-    f = get_file(filename)
-    sample_dir = os.path.dirname(filename)
-    if f:
-        try:
-            scan_files = os.listdir(get_directory(filename))
-        except OSError:
-            scan_files = []
-
-        tasks = { t: 0 for t in task_names }
-        root = nxload(filename)
-        entries = (e for e in root.entries if e != 'entry')
-        for e in entries:
-            nxentry = root[e]
-            if e in root and 'data' in nxentry and 'instrument' in nxentry:
-                if e+'.h5' in scan_files or e+'.nxs' in scan_files:
-                    tasks['data'] += 1
-                if 'nxlink' in nxentry:
-                    tasks['nxlink'] += 1
-                if 'nxmax' in nxentry:
-                    tasks['nxmax'] += 1
-                if 'nxfind' in nxentry:
-                    tasks['nxfind'] += 1
-                if 'nxcopy' in nxentry or is_parent(filename, sample_dir):
-                    tasks['nxcopy'] += 1
-                if 'nxrefine' in nxentry:
-                    tasks['nxrefine'] += 1
-                if 'nxprepare_mask' in nxentry:
-                    tasks['nxprepare'] += 1
-                if 'nxtransform' in nxentry:
-                    tasks['nxtransform'] += 1
-                if 'nxmasked_transform' in nxentry or 'nxmask' in nxentry:
-                    tasks['nxmasked_transform'] += 1
-                if 'nxcombine' in root['entry']:
-                    tasks['nxcombine'] += 1
-                if 'nxmasked_combine' in root['entry']:
-                    tasks['nxmasked_combine'] += 1
-                if 'nxpdf' in root['entry']:
-                    tasks['nxpdf'] += 1
-        for task, val in tasks.items():
-            if val == 0:
-                setattr(f, task, NOT_STARTED)
-            elif val == NUM_ENTRIES:
-                setattr(f, task, DONE)
-            else:
-                setattr(f, task, IN_PROGRESS)
-        commit(session)
-    return f
-
-def sync_data(filename):
-    """ Update status of raw data linked from File
-
-        filename: string, path of wrapper file relative to GUP directory
-     """
-    f = session.query(File) \
-            .filter(File.filename == get_filename(filename)) \
-            .one_or_none()
-    if f:
-        scan_dir = get_directory(filename)
-        data = 0
-        for e in ['f1', 'f2', 'f3']:
-            if os.path.exists(os.path.join(scan_dir, e+'.h5')):
-                data += 1
-        if data == 0:
-            f.data = NOT_STARTED
-        elif data == NUM_ENTRIES:
-            f.data = DONE
+        if f is None:
+            filename = os.path.realpath(filename)
+            if not os.path.exists(filename):
+                raise NeXusError("'%s' does not exist" % filename)
+            self.session.add(File(filename = self.get_filename(filename)))        
+            self.commit()
+            f = self.sync_file(filename)
         else:
-            f.data = IN_PROGRESS
-        commit(session)
-    return f
+            f = self.sync_data(filename)
+        return f
 
-update_file = sync_file #Temporary backward compatibility    
-update_data = sync_data
+    def get_directory(self, filename):
+        """Return the directory path containing the raw data"""
+        base_name = os.path.basename(os.path.splitext(filename)[0])
+        sample_dir = os.path.dirname(filename)
+        sample = os.path.basename(os.path.dirname(sample_dir))
+        scan_label = base_name.replace(sample+'_', '')
+        return os.path.join(sample_dir, scan_label)
 
-def queue_task(filename, task, entry):
-    """ Update a file to 'queued' status and create a matching task
+    def sync_file(self, filename):
+        """ Return the File object (and associated tasks) matching filename
 
-        filename, task, entry: strings that uniquely identify the desired task
-    """
-    f = get_file(filename)
-    for t in reversed(f.tasks):
-        if t.name == task and t.entry == entry:
-            break
-    else:
-        t = Task(name=task, entry=entry)
-        f.tasks.append(t)
-    t.status = QUEUED
-    t.queue_time = datetime.datetime.now()
-    commit(session)
-    update_status(filename, task)
+            filename: string, path of wrapper file relative to GUP directory
+        """
+        f = self.get_file(filename)
+        sample_dir = os.path.dirname(filename)
+        if f:
+            try:
+                scan_files = os.listdir(self.get_directory(filename))
+            except OSError:
+                scan_files = []
 
-def start_task(filename, task, entry):
-    """ Record that a task has begun execution.
+            tasks = { t: 0 for t in self.task_names }
+            root = nxload(filename)
+            entries = (e for e in root.entries if e != 'entry')
+            for e in entries:
+                nxentry = root[e]
+                if e in root and 'data' in nxentry and 'instrument' in nxentry:
+                    if e+'.h5' in scan_files or e+'.nxs' in scan_files:
+                        tasks['data'] += 1
+                    if 'nxlink' in nxentry:
+                        tasks['nxlink'] += 1
+                    if 'nxmax' in nxentry:
+                        tasks['nxmax'] += 1
+                    if 'nxfind' in nxentry:
+                        tasks['nxfind'] += 1
+                    if 'nxcopy' in nxentry or is_parent(filename, sample_dir):
+                        tasks['nxcopy'] += 1
+                    if 'nxrefine' in nxentry:
+                        tasks['nxrefine'] += 1
+                    if 'nxprepare_mask' in nxentry:
+                        tasks['nxprepare'] += 1
+                    if 'nxtransform' in nxentry:
+                        tasks['nxtransform'] += 1
+                    if 'nxmasked_transform' in nxentry or 'nxmask' in nxentry:
+                        tasks['nxmasked_transform'] += 1
+                    if 'nxcombine' in root['entry']:
+                        tasks['nxcombine'] += 1
+                    if 'nxmasked_combine' in root['entry']:
+                        tasks['nxmasked_combine'] += 1
+                    if 'nxpdf' in root['entry']:
+                        tasks['nxpdf'] += 1
+            for task, val in tasks.items():
+                if val == 0:
+                    setattr(f, task, NOT_STARTED)
+                elif val == NUM_ENTRIES:
+                    setattr(f, task, DONE)
+                else:
+                    setattr(f, task, IN_PROGRESS)
+            self.commit()
+        return f
 
-        filename, task, entry: strings that uniquely identify the desired task
-    """
-    f = get_file(filename)
-    #Find the desired task, and create a new one if it doesn't exist
-    for t in reversed(f.tasks):
-        if t.name == task and t.entry == entry:
-            break
-    else:
-        # This task was started from command line, not queued on the server
-        t = Task(name=task, entry=entry)
-        f.tasks.append(t)
-    t.status = IN_PROGRESS
-    t.start_time = datetime.datetime.now()
-    t.pid = os.getpid()
-    commit(session)
-    update_status(filename, task)
+    def sync_data(self, filename):
+        """ Update status of raw data linked from File
 
-def end_task(filename, task, entry):
-    """ Record that a task finished execution.
+            filename: string, path of wrapper file relative to GUP directory
+         """
+        f = self.session.query(File) \
+                .filter(File.filename == self.get_filename(filename)) \
+                .one_or_none()
+        if f:
+            scan_dir = self.get_directory(filename)
+            data = 0
+            for e in ['f1', 'f2', 'f3']:
+                if os.path.exists(os.path.join(scan_dir, e+'.h5')):
+                    data += 1
+            if data == 0:
+                f.data = NOT_STARTED
+            elif data == NUM_ENTRIES:
+                f.data = DONE
+            else:
+                f.data = IN_PROGRESS
+            self.commit()
+        return f
 
-        Update the task's database entry, and set the matching column in files
-        to DONE if it's the last task to finish
+    update_file = sync_file #Temporary backward compatibility    
+    update_data = sync_data
 
-        filename, task, entry: strings that uniquely identify the desired task
-    """
-    f = get_file(filename)
-    # The entries that have finished this task
-    for t in reversed(f.tasks):
-        if t.name == task and t.entry == entry:
-            break
-    else:
-        # This task was started from command line, not queued on the server
-        t = Task(name=task, entry=entry)
-        f.tasks.append(t)
-    t.status = DONE
-    t.end_time = datetime.datetime.now()
-    commit(session)
-    update_status(filename, task)
+    def queue_task(self, filename, task, entry):
+        """ Update a file to 'queued' status and create a matching task
 
-def fail_task(filename, task, entry):
-    """ Record that a task failed during execution.
+            filename, task, entry: strings that uniquely identify the desired task
+       """
+        f = self.get_file(filename)
+        for t in reversed(f.tasks):
+            if t.name == task and t.entry == entry:
+                break
+        else:
+            t = Task(name=task, entry=entry)
+            f.tasks.append(t)
+        t.status = QUEUED
+        t.queue_time = datetime.datetime.now()
+        self.commit()
+        self.update_status(filename, task)
 
-        filename, task, entry: strings that uniquely identify the desired task
-    """
-    f = get_file(filename)
-    for t in reversed(f.tasks):
-        if t.name == task and t.entry == entry:
-            break
-    else:
-        #No task recorded
-        return
-    t.status = FAILED
-    t.queue_time = None
-    t.start_time = None
-    t.end_time = None
-    commit(session)
-    update_status(filename, task)
+    def start_task(self, filename, task, entry):
+        """ Record that a task has begun execution.
+
+            filename, task, entry: strings that uniquely identify the desired task
+        """
+        f = self.get_file(filename)
+        #Find the desired task, and create a new one if it doesn't exist
+        for t in reversed(f.tasks):
+            if t.name == task and t.entry == entry:
+                break
+        else:
+            # This task was started from command line, not queued on the server
+            t = Task(name=task, entry=entry)
+            f.tasks.append(t)
+        t.status = IN_PROGRESS
+        t.start_time = datetime.datetime.now()
+        t.pid = os.getpid()
+        self.commit()
+        self.update_status(filename, task)
+
+    def end_task(self, filename, task, entry):
+        """ Record that a task finished execution.
+
+            Update the task's database entry, and set the matching column in 
+            files to DONE if it's the last task to finish
+
+            filename, task, entry: strings that uniquely identify the desired task
+        """
+        f = self,get_file(filename)
+        # The entries that have finished this task
+        for t in reversed(f.tasks):
+            if t.name == task and t.entry == entry:
+                break
+        else:
+            # This task was started from command line, not queued on the server
+            t = Task(name=task, entry=entry)
+            f.tasks.append(t)
+        t.status = DONE
+        t.end_time = datetime.datetime.now()
+        self.commit()
+        self.update_status(filename, task)
+
+    def fail_task(self, filename, task, entry):
+        """ Record that a task failed during execution.
+
+            filename, task, entry: strings that uniquely identify the desired task
+        """
+        f = self.get_file(filename)
+        for t in reversed(f.tasks):
+            if t.name == task and t.entry == entry:
+                break
+        else:
+            #No task recorded
+            return
+        t.status = FAILED
+        t.queue_time = None
+        t.start_time = None
+        t.end_time = None
+        self.commit()
+        self.update_status(filename, task)
     
-def update_status(filename, task):
-    f = get_file(filename)
-    sample_dir = os.path.dirname(filename)
-    status = {}
-    if task == 'nxcopy' and is_parent(filename, sample_dir):
-        setattr(f, task, DONE)
-    else:
-        if task == 'nxcombine' or task == 'nxmasked_combine':
-            entries = ['entry']
-        else:
-            entries = ['f1', 'f2', 'f3']
-        for e in entries:
-            for t in reversed(f.tasks):
-                if t.name == task and t.entry == e:
-                    status[e] = t.status
-                    break
-            else:
-                status[e] = NOT_STARTED
-        if IN_PROGRESS in status.values():
-            setattr(f, task, IN_PROGRESS)
-        elif QUEUED in status.values():
-            setattr(f, task, QUEUED)
-        elif all(s == DONE for s in status.values()):
+    def update_status(self, filename, task):
+        f = self.get_file(filename)
+        sample_dir = os.path.dirname(filename)
+        status = {}
+        if task == 'nxcopy' and is_parent(filename, sample_dir):
             setattr(f, task, DONE)
         else:
-            setattr(f, task, NOT_STARTED)    
-    commit(session)
+            if task == 'nxcombine' or task == 'nxmasked_combine':
+                entries = ['entry']
+            else:
+                entries = ['f1', 'f2', 'f3']
+            for e in entries:
+                for t in reversed(f.tasks):
+                    if t.name == task and t.entry == e:
+                        status[e] = t.status
+                        break
+                else:
+                    status[e] = NOT_STARTED
+            if IN_PROGRESS in status.values():
+                setattr(f, task, IN_PROGRESS)
+            elif QUEUED in status.values():
+                setattr(f, task, QUEUED)
+            elif all(s == DONE for s in status.values()):
+                setattr(f, task, DONE)
+            else:
+                setattr(f, task, NOT_STARTED)    
+        self.commit()
 
-def sync_db(sample_dir):
-    """ Populate the database based on local files (overwriting if necessary)
+    def sync_db(self, sample_dir):
+        """ Populate the database based on local files
 
-        sample_dir: Directory containing the .nxs wrapper files
-    """
-    # Get a list of all the .nxs wrapper files
-    wrapper_files = [os.path.join(sample_dir, filename) for filename in
-                     os.listdir(sample_dir) if filename.endswith('.nxs')
-                     and all(x not in filename for x in ('parent', 'mask'))]
+            sample_dir: Directory containing the .nxs wrapper files
+        """
+        # Get a list of all the .nxs wrapper files
+        wrapper_files = [os.path.join(sample_dir, filename) for filename in
+                         os.listdir(sample_dir) if filename.endswith('.nxs')
+                         and all(x not in filename for x in ('parent', 'mask'))]
 
-    for wrapper_file in wrapper_files:
-        sync_file(get_file(wrapper_file))
-    tracked_files = list(session.query(File).all())
-    for f in tracked_files:
-        if f.filename not in [get_filename(w) for w in wrapper_files]:
-            session.delete(f)
-    commit(session)
+        for wrapper_file in wrapper_files:
+            self.sync_file(get_file(wrapper_file))
+        tracked_files = list(self.session.query(File).all())
+        for f in tracked_files:
+            if f.filename not in [get_filename(w) for w in wrapper_files]:
+                self.session.delete(f)
+        self.commit()
 
-""" Sample_dir should be the GUPxxx/agcrse2/xtalX directory -
-        ie NXreduce.base_directory """
+    def check_tasks(self):
+        inspector = inspect(self.session.bind.engine)
+        tasks = [task['name'] for task in inspector.get_columns('files')]
+        for task in self.task_names:
+            if task not in tasks:
+                self.add_column(task)
+
+    def add_column(self, column_name, table_name = 'files', 
+                   data_type=types.Integer, default=0):
+        """Add a missing column to the database"""
+        ret = False
+        if default is not None:
+            try:
+                ddl = ("ALTER TABLE '{table_name}' ADD COLUMN '{column_name}' '{data_type}' DEFAULT {default}")
+            except:
+                ddl = ("ALTER TABLE '{table_name}' ADD COLUMN '{column_name}' '{data_type}' DEFAULT '{default}'")
+        else:
+            ddl = ("ALTER TABLE '{table_name}' ADD column '{column_name}' '{data_type}'")
+
+        sql_command = ddl.format(table_name=table_name, column_name=column_name, 
+                                 data_type=data_type.__name__,
+                                 default=default)
+        try:
+            import sqlite3
+            connection = sqlite3.connect(os.path.realpath(self.database))
+            cursor = connection.cursor()
+            cursor.execute(sql_command)
+            connection.commit()
+            connection.close()
+            ret = True
+        except Exception as e:
+            print(e)
+            ret = False
+        return ret
+
 def is_parent(wrapper_file, sample_dir):
-    parent_file = os.path.join(sample_dir,
-            os.path.basename(os.path.dirname(sample_dir) + '_parent.nxs'))
+    parent_file = os.path.join(sample_dir,    
+                               os.path.basename(os.path.dirname(sample_dir) +
+                                                '_parent.nxs'))
     if os.path.exists(parent_file):
         return wrapper_file == os.path.realpath(parent_file)
     else:
         return False
 
-def check_tasks():
-    inspector = inspect(session.bind.engine)
-    tasks = [task['name'] for task in inspector.get_columns('files')]
-    for task in task_names:
-        if task not in tasks:
-            add_column(task)
-
-def add_column(column_name, table_name = 'files', data_type=types.Integer, default=0):
-    """Add a missing column to the database"""
-    ret = False
-    if default is not None:
-        try:
-            ddl = ("ALTER TABLE '{table_name}' ADD COLUMN '{column_name}' '{data_type}' DEFAULT {default}")
-        except:
-            ddl = ("ALTER TABLE '{table_name}' ADD COLUMN '{column_name}' '{data_type}' DEFAULT '{default}'")
-    else:
-        ddl = ("ALTER TABLE '{table_name}' ADD column '{column_name}' '{data_type}'")
-
-    sql_command = ddl.format(table_name=table_name, column_name=column_name, 
-                             data_type=data_type.__name__,
-                             default=default)
-    try:
-        import sqlite3
-        connection = sqlite3.connect(os.path.realpath(session.bind.url.database))
-        cursor = connection.cursor()
-        cursor.execute(sql_command)
-        connection.commit()
-        connection.close()
-        ret = True
-    except Exception as e:
-        print(e)
-        ret = False
-    return ret

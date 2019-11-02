@@ -1,6 +1,6 @@
 import argparse
 import os
-import nxrefine.nxdatabase as nxdb
+from nxrefine.nxdatabase import NXDatabase
 
 def main():
     parser = argparse.ArgumentParser(description="Populate the database based \
@@ -14,7 +14,7 @@ def main():
     print('Looking in directory {}'.format(dir))
     db_path = os.path.join(os.path.dirname(os.path.dirname(dir)), 'tasks',
                            'nxdatabase.db')
-    nxdb.init('sqlite:///' + db_path)
+    nxdb = NXDatabase('sqlite:///' + db_path)
     nxdb.sync_db(args.directory)
 
 if __name__ == "__main__":
