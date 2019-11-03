@@ -945,7 +945,7 @@ class NXReduce(QtCore.QObject):
             refine = NXRefine(self.entry)
             refine.refine_hkls(lattice=lattice, chi=True, omega=True)
             fit_report=refine.fit_report
-            refine.refine_hkls(chi=True, omega=True, phi=True)
+            refine.refine_hkls(chi=True, omega=True)
             fit_report = fit_report + '\n' + refine.fit_report
             refine.refine_orientation_matrix()
             fit_report = fit_report + '\n' + refine.fit_report
