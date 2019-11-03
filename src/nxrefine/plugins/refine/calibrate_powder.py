@@ -32,7 +32,8 @@ class CalibrateDialog(BaseDialog):
         self.points = []
         self.pattern_geometry = None
         self.cake_geometry = None
-        self.is_calibrated = False    
+        self.is_calibrated = False
+        self.phi_max = -np.pi
 
         cstr = str(ALL_CALIBRANTS)
         calibrants = sorted(cstr[cstr.index(':')+2:].split(', '))
@@ -168,7 +169,6 @@ class CalibrateDialog(BaseDialog):
         self.stop_progress()
 
     def add_points(self, x, y, phi=0.0):
-        self.phi_max = -np.pi
         xc, yc = self.parameters['xc'].value, self.parameters['yc'].value
         idx, idy = self.find_peak(x, y)
         points = [(idy, idx)]
