@@ -101,13 +101,11 @@ class MaskDialog(BaseDialog):
         x, y = np.arange(self.mask.shape[1]), np.arange(self.mask.shape[0])
         for shape in self.shapes:
             if isinstance(shape, NXrectangle):
-                rect = shape.rectangle
-                x0, y0 = int(rect.get_x()), int(rect.get_y())
-                x1, y1 = int(x0+rect.get_width()), int(y0+rect.get_height())               
-                self.mask[y0:y1,x0:x1] = 1
+                x0, y0 = shape.xy
+                x1, y1 = x0+shape.width, y0+shape.height               
+                self.mask[int(y0):int(y1),int(x0):int(x1)] = 1
             else:
-                circle = shape.circle
-                xc, yc = circle.center
+                xc, yc = shape.center
                 r = shape.radius
                 inside = (x[None,:]-int(xc))**2+(y[:,None]-int(yc))**2 < r**2
                 self.mask = self.mask | inside
