@@ -110,7 +110,11 @@ class MaskDialog(BaseDialog):
                 inside = (x[None,:]-int(xc))**2+(y[:,None]-int(yc))**2 < r**2
                 self.mask = self.mask | inside
         self.mask[np.where(self.counts<0)] = 1
-        self.entry['instrument/detector/pixel_mask'] = self.mask        
+        try:
+            self.entry['instrument/detector/pixel_mask'] = self.mask
+        except NeXusError as error:
+            report_error("Creating Mask", error)
+            return
         super(MaskDialog, self).accept()
         if 'Mask Editor' in plotviews:
             plotviews['Mask Editor'].close_view()
