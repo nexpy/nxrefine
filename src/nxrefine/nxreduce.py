@@ -604,6 +604,9 @@ class NXReduce(QtCore.QObject):
                 if 'monitor1' in self.entry:
                     del self.entry['monitor1']
                 data = logs['MCS1'][:frames]
+                #Remove outliers at beginning and end of frames
+                data[0] = data[1]
+                data[-1] = data[-2]
                 self.entry['monitor1'] = NXmonitor(NXfield(data, name='MCS1'),
                                                    NXfield(np.arange(frames,
                                                                      dtype=np.int32),
@@ -612,6 +615,9 @@ class NXReduce(QtCore.QObject):
                 if 'monitor2' in self.entry:
                     del self.entry['monitor2']
                 data = logs['MCS2'][:frames]
+                #Remove outliers at beginning and end of frames
+                data[0] = data[1]
+                data[-1] = data[-2]
                 self.entry['monitor2'] = NXmonitor(NXfield(data, name='MCS2'),
                                                    NXfield(np.arange(frames,
                                                                      dtype=np.int32),
