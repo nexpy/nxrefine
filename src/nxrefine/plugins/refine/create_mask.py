@@ -80,15 +80,15 @@ class MaskDialog(BaseDialog):
     def shape_options(self, shape): 
         p = self.parameters[shape] = GridParameters()
         if isinstance(shape, NXrectangle):
-            x, y = shape.rectangle.xy
-            w, h = shape.rectangle.get_width(), shape.rectangle.get_height()
+            x, y = shape.xy
+            w, h = shape.width, shape.height
             p.add('x', x, 'Left Pixel')
             p.add('y', y, 'Bottom Pixel')
             p.add('w', w, 'Width')
             p.add('h', h, 'Height')
         else:
-            x, y = shape.circle.center
-            r = abs(shape.circle.width) / 2
+            x, y = shape.center
+            r = abs(shape.width) / 2
             p.add('x', x, 'X-Center')
             p.add('y', y, 'Y-Center')
             p.add('r', r, 'Radius')
