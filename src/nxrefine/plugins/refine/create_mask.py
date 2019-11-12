@@ -80,15 +80,15 @@ class MaskDialog(BaseDialog):
     def shape_options(self, shape): 
         p = self.parameters[shape] = GridParameters()
         if isinstance(shape, NXrectangle):
-            x, y = shape.rectangle.xy
-            w, h = shape.rectangle.get_width(), shape.rectangle.get_height()
+            x, y = shape.xy
+            w, h = shape.width, shape.height
             p.add('x', x, 'Left Pixel')
             p.add('y', y, 'Bottom Pixel')
             p.add('w', w, 'Width')
             p.add('h', h, 'Height')
         else:
-            x, y = shape.circle.center
-            r = abs(shape.circle.width) / 2
+            x, y = shape.center
+            r = abs(shape.width) / 2
             p.add('x', x, 'X-Center')
             p.add('y', y, 'Y-Center')
             p.add('r', r, 'Radius')
@@ -101,18 +101,20 @@ class MaskDialog(BaseDialog):
         x, y = np.arange(self.mask.shape[1]), np.arange(self.mask.shape[0])
         for shape in self.shapes:
             if isinstance(shape, NXrectangle):
-                rect = shape.rectangle
-                x0, y0 = int(rect.get_x()), int(rect.get_y())
-                x1, y1 = int(x0+rect.get_width()), int(y0+rect.get_height())               
-                self.mask[y0:y1,x0:x1] = 1
+                x0, y0 = shape.xy
+                x1, y1 = x0+shape.width, y0+shape.height               
+                self.mask[int(y0):int(y1),int(x0):int(x1)] = 1
             else:
-                circle = shape.circle
-                xc, yc = circle.center
+                xc, yc = shape.center
                 r = shape.radius
                 inside = (x[None,:]-int(xc))**2+(y[:,None]-int(yc))**2 < r**2
                 self.mask = self.mask | inside
         self.mask[np.where(self.counts<0)] = 1
-        self.entry['instrument/detector/pixel_mask'] = self.mask        
+        try:
+            self.entry['instrument/detector/pixel_mask'] = self.mask
+        except NeXusError as error:
+            report_error("Creating Mask", error)
+            return
         super(MaskDialog, self).accept()
         if 'Mask Editor' in plotviews:
             plotviews['Mask Editor'].close_view()
