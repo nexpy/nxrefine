@@ -14,7 +14,7 @@ def main():
     print('Looking in directory {}'.format(dir))
     db_path = os.path.join(os.path.dirname(os.path.dirname(dir)), 'tasks',
                            'nxdatabase.db')
-    nxdb = NXDatabase('sqlite:///' + db_path)
+    nxdb = NXDatabase(db_path)
     nxdb.sync_db(args.directory)
 
 if __name__ == "__main__":

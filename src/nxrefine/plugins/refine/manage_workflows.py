@@ -47,13 +47,14 @@ class WorkflowDialog(BaseDialog):
         else:
             self.parent_file = None
             self.filename.setText('')
-        self.root_directory = os.path.dirname(os.path.dirname(self.sample_directory))
+        self.root_directory = os.path.dirname(
+                                  os.path.dirname(self.sample_directory))
         self.mainwindow.default_directory = self.sample_directory
         self.task_directory = os.path.join(self.root_directory, 'tasks')
         if not os.path.exists(self.task_directory):
             os.mkdir(self.task_directory)
         db_file = os.path.join(self.task_directory, 'nxdatabase.db')
-        self.db = NXDatabase('sqlite:///' + db_file)
+        self.db = NXDatabase(db_file)
         self.update()
 
     def choose_file(self):
@@ -73,9 +74,9 @@ class WorkflowDialog(BaseDialog):
         reduce = NXReduce(directory=self.get_scan(self.get_filename()),
                           overwrite=True)
         reduce.make_parent()
-        self.db.update_file(reduce.wrapper_file)
+        self.db.sync_file(reduce.wrapper_file)
         if self.parent_file:
-            self.db.update_file(self.parent_file)
+            self.db.sync_file(self.parent_file)
         self.parent_file = reduce.wrapper_file
         self.filename.setText(os.path.basename(self.parent_file))
         self.update()
@@ -106,9 +107,9 @@ class WorkflowDialog(BaseDialog):
         self.insert_layout(2, self.grid)
         self.grid.setSpacing(1)
         row = 0
-        columns = ['Scan', 'data', 'link', 'max', 'find', 'copy', 'refine', 'prepare',
-                   'transform', 'masked_transform', 'combine', 'masked_combine', 'pdf', 
-                   'overwrite', 'reduce', 'sync']
+        columns = ['Scan', 'data', 'link', 'max', 'find', 'copy', 'refine', 
+                   'prepare', 'transform', 'masked_transform', 'combine', 
+                   'masked_combine', 'pdf', 'overwrite', 'reduce', 'sync']
         header = {}
         for col, column in enumerate(columns):
             header[column] = QtWidgets.QLabel(column)
@@ -223,10 +224,10 @@ class WorkflowDialog(BaseDialog):
                     checkbox.setEnabled(False)
                 elif file_status == self.db.IN_PROGRESS:
                     checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
-                    checkbox.setEnabled(True)
+                    checkbox.setEnabled(False)
                 elif file_status == self.db.QUEUED:
                     checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
-                    checkbox.setEnabled(False)
+                    checkbox.setEnabled(True)
                 elif file_status == self.db.FAILED:
                     checkbox.setCheckState(QtCore.Qt.Unchecked)
                     checkbox.setEnabled(True)
@@ -435,14 +436,17 @@ class WorkflowDialog(BaseDialog):
         dialog.setMinimumHeight(600)
         scans = [os.path.basename(scan) for scan in self.scans]
         self.scan_combo = dialog.select_box(scans, slot=self.refreshview)
-        self.entry_combo = dialog.select_box(self.entries, slot=self.refreshview)
-        self.program_combo = dialog.select_box(self.programs, slot=self.refreshview)
+        self.entry_combo = dialog.select_box(self.entries, 
+                                             slot=self.refreshview)
+        self.program_combo = dialog.select_box(self.programs, 
+                                               slot=self.refreshview)
         self.defaultview = None
         self.output_box = dialog.editor()
         self.output_box.setStyleSheet('font-family: monospace;')
         self.output_box.setLineWrapMode(QtWidgets.QPlainTextEdit.NoWrap)
         dialog.set_layout(
-            dialog.make_layout(self.scan_combo, self.entry_combo, self.program_combo),
+            dialog.make_layout(self.scan_combo, self.entry_combo, 
+                               self.program_combo),
             self.output_box,
             dialog.action_buttons(('View Server Logs', self.serverview),
                                   ('View Workflow Logs', self.logview),

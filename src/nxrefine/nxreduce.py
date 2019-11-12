@@ -138,7 +138,7 @@ class NXReduce(QtCore.QObject):
         self.init_logs()
         db_file = os.path.join(self.task_directory, 'nxdatabase.db')
         try:
-            self.db = NXDatabase('sqlite:///' + db_file)
+            self.db = NXDatabase(db_file)
         except Exception:
             pass
         try:

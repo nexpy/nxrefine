@@ -1,6 +1,7 @@
-"""
-Simple sqlite-based logging for NXrefine. The database file is located by
-default at GUP-xxx/tasks/nxdatabase.db. It contains two tables:
+"""Simple sqlite-based logging for NXrefine. 
+
+The database file is located by default at GUP-xxx/tasks/nxdatabase.db. It 
+contains two tables:
     1. Files: Meant for quickly checking the completion status of scans.
         For each task, records if it is not started, queued but not yet running,
         in progress (started for at least one entry), or done (finished for all
@@ -10,12 +11,12 @@ default at GUP-xxx/tasks/nxdatabase.db. It contains two tables:
         command line), start time, end time, the task's PID, the wrapper file
         and entry it is working on, and its status.
 
-Usage:
-----------------------
+Example
+-------
 Before any other calls, use init() to establish a connection to the database
 
     >>> from nxrefine.nxdatabase import NXDatabase
-    >>> nxdb = NXDatabase('sqlite:///relative/path/to/database/file')
+    >>> nxdb = NXDatabase('relative/path/to/database/file')
 
 Use sync_db() to scan the sample directory and update the database to match
 the contents of the wrapper files. This only needs to be run if there are
@@ -102,30 +103,44 @@ class NXDatabase(object):
                   'nxmasked_combine', 'nxpdf')
     NOT_STARTED, QUEUED, IN_PROGRESS, DONE, FAILED = 0,1,2,3,-1
 
-    def __init__(self, connect, echo=False):
-        """ Connect to the database, creating tables if necessary
-
-            connect: connect string as specified by SQLAlchemy
-            echo: whether or not to echo the emmited SQL statements to stdout
+    def __init__(self, db_file, echo=False):
+        """Connect to the database, creating tables if necessary.
+        
+        Parameters
+        ----------
+        db_file : str
+            Path to the database file
+        echo : bool, optional
+            True if SQL statements are echoed to `stdout`, by default False.
         """
-        self.engine = create_engine(connect, echo=echo)
+        connection = 'sqlite:///' + db_file
+        self.engine = create_engine(connection, echo=echo)
         Base.metadata.create_all(self.engine)
         self.session = sessionmaker(bind=self.engine)()
         self.database = os.path.realpath(self.session.bind.url.database)
 
     def commit(self):
+        """Commit changes to the database."""
         with NXLock(self.database):
             self.session.commit()
 
     def get_filename(self, filename):
-        """Return the relative path of the requested filename"""
+        """Return the relative path of the requested filename."""
         root = os.path.dirname(os.path.dirname(self.database))
         return os.path.relpath(os.path.realpath(filename), root)
 
     def get_file(self, filename):
-        """ Return the File object (and associated tasks) matching filename
-
-            filename: string, path of wrapper file relative to GUP directory
+        """Return the File object (and associated tasks) matching filename.
+        
+        Parameters
+        ----------
+        filename : str
+            Path of wrapper file relative to GUP directory.
+        
+        Returns
+        -------
+        File
+            File object.
         """
         self.check_tasks()
         f = self.session.query(File) \
@@ -141,26 +156,27 @@ class NXDatabase(object):
             f = self.sync_file(filename)
         else:
             f = self.sync_data(filename)
+        f.nxlink
         return f
 
-    def get_directory(self, filename):
-        """Return the directory path containing the raw data"""
-        base_name = os.path.basename(os.path.splitext(filename)[0])
-        sample_dir = os.path.dirname(filename)
-        sample = os.path.basename(os.path.dirname(sample_dir))
-        scan_label = base_name.replace(sample+'_', '')
-        return os.path.join(sample_dir, scan_label)
-
     def sync_file(self, filename):
-        """ Return the File object (and associated tasks) matching filename
+        """Synchronize the NeXus file contents to the database.
 
-            filename: string, path of wrapper file relative to GUP directory
+        Parameters
+        ----------
+        filename : str
+            Path of wrapper file relative to GUP directory.
+
+        Returns
+        -------
+        File
+            Updated File object.
         """
         f = self.get_file(filename)
         sample_dir = os.path.dirname(filename)
         if f:
             try:
-                scan_files = os.listdir(self.get_directory(filename))
+                scan_files = os.listdir(get_directory(filename))
             except OSError:
                 scan_files = []
 
@@ -205,15 +221,23 @@ class NXDatabase(object):
         return f
 
     def sync_data(self, filename):
-        """ Update status of raw data linked from File
+        """Update status of raw data linked from File.
 
-            filename: string, path of wrapper file relative to GUP directory
-         """
+        Parameters
+        ----------
+        filename : str
+            Path of wrapper file relative to GUP directory.
+
+        Returns
+        -------
+        File
+            Updated File object.
+        """
         f = self.session.query(File) \
                 .filter(File.filename == self.get_filename(filename)) \
                 .one_or_none()
         if f:
-            scan_dir = self.get_directory(filename)
+            scan_dir = get_directory(filename)
             data = 0
             for e in ['f1', 'f2', 'f3']:
                 if os.path.exists(os.path.join(scan_dir, e+'.h5')):
@@ -227,14 +251,18 @@ class NXDatabase(object):
             self.commit()
         return f
 
-    update_file = sync_file #Temporary backward compatibility    
-    update_data = sync_data
-
     def queue_task(self, filename, task, entry):
-        """ Update a file to 'queued' status and create a matching task
-
-            filename, task, entry: strings that uniquely identify the desired task
-       """
+        """Update a file to 'queued' status and create a matching task.
+        
+        Parameters
+        ----------
+        filename : str
+            Path of wrapper file relative to GUP directory.
+        task : str
+            Task being updated.
+        entry : str
+            Entry of NeXus file being updated.
+        """
         f = self.get_file(filename)
         for t in reversed(f.tasks):
             if t.name == task and t.entry == entry:
@@ -248,9 +276,16 @@ class NXDatabase(object):
         self.update_status(filename, task)
 
     def start_task(self, filename, task, entry):
-        """ Record that a task has begun execution.
-
-            filename, task, entry: strings that uniquely identify the desired task
+        """Record that a task has begun execution.
+        
+        Parameters
+        ----------
+        filename : str
+            Path of wrapper file relative to GUP directory.
+        task : str
+            Task being updated.
+        entry : str
+            Entry of NeXus file being updated.
         """
         f = self.get_file(filename)
         #Find the desired task, and create a new one if it doesn't exist
@@ -268,12 +303,19 @@ class NXDatabase(object):
         self.update_status(filename, task)
 
     def end_task(self, filename, task, entry):
-        """ Record that a task finished execution.
+        """Record that a task finished execution.
+        
+        Update the task's database entry, and set the matching column in 
+        files to DONE if it's the last task to finish
 
-            Update the task's database entry, and set the matching column in 
-            files to DONE if it's the last task to finish
-
-            filename, task, entry: strings that uniquely identify the desired task
+        Parameters
+        ----------
+        filename : str
+            Path of wrapper file relative to GUP directory.
+        task : str
+            Task being updated.
+        entry : str
+            Entry of NeXus file being updated.
         """
         f = self,get_file(filename)
         # The entries that have finished this task
@@ -290,9 +332,16 @@ class NXDatabase(object):
         self.update_status(filename, task)
 
     def fail_task(self, filename, task, entry):
-        """ Record that a task failed during execution.
-
-            filename, task, entry: strings that uniquely identify the desired task
+        """Record that a task failed during execution.
+        
+        Parameters
+        ----------
+        filename : str
+            Path of wrapper file relative to GUP directory.
+        task : str
+            Task being updated.
+        entry : str
+            Entry of NeXus file being updated.
         """
         f = self.get_file(filename)
         for t in reversed(f.tasks):
@@ -309,6 +358,15 @@ class NXDatabase(object):
         self.update_status(filename, task)
     
     def update_status(self, filename, task):
+        """Update the File object using the status of the specified task.
+        
+        Parameters
+        ----------
+        filename : str
+            Path of wrapper file relative to GUP directory.
+        task : str
+            Task being updated.        
+        """
         f = self.get_file(filename)
         sample_dir = os.path.dirname(filename)
         status = {}
@@ -337,9 +395,12 @@ class NXDatabase(object):
         self.commit()
 
     def sync_db(self, sample_dir):
-        """ Populate the database based on local files
-
-            sample_dir: Directory containing the .nxs wrapper files
+        """ Populate the database based on local files.
+        
+        Parameters
+        ----------
+        sample_dir : str
+            Directory containing the NeXus wrapper files.
         """
         # Get a list of all the .nxs wrapper files
         wrapper_files = [os.path.join(sample_dir, filename) for filename in
@@ -355,6 +416,7 @@ class NXDatabase(object):
         self.commit()
 
     def check_tasks(self):
+        """Check that all tasks are present, adding a column if necessary."""
         inspector = inspect(self.session.bind.engine)
         tasks = [task['name'] for task in inspector.get_columns('files')]
         for task in self.task_names:
@@ -363,7 +425,7 @@ class NXDatabase(object):
 
     def add_column(self, column_name, table_name = 'files', 
                    data_type=types.Integer, default=0):
-        """Add a missing column to the database"""
+        """Add a missing column to the database."""
         ret = False
         if default is not None:
             try:
@@ -389,7 +451,16 @@ class NXDatabase(object):
             ret = False
         return ret
 
+def get_directory(filename):
+    """Return the directory path containing the raw data."""
+    base_name = os.path.basename(os.path.splitext(filename)[0])
+    sample_dir = os.path.dirname(filename)
+    sample = os.path.basename(os.path.dirname(sample_dir))
+    scan_label = base_name.replace(sample+'_', '')
+    return os.path.join(sample_dir, scan_label)
+
 def is_parent(wrapper_file, sample_dir):
+    """True if the wrapper file is set as the parent."""
     parent_file = os.path.join(sample_dir,    
                                os.path.basename(os.path.dirname(sample_dir) +
                                                 '_parent.nxs'))
