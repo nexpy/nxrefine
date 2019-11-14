@@ -59,5 +59,5 @@ function get_xyz(h,k,l)
 end
 
 function get_xyzs(Qh,Qk,Ql)
-    return map(i->get_xyz(i...),Iterators.product(-Qh:Qh,-Qk:Qk,-Ql:Ql))[:]
+    return mapreduce(i->get_xyz(i...),vcat,Iterators.product(-Qh:Qh,-Qk:Qk,-Ql:Ql))[:]
 end
