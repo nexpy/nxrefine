@@ -1021,7 +1021,15 @@ class NXRefine(object):
             Qk = int(self.Qk[-1])
         if Ql is None:
             Ql = int(self.Ql[-1])
-        peaks = self._julia.get_xyzs(Qh, Qk, Ql)
+        ps = self._julia.get_xyzs(Qh, Qk, Ql)
+        peaks = []
+        for p in ps:
+            try:
+                h, k, l = p[3], p[4], p[5]
+                if not self.absent(h, k, l):
+                    peaks.append(NXPeak(*p[0:3], H=h, K=k, L=l)))
+            except Exception:
+                pass
         return peaks                       
 
     def polar(self, i):
