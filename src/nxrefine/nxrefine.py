@@ -1027,7 +1027,7 @@ class NXRefine(object):
             try:
                 h, k, l = p[3], p[4], p[5]
                 if not self.absent(h, k, l):
-                    peaks.append(NXPeak(*p[0:3], H=h, K=k, L=l)))
+                    peaks.append(NXPeak(*p[0:3], H=h, K=k, L=l))
             except Exception:
                 pass
         return peaks                       
