@@ -371,7 +371,6 @@ class RefineLatticeDialog(BaseDialog):
         self.parameters.status_message.setText('Fitting...')
         self.parameters.status_message.repaint()
         self.mainwindow.app.app.processEvents()
-        self.set_symmetry()
         self.transfer_parameters()
         self.refine.refine_hkls(**self.refined)
         self.parameters.result = self.refine.result
