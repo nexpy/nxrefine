@@ -118,6 +118,7 @@ class NXRefine(object):
                                rotmat(3, self.yaw))
         self._Gmat_cache = (rotmat(2,self.gonpitch) * rotmat(3, self.omega) * 
                             rotmat(1, self.chi))
+        self._julia = None
         
         self.parameters = None
         
@@ -994,16 +995,41 @@ class NXRefine(object):
 
         return peaks
 
-    def get_xyzs(self):
-        Qh = range(int(self.Qh[0])-1, int(self.Qh[-1])+1)
-        Qk = range(int(self.Qk[0])-1, int(self.Qk[-1])+1)
-        Ql = range(int(self.Ql[0])-1, int(self.Ql[-1])+1)
+    def get_xyzs(self, Qh=None, Qk=None, Ql=None):
+        if self._julia is None:
+            try:
+                from julia import Julia
+                self._julia = Julia(compiled_modules=False)
+                self._julia.eval("@eval Main import Base.MainInclude: include")
+            except Exception as error:
+                raise NeXusError(str(error))
+        import pkg_resources
+        from julia import Main, Pkg
+        Pkg.add("Roots")
+        Main.Gmat0 = np.array(self.Gmat(0.0))
+        Main.UBmat = np.array(self.UBmat)
+        Main.Dmat = np.array(self.Dmat)
+        Main.Omat = np.array(self.Omat) / self.pixel_size
+        Main.Cvec = list(np.array(self.Cvec.T).reshape((3)))
+        Main.Dvec = list(np.array(self.Dvec.T).reshape((3)))
+        Main.Evec = list(np.array(self.Evec.T).reshape((3)))
+        Main.shape = self.shape
+        Main.include(pkg_resources.resource_filename('nxrefine', 'get_xyzs.jl'))
+        if Qh is None:
+            Qh = int(self.Qh[-1])
+        if Qk is None:
+            Qk = int(self.Qk[-1])
+        if Ql is None:
+            Ql = int(self.Ql[-1])
+        ps = self._julia.get_xyzs(Qh, Qk, Ql)
         peaks = []
-        for h in Qh:
-            for k in Qk:
-                for l in Ql:
-                    if not self.absent(h, k, l):
-                        peaks.extend(self.get_xyz(h, k, l))
+        for p in ps:
+            try:
+                h, k, l = p[3], p[4], p[5]
+                if not self.absent(h, k, l):
+                    peaks.append(NXPeak(*p[0:3], H=h, K=k, L=l))
+            except Exception:
+                pass
         return peaks                       
 
     def polar(self, i):

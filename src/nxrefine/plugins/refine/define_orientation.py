@@ -6,6 +6,7 @@ from scipy.optimize import leastsq
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.plotview import NXPlotView
 from nexpy.gui.utils import report_error
+from nexpy.gui.widgets import NXLabel, NXLineEdit
 from nexusformat.nexus import NeXusError
 from nxrefine.nxrefine import NXRefine
 
@@ -46,12 +47,12 @@ class OrientationDialog(BaseDialog):
         self.grain_combo = QtWidgets.QComboBox()
         self.grain_combo.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
         self.grain_combo.currentIndexChanged.connect(self.set_grain)
-        self.grain_textbox = QtWidgets.QLabel()
+        self.grain_textbox = NXLabel()
         self.grain_layout.addWidget(self.grain_combo)
         self.grain_layout.addStretch()
         self.grain_layout.addWidget(self.grain_textbox)
         bottom_layout = QtWidgets.QHBoxLayout()
-        self.result_textbox = QtWidgets.QLabel()
+        self.result_textbox = NXLabel()
         bottom_layout.addWidget(self.result_textbox)
         bottom_layout.addStretch()
         bottom_layout.addWidget(self.close_buttons())
@@ -167,10 +168,10 @@ class OrientationDialog(BaseDialog):
             self.refine.primary = 0
         if self.refine.secondary is None:
             self.refine.secondary = 1
-        self.primary_box = QtWidgets.QLineEdit(str(self.refine.primary))
+        self.primary_box = NXLineEdit(str(self.refine.primary))
         self.primary_box.setAlignment(QtCore.Qt.AlignRight)
         self.primary_box.setFixedWidth(80)
-        self.secondary_box = QtWidgets.QLineEdit(str(self.refine.secondary))
+        self.secondary_box = NXLineEdit(str(self.refine.secondary))
         self.secondary_box.setAlignment(QtCore.Qt.AlignRight)
         self.secondary_box.setFixedWidth(80)
         orient_button = QtWidgets.QPushButton('Orient')
@@ -180,9 +181,9 @@ class OrientationDialog(BaseDialog):
         restore_button = QtWidgets.QPushButton('Restore')
         restore_button.clicked.connect(self.restore_orientation)
         orient_layout.addStretch()
-        orient_layout.addWidget(QtWidgets.QLabel('Primary'))
+        orient_layout.addWidget(NXLabel('Primary'))
         orient_layout.addWidget(self.primary_box)
-        orient_layout.addWidget(QtWidgets.QLabel('Secondary'))
+        orient_layout.addWidget(NXLabel('Secondary'))
         orient_layout.addWidget(self.secondary_box)
         orient_layout.addStretch()
         orient_layout.addWidget(orient_button)     
@@ -248,8 +249,8 @@ class OrientationDialog(BaseDialog):
         layout.addLayout(grid)
         layout.addWidget(self.table_view)
         close_layout = QtWidgets.QHBoxLayout()
-        self.status_text = QtWidgets.QLabel('Score: %.4f' % self.refine.score())
-        self.tolerance_box = QtWidgets.QLineEdit(str(self.refine.hkl_tolerance))
+        self.status_text = NXLabel('Score: %.4f' % self.refine.score())
+        self.tolerance_box = NXLineEdit(str(self.refine.hkl_tolerance))
         self.tolerance_box.setAlignment(QtCore.Qt.AlignRight)
         self.tolerance_box.setMaxLength(5)
         self.tolerance_box.editingFinished.connect(self.update_table)
@@ -260,7 +261,7 @@ class OrientationDialog(BaseDialog):
         close_button.clicked.connect(message_box.close)
         close_layout.addWidget(self.status_text)
         close_layout.addStretch()
-        close_layout.addWidget(QtWidgets.QLabel('Threshold'))
+        close_layout.addWidget(NXLabel('Threshold'))
         close_layout.addWidget(self.tolerance_box)
         close_layout.addStretch()
         close_layout.addWidget(save_button)

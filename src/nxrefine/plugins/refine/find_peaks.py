@@ -2,6 +2,7 @@ from nexpy.gui.pyqt import QtCore, QtWidgets
 import numpy as np
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.utils import report_error, is_file_locked
+from nexpy.gui.widgets import NXLabel
 from nexusformat.nexus import *
 
 from nxrefine.nxreduce import NXReduce
@@ -29,7 +30,7 @@ class FindDialog(BaseDialog):
         find_layout = QtWidgets.QHBoxLayout()
         self.find_button = QtWidgets.QPushButton('Find Peaks')
         self.find_button.clicked.connect(self.find_peaks)
-        self.peak_count = QtWidgets.QLabel()
+        self.peak_count = NXLabel()
         self.peak_count.setVisible(False)
         find_layout.addStretch()
         find_layout.addWidget(self.find_button)

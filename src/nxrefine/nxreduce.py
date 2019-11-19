@@ -240,6 +240,11 @@ class NXReduce(QtCore.QObject):
                 pass
         return self._pixel_mask
 
+    @pixel_mask.setter
+    def pixel_mask(self, mask):
+        with self.entry.nxfile:
+            self.entry['instrument/detector/pixel_mask'] = mask
+
     @property
     def parent_root(self):
         if self._parent_root is None:
@@ -604,6 +609,9 @@ class NXReduce(QtCore.QObject):
                 if 'monitor1' in self.entry:
                     del self.entry['monitor1']
                 data = logs['MCS1'][:frames]
+                #Remove outliers at beginning and end of frames
+                data[0] = data[1]
+                data[-1] = data[-2]
                 self.entry['monitor1'] = NXmonitor(NXfield(data, name='MCS1'),
                                                    NXfield(np.arange(frames,
                                                                      dtype=np.int32),
@@ -612,6 +620,9 @@ class NXReduce(QtCore.QObject):
                 if 'monitor2' in self.entry:
                     del self.entry['monitor2']
                 data = logs['MCS2'][:frames]
+                #Remove outliers at beginning and end of frames
+                data[0] = data[1]
+                data[-1] = data[-2]
                 self.entry['monitor2'] = NXmonitor(NXfield(data, name='MCS2'),
                                                    NXfield(np.arange(frames,
                                                                      dtype=np.int32),
@@ -665,6 +676,18 @@ class NXReduce(QtCore.QObject):
             data = self.field.nxfile[self.path]
             fsum = np.zeros(nframes, dtype=np.float64)
             pixel_mask = self.pixel_mask
+            #Add constantly firing pixels to the mask
+            pixel_max = np.zeros((self.shape[1], self.shape[2]))
+            v = data[0:10,:,:]
+            for i in range(10):
+                pixel_max = np.maximum(v[i,:,:], pixel_max)
+            pixel_mean=v.sum(0) / 10.
+            mask = np.zeros((self.shape[1], self.shape[2]), dtype=np.int8)
+            mask[np.where(pixel_max == pixel_mean)] = 1
+            mask[np.where(pixel_mean < 100)] = 0
+            pixel_mask = pixel_mask | mask
+            self.pixel_mask = pixel_mask
+            #Start looping over the data
             tic = self.start_progress(self.first, self.last)
             for i in range(self.first, self.last, chunk_size):
                 if self.stopped:
@@ -939,7 +962,7 @@ class NXReduce(QtCore.QObject):
             refine = NXRefine(self.entry)
             refine.refine_hkls(lattice=lattice, chi=True, omega=True)
             fit_report=refine.fit_report
-            refine.refine_hkls(chi=True, omega=True, phi=True)
+            refine.refine_hkls(chi=True, omega=True)
             fit_report = fit_report + '\n' + refine.fit_report
             refine.refine_orientation_matrix()
             fit_report = fit_report + '\n' + refine.fit_report
