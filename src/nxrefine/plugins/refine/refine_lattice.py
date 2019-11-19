@@ -4,6 +4,7 @@ from nexpy.gui.pyqt import QtCore, QtGui, QtWidgets
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.plotview import NXPlotView, get_plotview, plotview
 from nexpy.gui.utils import report_error
+from nexpy.gui.widgets import NXLabel, NXLineEdit
 from nexusformat.nexus import *
 from nxrefine.nxrefine import NXRefine, find_nearest
 from nxrefine.nxreduce import NXReduce
@@ -429,19 +430,19 @@ class RefineLatticeDialog(BaseDialog):
             self.refine.primary = 0
         if self.refine.secondary is None:
             self.refine.secondary = 1
-        self.primary_box = QtWidgets.QLineEdit(str(self.refine.primary))
+        self.primary_box = NXLineEdit(str(self.refine.primary))
         self.primary_box.setAlignment(QtCore.Qt.AlignRight)
         self.primary_box.setFixedWidth(80)
-        self.secondary_box = QtWidgets.QLineEdit(str(self.refine.secondary))
+        self.secondary_box = NXLineEdit(str(self.refine.secondary))
         self.secondary_box.setAlignment(QtCore.Qt.AlignRight)
         self.secondary_box.setFixedWidth(80)
         orient_button = QtWidgets.QPushButton('Orient')
         orient_button.clicked.connect(self.orient)
 
         orient_layout.addStretch()
-        orient_layout.addWidget(QtWidgets.QLabel('Primary'))
+        orient_layout.addWidget(NXLabel('Primary'))
         orient_layout.addWidget(self.primary_box)
-        orient_layout.addWidget(QtWidgets.QLabel('Secondary'))
+        orient_layout.addWidget(NXLabel('Secondary'))
         orient_layout.addWidget(self.secondary_box)
         orient_layout.addStretch()
         orient_layout.addWidget(orient_button)     
@@ -460,8 +461,8 @@ class RefineLatticeDialog(BaseDialog):
         layout.addLayout(orient_layout)
         layout.addWidget(self.table_view)
         close_layout = QtWidgets.QHBoxLayout()
-        self.status_text = QtWidgets.QLabel('Score: %.4f' % self.refine.score())
-        self.tolerance_box = QtWidgets.QLineEdit(str(self.refine.hkl_tolerance))
+        self.status_text = NXLabel('Score: %.4f' % self.refine.score())
+        self.tolerance_box = NXLineEdit(str(self.refine.hkl_tolerance))
         self.tolerance_box.setAlignment(QtCore.Qt.AlignRight)
         self.tolerance_box.setMaxLength(5)
         self.tolerance_box.editingFinished.connect(self.update_table)
@@ -472,7 +473,7 @@ class RefineLatticeDialog(BaseDialog):
         close_button.clicked.connect(self.close_peaks_box)
         close_layout.addWidget(self.status_text)
         close_layout.addStretch()
-        close_layout.addWidget(QtWidgets.QLabel('Threshold'))
+        close_layout.addWidget(NXLabel('Threshold'))
         close_layout.addWidget(self.tolerance_box)
         close_layout.addStretch()
         close_layout.addWidget(save_button)

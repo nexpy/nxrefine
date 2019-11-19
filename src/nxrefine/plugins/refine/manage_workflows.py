@@ -4,6 +4,7 @@ from nexusformat.nexus import *
 from nexpy.gui.pyqt import QtCore, QtWidgets
 from nexpy.gui.datadialogs import BaseDialog, GridParameters
 from nexpy.gui.utils import report_error, natural_sort
+from nexpy.gui.widgets import NXLabel
 
 from nxrefine.nxreduce import NXReduce, NXMultiReduce
 import nxrefine.nxdatabase as nxdb
@@ -111,7 +112,7 @@ class WorkflowDialog(BaseDialog):
                    'overwrite', 'reduce', 'sync']
         header = {}
         for col, column in enumerate(columns):
-            header[column] = QtWidgets.QLabel(column)
+            header[column] = NXLabel(column)
             header[column].setFont(self.bold_font)
             header[column].setFixedWidth(75)
             if column == 'transform' or column == 'combine':
@@ -123,7 +124,7 @@ class WorkflowDialog(BaseDialog):
         row = 1
         columns = ['regular', 'masked', 'regular', 'masked']
         for col, column in enumerate(columns):
-            header[column] = QtWidgets.QLabel(column)
+            header[column] = NXLabel(column)
             header[column].setFixedWidth(75)
             header[column].setAlignment(QtCore.Qt.AlignHCenter)
             self.grid.addWidget(header[column], row, col+8)
@@ -136,7 +137,7 @@ class WorkflowDialog(BaseDialog):
             scan_label = os.path.basename(scan)
             row += 1
             status = {}
-            status['scan'] = QtWidgets.QLabel(scan_label)
+            status['scan'] = NXLabel(scan_label)
             if self.parent_file == wrapper_file:
                 status['scan'].setStyleSheet('font-weight:bold')
             status['data'] = self.new_checkbox()
@@ -172,7 +173,7 @@ class WorkflowDialog(BaseDialog):
             self.grid.addWidget(status['sync'], row, 15, QtCore.Qt.AlignCenter)
             self.scans[scan] = status
         row += 1
-        self.grid.addWidget(QtWidgets.QLabel('All'), row, 0, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(NXLabel('All'), row, 0, QtCore.Qt.AlignCenter)
         all_boxes = {}
         all_boxes['link'] = self.new_checkbox(lambda:self.select_status('link'))
         all_boxes['max'] = self.new_checkbox(lambda:self.select_status('max'))
