@@ -1179,12 +1179,12 @@ class NXRefine(object):
 
     def get_parameters(self, parameters):
         for p in parameters:
-            vars(self)[p] = parameters[p].value
+            setattr(self, p, parameters[p].value)
         self.set_symmetry()
         
     def restore_parameters(self):
         for p in self.parameters:
-            vars(self)[p] = self.parameters[p].init_value
+            setattr(self, p, self.parameters[p].init_value)
         self.set_symmetry()
 
     def refine_hkls(self, method='leastsq', **opts):
