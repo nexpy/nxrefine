@@ -701,10 +701,10 @@ class NXReduce(QtCore.QObject):
                     vsum = v.sum(0)
                 else:
                     vsum += v.sum(0)
-                fsum[i:i+chunk_size] = v.sum((1,2))
                 if pixel_mask is not None:
                     v = np.ma.masked_array(v)
                     v.mask = pixel_mask
+                fsum[i:i+chunk_size] = v.sum((1,2))
                 if maximum < v.max():
                     maximum = v.max()
                 del v
