@@ -48,7 +48,8 @@ class WorkflowDialog(BaseDialog):
         else:
             self.parent_file = None
             self.filename.setText('')
-        self.root_directory = os.path.dirname(os.path.dirname(self.sample_directory))
+        self.root_directory = os.path.dirname(
+                                  os.path.dirname(self.sample_directory))
         self.mainwindow.default_directory = self.sample_directory
         self.task_directory = os.path.join(self.root_directory, 'tasks')
         if not os.path.exists(self.task_directory):
@@ -436,14 +437,17 @@ class WorkflowDialog(BaseDialog):
         dialog.setMinimumHeight(600)
         scans = [os.path.basename(scan) for scan in self.scans]
         self.scan_combo = dialog.select_box(scans, slot=self.refreshview)
-        self.entry_combo = dialog.select_box(self.entries, slot=self.refreshview)
-        self.program_combo = dialog.select_box(self.programs, slot=self.refreshview)
+        self.entry_combo = dialog.select_box(self.entries, 
+                                             slot=self.refreshview)
+        self.program_combo = dialog.select_box(self.programs, 
+                                               slot=self.refreshview)
         self.defaultview = None
         self.output_box = dialog.editor()
         self.output_box.setStyleSheet('font-family: monospace;')
         self.output_box.setLineWrapMode(QtWidgets.QPlainTextEdit.NoWrap)
         dialog.set_layout(
-            dialog.make_layout(self.scan_combo, self.entry_combo, self.program_combo),
+            dialog.make_layout(self.scan_combo, self.entry_combo, 
+                               self.program_combo),
             self.output_box,
             dialog.action_buttons(('View Server Logs', self.serverview),
                                   ('View Workflow Logs', self.logview),
@@ -508,7 +512,8 @@ class WorkflowDialog(BaseDialog):
         wrapper_file = os.path.join(self.sample_directory, scan+'.nxs')
         f = nxdb.get_file(wrapper_file)
         text = [' '.join([t.name, str(t.entry), str(t.status), 
-                          str(t.queue_time), str(t.start_time), str(t.end_time)]) 
+                          str(t.queue_time), str(t.start_time), 
+                          str(t.end_time)]) 
                 for t in f.tasks if t.name == program]
         if text:
             self.output_box.setPlainText('\n'.join(text))
