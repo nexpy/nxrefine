@@ -17,6 +17,7 @@ import versioneer
 
 sys.path.insert(0, os.path.join('src', ))
 import nxrefine
+import nxrefine.requires
 
 verbose=1
 
@@ -29,7 +30,7 @@ setup (name = nxrefine.__package_name__,
        author=nxrefine.__author_name__,
        author_email=nxrefine.__author_email__,
        platforms='any',
-       requires = ('nexpy', 'sqlalchemy', 'psutil'),
+       install_requires = nxrefine.requires.pkg_requirements,
        package_dir = {'': 'src'},
        packages = find_packages('src'),
        ext_modules=[Extension('nxrefine.connectedpixels', 
