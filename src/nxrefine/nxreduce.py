@@ -146,7 +146,7 @@ class NXReduce(QtCore.QObject):
         except Exception as error:
             self.server = None
 
-        nxsetlock(10)
+        nxsetlock(600)
 
     start = QtCore.Signal(object)
     update = QtCore.Signal(object)
