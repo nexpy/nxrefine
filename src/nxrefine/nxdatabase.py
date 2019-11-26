@@ -35,7 +35,7 @@ from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.dialects import mysql
 from sqlalchemy.exc import IntegrityError
 
-from nexusformat.nexus import nxload, NXLock, NeXusError
+from nexusformat.nexus import nxload, NeXusError
 
 NUM_ENTRIES = 3
 
@@ -119,11 +119,6 @@ class NXDatabase(object):
         self.session = sessionmaker(bind=self.engine)()
         self.database = os.path.realpath(self.session.bind.url.database)
 
-    def commit(self):
-        """Commit changes to the database."""
-        with NXLock(self.database):
-            self.session.commit()
-
     def get_filename(self, filename):
         """Return the relative path of the requested filename."""
         root = os.path.dirname(os.path.dirname(self.database))
@@ -152,7 +147,7 @@ class NXDatabase(object):
             if not os.path.exists(filename):
                 raise NeXusError("'%s' does not exist" % filename)
             self.session.add(File(filename = self.get_filename(filename)))        
-            self.commit()
+            self.session.commit()
             f = self.sync_file(filename)
         else:
             f = self.sync_data(filename)
@@ -217,7 +212,7 @@ class NXDatabase(object):
                     setattr(f, task, DONE)
                 else:
                     setattr(f, task, IN_PROGRESS)
-            self.commit()
+            self.session.commit()
         return f
 
     def sync_data(self, filename):
@@ -248,7 +243,7 @@ class NXDatabase(object):
                 f.data = DONE
             else:
                 f.data = IN_PROGRESS
-            self.commit()
+            self.session.commit()
         return f
 
     def queue_task(self, filename, task, entry):
@@ -272,7 +267,7 @@ class NXDatabase(object):
             f.tasks.append(t)
         t.status = QUEUED
         t.queue_time = datetime.datetime.now()
-        self.commit()
+        self.session.commit()
         self.update_status(filename, task)
 
     def start_task(self, filename, task, entry):
@@ -299,7 +294,7 @@ class NXDatabase(object):
         t.status = IN_PROGRESS
         t.start_time = datetime.datetime.now()
         t.pid = os.getpid()
-        self.commit()
+        self.session.commit()
         self.update_status(filename, task)
 
     def end_task(self, filename, task, entry):
@@ -328,7 +323,7 @@ class NXDatabase(object):
             f.tasks.append(t)
         t.status = DONE
         t.end_time = datetime.datetime.now()
-        self.commit()
+        self.session.commit()
         self.update_status(filename, task)
 
     def fail_task(self, filename, task, entry):
@@ -354,7 +349,7 @@ class NXDatabase(object):
         t.queue_time = None
         t.start_time = None
         t.end_time = None
-        self.commit()
+        self.session.commit()
         self.update_status(filename, task)
     
     def update_status(self, filename, task):
@@ -392,7 +387,7 @@ class NXDatabase(object):
                 setattr(f, task, DONE)
             else:
                 setattr(f, task, NOT_STARTED)    
-        self.commit()
+        self.session.commit()
 
     def sync_db(self, sample_dir):
         """ Populate the database based on local files.
@@ -413,7 +408,7 @@ class NXDatabase(object):
         for f in tracked_files:
             if f.filename not in [get_filename(w) for w in wrapper_files]:
                 self.session.delete(f)
-        self.commit()
+        self.session.commit()
 
     def check_tasks(self):
         """Check that all tasks are present, adding a column if necessary."""
