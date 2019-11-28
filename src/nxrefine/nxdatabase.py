@@ -246,7 +246,7 @@ class NXDatabase(object):
             self.session.commit()
         return f
 
-    def queue_task(self, filename, task, entry):
+    def queue_task(self, filename, task, entry, queue_time=None):
         """Update a file to 'queued' status and create a matching task.
         
         Parameters
@@ -266,11 +266,14 @@ class NXDatabase(object):
             t = Task(name=task, entry=entry)
             f.tasks.append(t)
         t.status = QUEUED
-        t.queue_time = datetime.datetime.now()
+        if queue_time:
+            t.queue_time = queue_time
+        else:
+            t.queue_time = datetime.datetime.now()
         self.session.commit()
         self.update_status(filename, task)
 
-    def start_task(self, filename, task, entry):
+    def start_task(self, filename, task, entry, start_time=None):
         """Record that a task has begun execution.
         
         Parameters
@@ -292,12 +295,15 @@ class NXDatabase(object):
             t = Task(name=task, entry=entry)
             f.tasks.append(t)
         t.status = IN_PROGRESS
-        t.start_time = datetime.datetime.now()
+        if start_time:
+            t.start_time = start_time
+        else:
+            t.start_time = datetime.datetime.now()
         t.pid = os.getpid()
         self.session.commit()
         self.update_status(filename, task)
 
-    def end_task(self, filename, task, entry):
+    def end_task(self, filename, task, entry, end_time=None):
         """Record that a task finished execution.
         
         Update the task's database entry, and set the matching column in 
@@ -322,7 +328,10 @@ class NXDatabase(object):
             t = Task(name=task, entry=entry)
             f.tasks.append(t)
         t.status = DONE
-        t.end_time = datetime.datetime.now()
+        if end_time:
+            t.end_time = end_time
+        else:
+            t.end_time = datetime.datetime.now()
         self.session.commit()
         self.update_status(filename, task)
 
