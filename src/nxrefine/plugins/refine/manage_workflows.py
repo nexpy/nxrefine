@@ -2,7 +2,7 @@ import os
 
 from nexusformat.nexus import *
 from nexpy.gui.pyqt import QtCore, QtWidgets
-from nexpy.gui.datadialogs import BaseDialog, GridParameters
+from nexpy.gui.datadialogs import NXWidget, NXDialog, GridParameters
 from nexpy.gui.utils import report_error, natural_sort
 from nexpy.gui.widgets import NXLabel
 
@@ -17,7 +17,7 @@ def show_dialog():
         report_error("Managing Workflows", error)
 
 
-class WorkflowDialog(BaseDialog):
+class WorkflowDialog(NXDialog):
 
     def __init__(self, parent=None):
         super(WorkflowDialog, self).__init__(parent)
@@ -98,6 +98,7 @@ class WorkflowDialog(BaseDialog):
 
         if self.grid:
             self.delete_grid(self.grid)
+            del self.grid_widget
 
         # Map from wrapper files to scan directories
         wrapper_files = { w : self.get_scan(w) for w in sorted( [
@@ -105,7 +106,15 @@ class WorkflowDialog(BaseDialog):
                             for filename in os.listdir(self.sample_directory)
                             if self.is_valid(filename)] , key=natural_sort) }
         self.grid = QtWidgets.QGridLayout()
-        self.insert_layout(2, self.grid)
+        self.grid_widget = NXWidget()
+        self.grid_widget.set_layout(self.grid)
+        scroll_area = QtWidgets.QScrollArea()
+        scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
+        scroll_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setWidget(self.grid_widget)
+        scroll_area.setMinimumWidth(1250)
+        self.insert_layout(2, scroll_area)
         self.grid.setSpacing(1)
         row = 0
         columns = ['Scan', 'data', 'link', 'max', 'find', 'copy', 'refine', 'prepare',
