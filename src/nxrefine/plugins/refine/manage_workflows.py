@@ -4,7 +4,7 @@ from nexusformat.nexus import *
 from nexpy.gui.pyqt import QtCore, QtWidgets
 from nexpy.gui.datadialogs import NXWidget, NXDialog, GridParameters
 from nexpy.gui.utils import report_error, natural_sort
-from nexpy.gui.widgets import NXLabel
+from nexpy.gui.widgets import NXLabel, NXScrollArea
 
 from nxrefine.nxreduce import NXReduce, NXMultiReduce
 import nxrefine.nxdatabase as nxdb
@@ -108,9 +108,7 @@ class WorkflowDialog(NXDialog):
         self.grid = QtWidgets.QGridLayout()
         self.grid_widget = NXWidget()
         self.grid_widget.set_layout(self.grid)
-        scroll_area = QtWidgets.QScrollArea()
-        scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
-        scroll_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        scroll_area = NXScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setWidget(self.grid_widget)
         scroll_area.setMinimumWidth(1250)
