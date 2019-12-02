@@ -439,7 +439,7 @@ class WorkflowDialog(NXDialog):
     def view_logs(self):
         if self.grid is None:
             raise NeXusError('Need to update status')
-        dialog = BaseDialog(self)
+        dialog = NXDialog(self)
         dialog.setMinimumWidth(800)
         dialog.setMinimumHeight(600)
         scans = [os.path.basename(scan) for scan in self.scans]
