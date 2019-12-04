@@ -1,7 +1,7 @@
 from nexpy.gui.pyqt import QtGui, QtWidgets
 import os
 import numpy as np
-from nexpy.gui.datadialogs import BaseDialog
+from nexpy.gui.datadialogs import NXDialog
 from nexpy.gui.utils import report_error
 from nexpy.gui.widgets import NXLabel, NXLineEdit
 from nexusformat.nexus import NeXusError
@@ -16,7 +16,7 @@ def show_dialog():
         report_error("Preparing Data Transform", error)
         
 
-class TransformDialog(BaseDialog):
+class TransformDialog(NXDialog):
 
     def __init__(self, parent=None):
         super(TransformDialog, self).__init__(parent)

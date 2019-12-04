@@ -6,7 +6,7 @@ from pyFAI.calibrant import Calibrant, ALL_CALIBRANTS
 from pyFAI.geometryRefinement import GeometryRefinement
 from pyFAI.massif import Massif
 
-from nexpy.gui.datadialogs import BaseDialog, GridParameters
+from nexpy.gui.datadialogs import NXDialog, GridParameters
 from nexpy.gui.plotview import NXPlotView, plotviews
 from nexpy.gui.utils import report_error, confirm_action, load_image
 from nexusformat.nexus import *
@@ -21,7 +21,7 @@ def show_dialog():
         report_error("Calibrating Powder", error)
 
 
-class CalibrateDialog(BaseDialog):
+class CalibrateDialog(NXDialog):
 
     def __init__(self, parent=None):
         super(CalibrateDialog, self).__init__(parent)
@@ -154,7 +154,8 @@ class CalibrateDialog(BaseDialog):
             if len([p for p in self.points if p[3] == ring]) > 0:
                 continue
             self.ring = ring
-            theta = 2 * np.arcsin(wavelength / (2*self.calibrant.dSpacing[ring]))
+            theta = 2 * np.arcsin(wavelength / 
+                                  (2*self.calibrant.dSpacing[ring]))
             r = distance * np.tan(theta) / self.pixel_size
             phi = self.phi_max = -np.pi
             while phi < np.pi:

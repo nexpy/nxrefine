@@ -2,7 +2,7 @@ from __future__ import unicode_literals
 import os
 import numpy as np
 from nexusformat.nexus import *
-from nexpy.gui.datadialogs import BaseDialog, GridParameters
+from nexpy.gui.datadialogs import NXDialog, GridParameters
 from nexpy.gui.utils import report_error
 
 
@@ -14,7 +14,7 @@ def show_dialog():
         report_error("Defining New Scan", error)
 
 
-class ScanDialog(BaseDialog):
+class ScanDialog(NXDialog):
 
     def __init__(self, parent=None):
         super(ScanDialog, self).__init__(parent)

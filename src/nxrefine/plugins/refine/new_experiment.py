@@ -4,7 +4,7 @@ import numpy as np
 from pyFAI.detectors import ALL_DETECTORS
 
 from nexusformat.nexus import *
-from nexpy.gui.datadialogs import BaseDialog, GridParameters
+from nexpy.gui.datadialogs import NXDialog, GridParameters
 from nexpy.gui.utils import report_error
 
 
@@ -16,7 +16,7 @@ def show_dialog():
         report_error("Defining New Experiment", error)
 
 
-class ExperimentDialog(BaseDialog):
+class ExperimentDialog(NXDialog):
 
     def __init__(self, parent=None):
         super(ExperimentDialog, self).__init__(parent)

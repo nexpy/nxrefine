@@ -1,4 +1,4 @@
-from nexpy.gui.datadialogs import BaseDialog
+from nexpy.gui.datadialogs import NXDialog
 from nexpy.gui.utils import report_error
 from nexusformat.nexus import NeXusError
 from nxrefine.nxreduce import NXReduce
@@ -12,7 +12,7 @@ def show_dialog():
         report_error("Copying Parameters", error)
 
 
-class CopyDialog(BaseDialog):
+class CopyDialog(NXDialog):
 
     def __init__(self, parent=None):
         super(CopyDialog, self).__init__(parent)

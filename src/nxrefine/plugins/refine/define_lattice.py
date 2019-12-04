@@ -1,5 +1,5 @@
 import numpy as np
-from nexpy.gui.datadialogs import BaseDialog, GridParameters
+from nexpy.gui.datadialogs import NXDialog, GridParameters
 from nexpy.gui.plotview import get_plotview, plotview
 from nexpy.gui.utils import report_error
 from nexusformat.nexus import *
@@ -14,7 +14,7 @@ def show_dialog():
         report_error("Defining Lattice", error)
 
 
-class LatticeDialog(BaseDialog):
+class LatticeDialog(NXDialog):
 
     def __init__(self, parent=None):
         super(LatticeDialog, self).__init__(parent)

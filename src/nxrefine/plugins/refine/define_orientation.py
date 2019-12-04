@@ -3,7 +3,7 @@ from nexpy.gui.pyqt import QtCore, QtGui, QtWidgets
 import numpy as np
 import random
 from scipy.optimize import leastsq
-from nexpy.gui.datadialogs import BaseDialog, GridParameters
+from nexpy.gui.datadialogs import NXDialog, GridParameters
 from nexpy.gui.plotview import NXPlotView
 from nexpy.gui.utils import report_error
 from nexpy.gui.widgets import NXLabel, NXLineEdit
@@ -19,7 +19,7 @@ def show_dialog():
         report_error("Defining Orientation", error)
         
 
-class OrientationDialog(BaseDialog):
+class OrientationDialog(NXDialog):
 
     def __init__(self, parent=None):
         super(OrientationDialog, self).__init__(parent)
@@ -155,7 +155,7 @@ class OrientationDialog(BaseDialog):
                                         % (len(self.refine.idx), self.score))
 
     def list_orientations(self):
-        message_box = BaseDialog(self)
+        message_box = NXDialog(self)
         message_box.setMinimumWidth(600)
         message_box.setMinimumHeight(600)
         header = ['i', 'x', 'y', 'z', 'Polar', 'Azi', 'Intensity',

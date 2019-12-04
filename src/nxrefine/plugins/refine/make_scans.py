@@ -3,7 +3,7 @@ import os
 import numpy as np
 from operator import attrgetter
 from nexusformat.nexus import *
-from nexpy.gui.datadialogs import BaseDialog, GridParameters
+from nexpy.gui.datadialogs import NXDialog, GridParameters
 from nexpy.gui.utils import report_error, confirm_action, natural_sort
 from nexpy.gui.pyqt import getSaveFileName
 
@@ -15,7 +15,7 @@ def show_dialog():
         report_error("Making Scan Macro", error)
 
 
-class MakeDialog(BaseDialog):
+class MakeDialog(NXDialog):
 
     def __init__(self, parent=None):
         super(MakeDialog, self).__init__(parent)

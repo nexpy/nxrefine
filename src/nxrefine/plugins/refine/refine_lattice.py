@@ -1,7 +1,7 @@
 import numpy as np
 import operator
 from nexpy.gui.pyqt import QtCore, QtGui, QtWidgets
-from nexpy.gui.datadialogs import BaseDialog, GridParameters
+from nexpy.gui.datadialogs import NXDialog, GridParameters
 from nexpy.gui.plotview import NXPlotView, get_plotview, plotview
 from nexpy.gui.utils import report_error
 from nexpy.gui.widgets import NXLabel, NXLineEdit
@@ -18,7 +18,7 @@ def show_dialog():
         report_error("Refining Lattice", error)
 
 
-class RefineLatticeDialog(BaseDialog):
+class RefineLatticeDialog(NXDialog):
 
     def __init__(self, parent=None):
         super(RefineLatticeDialog, self).__init__(parent)
@@ -417,7 +417,7 @@ class RefineLatticeDialog(BaseDialog):
         if self.peaks_box is not None and self.table_model is not None:
             self.update_table()
             return
-        self.peaks_box = BaseDialog(self)
+        self.peaks_box = NXDialog(self)
         self.peaks_box.setMinimumWidth(600)
         self.peaks_box.setMinimumHeight(600)
         header = ['i', 'x', 'y', 'z', 'Polar', 'Azi', 'Intensity',
