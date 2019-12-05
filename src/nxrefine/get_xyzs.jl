@@ -33,7 +33,7 @@ function get_xyz(h,k,l)
         function ewald_condition(phi) 
             return (norm_Evec2 - norm((Gmat(phi)*v5 + Evec))^2)
         end
-        phis = unique(round.(filter(x-> (x!=nothing)&&(x<360.0)&&(x>=0.0), map(x-> try find_zero(ewald_condition,(x,x+30),Bisection()); catch; nothing end,0.0:30:270)),digits=4))
+        phis = unique(round.(filter(x-> (x!=nothing)&&(x<360.0)&&(x>=0.0), map(x-> try find_zero(ewald_condition,(x,x+30),Bisection()); catch; nothing end,2.5:30:332.5)),digits=4))
 
         function get_ij(phi) 
             p = Gmat(phi)*v5 + Evec
