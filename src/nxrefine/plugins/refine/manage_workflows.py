@@ -32,6 +32,7 @@ class WorkflowDialog(NXDialog):
         self.progress_bar.setVisible(False)
         self.set_title('Manage Workflows')
         self.grid = None
+        self.scroll_area = None
         self.sample_directory = None
         self.entries = ['f1', 'f2', 'f3']
         self.layout.setSizeConstraint(QtWidgets.QLayout.SetFixedSize)
@@ -100,6 +101,10 @@ class WorkflowDialog(NXDialog):
             self.delete_grid(self.grid)
             del self.grid_widget
 
+        if self.scroll_area:
+            self.scroll_area.close()
+            self.scroll_area.deleteLater()
+
         # Map from wrapper files to scan directories
         wrapper_files = { w : self.get_scan(w) for w in sorted( [
                             os.path.join(self.sample_directory, filename)
@@ -108,11 +113,11 @@ class WorkflowDialog(NXDialog):
         self.grid = QtWidgets.QGridLayout()
         self.grid_widget = NXWidget()
         self.grid_widget.set_layout(self.grid)
-        scroll_area = NXScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setWidget(self.grid_widget)
-        scroll_area.setMinimumWidth(1250)
-        self.insert_layout(2, scroll_area)
+        self.scroll_area = NXScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setWidget(self.grid_widget)
+        self.scroll_area.setMinimumWidth(1250)
+        self.insert_layout(2, self.scroll_area)
         self.grid.setSpacing(1)
         row = 0
         columns = ['Scan', 'data', 'link', 'max', 'find', 'copy', 'refine', 'prepare',
