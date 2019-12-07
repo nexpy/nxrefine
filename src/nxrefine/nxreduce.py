@@ -1179,7 +1179,7 @@ class NXReduce(QtCore.QObject):
             masks = []
             peaks = sorted(peaks, key=operator.attrgetter('z'))
             for p in peaks:
-                if p.pixel_count > 0:
+                if p.pixel_count >= 0:
                     masks.extend(self.determine_mask(p))
         return masks
 
