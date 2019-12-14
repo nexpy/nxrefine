@@ -7,7 +7,7 @@ from nexpy.gui.utils import report_error, natural_sort
 from nexpy.gui.widgets import NXLabel, NXScrollArea
 
 from nxrefine.nxreduce import NXReduce, NXMultiReduce
-import nxrefine.nxdatabase as nxdb
+from nxrefine.nxdatabase import NXDatabase
 
 def show_dialog():
     try:
@@ -56,7 +56,7 @@ class WorkflowDialog(NXDialog):
         if not os.path.exists(self.task_directory):
             os.mkdir(self.task_directory)
         db_file = os.path.join(self.task_directory, 'nxdatabase.db')
-        nxdb.init('sqlite:///' + db_file)
+        self.db = NXDatabase(db_file)
         self.update()
 
     def choose_file(self):
@@ -76,9 +76,9 @@ class WorkflowDialog(NXDialog):
         reduce = NXReduce(directory=self.get_scan(self.get_filename()),
                           overwrite=True)
         reduce.make_parent()
-        nxdb.update_file(reduce.wrapper_file)
+        self.db.sync_file(reduce.wrapper_file)
         if self.parent_file:
-            nxdb.update_file(self.parent_file)
+            self.db.sync_file(self.parent_file)
         self.parent_file = reduce.wrapper_file
         self.filename.setText(os.path.basename(self.parent_file))
         self.update()
@@ -120,9 +120,9 @@ class WorkflowDialog(NXDialog):
         self.insert_layout(2, self.scroll_area)
         self.grid.setSpacing(1)
         row = 0
-        columns = ['Scan', 'data', 'link', 'max', 'find', 'copy', 'refine', 'prepare',
-                   'transform', 'masked_transform', 'combine', 'masked_combine', 'pdf', 
-                   'overwrite', 'reduce', 'sync']
+        columns = ['Scan', 'data', 'link', 'max', 'find', 'copy', 'refine', 
+                   'prepare', 'transform', 'masked_transform', 'combine', 
+                   'masked_combine', 'pdf', 'overwrite', 'reduce', 'sync']
         header = {}
         for col, column in enumerate(columns):
             header[column] = NXLabel(column)
@@ -219,12 +219,12 @@ class WorkflowDialog(NXDialog):
         self.all_scans = all_boxes
         self.start_progress((0, len(wrapper_files)))
 
-        # Populate the checkboxes based on the entries in nxdb.File
+        # Populate the checkboxes based on the entries in self.db.File
         for i, (wrapper, scan) in enumerate(wrapper_files.items()):
             status = self.scans[scan]
             status['data'].setEnabled(False)
-            f = nxdb.get_file(wrapper)
-            for task_name in nxdb.task_names:
+            f = self.db.get_file(wrapper)
+            for task_name in self.db.task_names:
                 # Database columns use nx* names while columns don't
                 if task_name.startswith('nx'):
                     col_name = task_name[2:]
@@ -232,16 +232,16 @@ class WorkflowDialog(NXDialog):
                     col_name = task_name
                 checkbox = status[col_name]
                 file_status = getattr(f, task_name)
-                if file_status == nxdb.DONE:
+                if file_status == self.db.DONE:
                     checkbox.setCheckState(QtCore.Qt.Checked)
                     checkbox.setEnabled(False)
-                elif file_status == nxdb.IN_PROGRESS:
-                    checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
-                    checkbox.setEnabled(True)
-                elif file_status == nxdb.QUEUED:
+                elif file_status == self.db.IN_PROGRESS:
                     checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
                     checkbox.setEnabled(False)
-                elif file_status == nxdb.FAILED:
+                elif file_status == self.db.QUEUED:
+                    checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
+                    checkbox.setEnabled(True)
+                elif file_status == self.db.FAILED:
                     checkbox.setCheckState(QtCore.Qt.Unchecked)
                     checkbox.setEnabled(True)
                 # TODO: do i need to account for last?
@@ -256,7 +256,7 @@ class WorkflowDialog(NXDialog):
     def sync_db(self):
         for scan in self.scans:
             if self.sync_selected(scan):
-                nxdb.sync_file(self.get_scan_file(scan))
+                self.db.sync_file(self.get_scan_file(scan))
         self.update()
 
     def new_checkbox(self, slot=None):
@@ -522,7 +522,7 @@ class WorkflowDialog(NXDialog):
             program == 'nxpdf'):
             entry = 'entry'
         wrapper_file = os.path.join(self.sample_directory, scan+'.nxs')
-        f = nxdb.get_file(wrapper_file)
+        f = self.db.get_file(wrapper_file)
         text = [' '.join([t.name, str(t.entry), str(t.status), 
                           str(t.queue_time), str(t.start_time), 
                           str(t.end_time)]) 

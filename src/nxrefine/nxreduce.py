@@ -20,7 +20,7 @@ from nexusformat.nexus import *
 from nexpy.gui.pyqt import QtCore
 from nexpy.gui.utils import clamp, timestamp
 
-import nxrefine.nxdatabase as nxdb
+from .nxdatabase import NXDatabase
 from .nxrefine import NXRefine, NXPeak
 from .nxserver import NXServer
 from . import blobcorrector, __version__
@@ -138,7 +138,7 @@ class NXReduce(QtCore.QObject):
         self.init_logs()
         db_file = os.path.join(self.task_directory, 'nxdatabase.db')
         try:
-            nxdb.init('sqlite:///' + db_file)
+            self.db = NXDatabase(db_file)
         except Exception:
             pass
         try:
@@ -505,26 +505,26 @@ class NXReduce(QtCore.QObject):
         
         # check if all 3 entries are done - update File
         # if self.all_complete(program):
-        #     nxdb.start_task(self.wrapper_file, program, 'done')
+        #     self.db.start_task(self.wrapper_file, program, 'done')
 
     def record_start(self, program):
         """ Record that a task has started. Update database """
         try:
-            nxdb.start_task(self.wrapper_file, program, self.entry_name)
+            self.db.start_task(self.wrapper_file, program, self.entry_name)
         except Exception:
             pass
 
     def record_end(self, program):
         """ Record that a task has ended. Update database """
         try:
-            nxdb.end_task(self.wrapper_file, program, self.entry_name)
+            self.db.end_task(self.wrapper_file, program, self.entry_name)
         except Exception:
             pass
 
     def record_fail(self, program):
         """ Record that a task has failed. Update database """
         try:
-            nxdb.fail_task(self.wrapper_file, program, self.entry_name)
+            self.db.fail_task(self.wrapper_file, program, self.entry_name)
         except Exception:
             pass
 
@@ -1481,25 +1481,25 @@ class NXReduce(QtCore.QObject):
         """ Add tasks to the server's fifo, and log this in the database """
         command = self.command(parent)
         if command:
-            self.server.add_task(command)
+            self.server.add_task(command, self.root_directory)
             if self.link:
-                nxdb.queue_task(self.wrapper_file, 'nxlink', self.entry_name)
+                self.db.queue_task(self.wrapper_file, 'nxlink', self.entry_name)
             if self.maxcount:
-                nxdb.queue_task(self.wrapper_file, 'nxmax', self.entry_name)
+                self.db.queue_task(self.wrapper_file, 'nxmax', self.entry_name)
             if self.find:
-                nxdb.queue_task(self.wrapper_file, 'nxfind', self.entry_name)
+                self.db.queue_task(self.wrapper_file, 'nxfind', self.entry_name)
             if self.copy:
-                nxdb.queue_task(self.wrapper_file, 'nxcopy', self.entry_name)
+                self.db.queue_task(self.wrapper_file, 'nxcopy', self.entry_name)
             if self.refine:
-                nxdb.queue_task(self.wrapper_file, 'nxrefine', self.entry_name)
+                self.db.queue_task(self.wrapper_file, 'nxrefine', self.entry_name)
             if self.prepare:
-                nxdb.queue_task(self.wrapper_file, 'nxprepare', self.entry_name)
+                self.db.queue_task(self.wrapper_file, 'nxprepare', self.entry_name)
             if self.transform:
                 if self.mask:
-                    nxdb.queue_task(self.wrapper_file, 'nxmasked_transform', 
+                    self.db.queue_task(self.wrapper_file, 'nxmasked_transform', 
                                     self.entry_name)
                 else:
-                    nxdb.queue_task(self.wrapper_file, 'nxtransform', 
+                    self.db.queue_task(self.wrapper_file, 'nxtransform', 
                                     self.entry_name)
 
 
@@ -1626,11 +1626,11 @@ class NXMultiReduce(NXReduce):
     def queue(self):
         if self.server is None:
             raise NeXusError("NXServer not running")
-        self.server.add_task(self.command())
+        self.server.add_task(self.command(), self.root_directory)
         if self.mask:
-            nxdb.queue_task(self.wrapper_file, 'nxmasked_combine', 'entry')
+            self.db.queue_task(self.wrapper_file, 'nxmasked_combine', 'entry')
         else:
-            nxdb.queue_task(self.wrapper_file, 'nxcombine', 'entry')
+            self.db.queue_task(self.wrapper_file, 'nxcombine', 'entry')
 
 
 class NXBlob(object):
