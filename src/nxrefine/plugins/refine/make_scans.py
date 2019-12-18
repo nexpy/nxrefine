@@ -118,6 +118,7 @@ class MakeDialog(NXDialog):
                     chi = entry['instrument/goniometer/chi_set']
                 else:
                     chi = entry['instrument/goniometer/chi']
+                chi += 90.0
                 if 'goniometer_pitch_set' in entry['instrument/goniometer']:
                     gonpitch = entry['instrument/goniometer/goniometer_pitch_set']
                 else:
