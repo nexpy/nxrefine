@@ -158,8 +158,8 @@ class ScanDialog(NXDialog):
 
     def setup_position(self, position):
         self.entries[position] = GridParameters()
-        self.entries[position].add('chi', -90.0, 'Chi (deg)')
-        self.entries[position].add('omega', 0.0, 'Omega (deg)')
+        self.entries[position].add('chi', 0.0, 'Chi')
+        self.entries[position].add('gonpitch', 0.0, 'Goniometer Pitch')
         self.entries[position].add('linkfile', 'f%d.h5' % position, 'Detector Filename')
         self.entries[position].add('linkpath', '/entry/data/data', 'Detector Data Path')
 
@@ -198,7 +198,6 @@ class ScanDialog(NXDialog):
             phi_end = self.scan['phi_end'].value
             phi_step = self.scan['phi_step'].value
             chi = self.entries[position]['chi'].value
-            omega = self.entries[position]['omega'].value
             gonpitch = self.entries[position]['gonpitch'].value
             frame_rate = self.scan['frame_rate'].value
             if 'goniometer' not in entry['instrument']:
@@ -209,8 +208,6 @@ class ScanDialog(NXDialog):
             entry['instrument/goniometer/phi'].attrs['end'] = phi_end
             entry['instrument/goniometer/chi'] = chi
             entry['instrument/goniometer/chi_set'] = chi
-            entry['instrument/goniometer/omega'] = omega
-            entry['instrument/goniometer/omega_set'] = omega
             entry['instrument/goniometer/goniometer_pitch'] = gonpitch
             entry['instrument/goniometer/goniometer_pitch_set'] = gonpitch
             if frame_rate > 0.0:
