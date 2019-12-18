@@ -160,8 +160,6 @@ class ScanDialog(NXDialog):
         self.entries[position] = GridParameters()
         self.entries[position].add('chi', -90.0, 'Chi (deg)')
         self.entries[position].add('omega', 0.0, 'Omega (deg)')
-        self.entries[position].add('x', 0.0, 'Translation - x (mm)')
-        self.entries[position].add('y', 0.0, 'Translation - y (mm)')
         self.entries[position].add('linkfile', 'f%d.h5' % position, 'Detector Filename')
         self.entries[position].add('linkpath', '/entry/data/data', 'Detector Data Path')
 
@@ -180,8 +178,8 @@ class ScanDialog(NXDialog):
     def read_parameters(self):
         for position in range(1, self.positions+1):
             entry = self.scan_file['f%d' % position]
-            self.entries[position]['x'].value = entry['instrument/detector/translation_x']
-            self.entries[position]['y'].value = entry['instrument/detector/translation_y']
+            self.entries[position]['chi'].value = entry['instrument/goniometer/chi']
+            self.entries[position]['gonpitch'].value = entry['instrument/goniometer/goniometer_pitch']
 
     def get_parameters(self):
         entry = self.scan_file['entry']
@@ -201,6 +199,7 @@ class ScanDialog(NXDialog):
             phi_step = self.scan['phi_step'].value
             chi = self.entries[position]['chi'].value
             omega = self.entries[position]['omega'].value
+            gonpitch = self.entries[position]['gonpitch'].value
             frame_rate = self.scan['frame_rate'].value
             if 'goniometer' not in entry['instrument']:
                 entry['instrument/goniometer'] = NXgoniometer()
@@ -212,6 +211,8 @@ class ScanDialog(NXDialog):
             entry['instrument/goniometer/chi_set'] = chi
             entry['instrument/goniometer/omega'] = omega
             entry['instrument/goniometer/omega_set'] = omega
+            entry['instrument/goniometer/goniometer_pitch'] = gonpitch
+            entry['instrument/goniometer/goniometer_pitch_set'] = gonpitch
             if frame_rate > 0.0:
                 entry['instrument/detector/frame_time'] = 1.0 / frame_rate
             linkpath = self.entries[position]['linkpath'].value
