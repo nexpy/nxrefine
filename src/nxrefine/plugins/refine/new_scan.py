@@ -148,10 +148,10 @@ class ScanDialog(NXDialog):
         self.scan = GridParameters()
         self.scan.add('scan', 'scan', 'Scan Label')
         self.scan.add('temperature', 300.0, 'Temperature (K)')
-        self.scan.add('phi_start', -5.0, 'Phi Start (deg)')
-        self.scan.add('phi_end', 360.0, 'Phi End (deg)')
+        self.scan.add('phi_start', 6.0, 'Phi Start (deg)')
+        self.scan.add('phi_end', 160.0, 'Phi End (deg)')
         self.scan.add('phi_step', 0.1, 'Phi Step (deg)')
-        self.scan.add('frame_rate', 10, 'Frame Rate (Hz)')
+        self.scan.add('frame_rate', 1, 'Frame Rate (Hz)')
         
         for position in range(1, 6):
             self.setup_position(position)
