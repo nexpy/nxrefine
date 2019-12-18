@@ -133,7 +133,7 @@ class MakeDialog(NXDialog):
                     scan_parameters.append('umv chi %s th %s' % (chi, gonpitch))
                     scan_parameters.append('%s phi %.6g %.6g %.6g %s'
                         % (scan_command, phi_start, phi_end, n_frames,
-                           os.path.join(self.sample, self.label, scan_dir))
+                           os.path.join(self.sample, self.label, scan_dir)))
         if not os.path.exists(self.macro_directory):
             os.mkdir(os.path.join(self.experiment_directory, 'macros'))
         macro_filter = ';;'.join(("SPEC Macro (*.mac)", "Any Files (*.* *)"))
