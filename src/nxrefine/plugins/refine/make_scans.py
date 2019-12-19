@@ -103,7 +103,7 @@ class MakeDialog(NXDialog):
             root = nxload(os.path.join(self.sample_directory, nexus_file))
             temperature = root.entry.sample.temperature
             base_name = os.path.basename(os.path.splitext(nexus_file)[0])
-            scan_dir = base_name.replace(self.sample+'_', '')
+            scan_dir = base_name.replace(self.sample+'_', '') + '/'
             for i,entry in enumerate([root[e] for e in root if e != 'entry']):
                 if i == 0:
                     scan_parameters.append('te %s' % temperature)
