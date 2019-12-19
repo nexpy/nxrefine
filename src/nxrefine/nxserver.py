@@ -48,11 +48,7 @@ class NXTask(object):
         self.log_file = log_file
 
     def execute(self, cpu):
-        try:
-            subprocess.check_output("cd %s\n%s'" % (self.path, self.command),
-                                    shell=True, executable='/bin/bash')
-        except CalledProcessError as error:
-            self.log(str(error))
+        os.system("cd %s && %s" % (self.path, self.command))
 
     def log(self, message):
         with open(self.log_file, 'a') as f:
