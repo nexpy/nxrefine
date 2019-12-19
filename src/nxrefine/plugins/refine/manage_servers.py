@@ -20,16 +20,12 @@ class ServerDialog(NXDialog):
     def __init__(self, parent=None):
         super(ServerDialog, self).__init__(parent)
 
-        self.node_editor = self.editor()
         self.set_layout(self.directorybox('Choose Experiment Directory',
                                           slot=self.choose_directory,
                                           default=False),
                         self.action_buttons(('server', self.toggle_server)),
-                        self.labels(('List of Nodes'), header=True),
-                        self.node_editor,
                         self.close_buttons(close=True))
         self.pushbutton['server'].setText('Start/Stop Server')
-        self.node_editor.setFocus()
         self.set_title('Manage Servers')
         self.experiment_directory = None
 
@@ -38,7 +34,6 @@ class ServerDialog(NXDialog):
         self.experiment_directory = self.get_directory()
         self.mainwindow.default_directory = self.experiment_directory
         self.server = NXServer(self.experiment_directory)
-        self.node_editor.setPlainText('\n'.join(self.server.nodes))
         if self.server.is_running():
             self.pushbutton['server'].setText('Stop Server')
         else:
