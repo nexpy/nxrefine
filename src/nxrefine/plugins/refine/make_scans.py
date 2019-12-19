@@ -103,7 +103,6 @@ class MakeDialog(NXDialog):
             root = nxload(os.path.join(self.sample_directory, nexus_file))
             temperature = root.entry.sample.temperature
             base_name = os.path.basename(os.path.splitext(nexus_file)[0])
-            scan_dir = base_name.replace(self.sample+'_', '') + '/'
             for i,entry in enumerate([root[e] for e in root if e != 'entry']):
                 if i == 0:
                     scan_parameters.append('te %s' % temperature)
@@ -130,6 +129,7 @@ class MakeDialog(NXDialog):
                     frame_time = 1.0
                 n_frames = (phi_end - phi_start) / phi_step                      
                 scan_file = entry.nxname
+                scan_dir = base_name.replace(self.sample+'_', '') + e + '/'
                 if scan_command == 'fastsweep':
                     scan_parameters.append('umv chi %s th %s' % (chi, gonpitch))
                     scan_parameters.append('%s phi %.6g %.6g %.6g %.6g %s'
