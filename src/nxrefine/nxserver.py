@@ -49,7 +49,7 @@ class NXTask(object):
 
     def execute(self, cpu):
         try:
-            subprocess.check_output("cd %s; %s'" % (self.path, self.command),
+            subprocess.check_output("cd %s\n%s'" % (self.path, self.command),
                                     shell=True, executable='/bin/bash')
         except CalledProcessError as error:
             self.log(str(error))
