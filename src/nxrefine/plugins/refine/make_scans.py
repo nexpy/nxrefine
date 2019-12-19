@@ -128,8 +128,7 @@ class MakeDialog(NXDialog):
                 else:
                     frame_time = 1.0
                 n_frames = (phi_end - phi_start) / phi_step                      
-                scan_file = entry.nxname
-                scan_dir = base_name.replace(self.sample+'_', '') + entry + '/'
+                scan_dir = base_name.replace(self.sample+'_', '') + entry.nxname + '/'
                 if scan_command == 'fastsweep':
                     scan_parameters.append('umv chi %s th %s' % (chi, gonpitch))
                     scan_parameters.append('%s phi %.6g %.6g %.6g %.6g %s'
