@@ -547,6 +547,7 @@ class NXReduce(QtCore.QObject):
                 self.logger.info('Entry linked to raw data')
                 self.record('nxlink', logs='Stacked and linked')
             except Exception as error:
+                self.logger.info(str(error))
                 self.record_fail('nxlink')
         elif self.link:
             self.logger.info('Data already linked')
