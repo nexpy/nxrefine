@@ -1399,11 +1399,11 @@ class NXReduce(QtCore.QObject):
         self.nxcopy()
         if self.complete('nxcopy'):
             self.nxrefine()
-        if self.complete('nxrefine'):
+        if self.complete('nxrefine') and self.transform is not None:
             self.nxprepare()
             self.nxtransform()
             self.nxmasked_transform()
-        else:
+        elif self.transform is not None:
             self.logger.info('Orientation has not been refined')
             self.record_fail('nxtransform')
             self.record_fail('nxmasked_transform')
