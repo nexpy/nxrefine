@@ -56,7 +56,10 @@ class NXRefine(object):
     def __init__(self, node=None):
         if node is not None:
             self.entry = node.nxentry
-            self.data = self.entry['data']
+            if 'data' in self.entry:
+                 self.data = self.entry['data']
+            else:
+                self.data = None
         else:
             self.entry = None
             self.data = None
@@ -219,13 +222,17 @@ class NXRefine(object):
             self.Ql = self.read_parameter('transform/Ql')
 
     def write_parameter(self, path, value, attr=None):
+        if path.startswith('sample'):
+            entry = self.entry.nxroot['entry']
+        else:
+            entry = self.entry
         if value is not None:
-            if attr and path in self.entry:
-                self.entry[path].attrs[attr] = value
-            elif path in self.entry:
-                self.entry[path].replace(value)
+            if attr and path in entry:
+                entry[path].attrs[attr] = value
+            elif path in entry:
+                entry[path].replace(value)
             elif attr is None:
-                self.entry[path] = value
+                entry[path] = value
 
     def write_parameters(self, entry=None):
         if entry:
