@@ -277,7 +277,7 @@ class WorkflowDialog(NXDialog):
             checkbox.setEnabled(True)
 
     def disable_status(self, status):
-        for program in self.programs:
+        for program in [p for p in self.programs if p != 'link']:
             status[program].setEnabled(False)
 
     def backup_scans(self):
