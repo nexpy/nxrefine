@@ -115,7 +115,7 @@ class NXReduce(QtCore.QObject):
 
         self.image_directory = os.path.join(image_base, 
             os.path.basename(self.root_directory), self.sample, self.label,
-            self.entry_name)
+            self.scan, self.entry_name)
         self.image_prefix = image_prefix
         self.image_extension = image_extension
 
