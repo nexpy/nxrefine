@@ -244,9 +244,6 @@ class WorkflowDialog(NXDialog):
                 elif file_status == self.db.FAILED:
                     checkbox.setCheckState(QtCore.Qt.Unchecked)
                     checkbox.setEnabled(True)
-                # TODO: do i need to account for last?
-            if status['data'].checkState() == QtCore.Qt.Unchecked:
-                self.disable_status(status)
             self.update_progress(i)
 
         self.stop_progress()
@@ -276,10 +273,6 @@ class WorkflowDialog(NXDialog):
             checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
             checkbox.setEnabled(True)
 
-    def disable_status(self, status):
-        for program in [p for p in self.programs if p != 'link']:
-            status[program].setEnabled(False)
-
     def backup_scans(self):
         for scan in self.scans:
             self.scans_backup[scan] = []
@@ -296,8 +289,7 @@ class WorkflowDialog(NXDialog):
 
     @property
     def enabled_scans(self):
-        return [scan for scan in self.scans
-                if self.scans[scan]['data'].isChecked()]
+        return self.scans
 
     def overwrite_selected(self, scan):
         return self.scans[scan]['overwrite'].isChecked()
