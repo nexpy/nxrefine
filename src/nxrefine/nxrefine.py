@@ -113,7 +113,7 @@ class NXRefine(object):
         self.grid_basis = None
         self.grid_shape = None
         self.grid_step = None
-        self.standard = False
+        self.standard = True
 
         self._name = ""
         self._idx = None
