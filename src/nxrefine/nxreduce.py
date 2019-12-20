@@ -542,7 +542,7 @@ class NXReduce(QtCore.QObject):
         if self.not_complete('nxlink') and self.link:
             self.record_start('nxlink')
             try:
-               self.stack_data()
+                self.stack_data()
                 self.logger.info('Images stacked')
                 self.link_data()
                 self.logger.info('Entry linked to raw data')
