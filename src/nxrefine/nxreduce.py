@@ -541,14 +541,15 @@ class NXReduce(QtCore.QObject):
     def nxlink(self):
         if self.not_complete('nxlink') and self.link:
             self.record_start('nxlink')
-            self.stack_data()
-            self.logger.info('Images stacked')
-            self.link_data()
-            self.logger.info('Entry linked to raw data')
-            self.record('nxlink', logs='Stacked and linked')
-#            except Exception as error:
-#                self.logger.info(str(error))
-#                self.record_fail('nxlink')
+            try:
+               self.stack_data()
+                self.logger.info('Images stacked')
+                self.link_data()
+                self.logger.info('Entry linked to raw data')
+                self.record('nxlink', logs='Stacked and linked')
+            except Exception as error:
+                self.logger.info(str(error))
+                self.record_fail('nxlink')
         elif self.link:
             self.logger.info('Data already linked')
             self.record_end('nxlink')
@@ -568,7 +569,11 @@ class NXReduce(QtCore.QObject):
             chunk_size = v._memfile['data'].chunks[0]
         else:
             chunk_size = v.shape[0]/10
-        for i in range(0, len(filenames), chunk_size):
+
+        n_frames = len(filenames)
+        tic = self.start_progress(0, n_frames)
+        for i in range(0, n_frames, chunk_size):
+            self.update_progress(i)
             try:
                 files = []
                 for j in range(i,i+chunk_size):
@@ -576,12 +581,14 @@ class NXReduce(QtCore.QObject):
                 v[i:i+chunk_size,:,:] = self.read_images(files)
             except IndexError as error:
                 pass
+        toc = self.stop_progress()
 
         header = NXcollection()
         for key, value in im.header.items():
             header[key] = value
         root = NXroot(NXentry(NXdata(v, (z,y,x), header=header)))
         root.save(os.path.join(self.directory, self.entry_name+self.extension))
+        self.logger.info('%d images stacked (%g seconds)' % (n_frames, toc-tic))
 
     def read_images(self, filenames):
         v0 = fabio.open(filenames[0]).data
