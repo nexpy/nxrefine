@@ -540,15 +540,14 @@ class NXReduce(QtCore.QObject):
     def nxlink(self):
         if self.not_complete('nxlink') and self.link:
             self.record_start('nxlink')
-            try:
-                self.stack_data()
-                self.logger.info('Images stacked')
-                self.link_data()
-                self.logger.info('Entry linked to raw data')
-                self.record('nxlink', logs='Stacked and linked')
-            except Exception as error:
-                self.logger.info(str(error))
-                self.record_fail('nxlink')
+            self.stack_data()
+            self.logger.info('Images stacked')
+            self.link_data()
+            self.logger.info('Entry linked to raw data')
+            self.record('nxlink', logs='Stacked and linked')
+#            except Exception as error:
+#                self.logger.info(str(error))
+#                self.record_fail('nxlink')
         elif self.link:
             self.logger.info('Data already linked')
             self.record_end('nxlink')
