@@ -520,7 +520,7 @@ class NXRefine(object):
         dir = os.path.dirname(self.entry['data'].nxsignal.nxfilename)
         filename = self.entry.nxfilename
         parfile = os.path.join(dir, entry+'_transform.pars')
-        command = ['cctw transform --script %s' % parfile]
+        command = ['cctw_launch transform --script %s' % parfile]
         if 'pixel_mask' in self.entry['instrument/detector']:
             command.append('--mask %s\#/%s/instrument/detector/pixel_mask' 
                            % (filename, entry))
