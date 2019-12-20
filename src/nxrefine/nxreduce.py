@@ -543,9 +543,7 @@ class NXReduce(QtCore.QObject):
             self.record_start('nxlink')
             try:
                 self.stack_data()
-                self.logger.info('Images stacked')
                 self.link_data()
-                self.logger.info('Entry linked to raw data')
                 self.record('nxlink', logs='Stacked and linked')
             except Exception as error:
                 self.logger.info(str(error))
@@ -555,6 +553,7 @@ class NXReduce(QtCore.QObject):
             self.record_end('nxlink')
 
     def stack_data(self):
+        self.logger.info('Starting to stack images')
         filenames = get_files(self.image_directory, self.image_prefix, 
                               self.image_extension)
         im = fabio.open(filenames[0])
