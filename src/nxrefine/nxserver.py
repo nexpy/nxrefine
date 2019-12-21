@@ -4,7 +4,6 @@ import time
 from datetime import datetime
 from multiprocessing import Process, Queue, JoinableQueue
 from .daemon import NXDaemon
-import nxrefine.nxdatabase as nxdb
 
 
 class NXWorker(Process):
@@ -52,7 +51,7 @@ class NXTask(object):
 class NXServer(NXDaemon):
 
     def __init__(self, directory=None, node_file=None):
-        self.pid_name = 'nxserver'
+        self.pid_name = 'NXServer'
         if directory:
             self.directory = directory = os.path.realpath(directory)
         else:
@@ -76,9 +75,6 @@ class NXServer(NXDaemon):
         self.workers = []
 
         super(NXServer, self).__init__(self.pid_name, self.pid_file)
-        db_file = os.path.join(self.task_directory, 'nxdatabase.db')
-        nxdb.init('sqlite:///' + db_file)
-
 
     def read_nodes(self, node_file):
         """Read available nodes"""
