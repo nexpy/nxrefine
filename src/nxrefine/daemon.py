@@ -83,11 +83,11 @@ class NXDaemon:
     def status(self):
         pid, node = self.get_process()
         if pid and node and node != self.pid_node:
-            return self.pid_name + "launched on " + node
+            return self.pid_name + " launched on " + node
         elif self.is_running():
             return "{0} running in process {1}".format(self.pid_name, pid)
         else:
-            return self.pid_name + "not running"
+            return self.pid_name + " not running"
                                
     
     def start(self):
