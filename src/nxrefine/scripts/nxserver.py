@@ -7,10 +7,10 @@ def main():
 
     parser = argparse.ArgumentParser(
         description="Launch server for data reduction workflow")
-    parser.add_argument('-c', '--cwd', default='/data/user6idd/dm',
-                        help='directory containing GUP directories')
-    parser.add_argument('-g', '--gup', default='GUP-58981',
-                        help='GUP number, e.g., GUP-58981')
+    parser.add_argument('-c', '--cwd', default='/nfs/chess/id4baux',
+                        help='directory containing experiment directories')
+    parser.add_argument('-e', '--exp', default='osborn-888-1',
+                        help='Experiment name, e.g., osborn-888-1')
     parser.add_argument('-d', '--directory', nargs='?', const='.',
                         help='If specified, start the server in this directory, \
                         overriding other options')

@@ -2,6 +2,7 @@
 
 import sys
 import os
+import platform
 import psutil
 import time
 import signal
@@ -15,6 +16,7 @@ class NXDaemon:
     def __init__(self, pid_name, pid_file):
         self.pid_name = pid_name
         self.pid_file = pid_file
+        self.pid_node = platform.node()
 
     def daemonize(self):
         """Deamonize class. UNIX double fork mechanism."""
@@ -55,29 +57,47 @@ class NXDaemon:
 
         pid = str(os.getpid())
         with open(self.pid_file, 'w+') as f:
-            f.write(pid + '\n')
+            f.write(pid + '\n' + self.pid_node + '\n')
 
-    def get_pid(self):
-        """Determine the pid stored in pid_file"""
+    def get_process(self):
+        """Determine the process stored in pid_file"""
         try:
-            with open(self.pid_file,'r') as pf:
-                return int(pf.read().strip())
+            with open(self.pid_file, 'r') as pf:
+                t = pf.read().split()
+            if len(t) > 1:
+                return int(t[0]), t[1]
+            else:
+                return int(t[0]), None
         except Exception:
-            return None
+            return None, None
 
     def is_running(self):
-        pid = self.get_pid()
-        if pid and psutil.pid_exists(pid):
+        pid, node = self.get_process()
+        if node != self.node:
+            return False
+        elif pid and psutil.pid_exists(pid):
             return psutil.Process(pid).is_running()
         else:
-            return False            
+            return False
+
+    def status(self):
+        pid, node = self.get_process()
+        if pid and node and node != self.node:
+            return "Server running on " + node
+        elif self.is_running():
+            return "Server is running"
+        else:
+            return "Server is not running"
+                               
     
     def start(self):
         """Start the daemon."""
 
         # Check for a pid_file to see if the daemon already runs
-        pid = self.get_pid()
-        if pid and psutil.pid_exists(pid):
+        pid, node = self.get_process()
+        if node and node != self.node:
+            sys.exit(0)
+        elif pid and psutil.pid_exists(pid):
             proc = psutil.Process(pid)
             if proc.name() == self.pid_name and proc.is_running():
                 sys.exit(0)
@@ -88,7 +108,10 @@ class NXDaemon:
 
     def stop(self):
         """Stop the daemon."""
-        pid = self.get_pid()
+        pid, node = self.get_process()
+        
+        if node and node != self.node:
+            return
 
         if os.path.exists(self.pid_file):
             os.remove(self.pid_file)
@@ -111,7 +134,6 @@ class NXDaemon:
                     for p in alive:
                         message = "Process {0} survived SIGKILL"
                         sys.stderr.write(message.format(p))
-
 
     def restart(self):
         """Restart the daemon."""
