@@ -73,7 +73,7 @@ class NXDaemon:
 
     def is_running(self):
         pid, node = self.get_process()
-        if node != self.node:
+        if node != self.pid_node:
             return False
         elif pid and psutil.pid_exists(pid):
             return psutil.Process(pid).is_running()
@@ -82,7 +82,7 @@ class NXDaemon:
 
     def status(self):
         pid, node = self.get_process()
-        if pid and node and node != self.node:
+        if pid and node and node != self.pid_node:
             return "Server running on " + node
         elif self.is_running():
             return "Server is running"
@@ -95,7 +95,7 @@ class NXDaemon:
 
         # Check for a pid_file to see if the daemon already runs
         pid, node = self.get_process()
-        if node and node != self.node:
+        if node and node != self.pid_node:
             sys.exit(0)
         elif pid and psutil.pid_exists(pid):
             proc = psutil.Process(pid)
@@ -110,7 +110,7 @@ class NXDaemon:
         """Stop the daemon."""
         pid, node = self.get_process()
         
-        if node and node != self.node:
+        if node and node != self.pid_node:
             return
 
         if os.path.exists(self.pid_file):
