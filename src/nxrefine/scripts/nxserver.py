@@ -15,7 +15,7 @@ def main():
                         help='If specified, start the server in this directory, \
                         overriding other options')
     parser.add_argument('command', action='store',
-                        help='valid commands are: start|stop|restart|clear')
+                        help='valid commands are: status|start|stop|restart|clear')
 
     args = parser.parse_args()
 
@@ -24,7 +24,9 @@ def main():
     else:
         server = NXServer(os.path.join(args.cwd, args.gup))
 
-    if args.command == 'start':
+    if args.command == 'status':
+        print(server.status())
+    elif args.command == 'start':
         server.start()
     elif args.command == 'stop':
         server.stop()
