@@ -131,6 +131,14 @@ class NXServer(NXDaemon):
         else:
             super(NXServer, self).stop()
 
+    def kill(self):
+        """Kill the server process.
+        
+        This provides a backup mechanism for terminating the server if adding
+        'stop' to the task list does not work.
+        """
+        super(NXServer, self).stop()
+
     def clear(self):
         if os.path.exists(self.task_list):
             os.remove(self.task_list)
