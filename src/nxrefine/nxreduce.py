@@ -1589,7 +1589,7 @@ class NXMultiReduce(NXReduce):
                                        '%s_%s.nxs\#/entry/data' % (entry, transform))
                           for entry in self.entries])
         output = os.path.join(self.directory, transform+'.nxs\#/entry/data/v')
-        return 'cctw merge %s -o %s' % (input, output)
+        return 'cctwlaunch merge %s -o %s' % (input, output)
 
     def nxpdf(self):
         pass
