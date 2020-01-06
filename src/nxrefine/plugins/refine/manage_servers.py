@@ -38,16 +38,19 @@ class ServerDialog(NXDialog):
         self.node_editor = self.editor()
         self.node_editor.setPlainText('\n'.join(self.server.nodes))
 
-        self.experiment_choices =  ['New...'] + list(self.server.experiments)
+        self.experiment_choices =  list(self.server.experiments) + ['New...']
         self.experiment_combo = self.select_box(self.experiment_choices)
 
-        self.set_layout(self.server_layout,
-                        self.labels(('List of Nodes'), header=True),
-                        self.node_editor,
+        self.set_layout(self.labels(('Server Status'), header=True),
+                        self.server_layout,
+                        self.labels(('List of Experiments'), header=True),
                         self.experiment_combo,
                         self.action_buttons(('register', self.register),
                                             ('remove', self.remove)),
-                        self.close_buttons(close=True))
+                        self.labels(('List of Nodes'), header=True),
+                        self.node_editor,
+                        self.close_buttons(save=True))
+
         self.node_editor.setFocus()
         self.set_title('Manage Servers')
         self.experiment_directory = None
@@ -71,9 +74,18 @@ class ServerDialog(NXDialog):
             experiment = QtWidgets.QFileDialog.getExistingDirectory(self, 
                                                 'Choose Experiment Directory')
             if os.path.exists(experiment):
-                self.experiment_combo.addItem(experiment)
+                self.experiment_combo.insertItem(0, experiment)
                 self.server.register(experiment)
+            idx = self.experiment_combo.findText(experiment)
+            self.experiment_combo.setCurrentIndex(idx)
 
     def remove(self):
+        self.server.remove(self.experiment)
         self.server.stop(experiment=self.experiment)
+        self.experiment_combo.removeItem(self.experiment_combo.currentIndex())
 
+    def accept(self):
+        node_text = self.node_editor.document().toPlainText().strip()+'\n'
+        with open(self.server.node_file, "w") as f:
+            f.write(node_text)
+        super(ServerDialog, self).accept()
