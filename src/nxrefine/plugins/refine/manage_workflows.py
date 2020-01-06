@@ -2,8 +2,9 @@ import os
 
 from nexusformat.nexus import *
 from nexpy.gui.pyqt import QtCore, QtWidgets
-from nexpy.gui.datadialogs import BaseDialog, GridParameters
+from nexpy.gui.datadialogs import NXWidget, NXDialog, GridParameters
 from nexpy.gui.utils import report_error, natural_sort
+from nexpy.gui.widgets import NXLabel, NXScrollArea
 
 from nxrefine.nxreduce import NXReduce, NXMultiReduce
 from nxrefine.nxdatabase import NXDatabase
@@ -16,7 +17,7 @@ def show_dialog():
         report_error("Managing Workflows", error)
 
 
-class WorkflowDialog(BaseDialog):
+class WorkflowDialog(NXDialog):
 
     def __init__(self, parent=None):
         super(WorkflowDialog, self).__init__(parent)
@@ -31,6 +32,7 @@ class WorkflowDialog(BaseDialog):
         self.progress_bar.setVisible(False)
         self.set_title('Manage Workflows')
         self.grid = None
+        self.scroll_area = None
         self.sample_directory = None
         self.entries = ['f1', 'f2', 'f3']
         self.layout.setSizeConstraint(QtWidgets.QLayout.SetFixedSize)
@@ -97,6 +99,11 @@ class WorkflowDialog(BaseDialog):
 
         if self.grid:
             self.delete_grid(self.grid)
+            del self.grid_widget
+
+        if self.scroll_area:
+            self.scroll_area.close()
+            self.scroll_area.deleteLater()
 
         # Map from wrapper files to scan directories
         wrapper_files = { w : self.get_scan(w) for w in sorted( [
@@ -104,7 +111,13 @@ class WorkflowDialog(BaseDialog):
                             for filename in os.listdir(self.sample_directory)
                             if self.is_valid(filename)] , key=natural_sort) }
         self.grid = QtWidgets.QGridLayout()
-        self.insert_layout(2, self.grid)
+        self.grid_widget = NXWidget()
+        self.grid_widget.set_layout(self.grid)
+        self.scroll_area = NXScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setWidget(self.grid_widget)
+        self.scroll_area.setMinimumWidth(1250)
+        self.insert_layout(2, self.scroll_area)
         self.grid.setSpacing(1)
         row = 0
         columns = ['Scan', 'data', 'link', 'max', 'find', 'copy', 'refine', 
@@ -112,7 +125,7 @@ class WorkflowDialog(BaseDialog):
                    'masked_combine', 'pdf', 'overwrite', 'reduce', 'sync']
         header = {}
         for col, column in enumerate(columns):
-            header[column] = QtWidgets.QLabel(column)
+            header[column] = NXLabel(column)
             header[column].setFont(self.bold_font)
             header[column].setFixedWidth(75)
             if column == 'transform' or column == 'combine':
@@ -124,7 +137,7 @@ class WorkflowDialog(BaseDialog):
         row = 1
         columns = ['regular', 'masked', 'regular', 'masked']
         for col, column in enumerate(columns):
-            header[column] = QtWidgets.QLabel(column)
+            header[column] = NXLabel(column)
             header[column].setFixedWidth(75)
             header[column].setAlignment(QtCore.Qt.AlignHCenter)
             self.grid.addWidget(header[column], row, col+8)
@@ -137,7 +150,7 @@ class WorkflowDialog(BaseDialog):
             scan_label = os.path.basename(scan)
             row += 1
             status = {}
-            status['scan'] = QtWidgets.QLabel(scan_label)
+            status['scan'] = NXLabel(scan_label)
             if self.parent_file == wrapper_file:
                 status['scan'].setStyleSheet('font-weight:bold')
             status['data'] = self.new_checkbox()
@@ -173,7 +186,7 @@ class WorkflowDialog(BaseDialog):
             self.grid.addWidget(status['sync'], row, 15, QtCore.Qt.AlignCenter)
             self.scans[scan] = status
         row += 1
-        self.grid.addWidget(QtWidgets.QLabel('All'), row, 0, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(NXLabel('All'), row, 0, QtCore.Qt.AlignCenter)
         all_boxes = {}
         all_boxes['link'] = self.new_checkbox(lambda:self.select_status('link'))
         all_boxes['max'] = self.new_checkbox(lambda:self.select_status('max'))
@@ -231,9 +244,6 @@ class WorkflowDialog(BaseDialog):
                 elif file_status == self.db.FAILED:
                     checkbox.setCheckState(QtCore.Qt.Unchecked)
                     checkbox.setEnabled(True)
-                # TODO: do i need to account for last?
-            if status['data'].checkState() == QtCore.Qt.Unchecked:
-                self.disable_status(status)
             self.update_progress(i)
 
         self.stop_progress()
@@ -263,10 +273,6 @@ class WorkflowDialog(BaseDialog):
             checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
             checkbox.setEnabled(True)
 
-    def disable_status(self, status):
-        for program in self.programs:
-            status[program].setEnabled(False)
-
     def backup_scans(self):
         for scan in self.scans:
             self.scans_backup[scan] = []
@@ -283,8 +289,7 @@ class WorkflowDialog(BaseDialog):
 
     @property
     def enabled_scans(self):
-        return [scan for scan in self.scans
-                if self.scans[scan]['data'].isChecked()]
+        return self.scans
 
     def overwrite_selected(self, scan):
         return self.scans[scan]['overwrite'].isChecked()
@@ -431,7 +436,7 @@ class WorkflowDialog(BaseDialog):
     def view_logs(self):
         if self.grid is None:
             raise NeXusError('Need to update status')
-        dialog = BaseDialog(self)
+        dialog = NXDialog(self)
         dialog.setMinimumWidth(800)
         dialog.setMinimumHeight(600)
         scans = [os.path.basename(scan) for scan in self.scans]

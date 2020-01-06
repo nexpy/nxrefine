@@ -1,6 +1,6 @@
 from nexpy.gui.pyqt import QtCore, QtWidgets
 import numpy as np
-from nexpy.gui.datadialogs import BaseDialog, GridParameters
+from nexpy.gui.datadialogs import NXDialog, GridParameters
 from nexpy.gui.utils import report_error, is_file_locked
 from nexusformat.nexus import *
 
@@ -15,7 +15,7 @@ def show_dialog():
         report_error("Calculating 3D Mask", error)
 
 
-class Mask3DDialog(BaseDialog):
+class Mask3DDialog(NXDialog):
 
     def __init__(self, parent=None):
         super(Mask3DDialog, self).__init__(parent)

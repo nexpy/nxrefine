@@ -4,7 +4,7 @@ import numpy as np
 import timeit
 from shutil import copyfile
 from nexusformat.nexus import *
-from nexpy.gui.datadialogs import BaseDialog
+from nexpy.gui.datadialogs import NXDialog
 from nexpy.gui.utils import report_error, confirm_action, natural_sort
 from nexpy.gui.pyqt import QtCore, getSaveFileName
 from nxrefine.nxserver import NXServer
@@ -19,7 +19,7 @@ def show_dialog():
         report_error("Summing Scans", error)
 
 
-class SumDialog(BaseDialog):
+class SumDialog(NXDialog):
 
     def __init__(self, parent=None):
         super(SumDialog, self).__init__(parent)

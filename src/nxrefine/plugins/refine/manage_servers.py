@@ -4,7 +4,7 @@ import subprocess
 from nexpy.gui.pyqt import QtWidgets, getOpenFileName
 
 from nexusformat.nexus import *
-from nexpy.gui.datadialogs import BaseDialog
+from nexpy.gui.datadialogs import NXDialog
 from nexpy.gui.utils import report_error
 from nxrefine.nxserver import NXServer
 
@@ -17,7 +17,7 @@ def show_dialog():
         report_error("Managing Servers", error)
 
 
-class ServerDialog(BaseDialog):
+class ServerDialog(NXDialog):
 
     def __init__(self, parent=None):
 

@@ -15,6 +15,8 @@ import numpy as np
 import h5py as h5
 from h5py import is_hdf5
 
+import fabio
+
 from nexusformat.nexus import *
 
 from nexpy.gui.pyqt import QtCore
@@ -32,6 +34,8 @@ class NXReduce(QtCore.QObject):
 
     def __init__(self, entry='f1', directory=None, parent=None, entries=None,
                  data='data/data', extension='.h5', path='/entry/data/data',
+                 image_base='/nfs/chess/id4b/current',
+                 image_prefix='scan', image_extension='.tiff',
                  threshold=None, first=None, last=None, radius=None, width=None,
                  norm=None, Qh=None, Qk=None, Ql=None, 
                  link=False, maxcount=False, find=False, copy=False,
@@ -109,6 +113,12 @@ class NXReduce(QtCore.QObject):
             self.extension = '.' + extension
         self.path = path
 
+        self.image_directory = os.path.join(image_base, 
+            os.path.basename(self.root_directory), self.sample, self.label,
+            self.scan, self.entry_name)
+        self.image_prefix = image_prefix
+        self.image_extension = image_extension
+
         self._threshold = threshold
         self._maximum = None
         self.summed_data = None
@@ -146,7 +156,7 @@ class NXReduce(QtCore.QObject):
         except Exception as error:
             self.server = None
 
-        nxsetlock(10)
+        nxsetlock(600)
 
     start = QtCore.Signal(object)
     update = QtCore.Signal(object)
@@ -239,6 +249,11 @@ class NXReduce(QtCore.QObject):
             except Exception as error:
                 pass
         return self._pixel_mask
+
+    @pixel_mask.setter
+    def pixel_mask(self, mask):
+        with self.entry.nxfile:
+            self.entry['instrument/detector/pixel_mask'] = mask
 
     @property
     def parent_root(self):
@@ -525,21 +540,61 @@ class NXReduce(QtCore.QObject):
 
     def nxlink(self):
         if self.not_complete('nxlink') and self.link:
-            if not self.data_exists():
-                self.logger.info('Data file not available')                
-                return
             self.record_start('nxlink')
-            self.link_data()
-            logs = self.read_logs()
-            if logs:
-                self.transfer_logs(logs)
-                self.record('nxlink', logs='Transferred')
-                self.logger.info('Entry linked to raw data')
-            else:
+            try:
+                self.stack_data()
+                self.link_data()
+                self.record('nxlink', logs='Stacked and linked')
+            except Exception as error:
+                self.logger.info(str(error))
                 self.record_fail('nxlink')
         elif self.link:
             self.logger.info('Data already linked')
             self.record_end('nxlink')
+
+    def stack_data(self):
+        self.logger.info('Starting to stack images')
+        filenames = get_files(self.image_directory, self.image_prefix, 
+                              self.image_extension)
+        im = fabio.open(filenames[0])
+        v0 = im.data
+        x = NXfield(range(v0.shape[1]), dtype=np.uint16, name='x')
+        y = NXfield(range(v0.shape[0]), dtype=np.uint16, name='y')
+        z = NXfield(range(1,len(filenames)+1), dtype=np.uint16, name='z')
+        v = NXfield(shape=(len(filenames),v0.shape[0],v0.shape[1]),
+                    dtype=v0.dtype, name='data')
+        v[0] = v0
+        if v._memfile:
+            chunk_size = v._memfile['data'].chunks[0]
+        else:
+            chunk_size = v.shape[0]/10
+
+        n_frames = len(filenames)
+        tic = self.start_progress(0, n_frames)
+        for i in range(0, n_frames, chunk_size):
+            self.update_progress(i)
+            try:
+                files = []
+                for j in range(i,i+chunk_size):
+                    files.append(filenames[j])
+                v[i:i+chunk_size,:,:] = self.read_images(files)
+            except IndexError as error:
+                pass
+        toc = self.stop_progress()
+
+        header = NXcollection()
+        for key, value in im.header.items():
+            header[key] = value
+        root = NXroot(NXentry(NXdata(v, (z,y,x), header=header)))
+        root.save(os.path.join(self.directory, self.entry_name+self.extension))
+        self.logger.info('%d images stacked (%g seconds)' % (n_frames, toc-tic))
+
+    def read_images(self, filenames):
+        v0 = fabio.open(filenames[0]).data
+        v = np.zeros([len(filenames), v0.shape[0], v0.shape[1]], dtype=np.int32)
+        for i,filename in enumerate(filenames):
+            v[i] = fabio.open(filename).data
+        return v
 
     def link_data(self):
         if self.field:
@@ -566,70 +621,6 @@ class NXReduce(QtCore.QObject):
                                              self.entry['data/x_pixel']]
         else:
             self.logger.info('No raw data loaded')
-
-    def read_logs(self):
-        head_file = os.path.join(self.directory, self.entry_name+'_head.txt')
-        meta_file = os.path.join(self.directory, self.entry_name+'_meta.txt')
-        if os.path.exists(head_file) or os.path.exists(meta_file):
-            logs = NXcollection()
-        else:
-            self.logger.info('No metadata files found')
-            return None
-        if os.path.exists(head_file):
-            with open(head_file) as f:
-                lines = f.readlines()
-            for line in lines:
-                key, value = line.split(', ')
-                value = value.strip('\n')
-                try:
-                   value = np.float(value)
-                except:
-                    pass
-                logs[key] = value
-        if os.path.exists(meta_file):
-            meta_input = np.genfromtxt(meta_file, delimiter=',', names=True)
-            for i, key in enumerate(meta_input.dtype.names):
-                logs[key] = [array[i] for array in meta_input]
-        return logs
-
-    def transfer_logs(self, logs):
-        with self.root.nxfile:
-            if 'instrument' not in self.entry:
-                self.entry['instrument'] = NXinstrument()
-            if 'logs' in self.entry['instrument']:
-                del self.entry['instrument/logs']
-            self.entry['instrument/logs'] = logs
-            frames = self.entry['data/frame_number'].size
-            if 'MCS1' in logs:
-                if 'monitor1' in self.entry:
-                    del self.entry['monitor1']
-                data = logs['MCS1'][:frames]
-                self.entry['monitor1'] = NXmonitor(NXfield(data, name='MCS1'),
-                                                   NXfield(np.arange(frames,
-                                                                     dtype=np.int32),
-                                                           name='frame_number'))
-            if 'MCS2' in logs:
-                if 'monitor2' in self.entry:
-                    del self.entry['monitor2']
-                data = logs['MCS2'][:frames]
-                self.entry['monitor2'] = NXmonitor(NXfield(data, name='MCS2'),
-                                                   NXfield(np.arange(frames,
-                                                                     dtype=np.int32),
-                                                           name='frame_number'))
-            if 'source' not in self.entry['instrument']:
-                self.entry['instrument/source'] = NXsource()
-            self.entry['instrument/source/name'] = 'Advanced Photon Source'
-            self.entry['instrument/source/type'] = 'Synchrotron X-ray Source'
-            self.entry['instrument/source/probe'] = 'x-ray'
-            if 'Storage_Ring_Current' in logs:
-                self.entry['instrument/source/current'] = logs['Storage_Ring_Current']
-            if 'UndulatorA_gap' in logs:
-                self.entry['instrument/source/undulator_gap'] = logs['UndulatorA_gap']
-            if 'Calculated_filter_transmission' in logs:
-                if 'attenuator' not in self.entry['instrument']:
-                    self.entry['instrument/attenuator'] = NXattenuator()
-                self.entry['instrument/attenuator/attenuator_transmission'] = (
-                                                logs['Calculated_filter_transmission'])
 
     def nxmax(self):
         if self.not_complete('nxmax') and self.maxcount:
@@ -665,6 +656,18 @@ class NXReduce(QtCore.QObject):
             data = self.field.nxfile[self.path]
             fsum = np.zeros(nframes, dtype=np.float64)
             pixel_mask = self.pixel_mask
+            #Add constantly firing pixels to the mask
+            pixel_max = np.zeros((self.shape[1], self.shape[2]))
+            v = data[0:10,:,:]
+            for i in range(10):
+                pixel_max = np.maximum(v[i,:,:], pixel_max)
+            pixel_mean=v.sum(0) / 10.
+            mask = np.zeros((self.shape[1], self.shape[2]), dtype=np.int8)
+            mask[np.where(pixel_max == pixel_mean)] = 1
+            mask[np.where(pixel_mean < 100)] = 0
+            pixel_mask = pixel_mask | mask
+            self.pixel_mask = pixel_mask
+            #Start looping over the data
             tic = self.start_progress(self.first, self.last)
             for i in range(self.first, self.last, chunk_size):
                 if self.stopped:
@@ -678,10 +681,10 @@ class NXReduce(QtCore.QObject):
                     vsum = v.sum(0)
                 else:
                     vsum += v.sum(0)
-                fsum[i:i+chunk_size] = v.sum((1,2))
                 if pixel_mask is not None:
                     v = np.ma.masked_array(v)
                     v.mask = pixel_mask
+                fsum[i:i+chunk_size] = v.sum((1,2))
                 if maximum < v.max():
                     maximum = v.max()
                 del v
@@ -939,7 +942,7 @@ class NXReduce(QtCore.QObject):
             refine = NXRefine(self.entry)
             refine.refine_hkls(lattice=lattice, chi=True, omega=True)
             fit_report=refine.fit_report
-            refine.refine_hkls(chi=True, omega=True, phi=True)
+            refine.refine_hkls(chi=True, omega=True)
             fit_report = fit_report + '\n' + refine.fit_report
             refine.refine_orientation_matrix()
             fit_report = fit_report + '\n' + refine.fit_report
@@ -1156,7 +1159,7 @@ class NXReduce(QtCore.QObject):
             masks = []
             peaks = sorted(peaks, key=operator.attrgetter('z'))
             for p in peaks:
-                if p.pixel_count > 0:
+                if p.pixel_count >= 0:
                     masks.extend(self.determine_mask(p))
         return masks
 
@@ -1403,11 +1406,11 @@ class NXReduce(QtCore.QObject):
         self.nxcopy()
         if self.complete('nxcopy'):
             self.nxrefine()
-        if self.complete('nxrefine'):
+        if self.complete('nxrefine') and self.transform is not None:
             self.nxprepare()
             self.nxtransform()
             self.nxmasked_transform()
-        else:
+        elif self.transform is not None:
             self.logger.info('Orientation has not been refined')
             self.record_fail('nxtransform')
             self.record_fail('nxmasked_transform')
@@ -1458,7 +1461,7 @@ class NXReduce(QtCore.QObject):
         """ Add tasks to the server's fifo, and log this in the database """
         command = self.command(parent)
         if command:
-            self.server.add_task(command, self.root_directory)
+            self.server.add_task(command)
             if self.link:
                 self.db.queue_task(self.wrapper_file, 'nxlink', self.entry_name)
             if self.maxcount:
@@ -1586,7 +1589,7 @@ class NXMultiReduce(NXReduce):
                                        '%s_%s.nxs\#/entry/data' % (entry, transform))
                           for entry in self.entries])
         output = os.path.join(self.directory, transform+'.nxs\#/entry/data/v')
-        return 'cctw merge %s -o %s' % (input, output)
+        return 'cctwlaunch merge %s -o %s' % (input, output)
 
     def nxpdf(self):
         pass
@@ -1603,7 +1606,7 @@ class NXMultiReduce(NXReduce):
     def queue(self):
         if self.server is None:
             raise NeXusError("NXServer not running")
-        self.server.add_task(self.command(), self.root_directory)
+        self.server.add_task(self.command())
         if self.mask:
             self.db.queue_task(self.wrapper_file, 'nxmasked_combine', 'entry')
         else:
@@ -1698,4 +1701,19 @@ def mask_size(intensity):
     else:
         radius = np.real(c + a * (intensity**b))
         return max(1,np.int(radius))
+
+def get_files(directory, prefix, extension):
+    """
+    Returns a list of files in the selected directory.
+        
+    The files are sorted using a natural sort algorithm that preserves the
+    numeric order when a file name consists of text and index so that, e.g., 
+    'data2.tif' comes before 'data10.tif'.
+    """
+    if not extension.startswith('.'):
+        extension = '.' + extension
+    from glob import glob
+    from nexpy.gui.utils import natural_sort
+    filenames = glob(os.path.join(directory, prefix + '*' + extension))
+    return sorted(filenames, key=natural_sort)
 

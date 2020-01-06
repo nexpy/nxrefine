@@ -2,7 +2,7 @@ from __future__ import unicode_literals
 import os
 import numpy as np
 from nexusformat.nexus import *
-from nexpy.gui.datadialogs import BaseDialog, GridParameters
+from nexpy.gui.datadialogs import NXDialog, GridParameters
 from nexpy.gui.utils import report_error
 
 
@@ -14,7 +14,7 @@ def show_dialog():
         report_error("Defining New Scan", error)
 
 
-class ScanDialog(BaseDialog):
+class ScanDialog(NXDialog):
 
     def __init__(self, parent=None):
         super(ScanDialog, self).__init__(parent)
@@ -148,20 +148,18 @@ class ScanDialog(BaseDialog):
         self.scan = GridParameters()
         self.scan.add('scan', 'scan', 'Scan Label')
         self.scan.add('temperature', 300.0, 'Temperature (K)')
-        self.scan.add('phi_start', -5.0, 'Phi Start (deg)')
-        self.scan.add('phi_end', 360.0, 'Phi End (deg)')
+        self.scan.add('phi_start', 6.0, 'Phi Start (deg)')
+        self.scan.add('phi_end', 160.0, 'Phi End (deg)')
         self.scan.add('phi_step', 0.1, 'Phi Step (deg)')
-        self.scan.add('frame_rate', 10, 'Frame Rate (Hz)')
+        self.scan.add('frame_rate', 1, 'Frame Rate (Hz)')
         
         for position in range(1, 6):
             self.setup_position(position)
 
     def setup_position(self, position):
         self.entries[position] = GridParameters()
-        self.entries[position].add('chi', -90.0, 'Chi (deg)')
-        self.entries[position].add('omega', 0.0, 'Omega (deg)')
-        self.entries[position].add('x', 0.0, 'Translation - x (mm)')
-        self.entries[position].add('y', 0.0, 'Translation - y (mm)')
+        self.entries[position].add('chi', 0.0, 'Chi')
+        self.entries[position].add('gonpitch', 0.0, 'Goniometer Pitch')
         self.entries[position].add('linkfile', 'f%d.h5' % position, 'Detector Filename')
         self.entries[position].add('linkpath', '/entry/data/data', 'Detector Data Path')
 
@@ -180,8 +178,8 @@ class ScanDialog(BaseDialog):
     def read_parameters(self):
         for position in range(1, self.positions+1):
             entry = self.scan_file['f%d' % position]
-            self.entries[position]['x'].value = entry['instrument/detector/translation_x']
-            self.entries[position]['y'].value = entry['instrument/detector/translation_y']
+            self.entries[position]['chi'].value = entry['instrument/goniometer/chi']
+            self.entries[position]['gonpitch'].value = entry['instrument/goniometer/goniometer_pitch']
 
     def get_parameters(self):
         entry = self.scan_file['entry']
@@ -200,7 +198,7 @@ class ScanDialog(BaseDialog):
             phi_end = self.scan['phi_end'].value
             phi_step = self.scan['phi_step'].value
             chi = self.entries[position]['chi'].value
-            omega = self.entries[position]['omega'].value
+            gonpitch = self.entries[position]['gonpitch'].value
             frame_rate = self.scan['frame_rate'].value
             if 'goniometer' not in entry['instrument']:
                 entry['instrument/goniometer'] = NXgoniometer()
@@ -210,8 +208,8 @@ class ScanDialog(BaseDialog):
             entry['instrument/goniometer/phi'].attrs['end'] = phi_end
             entry['instrument/goniometer/chi'] = chi
             entry['instrument/goniometer/chi_set'] = chi
-            entry['instrument/goniometer/omega'] = omega
-            entry['instrument/goniometer/omega_set'] = omega
+            entry['instrument/goniometer/goniometer_pitch'] = gonpitch
+            entry['instrument/goniometer/goniometer_pitch_set'] = gonpitch
             if frame_rate > 0.0:
                 entry['instrument/detector/frame_time'] = 1.0 / frame_rate
             linkpath = self.entries[position]['linkpath'].value

@@ -1,7 +1,7 @@
 import numpy as np
 from pyFAI.calibrant import Calibrant, ALL_CALIBRANTS
 
-from nexpy.gui.datadialogs import BaseDialog, GridParameters
+from nexpy.gui.datadialogs import NXDialog, GridParameters
 from nexpy.gui.plotview import NXPlotView, plotviews
 from nexpy.gui.utils import report_error, confirm_action, load_image
 from nexusformat.nexus import *
@@ -16,7 +16,7 @@ def show_dialog():
         report_error("Loading Calibration", error)
 
 
-class LoadDialog(BaseDialog):
+class LoadDialog(NXDialog):
 
     def __init__(self, parent=None):
         super(LoadDialog, self).__init__(parent)

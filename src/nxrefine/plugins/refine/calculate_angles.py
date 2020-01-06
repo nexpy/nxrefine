@@ -1,7 +1,7 @@
 import numpy as np
 from nexusformat.nexus import *
 from nexpy.gui.plotview import get_plotview, plotview
-from nexpy.gui.datadialogs import BaseDialog, GridParameters
+from nexpy.gui.datadialogs import NXDialog, GridParameters
 from nexpy.gui.utils import report_error
 from nxrefine.nxrefine import NXRefine
 
@@ -14,7 +14,7 @@ def show_dialog():
         report_error("Calculating Angles", error)
 
 
-class CalculateDialog(BaseDialog):
+class CalculateDialog(NXDialog):
 
     def __init__(self, parent=None):
         super(CalculateDialog, self).__init__(parent)

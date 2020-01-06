@@ -2,7 +2,7 @@ from __future__ import unicode_literals
 import os
 
 from nexusformat.nexus import NeXusError
-from nexpy.gui.datadialogs import BaseDialog, GridParameters
+from nexpy.gui.datadialogs import NXDialog, GridParameters
 from nexpy.gui.utils import report_error
 
 
@@ -14,7 +14,7 @@ def show_dialog():
         report_error("Defining New Sample", error)
 
 
-class SampleDialog(BaseDialog):
+class SampleDialog(NXDialog):
 
     def __init__(self, parent=None):
         super(SampleDialog, self).__init__(parent)

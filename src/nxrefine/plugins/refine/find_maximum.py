@@ -1,7 +1,8 @@
 from nexpy.gui.pyqt import QtCore, QtWidgets 
 import numpy as np
-from nexpy.gui.datadialogs import BaseDialog, GridParameters
+from nexpy.gui.datadialogs import NXDialog, GridParameters
 from nexpy.gui.utils import report_error, is_file_locked
+from nexpy.gui.widgets import NXLabel
 from nexusformat.nexus import NeXusError, NXfield
 from nxrefine.nxreduce import NXReduce
 
@@ -14,7 +15,7 @@ def show_dialog():
         report_error("Finding Maximum", error)
         
 
-class MaximumDialog(BaseDialog):
+class MaximumDialog(NXDialog):
 
     def __init__(self, parent=None):
         super(MaximumDialog, self).__init__(parent)
@@ -25,7 +26,7 @@ class MaximumDialog(BaseDialog):
         self.parameters.add('first', '', 'First Frame')
         self.parameters.add('last', '', 'Last Frame')
 
-        self.output = QtWidgets.QLabel('Maximum Value:')
+        self.output = NXLabel('Maximum Value:')
         self.set_layout(self.entry_layout, self.output,
                         self.parameters.grid(),
                         self.action_buttons(('Find Maximum', self.find_maximum)),

@@ -3,7 +3,7 @@ import numpy as np
 
 from nexusformat.nexus import *
 from nexpy.gui.pyqt import QtCore, QtWidgets
-from nexpy.gui.datadialogs import BaseDialog, GridParameters
+from nexpy.gui.datadialogs import NXDialog, GridParameters
 from nexpy.gui.utils import report_error, natural_sort
 
 from nxrefine.nxreduce import NXReduce
@@ -17,7 +17,7 @@ def show_dialog():
         report_error("Choosing Parameters", error)
 
 
-class ParametersDialog(BaseDialog):
+class ParametersDialog(NXDialog):
 
     def __init__(self, parent=None):
         super(ParametersDialog, self).__init__(parent)

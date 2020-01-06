@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 
 import numpy as np
-from nexpy.gui.datadialogs import BaseDialog, GridParameters
+from nexpy.gui.datadialogs import NXDialog, GridParameters
 from nexpy.gui.plotview import NXPlotView, plotviews
 from nexpy.gui.widgets import NXrectangle, NXcircle
 from nexpy.gui.utils import report_error
@@ -16,7 +16,7 @@ def show_dialog():
         report_error("Creating Mask", error)
         
 
-class MaskDialog(BaseDialog):
+class MaskDialog(NXDialog):
 
     def __init__(self, parent=None):
         super(MaskDialog, self).__init__(parent)
