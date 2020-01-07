@@ -35,9 +35,6 @@ class ServerDialog(NXDialog):
         self.server_layout = self.make_layout(self.server_status, 
                                               self.server_actions)
 
-        self.node_editor = self.editor()
-        self.node_editor.setPlainText('\n'.join(self.server.nodes))
-
         self.experiment_choices =  list(self.server.experiments) + ['New...']
         self.experiment_combo = self.select_box(self.experiment_choices)
 
@@ -47,11 +44,8 @@ class ServerDialog(NXDialog):
                         self.experiment_combo,
                         self.action_buttons(('register', self.register),
                                             ('remove', self.remove)),
-                        self.labels(('List of Nodes'), header=True),
-                        self.node_editor,
                         self.close_buttons(save=True))
 
-        self.node_editor.setFocus()
         self.set_title('Manage Servers')
         self.experiment_directory = None
 
@@ -85,7 +79,4 @@ class ServerDialog(NXDialog):
         self.experiment_combo.removeItem(self.experiment_combo.currentIndex())
 
     def accept(self):
-        node_text = self.node_editor.document().toPlainText().strip()+'\n'
-        with open(self.server.node_file, "w") as f:
-            f.write(node_text)
         super(ServerDialog, self).accept()
