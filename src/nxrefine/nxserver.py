@@ -50,7 +50,7 @@ class NXTask(object):
                                     stdout=subprocess.PIPE, 
                                     stderr=subprocess.STDOUT)
         output = datetime.now().strftime("%Y-%m-%d %H:%M:%S")+' '+self.command
-        output = output + '\n' + process.stdout.decode() + '\n\n')
+        output = output + '\n' + process.stdout.decode() + '\n\n'
         with open(self.error_file, 'a') as f:
             f.write(output)
 
