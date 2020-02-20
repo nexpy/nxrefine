@@ -47,13 +47,11 @@ class NXWorker(Process):
             f.write('\n'.join(lines))
 
 
-
 class NXTask(object):
     """Class for submitting tasks to different nodes."""
-    def __init__(self, path, command, error_file):
+    def __init__(self, path, command):
         self.path = path
         self.command = command
-        self.error_file = error_file
 
     def execute(self, node):
         process = subprocess.run("pdsh -w %s 'cd %s; %s'"
