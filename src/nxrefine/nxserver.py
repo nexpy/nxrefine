@@ -39,13 +39,20 @@ class NXWorker(Process):
 
 class NXTask(object):
     """Class for submitting tasks to different nodes."""
-    def __init__(self, path, command):
+    def __init__(self, path, command, error_file):
         self.path = path
         self.command = command
+        self.error_file = error_file
 
     def execute(self, node):
-        subprocess.run("pdsh -w %s 'cd %s; %s'"
-                        % (node, self.path, self.command), shell=True)
+        process = subprocess.run("pdsh -w %s 'cd %s; %s'"
+                                 % (node, self.path, self.command), shell=True,
+                                    stdout=subprocess.PIPE, 
+                                    stderr=subprocess.STDOUT)
+        output = datetime.now().strftime("%Y-%m-%d %H:%M:%S")+' '+self.command
+        output = output + '\n' + process.stdout.decode() + '\n\n')
+        with open(self.error_file, 'a') as f:
+            f.write(output)
 
 
 class NXServer(NXDaemon):
@@ -68,6 +75,7 @@ class NXServer(NXDaemon):
             self.node_file = node_file
         self.nodes = self.read_nodes(self.node_file)
         self.log_file = os.path.join(self.task_directory, 'nxserver.log')
+        self.error_file = os.path.join(self.task_directory, 'nxerror.log')
         self.pid_file = os.path.join(self.task_directory, 'nxserver.pid')
 
         self.tasks = None
@@ -111,7 +119,7 @@ class NXServer(NXDaemon):
             if command == 'stop':
                 break
             elif command:
-                self.tasks.put(NXTask(self.directory, command))
+                self.tasks.put(NXTask(self.directory, command, self.error_file))
         for worker in self.workers:
             self.tasks.put(None)
         self.tasks.join()
