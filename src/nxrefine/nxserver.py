@@ -14,6 +14,8 @@ class NXWorker(Process):
         self.task_queue = task_queue
         self.result_queue = result_queue
         self.log_file = log_file
+        self.output_file = os.path.join(os.path.dirname(self.log_file),
+                                        node+'.log')
 
     def run(self):
         self.log("Started worker on node {} (pid={})".format(self.node, os.getpid()))
@@ -26,7 +28,8 @@ class NXWorker(Process):
                 break
             else:
                 self.log("%s: Executing '%s'" % (self.node, next_task.command))
-                next_task.execute(self.node)
+                process = next_task.execute(self.node)
+                self.record_task(process)
             self.task_queue.task_done()
             self.log("%s: Finished '%s'" % (self.node, next_task.command))
             self.result_queue.put(next_task.command)
@@ -35,6 +38,14 @@ class NXWorker(Process):
     def log(self, message):
         with open(self.log_file, 'a') as f:
             f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S")+' '+str(message)+'\n')
+
+    def record_task(self, process):
+        lines = [datetime.now().strftime("%Y-%m-%d %H:%M:%S")+' '+self.path]
+        lines.append("Command: " + self.command)
+        lines.append(process.stdout.decode() + '\n\n')
+        with open(self.output_file, 'a') as f:
+            f.write('\n'.join(lines))
+
 
 
 class NXTask(object):
@@ -49,11 +60,7 @@ class NXTask(object):
                                  % (node, self.path, self.command), shell=True,
                                     stdout=subprocess.PIPE, 
                                     stderr=subprocess.STDOUT)
-        lines = [datetime.now().strftime("%Y-%m-%d %H:%M:%S")+' '+self.path]
-        lines.append("Command " + self.command)
-        lines.append(process.stdout.decode() + '\n\n')
-        with open(self.error_file, 'a') as f:
-            f.write('\n'.join(lines))
+        return process
 
 
 class NXServer(NXDaemon):
@@ -76,7 +83,6 @@ class NXServer(NXDaemon):
             self.node_file = node_file
         self.nodes = self.read_nodes(self.node_file)
         self.log_file = os.path.join(self.task_directory, 'nxserver.log')
-        self.error_file = os.path.join(self.task_directory, 'nxerror.log')
         self.pid_file = os.path.join(self.task_directory, 'nxserver.pid')
 
         self.tasks = None
@@ -120,7 +126,7 @@ class NXServer(NXDaemon):
             if command == 'stop':
                 break
             elif command:
-                self.tasks.put(NXTask(self.directory, command, self.error_file))
+                self.tasks.put(NXTask(self.directory, command))
         for worker in self.workers:
             self.tasks.put(None)
         self.tasks.join()
