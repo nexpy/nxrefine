@@ -157,8 +157,8 @@ class NXReduce(QtCore.QObject):
         return "NXReduce('"+self.sample+"_"+self.scan+"/"+self.entry_name+"')"
 
     def init_logs(self):
-        self.logger = logging.getLogger("%s_%s['%s']"
-                                        % (self.sample, self.scan, self.entry_name))
+        self.logger = logging.getLogger("%s/%s_%s['%s']"
+                      % (self.label, self.sample, self.scan, self.entry_name))
         self.logger.setLevel(logging.DEBUG)
         formatter = logging.Formatter(
                         '%(asctime)s %(name)-12s: %(message)s',
@@ -942,6 +942,7 @@ class NXReduce(QtCore.QObject):
                 self.logger.info('Cannot refine until peak search is completed')
                 return
             self.record_start('nxrefine')
+            self.logger.info('Refining orientation')
             if self.lattice or self.first_entry:
                 lattice = True
             else:
