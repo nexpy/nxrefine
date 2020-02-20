@@ -49,10 +49,11 @@ class NXTask(object):
                                  % (node, self.path, self.command), shell=True,
                                     stdout=subprocess.PIPE, 
                                     stderr=subprocess.STDOUT)
-        output = datetime.now().strftime("%Y-%m-%d %H:%M:%S")+' '+self.command
-        output = output + '\n' + process.stdout.decode() + '\n\n'
+        lines = [datetime.now().strftime("%Y-%m-%d %H:%M:%S")+' '+self.path]
+        lines.append("Command " + self.command)
+        lines.append(process.stdout.decode() + '\n\n')
         with open(self.error_file, 'a') as f:
-            f.write(output)
+            f.write('\n'.join(lines))
 
 
 class NXServer(NXDaemon):
