@@ -17,7 +17,7 @@ from h5py import is_hdf5
 
 from nexusformat.nexus import *
 
-from nexpy.gui.pyqt import QtCore
+from qtpy import QtCore
 from nexpy.gui.utils import clamp, timestamp
 
 from .nxdatabase import NXDatabase
