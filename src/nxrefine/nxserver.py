@@ -14,8 +14,7 @@ class NXWorker(Process):
         self.task_queue = task_queue
         self.result_queue = result_queue
         self.log_file = log_file
-        self.output_file = os.path.join(os.path.dirname(self.log_file),
-                                        node+'.log')
+        self.output = os.path.join(os.path.dirname(self.log_file), node+'.log')
 
     def run(self):
         self.log("Started worker on node {} (pid={})".format(self.node, os.getpid()))
@@ -28,8 +27,7 @@ class NXWorker(Process):
                 break
             else:
                 self.log("%s: Executing '%s'" % (self.node, next_task.command))
-                process = next_task.execute(self.node)
-                self.record_task(process)
+                process = next_task.execute(self.node, self.output)
             self.task_queue.task_done()
             self.log("%s: Finished '%s'" % (self.node, next_task.command))
             self.result_queue.put(next_task.command)
@@ -39,13 +37,6 @@ class NXWorker(Process):
         with open(self.log_file, 'a') as f:
             f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S")+' '+str(message)+'\n')
 
-    def record_task(self, process):
-        lines = [datetime.now().strftime("%Y-%m-%d %H:%M:%S")+' '+self.path]
-        lines.append("Command: " + self.command)
-        lines.append(process.stdout.decode() + '\n\n')
-        with open(self.output_file, 'a') as f:
-            f.write('\n'.join(lines))
-
 
 class NXTask(object):
     """Class for submitting tasks to different nodes."""
@@ -53,12 +44,17 @@ class NXTask(object):
         self.path = path
         self.command = command
 
-    def execute(self, node):
+    def execute(self, node, output):
         process = subprocess.run("pdsh -w %s 'cd %s; %s'"
-                                 % (node, self.path, self.command), shell=True,
-                                    stdout=subprocess.PIPE, 
+                                 % (node, self.path, self.command), 
+                                    shell=True, text=True,
+                                    stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT)
-        return process
+        lines = [datetime.now().strftime("%Y-%m-%d %H:%M:%S")+' '+self.path]
+        lines.append("Command: " + self.command)
+        lines.append(process.stdout + '\n\n')
+        with open(output, 'a') as f:
+            f.write('\n'.join(lines))
 
 
 class NXServer(NXDaemon):
