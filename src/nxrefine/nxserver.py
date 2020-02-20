@@ -47,14 +47,12 @@ class NXTask(object):
     def execute(self, node, output):
         process = subprocess.run("pdsh -w %s 'cd %s; %s'"
                                  % (node, self.path, self.command), 
-                                    shell=True, text=True,
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.STDOUT)
-        lines = [datetime.now().strftime("%Y-%m-%d %H:%M:%S")+' '+self.path]
-        lines.append("Command: " + self.command)
-        lines.append(process.stdout + '\n\n')
+                                 shell=True, 
+                                 stdout=subprocess.PIPE,
+                                 stderr=subprocess.STDOUT)
         with open(output, 'a') as f:
-            f.write('\n'.join(lines))
+            f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' + 
+                    self.command + '\n' + process.stdout.decode() + '\n')
 
 
 class NXServer(NXDaemon):
