@@ -27,7 +27,7 @@ class NXWorker(Process):
                 break
             else:
                 self.log("%s: Executing '%s'" % (self.node, next_task.command))
-                process = next_task.execute(self.node, self.output)
+                next_task.execute(self.node, self.output)
             self.task_queue.task_done()
             self.log("%s: Finished '%s'" % (self.node, next_task.command))
             self.result_queue.put(next_task.command)
