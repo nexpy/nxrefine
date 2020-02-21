@@ -518,8 +518,8 @@ class NXReduce(QtCore.QObject):
         """ Record that a task has ended. Update database """
         try:
             self.db.end_task(self.wrapper_file, program, self.entry_name)
-        except Exception:
-            pass
+        except Exception as error:
+            self.logger.info(str(error))
 
     def record_fail(self, program):
         """ Record that a task has failed. Update database """
