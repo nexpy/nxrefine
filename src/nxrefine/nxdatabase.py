@@ -318,7 +318,7 @@ class NXDatabase(object):
         entry : str
             Entry of NeXus file being updated.
         """
-        f = self,get_file(filename)
+        f = self.get_file(filename)
         # The entries that have finished this task
         for t in reversed(f.tasks):
             if t.name == task and t.entry == entry:

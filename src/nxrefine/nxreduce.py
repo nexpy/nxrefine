@@ -511,8 +511,8 @@ class NXReduce(QtCore.QObject):
         """ Record that a task has started. Update database """
         try:
             self.db.start_task(self.wrapper_file, program, self.entry_name)
-        except Exception:
-            pass
+        except Exception as error:
+            self.logger.info(str(error))
 
     def record_end(self, program):
         """ Record that a task has ended. Update database """
@@ -525,8 +525,8 @@ class NXReduce(QtCore.QObject):
         """ Record that a task has failed. Update database """
         try:
             self.db.fail_task(self.wrapper_file, program, self.entry_name)
-        except Exception:
-            pass
+        except Exception as error:
+            self.logger.info(str(error))
 
     def nxlink(self):
         if self.not_complete('nxlink') and self.link:
