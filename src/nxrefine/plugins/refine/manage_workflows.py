@@ -237,7 +237,7 @@ class WorkflowDialog(NXDialog):
                     checkbox.setEnabled(False)
                 elif file_status == self.db.IN_PROGRESS:
                     checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
-                    checkbox.setEnabled(False)
+                    checkbox.setEnabled(True)
                 elif file_status == self.db.QUEUED:
                     checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
                     checkbox.setEnabled(True)
