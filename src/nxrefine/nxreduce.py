@@ -139,11 +139,12 @@ class NXReduce(QtCore.QObject):
         db_file = os.path.join(self.task_directory, 'nxdatabase.db')
         try:
             self.db = NXDatabase(db_file)
-        except Exception:
-            pass
+        except Exception as error:
+            self.logger.info(str(error))
         try:
             self.server = NXServer(self.root_directory)
         except Exception as error:
+            self.logger.info(str(error))
             self.server = None
 
         nxsetlock(600)
@@ -753,6 +754,7 @@ class NXReduce(QtCore.QObject):
                                                   NXfield(polar_angle, name='polar_angle'))
             except Exception as error:
                 self.logger.info('Unable to create radial sum')
+                self.logger.info(str(error))
 
     def nxfind(self):
         if self.not_complete('nxfind') and self.find:
@@ -1605,6 +1607,7 @@ class NXMultiReduce(NXReduce):
                 self.entry[transform] = NXdata(data, [Ql,Qk,Qh])
         except Exception as error:
             self.logger.info('Unable to initialize transform group')
+            self.logger.info(str(error))
             return None
         input = ' '.join([os.path.join(self.directory,
                                        '%s_%s.nxs\#/entry/data' % (entry, transform))
