@@ -1000,14 +1000,15 @@ class NXReduce(QtCore.QObject):
                 if process.returncode == 0:
                     self.logger.info('Transform completed (%g seconds)'
                                      % (toc-tic))
+                    self.record('nxtransform', norm=self.norm,
+                                command=cctw_command,
+                                output=process.stdout.decode(),
+                                errors=process.stderr.decode())
                 else:
                     self.logger.info(
                         'Transform completed - errors reported (%g seconds)'
                         % (toc-tic))
-                self.record('nxtransform', norm=self.norm,
-                            command=cctw_command,
-                            output=process.stdout.decode(),
-                            errors=process.stderr.decode())
+                    self.record_fail('nxtransform')
             else:
                 self.logger.info('CCTW command invalid')
                 self.record_fail('nxtransform')
@@ -1303,18 +1304,18 @@ class NXReduce(QtCore.QObject):
                 if process.returncode == 0:
                     self.logger.info('Masked transform completed (%g seconds)'
                                      % (toc-tic))
+                    self.record('nxmasked_transform', mask=self.mask_file,
+                                radius=self.radius, width=self.width, norm=self.norm,
+                                command=cctw_command,
+                                output=process.stdout.decode(),
+                                errors=process.stderr.decode())
                 else:
                     self.logger.info(
                         'Masked transform completed - errors reported (%g seconds)'
                         % (toc-tic))
-                self.record('nxmasked_transform', mask=self.mask_file,
-                            radius=self.radius, width=self.width, norm=self.norm,
-                            command=cctw_command,
-                            output=process.stdout.decode(),
-                            errors=process.stderr.decode())
+                    self.record_fail('nxmasked_transform')
             else:
                 self.logger.info('CCTW command invalid')
-                self.record_fail('nxmasked_transform')
         elif self.transform and self.mask:
             self.logger.info('Masked data already transformed')
             self.record_end('nxmasked_transform')
@@ -1576,16 +1577,16 @@ class NXMultiReduce(NXReduce):
                 if process.returncode == 0:
                     self.logger.info('%s (%s)completed (%g seconds)'
                         % (title, ', '.join(self.entries), toc-tic))
+                    self.record(task, command=cctw_command,
+                                output=process.stdout.decode(),
+                                errors=process.stderr.decode())
                 else:
                     self.logger.info(
                         '%s (%s) completed - errors reported (%g seconds)'
                         % (title, ', '.join(self.entries), toc-tic))
-                self.record(task, command=cctw_command,
-                            output=process.stdout.decode(),
-                            errors=process.stderr.decode())
+                    self.record_fail('nxcombine')
             else:
                 self.logger.info('CCTW command invalid')
-                self.record_fail('nxcombine')
         else:
             self.logger.info('Data already combined')
 
