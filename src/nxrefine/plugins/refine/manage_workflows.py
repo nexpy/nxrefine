@@ -238,12 +238,15 @@ class WorkflowDialog(NXDialog):
                 elif file_status == self.db.IN_PROGRESS:
                     checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
                     checkbox.setEnabled(True)
+                    checkbox.setStyleSheet("color: green")
                 elif file_status == self.db.QUEUED:
                     checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
                     checkbox.setEnabled(True)
+                    checkbox.setStyleSheet("color: blue")
                 elif file_status == self.db.FAILED:
-                    checkbox.setCheckState(QtCore.Qt.Unchecked)
+                    checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
                     checkbox.setEnabled(True)
+                    checkbox.setStyleSheet("color: red")
                 # TODO: do i need to account for last?
             if status['data'].checkState() == QtCore.Qt.Unchecked:
                 self.disable_status(status)
