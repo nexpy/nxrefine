@@ -8,7 +8,6 @@ from datetime import datetime
 
 from nexpy.gui.pyqt import QtCore, QtWidgets, getOpenFileName
 import numpy as np
-import tifffile as TIFF
 
 from nexpy.gui.importdialog import BaseImportDialog
 from nexpy.gui.utils import report_error
