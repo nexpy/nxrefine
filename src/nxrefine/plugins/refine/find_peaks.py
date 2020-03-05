@@ -111,7 +111,7 @@ class FindDialog(NXDialog):
         try:
             with Lock(file_name, timeout=2):
                 pass
-        except LockException as error:
+        except NXLockException as error:
             if self.confirm_action('Clear lock?', str(error)):
                 Lock(file_name).release()
 
@@ -130,7 +130,7 @@ class FindDialog(NXDialog):
         try:
             with Lock(self.reduce.wrapper_file):
                 self.reduce.write_peaks(self.peaks)
-        except LockException as error:
+        except NXLockException as error:
             if self.confirm_action('Clear lock?', str(error)):
                 Lock(self.reduce.wrapper_file).release()
         self.stop()

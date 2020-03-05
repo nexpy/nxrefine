@@ -3,7 +3,7 @@ import numpy as np
 from nexpy.gui.datadialogs import NXDialog, GridParameters
 from nexpy.gui.utils import report_error, is_file_locked
 from nexpy.gui.widgets import NXLabel
-from nexusformat.nexus import NeXusError, NXfield
+from nexusformat.nexus import NeXusError, NXfield, NXLock, NXLockException
 from nxrefine.nxreduce import NXReduce
 
 
@@ -91,9 +91,9 @@ class MaximumDialog(NXDialog):
 
     def check_lock(self, file_name):
         try:
-            with Lock(file_name, timeout=2):
+            with NXLock(file_name, timeout=2):
                 pass
-        except LockException as error:
+        except NXLockException as error:
             if self.confirm_action('Clear lock?', str(error)):
                 Lock(file_name).release()
 
@@ -108,9 +108,9 @@ class MaximumDialog(NXDialog):
 
     def accept(self):
         try:
-            with Lock(self.reduce.wrapper_file):
+            with NXLock(self.reduce.wrapper_file):
                 self.reduce.write_maximum(self.maximum)
-        except LockException as error:
+        except NXLockException as error:
             if self.confirm_action('Clear lock?', str(error)):
                 Lock(self.reduce.wrapper_file).release()
         self.stop()

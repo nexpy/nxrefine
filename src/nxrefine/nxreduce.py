@@ -19,7 +19,7 @@ import fabio
 
 from nexusformat.nexus import *
 
-from nexpy.gui.pyqt import QtCore
+from qtpy import QtCore
 from nexpy.gui.utils import clamp, timestamp
 
 from .nxdatabase import NXDatabase
@@ -149,11 +149,12 @@ class NXReduce(QtCore.QObject):
         db_file = os.path.join(self.task_directory, 'nxdatabase.db')
         try:
             self.db = NXDatabase(db_file)
-        except Exception:
-            pass
+        except Exception as error:
+            self.logger.info(str(error))
         try:
             self.server = NXServer(self.root_directory)
         except Exception as error:
+            self.logger.info(str(error))
             self.server = None
 
         nxsetlock(600)
@@ -167,8 +168,8 @@ class NXReduce(QtCore.QObject):
         return "NXReduce('"+self.sample+"_"+self.scan+"/"+self.entry_name+"')"
 
     def init_logs(self):
-        self.logger = logging.getLogger("%s_%s['%s']"
-                                        % (self.sample, self.scan, self.entry_name))
+        self.logger = logging.getLogger("%s/%s_%s['%s']"
+                      % (self.label, self.sample, self.scan, self.entry_name))
         self.logger.setLevel(logging.DEBUG)
         formatter = logging.Formatter(
                         '%(asctime)s %(name)-12s: %(message)s',
@@ -521,22 +522,22 @@ class NXReduce(QtCore.QObject):
         """ Record that a task has started. Update database """
         try:
             self.db.start_task(self.wrapper_file, program, self.entry_name)
-        except Exception:
-            pass
+        except Exception as error:
+            self.logger.info(str(error))
 
     def record_end(self, program):
         """ Record that a task has ended. Update database """
         try:
             self.db.end_task(self.wrapper_file, program, self.entry_name)
-        except Exception:
-            pass
+        except Exception as error:
+            self.logger.info(str(error))
 
     def record_fail(self, program):
         """ Record that a task has failed. Update database """
         try:
             self.db.fail_task(self.wrapper_file, program, self.entry_name)
-        except Exception:
-            pass
+        except Exception as error:
+            self.logger.info(str(error))
 
     def nxlink(self):
         if self.not_complete('nxlink') and self.link:
@@ -733,6 +734,7 @@ class NXReduce(QtCore.QObject):
                                                   NXfield(polar_angle, name='polar_angle'))
             except Exception as error:
                 self.logger.info('Unable to create radial sum')
+                self.logger.info(str(error))
 
     def nxfind(self):
         if self.not_complete('nxfind') and self.find:
@@ -922,6 +924,7 @@ class NXReduce(QtCore.QObject):
                 self.logger.info('Cannot refine until peak search is completed')
                 return
             self.record_start('nxrefine')
+            self.logger.info('Refining orientation')
             if self.lattice or self.first_entry:
                 lattice = True
             else:
@@ -977,14 +980,15 @@ class NXReduce(QtCore.QObject):
                 if process.returncode == 0:
                     self.logger.info('Transform completed (%g seconds)'
                                      % (toc-tic))
+                    self.record('nxtransform', norm=self.norm,
+                                command=cctw_command,
+                                output=process.stdout.decode(),
+                                errors=process.stderr.decode())
                 else:
                     self.logger.info(
                         'Transform completed - errors reported (%g seconds)'
                         % (toc-tic))
-                self.record('nxtransform', norm=self.norm,
-                            command=cctw_command,
-                            output=process.stdout.decode(),
-                            errors=process.stderr.decode())
+                    self.record_fail('nxtransform')
             else:
                 self.logger.info('CCTW command invalid')
                 self.record_fail('nxtransform')
@@ -1280,18 +1284,18 @@ class NXReduce(QtCore.QObject):
                 if process.returncode == 0:
                     self.logger.info('Masked transform completed (%g seconds)'
                                      % (toc-tic))
+                    self.record('nxmasked_transform', mask=self.mask_file,
+                                radius=self.radius, width=self.width, norm=self.norm,
+                                command=cctw_command,
+                                output=process.stdout.decode(),
+                                errors=process.stderr.decode())
                 else:
                     self.logger.info(
                         'Masked transform completed - errors reported (%g seconds)'
                         % (toc-tic))
-                self.record('nxmasked_transform', mask=self.mask_file,
-                            radius=self.radius, width=self.width, norm=self.norm,
-                            command=cctw_command,
-                            output=process.stdout.decode(),
-                            errors=process.stderr.decode())
+                    self.record_fail('nxmasked_transform')
             else:
                 self.logger.info('CCTW command invalid')
-                self.record_fail('nxmasked_transform')
         elif self.transform and self.mask:
             self.logger.info('Masked data already transformed')
             self.record_end('nxmasked_transform')
@@ -1553,16 +1557,16 @@ class NXMultiReduce(NXReduce):
                 if process.returncode == 0:
                     self.logger.info('%s (%s)completed (%g seconds)'
                         % (title, ', '.join(self.entries), toc-tic))
+                    self.record(task, command=cctw_command,
+                                output=process.stdout.decode(),
+                                errors=process.stderr.decode())
                 else:
                     self.logger.info(
                         '%s (%s) completed - errors reported (%g seconds)'
                         % (title, ', '.join(self.entries), toc-tic))
-                self.record(task, command=cctw_command,
-                            output=process.stdout.decode(),
-                            errors=process.stderr.decode())
+                    self.record_fail('nxcombine')
             else:
                 self.logger.info('CCTW command invalid')
-                self.record_fail('nxcombine')
         else:
             self.logger.info('Data already combined')
 
@@ -1584,6 +1588,7 @@ class NXMultiReduce(NXReduce):
                 self.entry[transform] = NXdata(data, [Ql,Qk,Qh])
         except Exception as error:
             self.logger.info('Unable to initialize transform group')
+            self.logger.info(str(error))
             return None
         input = ' '.join([os.path.join(self.directory,
                                        '%s_%s.nxs\#/entry/data' % (entry, transform))

@@ -3,7 +3,8 @@ import os
 import numpy as np
 from operator import attrgetter
 from nexusformat.nexus import *
-from nexpy.gui.datadialogs import NXDialog, GridParameters
+from nexpy.gui.datadialogs import NXWidget, NXDialog, GridParameters
+from nexpy.gui.widgets import NXScrollArea
 from nexpy.gui.utils import report_error, confirm_action, natural_sort
 from nexpy.gui.pyqt import getSaveFileName
 
@@ -56,7 +57,13 @@ class MakeDialog(NXDialog):
             scan = 'f%d' % i
             self.scans.add(scan, i+1, f, True, self.update_scans)
             self.scans[scan].checkbox.stateChanged.connect(self.update_scans)
-        self.insert_layout(2, self.scans.grid(header=False))
+        scroll_widget = NXWidget()
+        scroll_widget.set_layout(self.scans.grid(header=False))
+        scroll_area = NXScrollArea(scroll_widget)
+        scroll_area.setMinimumHeight(min(scroll_widget.sizeHint().height(), 
+                                         600))
+        scroll_area.setWidgetResizable(True)
+        self.insert_layout(2, scroll_area)
 
     @property
     def scan_list(self):

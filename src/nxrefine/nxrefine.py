@@ -135,11 +135,15 @@ class NXRefine(object):
 
     def read_parameter(self, path, default=None, attr=None):
         try:
+            if path.startswith('sample'):
+                entry = self.entry.nxroot['entry']
+            else:
+                entry = self.entry
             if attr:
                 return self.entry[path].attrs[attr]
             else:
                 # return self.entry[path].nxvalue
-                return self.entry[path].nxdata
+                return entry[path].nxdata
         except NeXusError:
             return default
 
@@ -290,8 +294,10 @@ class NXRefine(object):
     def copy_parameters(self, other, sample=False, instrument=False):
         with other.entry.nxfile:
             if sample:
+                if 'sample' not in other.entry.nxroot['entry']:
+                    other.entry.nxroot['entry/sample'] = NXsample()
                 if 'sample' not in other.entry:
-                    other.entry['sample'] = NXsample()
+                    other.entry.makelink(other.entry.nxroot['entry/sample'])
                 other.write_parameter('sample/unit_cell_group', self.symmetry)
                 other.write_parameter('sample/lattice_centring', self.centring)
                 other.write_parameter('sample/unitcell_a', self.a)

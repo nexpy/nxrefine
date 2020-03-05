@@ -13,7 +13,7 @@ def main():
     parser.add_argument('-d', '--directory', nargs='?', const='.',
                         help='Start the server in this directory')
     parser.add_argument('command', action='store',
-        help='valid commands are: status|start|stop|restart|clear')
+                    help='valid commands are: status|start|stop|restart|clear')
 
     args = parser.parse_args()
 

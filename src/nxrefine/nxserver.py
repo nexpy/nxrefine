@@ -17,6 +17,7 @@ class NXWorker(Process):
         self.task_queue = task_queue
         self.result_queue = result_queue
         self.log_file = log_file
+        self.output = os.path.join(os.path.dirname(self.log_file), node+'.log')
 
     def run(self):
         self.log("Started worker on cpu {} (pid={})".format(self.cpu, 
@@ -30,7 +31,7 @@ class NXWorker(Process):
                 break
             else:
                 self.log("%s: Executing '%s'" % (self.cpu, next_task.command))
-                next_task.execute(self.cpu)
+                next_task.execute(self.cpu, self.output)
             self.task_queue.task_done()
             self.log("%s: Finished '%s'" % (self.cpu, next_task.command))
             self.result_queue.put(next_task.command)
@@ -49,8 +50,14 @@ class NXTask(object):
         self.command = command
         self.log_file = log_file
 
-    def execute(self, cpu):
-        os.system("cd %s && %s" % (self.path, self.command))
+    def execute(self, cpu, output):
+        process = subprocess.run("cd %s && %s" % (self.path, self.command)), 
+                                 shell=True, 
+                                 stdout=subprocess.PIPE,
+                                 stderr=subprocess.STDOUT)
+        with open(output, 'a') as f:
+            f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' + 
+                    self.command + '\n' + process.stdout.decode() + '\n')
 
     def log(self, message):
         with open(self.log_file, 'a') as f:
