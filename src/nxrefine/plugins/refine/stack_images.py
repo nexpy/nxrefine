@@ -279,26 +279,18 @@ class StackDialog(BaseImportDialog):
             self.range_box.setVisible(False)
 
     def read_image(self, filename):
-        if self.get_image_type() == 'CBF':
-            import pycbf
-            cbf = pycbf.cbf_handle_struct()
-            cbf.read_file(str(filename), pycbf.MSG_DIGEST)
-            cbf.select_datablock(0)
-            cbf.select_category(0)
-            cbf.select_column(2)
-            imsize = cbf.get_image_size(0)
-            return np.fromstring(cbf.get_integerarray_as_string(),np.int32).reshape(imsize)
-        else:
-            return TIFF.imread(filename)
+        try:
+            import fabio
+        except ImportError:
+            raise NeXusError("Please install the 'fabio' module")
+        im = fabio.open(filename)
+        return im
 
     def read_images(self, filenames):
-        if self.get_image_type() == 'CBF':
-            v0 = self.read_image(filenames[0])
-            v = np.zeros([len(filenames), v0.shape[0], v0.shape[1]], dtype=np.int32)
-            for i,filename in enumerate(filenames):
-                v[i] = self.read_image(filename)
-        else:
-            v = TIFF.TiffSequence(filenames).asarray()        
+        v0 = self.read_image(filenames[0]).data
+        v = np.zeros([len(filenames), v0.shape[0], v0.shape[1]], dtype=np.int32)
+        for i,filename in enumerate(filenames):
+            v[i] = self.read_image(filename).data
         global maximum
         if v.max() > maximum:
             maximum = v.max()
@@ -306,7 +298,8 @@ class StackDialog(BaseImportDialog):
 
     def get_data(self):
         filenames = self.get_files()
-        v0 = self.read_image(filenames[0])
+        im = self.read_image(filenames[0])
+        v0 = im.data
         x = NXfield(range(v0.shape[1]), dtype=np.uint16, name='x')
         y = NXfield(range(v0.shape[0]), dtype=np.uint16, name='y')
         z = NXfield(range(1,len(filenames)+1), dtype=np.uint16, name='z')
@@ -332,7 +325,25 @@ class StackDialog(BaseImportDialog):
         global maximum
         v.maximum = maximum
         self.progress_bar.setVisible(False)
-        return NXroot(NXentry(NXdata(v,(z,y,x))))
+
+        if im.getclassname() == 'CbfImage':
+            note = NXnote(type='text/plain', file_name=self.import_file)
+            note.data = im.header.pop('_array_data.header_contents', '')
+            note.description = im.header.pop(
+                '_array_data.header_convention', '')
+        else:
+            note = None
+
+        header = NXcollection()
+        for key, value in im.header.items():
+            header[key] = value
+
+        if note:
+            entry = NXentry(NXdata(v,(z,y,x), CBF_header=note, header=header))
+        else:
+            entry = NXentry(NXdata(v,(z,y,x), header=header))
+
+        return NXroot(entry)
 
     def accept(self):
         try:
