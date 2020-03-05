@@ -51,7 +51,7 @@ class NXTask(object):
         self.log_file = log_file
 
     def execute(self, cpu, output):
-        process = subprocess.run("cd %s && %s" % (self.path, self.command)), 
+        process = subprocess.run("cd %s && %s" % (self.path, self.command), 
                                  shell=True, 
                                  stdout=subprocess.PIPE,
                                  stderr=subprocess.STDOUT)
