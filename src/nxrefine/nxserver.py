@@ -10,7 +10,7 @@ from .daemon import NXDaemon
 class NXWorker(Process):
     """Class for processing tasks on a specific cpu."""
     def __init__(self, cpu, task_queue, result_queue, server_log):
-        Process.__init__(self, target=self.work)
+        Process.__init__(self)
         self.cpu = 'cpu' + str(cpu)
         self.task_queue = task_queue
         self.result_queue = result_queue
@@ -18,7 +18,7 @@ class NXWorker(Process):
         self.cpu_log = os.path.join(os.path.dirname(self.server_log), 
                                     self.cpu + '.log')
 
-    def work(self):
+    def run(self):
         self.log("Started worker on {} (pid={})".format(self.cpu, os.getpid()))
         while True:
             time.sleep(5)
@@ -101,11 +101,16 @@ class NXServer(NXDaemon):
                 break
             elif command:
                 self.tasks.put(NXTask(command))
-            if command == 'stop':
-                break
             self.log('Server listening')
             time.sleep(5)
-        self.stop()
+        for worker in self.workers:
+            self.tasks.put(None)
+        self.tasks.join()
+        for worker in self.workers:
+            worker.terminate()
+            worker.join()
+        self.log("Stopping server")
+        super(NXServer, self).stop()
 
     def add_task(self, command):
         """Add a task to the server queue"""
@@ -121,16 +126,7 @@ class NXServer(NXDaemon):
 
     def stop(self):
         if self.is_running():
-            for worker in self.workers:
-                self.tasks.put(None)
-            self.tasks.join()
-            for worker in self.workers:
-                worker.terminate()
-                worker.join()
-            self.log("Stopping server")
-            super(NXServer, self).stop()
-        else:
-            super(NXServer, self).stop()
+            self.add_task('stop')
 
     def clear(self):
         if os.path.exists(self.task_list):
