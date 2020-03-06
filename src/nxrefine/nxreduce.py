@@ -1465,7 +1465,7 @@ class NXReduce(QtCore.QObject):
         """ Add tasks to the server's fifo, and log this in the database """
         command = self.command(parent)
         if command:
-            self.server.add_task(command)
+            self.server.add_task(command, self.root_directory)
             if self.link:
                 self.db.queue_task(self.wrapper_file, 'nxlink', self.entry_name)
             if self.maxcount:
@@ -1611,7 +1611,7 @@ class NXMultiReduce(NXReduce):
     def queue(self):
         if self.server is None:
             raise NeXusError("NXServer not running")
-        self.server.add_task(self.command())
+        self.server.add_task(self.command(), self.root_directory)
         if self.mask:
             self.db.queue_task(self.wrapper_file, 'nxmasked_combine', 'entry')
         else:
