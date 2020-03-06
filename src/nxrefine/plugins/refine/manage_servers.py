@@ -35,15 +35,8 @@ class ServerDialog(NXDialog):
         self.server_layout = self.make_layout(self.server_status, 
                                               self.server_actions)
 
-        self.experiment_choices =  list(self.server.experiments) + ['New...']
-        self.experiment_combo = self.select_box(self.experiment_choices)
-
         self.set_layout(self.labels(('Server Status'), header=True),
                         self.server_layout,
-                        self.labels(('List of Experiments'), header=True),
-                        self.experiment_combo,
-                        self.action_buttons(('register', self.register),
-                                            ('remove', self.remove)),
                         self.close_buttons(save=True))
 
         self.set_title('Manage Servers')
@@ -58,25 +51,6 @@ class ServerDialog(NXDialog):
             subprocess.run('nxserver stop', shell=True)
             self.server_status.setText('Server is not running')
             self.pushbutton['server'].setText('Start Server')
-
-    @property
-    def experiment(self):
-        return self.experiment_combo.currentText()
-
-    def register(self):
-        if self.experiment == 'New...':
-            experiment = QtWidgets.QFileDialog.getExistingDirectory(self, 
-                                                'Choose Experiment Directory')
-            if os.path.exists(experiment):
-                self.experiment_combo.insertItem(0, experiment)
-                self.server.register(experiment)
-            idx = self.experiment_combo.findText(experiment)
-            self.experiment_combo.setCurrentIndex(idx)
-
-    def remove(self):
-        self.server.remove(self.experiment)
-        self.server.stop(experiment=self.experiment)
-        self.experiment_combo.removeItem(self.experiment_combo.currentIndex())
 
     def accept(self):
         super(ServerDialog, self).accept()
