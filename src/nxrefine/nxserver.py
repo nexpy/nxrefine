@@ -9,19 +9,19 @@ from .daemon import NXDaemon
 
 class NXWorker(Process):
     """Class for processing tasks on a specific cpu."""
-    def __init__(self, cpu, task_queue, result_queue, log_file):
+    def __init__(self, cpu, task_queue, result_queue, server_log):
         Process.__init__(self)
-        self.cpu = cpu
+        self.cpu = 'cpu' + str(cpu)
         self.process = psutil.Process()
-        self.process.cpu_affinity([self.cpu])
+        self.process.cpu_affinity([cpu])
         self.task_queue = task_queue
         self.result_queue = result_queue
-        self.log_file = log_file
-        self.output = os.path.join(os.path.dirname(self.log_file), node+'.log')
+        self.server_log = server_log
+        self.cpu_log = os.path.join(os.path.dirname(self.server_log), 
+                                    self.cpu + '.log')
 
     def run(self):
-        self.log("Started worker on cpu {} (pid={})".format(self.cpu, 
-                                                     os.getpid()))
+        self.log("Started worker on {} (pid={})".format(self.cpu, os.getpid()))
         while True:
             time.sleep(5)
             next_task = self.task_queue.get()
@@ -31,37 +31,32 @@ class NXWorker(Process):
                 break
             else:
                 self.log("%s: Executing '%s'" % (self.cpu, next_task.command))
-                next_task.execute(self.cpu, self.output)
+                next_task.execute(self.cpu_log)
             self.task_queue.task_done()
             self.log("%s: Finished '%s'" % (self.cpu, next_task.command))
             self.result_queue.put(next_task.command)
         return
 
     def log(self, message):
-        with open(self.log_file, 'a') as f:
+        with open(self.server_log, 'a') as f:
             f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' +
                     str(message) + '\n')
 
 
 class NXTask(object):
     """Class for submitting tasks to different cpus."""
-    def __init__(self, path, command, log_file):
+    def __init__(self, path, command):
         self.path = path
         self.command = command
-        self.log_file = log_file
 
-    def execute(self, cpu, output):
+    def execute(self, log_file):
         process = subprocess.run("cd %s && %s" % (self.path, self.command), 
                                  shell=True, 
                                  stdout=subprocess.PIPE,
                                  stderr=subprocess.STDOUT)
-        with open(output, 'a') as f:
+        with open(log_file, 'a') as f:
             f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' + 
                     self.command + '\n' + process.stdout.decode() + '\n')
-
-    def log(self, message):
-        with open(self.log_file, 'a') as f:
-            f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S")+' '+str(message)+'\n')
 
 
 class NXServer(NXDaemon):
