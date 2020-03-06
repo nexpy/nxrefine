@@ -8,6 +8,7 @@ from nexpy.gui.widgets import NXLabel, NXScrollArea
 
 from nxrefine.nxreduce import NXReduce, NXMultiReduce
 from nxrefine.nxdatabase import NXDatabase
+from nxrefine.nxserver import NXServer
 
 def show_dialog():
     try:
@@ -41,6 +42,8 @@ class WorkflowDialog(NXDialog):
         super(WorkflowDialog, self).choose_directory()
         self.sample_directory = self.get_directory()
         self.sample = os.path.basename(os.path.dirname(self.sample_directory))
+        self.label = os.path.join(os.path.basename(self.sample_directory),
+                                  self.sample)
         parent_file = os.path.join(self.sample_directory,
                                    self.sample+'_parent.nxs')
         if os.path.exists(parent_file):
@@ -57,6 +60,7 @@ class WorkflowDialog(NXDialog):
             os.mkdir(self.task_directory)
         db_file = os.path.join(self.task_directory, 'nxdatabase.db')
         self.db = NXDatabase(db_file)
+        self.server = NXServer()
         self.update()
 
     def choose_file(self):
@@ -463,17 +467,16 @@ class WorkflowDialog(NXDialog):
                                   ('View Workflow Output', self.outview),
                                   ('View Database', self.databaseview)),
             dialog.close_buttons(close=True))
-        dialog.setWindowTitle("'%s' Logs" % self.sample)
+        dialog.setWindowTitle("'%s' Logs" % self.label)
         self.view_dialog = dialog
         self.view_dialog.show()
 
     def serverview(self):
         self.defaultview = self.serverview
         scan = self.scan_combo.currentText()
-        with open(os.path.join('/volt/nxserver', 'nxserver.log')) as f:
+        with open(self.server.log_file) as f:
             lines = f.readlines()
-        text = [line for line in lines
-                if self.sample in line if scan in line]
+        text = [line for line in lines if self.label in line if scan in line]
         if text:
             self.output_box.setPlainText(''.join(text))
         else:
@@ -481,7 +484,7 @@ class WorkflowDialog(NXDialog):
 
     def logview(self):
         self.defaultview = self.logview
-        scan = self.sample + '_' + self.scan_combo.currentText()
+        scan = self.label + '_' + self.scan_combo.currentText()
         entry = self.entry_combo.currentText()
         prefix = scan + "['" + entry + "']: "
         with open(os.path.join(self.task_directory, 'nxlogger.log')) as f:
