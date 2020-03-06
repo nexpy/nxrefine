@@ -40,8 +40,6 @@ def main():
             print("Server is running (pid=%s)" % server.get_pid())
         else:
             print("Server is not running")
-    elif args.command == 'add':
-        server.register(os.path.join(args.cwd, args.exp))
 
 
 if __name__=="__main__":
