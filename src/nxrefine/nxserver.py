@@ -67,8 +67,8 @@ class NXServer(NXDaemon):
             self.directory = directory = os.path.realpath(directory)
         else:
             self.directory = os.path.join(os.path.expanduser('~'), '.nxserver')
-            if not os.path.exists(self.directory):
-                os.mkdir(self.directory)
+        if not os.path.exists(self.directory):
+            os.mkdir(self.directory)
         if experiment_file is None:
             self.experiment_file = os.path.join(self.directory, 'experiments')
         else:

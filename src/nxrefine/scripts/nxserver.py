@@ -20,7 +20,7 @@ def main():
     if args.directory:
         server = NXServer(os.path.realpath(args.directory))
     else:
-        server = NXServer(os.path.join(args.cwd, args.exp))
+        server = NXServer(os.path.join(args.cwd, 'nxserver'))
 
     if args.command == 'status':
         print(server.status())
