@@ -7,13 +7,13 @@ def main():
 
     parser = argparse.ArgumentParser(
         description="Launch server for data reduction workflow")
-    parser.add_argument('-c', '--cwd', default='/data/user6idd/dm',
+    parser.add_argument('-c', '--cwd', default='/volt',
                         help='directory containing experiment directories')
     parser.add_argument('-e', '--exp', help='Experiment name, e.g., GUP-58981')
     parser.add_argument('-d', '--directory', nargs='?', const='.',
                         help='Start the server in this directory')
     parser.add_argument('command', action='store',
-                    help='valid commands are: status|start|stop|restart|clear')
+        help='valid commands are: status|start|stop|restart|clear|add')
 
     args = parser.parse_args()
 
@@ -41,7 +41,7 @@ def main():
         else:
             print("Server is not running")
     elif args.command == 'add':
-        server.register(os.path.join(args.cwd, args.gup))
+        server.register(os.path.join(args.cwd, args.exp))
 
 
 if __name__=="__main__":
