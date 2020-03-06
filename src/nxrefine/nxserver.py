@@ -45,12 +45,11 @@ class NXWorker(Process):
 
 class NXTask(object):
     """Class for submitting tasks to different cpus."""
-    def __init__(self, path, command):
-        self.path = path
+    def __init__(self, command):
         self.command = command
 
     def execute(self, log_file):
-        process = subprocess.run("cd %s && %s" % (self.path, self.command), 
+        process = subprocess.run(self.command, 
                                  shell=True, 
                                  stdout=subprocess.PIPE,
                                  stderr=subprocess.STDOUT)
