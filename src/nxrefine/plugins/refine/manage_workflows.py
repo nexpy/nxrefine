@@ -470,7 +470,7 @@ class WorkflowDialog(NXDialog):
     def serverview(self):
         self.defaultview = self.serverview
         scan = self.scan_combo.currentText()
-        with open(os.path.join(self.task_directory, 'nxserver.log')) as f:
+        with open(os.path.join('/volt/nxserver', 'nxserver.log')) as f:
             lines = f.readlines()
         text = [line for line in lines
                 if self.sample in line if scan in line]

@@ -4,7 +4,6 @@ import subprocess
 import time
 from datetime import datetime
 from multiprocessing import Process, Queue, JoinableQueue
-from stopit import ThreadingTimeout as Timeout
 from .daemon import NXDaemon
 
 
@@ -62,7 +61,7 @@ class NXTask(object):
 
 class NXServer(NXDaemon):
 
-    def __init__(self, directory='/volt/nxserver', experiment_file=None):
+    def __init__(self, directory='/volt/nxserver'):
         self.pid_name = 'NXServer'
         if directory:
             self.directory = directory = os.path.realpath(directory)
@@ -70,11 +69,7 @@ class NXServer(NXDaemon):
             self.directory = os.path.join(os.path.expanduser('~'), '.nxserver')
         if not os.path.exists(self.directory):
             os.mkdir(self.directory)
-        if experiment_file is None:
-            self.experiment_file = os.path.join(self.directory, 'experiments')
-        else:
-            self.experiment_file = experiment_file
-        self.experiments = self.read_experiments()
+        self.task_list = os.path.join(self.directory, 'task_list')
         self.log_file = os.path.join(self.directory, 'nxserver.log')
         self.pid_file = os.path.join(self.directory, 'nxserver.pid')
         self.tasks = None
@@ -82,45 +77,6 @@ class NXServer(NXDaemon):
         self.workers = []
 
         super(NXServer, self).__init__(self.pid_name, self.pid_file)
-
-    def read_experiments(self):
-        """Read registered experiments"""
-        self.experiments = {}
-        if os.path.exists(self.experiment_file):
-            with open(self.experiment_file) as f:
-                experiment_list = [line.strip() for line in f.readlines() 
-                                   if line.strip() != '']
-        else:
-            experiment_list = []
-        for experiment in experiment_list:
-            self.add_experiment(experiment)
-        return self.experiments
-
-    def add_experiment(self, experiment):
-        e = {}
-        e['directory'] = experiment
-        e['task_directory'] = os.path.join(e['directory'], 'tasks')
-        if 'tasks' not in os.listdir(e['directory']):
-            os.mkdir(e['task_directory'])
-        e['task_list'] = os.path.join(e['task_directory'], 'task_list')
-        if not os.path.exists(e['task_list']):
-            os.mkfifo(e['task_list'])
-        self.experiments[experiment] = e
-
-    def register(self, experiment):
-        if experiment not in self.experiments:
-            with open(self.experiment_file, 'a') as f:
-                f.write(experiment+'\n')
-        self.add_experiment(experiment)
-
-    def remove(self, experiment):
-        if experiment in self.experiments:
-            with open(self.experiment_file, "r") as f:
-                lines = f.readlines()
-            with open(self.experiment_file, "w") as f:
-                for line in lines:
-                    if line.strip("\n") != experiment:
-                        f.write(line)
 
     def log(self, message):
         with open(self.log_file, 'a') as f:
@@ -141,40 +97,34 @@ class NXServer(NXDaemon):
                         for cpu in range(psutil.cpu_count())]
         for worker in self.workers:
             worker.start()
-
+        task_fifo = open(self.task_list, 'r')
         while True:
-            for experiment in self.experiments:
-                command = self.read_task(experiment)
-                if command == 'stop':
-                    break
-                elif command:
-                    self.tasks.put(NXTask(experiment, command))
+            command = self.read_task()
+            if command == 'stop':
+                break
+            elif command:
+                self.tasks.put(NXTask(command))
             if command == 'stop':
                 break
             self.log('Server listening')
             time.sleep(5)
         self.stop()
 
-    def add_task(self, command, experiment):
+    def add_task(self, command):
         """Add a task to the server queue"""
-        e = self.experiments[experiment]
-        task_fifo = os.open(e['task_list'], os.O_RDWR)
+        task_fifo = os.open(self.task_list, os.O_RDWR)
         os.write(task_fifo, (command+'\n').encode())
         os.close(task_fifo)
-        self.log('Written to FIFO ' + experiment + ' : ' + command)
+        self.log('Written to FIFO: ' + command)
 
-    def read_task(self, experiment):
-        e = self.experiments[experiment]
-        with open(e['task_list']) as task_fifo:
-            with Timeout(2):
-                command = task_fifo.readline()[:-1]
-        self.log('Read from FIFO ' + experiment + ' : ' + command)
+    def read_task(self):
+        with open(self.task_list) as task_fifo:
+            command = task_fifo.readline()[:-1]
+        self.log('Read from FIFO: ' + command)
         return command
 
-    def stop(self, experiment=None):
-        if experiment:
-            del self.experiments[experiment]            
-        elif self.is_running():
+    def stop(self):
+        if self.is_running():
             for worker in self.workers:
                 self.tasks.put(None)
             self.tasks.join()
@@ -186,17 +136,10 @@ class NXServer(NXDaemon):
         else:
             super(NXServer, self).stop()
 
-    def clear(self, experiment=None):
-        if experiment:
-            e = self.experiments[experiment]
-            if os.path.exists(e['task_list']):
-                os.remove(e['task_list'])
-            os.mkfifo(e['task_list'])        
-        else:
-            for e in self.experiments:
-                if os.path.exists(e['task_list']):
-                    os.remove(e['task_list'])
-                os.mkfifo(e['task_list'])        
+    def clear(self):
+        if os.path.exists(self.task_list):
+            os.remove(self.task_list)
+        os.mkfifo(self.task_list)        
 
     def kill(self):
         """Kill the server process.
