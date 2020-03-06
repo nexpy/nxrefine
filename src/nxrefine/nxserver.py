@@ -12,8 +12,6 @@ class NXWorker(Process):
     def __init__(self, cpu, task_queue, result_queue, server_log):
         Process.__init__(self)
         self.cpu = 'cpu' + str(cpu)
-        self.process = psutil.Process()
-        self.process.cpu_affinity([cpu])
         self.task_queue = task_queue
         self.result_queue = result_queue
         self.server_log = server_log
