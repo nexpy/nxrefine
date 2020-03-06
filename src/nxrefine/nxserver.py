@@ -160,11 +160,13 @@ class NXServer(NXDaemon):
         task_fifo = os.open(e['task_list'], os.O_RDWR)
         os.write(task_fifo, (command+'\n').encode())
         os.close(task_fifo)
+        self.log('Written to FIFO ' + experiment + ' : ' + command)
 
     def read_task(self, experiment):
         e = self.experiments[experiment]
         with open(e['task_list']) as task_fifo:
             command = task_fifo.readline()[:-1]
+        self.log('Read from FIFO ' + experiment + ' : ' + command)
         return command
 
     def stop(self, experiment=None):
