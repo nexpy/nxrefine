@@ -10,7 +10,7 @@ from .daemon import NXDaemon
 class NXWorker(Process):
     """Class for processing tasks on a specific cpu."""
     def __init__(self, cpu, task_queue, result_queue, server_log):
-        Process.__init__(self)
+        Process.__init__(self, target=self.work)
         self.cpu = 'cpu' + str(cpu)
         self.task_queue = task_queue
         self.result_queue = result_queue
@@ -18,7 +18,7 @@ class NXWorker(Process):
         self.cpu_log = os.path.join(os.path.dirname(self.server_log), 
                                     self.cpu + '.log')
 
-    def run(self):
+    def work(self):
         self.log("Started worker on {} (pid={})".format(self.cpu, os.getpid()))
         while True:
             time.sleep(5)
