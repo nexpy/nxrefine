@@ -81,6 +81,8 @@ class NXReduce(QtCore.QObject):
             self._root = None
         self.base_directory = os.path.dirname(self.wrapper_file)
         self.task_directory = os.path.join(self.root_directory, 'tasks')
+        if not os.path.exists(self.task_directory):
+            os.mkdir(self.task_directory)
         if parent is None:
             self.parent_file = os.path.join(self.base_directory,
                                             self.sample+'_parent.nxs')
