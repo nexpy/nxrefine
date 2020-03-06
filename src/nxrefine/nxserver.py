@@ -157,7 +157,7 @@ class NXServer(NXDaemon):
     def add_task(self, command, experiment):
         """Add a task to the server queue"""
         e = self.experiments[experiment]
-        with open(e['task_list'], os.O_RDWR) as task_fifo:
+        with os.open(e['task_list'], os.O_RDWR) as task_fifo:
             os.write(task_fifo, (command+'\n').encode())
 
     def read_task(self, experiment):
