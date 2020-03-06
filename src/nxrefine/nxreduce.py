@@ -152,7 +152,7 @@ class NXReduce(QtCore.QObject):
         except Exception as error:
             self.logger.info(str(error))
         try:
-            self.server = NXServer(self.root_directory)
+            self.server = NXServer()
         except Exception as error:
             self.logger.info(str(error))
             self.server = None
