@@ -4,6 +4,7 @@ import subprocess
 import time
 from datetime import datetime
 from multiprocessing import Process, Queue, JoinableQueue
+from stopit import ThreadingTimeout as Timeout
 from .daemon import NXDaemon
 
 
@@ -165,7 +166,8 @@ class NXServer(NXDaemon):
     def read_task(self, experiment):
         e = self.experiments[experiment]
         with open(e['task_list']) as task_fifo:
-            command = task_fifo.readline()[:-1]
+            with Timeout(2):
+                command = task_fifo.readline()[:-1]
         self.log('Read from FIFO ' + experiment + ' : ' + command)
         return command
 

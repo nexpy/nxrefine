@@ -16,5 +16,6 @@ pkg_requirements = [
     'lmfit',
     'pyfai',
     'sqlalchemy',
-    'psutil'
+    'psutil',
+    'stopit'
 ]
