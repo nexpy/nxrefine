@@ -486,7 +486,7 @@ class WorkflowDialog(NXDialog):
     def logview(self):
         self.defaultview = self.logview
         scan = os.path.join(self.label, 
-                            self.sample + '_' + self.scan_combo.currentText()
+                            self.sample + '_' + self.scan_combo.currentText())
         entry = self.entry_combo.currentText()
         prefix = scan + "['" + entry + "']: "
         alternate_prefix = scan + "['entry']: "
