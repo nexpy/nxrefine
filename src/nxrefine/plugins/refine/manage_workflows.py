@@ -42,8 +42,7 @@ class WorkflowDialog(NXDialog):
         super(WorkflowDialog, self).choose_directory()
         self.sample_directory = self.get_directory()
         self.sample = os.path.basename(os.path.dirname(self.sample_directory))
-        self.label = os.path.join(os.path.basename(self.sample_directory),
-                                  self.sample)
+        self.label = os.path.join(os.path.basename(self.sample_directory))
         parent_file = os.path.join(self.sample_directory,
                                    self.sample+'_parent.nxs')
         if os.path.exists(parent_file):
@@ -476,7 +475,9 @@ class WorkflowDialog(NXDialog):
         scan = self.scan_combo.currentText()
         with open(self.server.log_file) as f:
             lines = f.readlines()
-        text = [line for line in lines if self.label in line if scan in line]
+        text = [line for line in lines if self.sample in line 
+                                       if self.label in line 
+                                       if scan in line]
         if text:
             self.output_box.setPlainText(''.join(text))
         else:
@@ -484,13 +485,15 @@ class WorkflowDialog(NXDialog):
 
     def logview(self):
         self.defaultview = self.logview
-        scan = self.label + '_' + self.scan_combo.currentText()
+        scan = os.path.join(self.label, 
+                            self.sample + '_' + self.scan_combo.currentText()
         entry = self.entry_combo.currentText()
         prefix = scan + "['" + entry + "']: "
+        alternate_prefix = scan + "['entry']: "
         with open(os.path.join(self.task_directory, 'nxlogger.log')) as f:
             lines = f.readlines()
-        text = [line.replace(prefix, '') for line in lines
-                if scan in line if entry in line]
+        text = [line.replace(prefix, '').replace(alternate_prefix, '') 
+                for line in lines if scan in line if entry in line]
         if text:
             self.output_box.setPlainText(''.join(text))
         else:
