@@ -466,14 +466,15 @@ class WorkflowDialog(NXDialog):
                                   ('View Workflow Output', self.outview),
                                   ('View Database', self.databaseview)),
             dialog.close_buttons(close=True))
-        dialog.setWindowTitle("'%s' Logs" % self.label)
+        scans = os.path.join(self.label, self.sample)
+        dialog.setWindowTitle("'%s' Logs" % scans)
         self.view_dialog = dialog
         self.view_dialog.show()
 
     def serverview(self):
         self.defaultview = self.serverview
-        scan = os.path.join(self.label, 
-                            self.sample + '_' + self.scan_combo.currentText())
+        scan = os.path.join(self.sample, self.label, 
+                            self.scan_combo.currentText())
         with open(self.server.log_file) as f:
             lines = f.readlines()
         text = [line for line in lines if scan in line]
