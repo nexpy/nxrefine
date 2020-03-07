@@ -472,12 +472,11 @@ class WorkflowDialog(NXDialog):
 
     def serverview(self):
         self.defaultview = self.serverview
-        scan = self.scan_combo.currentText()
+        scan = os.path.join(self.label, 
+                            self.sample + '_' + self.scan_combo.currentText())
         with open(self.server.log_file) as f:
             lines = f.readlines()
-        text = [line for line in lines if self.sample in line 
-                                       if self.label in line 
-                                       if scan in line]
+        text = [line for line in lines if scan in line]
         if text:
             self.output_box.setPlainText(''.join(text))
         else:
