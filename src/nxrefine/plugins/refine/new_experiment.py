@@ -50,15 +50,15 @@ class ExperimentDialog(NXDialog):
         self.instrument.add('distance', entry['instrument/detector/distance'], 'Detector Distance (mm)')
         detector_list = sorted(list(set([detector().name for detector in ALL_DETECTORS.values()])))
         self.instrument.add('detector', detector_list, 'Detector')
-        self.instrument['detector'].value = 'Pilatus 6M'
+        self.instrument['detector'].value = 'Pilatus CdTe 2M'
         self.instrument.add('positions', [0,1,2,3,4], 'Number of Detector Positions', slot=self.set_entries)
         self.instrument['positions'].value = '0'
 
     def setup_entry(self, position):
         entry = NXentry()
         self.detectors[position] = GridParameters()
-        self.detectors[position].add('chi', 0.0, 'Chi')
-        self.detectors[position].add('gonpitch', 0.0, 'Goniometer Pitch')
+        self.detectors[position].add('x', 0.0, 'Translation - x (mm)')
+        self.detectors[position].add('y', 0.0, 'Translation - y (mm)')
         self.experiment_file['f%s' % position] = entry
 
     def get_detector(self):
@@ -90,13 +90,13 @@ class ExperimentDialog(NXDialog):
         entry['instrument/detector/yaw'] = 0.0
         entry['instrument/detector/pitch'] = 0.0
         entry['instrument/detector/roll'] = 0.0
-
         for position in range(1, self.positions+1):
             entry = self.experiment_file['f%s' % position]
             entry['instrument'] = self.experiment_file['entry/instrument']
-            entry['instrument/goniometer'] = NXgoniometer()
-            entry['instrument/goniometer/chi'] = self.detectors[position]['chi'].value
-            entry['instrument/goniometer/goniometer_pitch'] = self.detectors[position]['gonpitch'].value
+            entry['instrument/detector/translation_x'] = self.detectors[position]['x'].value
+            entry['instrument/detector/translation_x'].attrs['units'] = 'mm'
+            entry['instrument/detector/translation_y'] = self.detectors[position]['y'].value
+            entry['instrument/detector/translation_y'].attrs['units'] = 'mm'
             entry['instrument/detector/frame_time'] = 0.1
             entry['instrument/detector/frame_time'].attrs['units'] = 'seconds'
 

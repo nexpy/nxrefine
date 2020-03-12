@@ -23,7 +23,7 @@ class MakeDialog(NXDialog):
         self.scans = None
         self.set_layout(self.directorybox("Choose Sample Directory",
                                           self.choose_sample),
-                        self.textboxes(('Scan Command', 'fastsweep')),
+                        self.textboxes(('Scan Command', 'Pil2Mscan')),
                         self.action_buttons(('Select All', self.select_scans),
                                             ('Reverse All', self.reverse_scans),
                                             ('Clear All', self.clear_scans),
@@ -104,16 +104,15 @@ class MakeDialog(NXDialog):
     def make_scans(self):
         scans = [scan.label.text() for scan in self.scan_list]  
         scan_command = self.textbox['Scan Command'].text()
-        scan_parameters = []
+        scan_parameters = ['#command path filename temperature detx dety ' + 
+                           'phi_start phi_step phi_end chi omega frame_rate']
         for scan in self.scan_list:
             nexus_file = scan.label.text()
             root = nxload(os.path.join(self.sample_directory, nexus_file))
             temperature = root.entry.sample.temperature
             base_name = os.path.basename(os.path.splitext(nexus_file)[0])
-            for i,entry in enumerate([root[e] for e in root if e != 'entry']):
-                if i == 0:
-                    scan_parameters.append('te %s' % temperature)
-                    scan_parameters.append('sleep(60)')
+            scan_dir = base_name.replace(self.sample+'_', '')
+            for entry in [root[e] for e in root if e != 'entry']:
                 if 'phi_set' in entry['instrument/goniometer']:
                     phi_start = entry['instrument/goniometer/phi_set']
                 else:
@@ -124,24 +123,29 @@ class MakeDialog(NXDialog):
                     chi = entry['instrument/goniometer/chi_set']
                 else:
                     chi = entry['instrument/goniometer/chi']
-                chi += 90.0
-                if 'goniometer_pitch_set' in entry['instrument/goniometer']:
-                    gonpitch = entry['instrument/goniometer/goniometer_pitch_set']
+                if 'omega_set' in entry['instrument/goniometer']:
+                    omega = entry['instrument/goniometer/omega_set']
                 else:
-                    gonpitch = entry['instrument/goniometer/goniometer_pitch']
+                    omega = entry['instrument/goniometer/omega']
+                dx = entry['instrument/detector/translation_x']
+                dy = entry['instrument/detector/translation_y']
                 if ('frame_time' in entry['instrument/detector'] and
                     entry['instrument/detector/frame_time'] > 0.0):
-                    frame_time = entry['instrument/detector/frame_time']
+                    frame_rate = 1.0 / entry['instrument/detector/frame_time']
                 else:
-                    frame_time = 1.0
-                n_frames = (phi_end - phi_start) / phi_step                      
-                scan_dir = os.path.join(base_name.replace(self.sample+'_', ''),
-                                        entry.nxname) + '/'
-                if scan_command == 'fastsweep':
-                    scan_parameters.append('umv chi %s th %s' % (chi, gonpitch))
-                    scan_parameters.append('%s phi %.6g %.6g %.6g %.6g %s'
-                        % (scan_command, phi_start, phi_end, n_frames, frame_time,
-                           os.path.join(self.sample, self.label, scan_dir)))
+                    frame_rate = 10.0                        
+                scan_file = entry.nxname
+                if scan_command == 'Pil2Mscan':
+                    scan_parameters.append(
+                        '%s %s %s %.6g %.6g %.6g %.6g %.6g %.6g %.6g %.6g %.6g'
+                        % (scan_command, os.path.join(self.scan_path, scan_dir),
+                           scan_file, temperature, dx, dy, 
+                           phi_start, phi_step, phi_end,
+                           chi, omega, frame_rate))
+            if scan_command == 'Pil2Mstring':
+                scan_parameters.append('Pil2Mstring("%s")' % scan_dir)
+            elif scan_command != 'Pil2Mscan':
+                scan_parameters.append('%s %s' % (scan_command, temperature))
         if not os.path.exists(self.macro_directory):
             os.mkdir(os.path.join(self.experiment_directory, 'macros'))
         macro_filter = ';;'.join(("SPEC Macro (*.mac)", "Any Files (*.* *)"))
