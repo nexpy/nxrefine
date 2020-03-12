@@ -15,8 +15,6 @@ import numpy as np
 import h5py as h5
 from h5py import is_hdf5
 
-import fabio
-
 from nexusformat.nexus import *
 
 from qtpy import QtCore
@@ -34,8 +32,6 @@ class NXReduce(QtCore.QObject):
 
     def __init__(self, entry='f1', directory=None, parent=None, entries=None,
                  data='data/data', extension='.h5', path='/entry/data/data',
-                 image_base='/nfs/chess/id4b/current',
-                 image_prefix='scan', image_extension='.tiff',
                  threshold=None, first=None, last=None, radius=None, width=None,
                  norm=None, Qh=None, Qk=None, Ql=None, 
                  link=False, maxcount=False, find=False, copy=False,
@@ -114,12 +110,6 @@ class NXReduce(QtCore.QObject):
         else:
             self.extension = '.' + extension
         self.path = path
-
-        self.image_directory = os.path.join(image_base, 
-            os.path.basename(self.root_directory), self.sample, self.label,
-            self.scan, self.entry_name)
-        self.image_prefix = image_prefix
-        self.image_extension = image_extension
 
         self._threshold = threshold
         self._maximum = None
@@ -543,61 +533,21 @@ class NXReduce(QtCore.QObject):
 
     def nxlink(self):
         if self.not_complete('nxlink') and self.link:
+            if not self.data_exists():
+                self.logger.info('Data file not available')                
+                return
             self.record_start('nxlink')
-            try:
-                self.stack_data()
-                self.link_data()
-                self.record('nxlink', logs='Stacked and linked')
-            except Exception as error:
-                self.logger.info(str(error))
+            self.link_data()
+            logs = self.read_logs()
+            if logs:
+                self.transfer_logs(logs)
+                self.record('nxlink', logs='Transferred')
+                self.logger.info('Entry linked to raw data')
+            else:
                 self.record_fail('nxlink')
         elif self.link:
             self.logger.info('Data already linked')
             self.record_end('nxlink')
-
-    def stack_data(self):
-        self.logger.info('Starting to stack images')
-        filenames = get_files(self.image_directory, self.image_prefix, 
-                              self.image_extension)
-        im = fabio.open(filenames[0])
-        v0 = im.data
-        x = NXfield(range(v0.shape[1]), dtype=np.uint16, name='x')
-        y = NXfield(range(v0.shape[0]), dtype=np.uint16, name='y')
-        z = NXfield(range(1,len(filenames)+1), dtype=np.uint16, name='z')
-        v = NXfield(shape=(len(filenames),v0.shape[0],v0.shape[1]),
-                    dtype=v0.dtype, name='data')
-        v[0] = v0
-        if v._memfile:
-            chunk_size = v._memfile['data'].chunks[0]
-        else:
-            chunk_size = v.shape[0]/10
-
-        n_frames = len(filenames)
-        tic = self.start_progress(0, n_frames)
-        for i in range(0, n_frames, chunk_size):
-            self.update_progress(i)
-            try:
-                files = []
-                for j in range(i,i+chunk_size):
-                    files.append(filenames[j])
-                v[i:i+chunk_size,:,:] = self.read_images(files)
-            except IndexError as error:
-                pass
-        toc = self.stop_progress()
-
-        header = NXcollection()
-        for key, value in im.header.items():
-            header[key] = value
-        root = NXroot(NXentry(NXdata(v, (z,y,x), header=header)))
-        root.save(os.path.join(self.directory, self.entry_name+self.extension))
-        self.logger.info('%d images stacked (%g seconds)' % (n_frames, toc-tic))
-
-    def read_images(self, filenames):
-        v0 = fabio.open(filenames[0]).data
-        v = np.zeros([len(filenames), v0.shape[0], v0.shape[1]], dtype=np.int32)
-        for i,filename in enumerate(filenames):
-            v[i] = fabio.open(filename).data
-        return v
 
     def link_data(self):
         if self.field:
@@ -624,6 +574,76 @@ class NXReduce(QtCore.QObject):
                                              self.entry['data/x_pixel']]
         else:
             self.logger.info('No raw data loaded')
+
+    def read_logs(self):
+        head_file = os.path.join(self.directory, self.entry_name+'_head.txt')
+        meta_file = os.path.join(self.directory, self.entry_name+'_meta.txt')
+        if os.path.exists(head_file) or os.path.exists(meta_file):
+            logs = NXcollection()
+        else:
+            self.logger.info('No metadata files found')
+            return None
+        if os.path.exists(head_file):
+            with open(head_file) as f:
+                lines = f.readlines()
+            for line in lines:
+                key, value = line.split(', ')
+                value = value.strip('\n')
+                try:
+                   value = np.float(value)
+                except:
+                    pass
+                logs[key] = value
+        if os.path.exists(meta_file):
+            meta_input = np.genfromtxt(meta_file, delimiter=',', names=True)
+            for i, key in enumerate(meta_input.dtype.names):
+                logs[key] = [array[i] for array in meta_input]
+        return logs
+
+    def transfer_logs(self, logs):
+        with self.root.nxfile:
+            if 'instrument' not in self.entry:
+                self.entry['instrument'] = NXinstrument()
+            if 'logs' in self.entry['instrument']:
+                del self.entry['instrument/logs']
+            self.entry['instrument/logs'] = logs
+            frames = self.entry['data/frame_number'].size
+            if 'MCS1' in logs:
+                if 'monitor1' in self.entry:
+                    del self.entry['monitor1']
+                data = logs['MCS1'][:frames]
+                #Remove outliers at beginning and end of frames
+                data[0] = data[1]
+                data[-1] = data[-2]
+                self.entry['monitor1'] = NXmonitor(NXfield(data, name='MCS1'),
+                                                   NXfield(np.arange(frames,
+                                                                     dtype=np.int32),
+                                                           name='frame_number'))
+            if 'MCS2' in logs:
+                if 'monitor2' in self.entry:
+                    del self.entry['monitor2']
+                data = logs['MCS2'][:frames]
+                #Remove outliers at beginning and end of frames
+                data[0] = data[1]
+                data[-1] = data[-2]
+                self.entry['monitor2'] = NXmonitor(NXfield(data, name='MCS2'),
+                                                   NXfield(np.arange(frames,
+                                                                     dtype=np.int32),
+                                                           name='frame_number'))
+            if 'source' not in self.entry['instrument']:
+                self.entry['instrument/source'] = NXsource()
+            self.entry['instrument/source/name'] = 'Advanced Photon Source'
+            self.entry['instrument/source/type'] = 'Synchrotron X-ray Source'
+            self.entry['instrument/source/probe'] = 'x-ray'
+            if 'Storage_Ring_Current' in logs:
+                self.entry['instrument/source/current'] = logs['Storage_Ring_Current']
+            if 'UndulatorA_gap' in logs:
+                self.entry['instrument/source/undulator_gap'] = logs['UndulatorA_gap']
+            if 'Calculated_filter_transmission' in logs:
+                if 'attenuator' not in self.entry['instrument']:
+                    self.entry['instrument/attenuator'] = NXattenuator()
+                self.entry['instrument/attenuator/attenuator_transmission'] = (
+                                                logs['Calculated_filter_transmission'])
 
     def nxmax(self):
         if self.not_complete('nxmax') and self.maxcount:
@@ -1708,19 +1728,4 @@ def mask_size(intensity):
     else:
         radius = np.real(c + a * (intensity**b))
         return max(1,np.int(radius))
-
-def get_files(directory, prefix, extension):
-    """
-    Returns a list of files in the selected directory.
-        
-    The files are sorted using a natural sort algorithm that preserves the
-    numeric order when a file name consists of text and index so that, e.g., 
-    'data2.tif' comes before 'data10.tif'.
-    """
-    if not extension.startswith('.'):
-        extension = '.' + extension
-    from glob import glob
-    from nexpy.gui.utils import natural_sort
-    filenames = glob(os.path.join(directory, prefix + '*' + extension))
-    return sorted(filenames, key=natural_sort)
 
