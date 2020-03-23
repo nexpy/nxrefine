@@ -94,7 +94,7 @@ class NXServer(NXDaemon):
                         for cpu in range(psutil.cpu_count())]
         for worker in self.workers:
             worker.start()
-        task_fifo = open(self.task_list, 'r')
+        self.task_fifo = open(self.task_list, 'r')
         while True:
             time.sleep(5)
             command = self.read_task()
@@ -119,7 +119,7 @@ class NXServer(NXDaemon):
         self.log('Written to FIFO: ' + command)
 
     def read_task(self):
-        command = task_fifo.readline()[:-1]
+        command = self.task_fifo.readline()[:-1]
         self.log('Read from FIFO: ' + command)
         return command
 
