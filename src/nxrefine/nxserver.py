@@ -96,13 +96,13 @@ class NXServer(NXDaemon):
             worker.start()
         task_fifo = open(self.task_list, 'r')
         while True:
+            time.sleep(5)
             command = self.read_task()
             if command == 'stop':
                 break
             elif command:
                 self.tasks.put(NXTask(command))
             self.log('Server listening')
-            time.sleep(5)
         for worker in self.workers:
             self.tasks.put(None)
         self.tasks.join()
@@ -119,8 +119,7 @@ class NXServer(NXDaemon):
         self.log('Written to FIFO: ' + command)
 
     def read_task(self):
-        with open(self.task_list) as task_fifo:
-            command = task_fifo.readline()[:-1]
+        command = task_fifo.readline()[:-1]
         self.log('Read from FIFO: ' + command)
         return command
 
