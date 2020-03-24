@@ -102,7 +102,7 @@ class NXServer(NXDaemon):
                 break
             elif command:
                 self.tasks.put(NXTask(command))
-            self.log('Server listening')
+                self.log('Server listening')
         for worker in self.workers:
             self.tasks.put(None)
         self.tasks.join()
@@ -120,7 +120,8 @@ class NXServer(NXDaemon):
 
     def read_task(self):
         command = self.task_fifo.readline()[:-1]
-        self.log('Read from FIFO: ' + command)
+        if command:
+            self.log('Read from FIFO: ' + command)
         return command
 
     def stop(self):
