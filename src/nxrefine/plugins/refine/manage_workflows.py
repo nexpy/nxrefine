@@ -281,6 +281,10 @@ class WorkflowDialog(NXDialog):
             checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
             checkbox.setEnabled(True)
 
+    def disable_status(self, status):
+        for program in self.programs:
+            status[program].setEnabled(False)
+
     def backup_scans(self):
         for scan in self.scans:
             self.scans_backup[scan] = []
