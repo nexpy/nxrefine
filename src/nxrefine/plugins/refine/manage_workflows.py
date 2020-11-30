@@ -36,7 +36,6 @@ class WorkflowDialog(NXDialog):
         self.scroll_area = None
         self.sample_directory = None
         self.entries = ['f1', 'f2', 'f3']
-        self.layout.setSizeConstraint(QtWidgets.QLayout.SetFixedSize)
 
     def choose_directory(self):
         super(WorkflowDialog, self).choose_directory()
@@ -115,11 +114,10 @@ class WorkflowDialog(NXDialog):
                             if self.is_valid(filename)] , key=natural_sort) }
         self.grid = QtWidgets.QGridLayout()
         self.grid_widget = NXWidget()
-        self.grid_widget.set_layout(self.grid)
-        self.scroll_area = NXScrollArea()
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setWidget(self.grid_widget)
-        self.scroll_area.setMinimumWidth(1250)
+        self.grid_widget.set_layout(self.grid, 'stretch')
+        self.scroll_area = NXScrollArea(self.grid_widget)
+        self.scroll_area.setMinimumSize(1250, 250)
+
         self.insert_layout(2, self.scroll_area)
         self.grid.setSpacing(1)
         row = 0
@@ -128,9 +126,7 @@ class WorkflowDialog(NXDialog):
                    'masked_combine', 'pdf', 'overwrite', 'reduce', 'sync']
         header = {}
         for col, column in enumerate(columns):
-            header[column] = NXLabel(column)
-            header[column].setFont(self.bold_font)
-            header[column].setFixedWidth(75)
+            header[column] = NXLabel(column, bold=True, width=75)
             if column == 'transform' or column == 'combine':
                 self.grid.addWidget(header[column], row, col, 1, 2,
                                     QtCore.Qt.AlignHCenter)
@@ -140,9 +136,7 @@ class WorkflowDialog(NXDialog):
         row = 1
         columns = ['regular', 'masked', 'regular', 'masked']
         for col, column in enumerate(columns):
-            header[column] = NXLabel(column)
-            header[column].setFixedWidth(75)
-            header[column].setAlignment(QtCore.Qt.AlignHCenter)
+            header[column] = NXLabel(column, width=75, align='center')
             self.grid.addWidget(header[column], row, col+8)
 
         self.scans = {}
