@@ -430,12 +430,10 @@ class RefineLatticeDialog(NXDialog):
             self.refine.primary = 0
         if self.refine.secondary is None:
             self.refine.secondary = 1
-        self.primary_box = NXLineEdit(str(self.refine.primary))
-        self.primary_box.setAlignment(QtCore.Qt.AlignRight)
-        self.primary_box.setFixedWidth(80)
-        self.secondary_box = NXLineEdit(str(self.refine.secondary))
-        self.secondary_box.setAlignment(QtCore.Qt.AlignRight)
-        self.secondary_box.setFixedWidth(80)
+        self.primary_box = NXLineEdit(str(self.refine.primary), width=80,
+                                      align='right')
+        self.secondary_box = NXLineEdit(str(self.refine.secondary), width=80,
+                                        align='right')
         orient_button = QtWidgets.QPushButton('Orient')
         orient_button.clicked.connect(self.orient)
 
@@ -462,11 +460,10 @@ class RefineLatticeDialog(NXDialog):
         layout.addWidget(self.table_view)
         close_layout = QtWidgets.QHBoxLayout()
         self.status_text = NXLabel('Score: %.4f' % self.refine.score())
-        self.tolerance_box = NXLineEdit(str(self.refine.hkl_tolerance))
-        self.tolerance_box.setAlignment(QtCore.Qt.AlignRight)
+        self.tolerance_box = NXLineEdit(str(self.refine.hkl_tolerance),
+                                        slot=self.update_table, width=80,
+                                        align='right')
         self.tolerance_box.setMaxLength(5)
-        self.tolerance_box.editingFinished.connect(self.update_table)
-        self.tolerance_box.setFixedWidth(80)
         save_button = QtWidgets.QPushButton('Save Orientation')
         save_button.clicked.connect(self.save_orientation)
         close_button = QtWidgets.QPushButton('Close Window')

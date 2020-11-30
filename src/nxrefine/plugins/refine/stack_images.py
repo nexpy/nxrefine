@@ -122,7 +122,7 @@ class StackDialog(BaseImportDialog):
        
         file_button =  QtWidgets.QPushButton("Choose Output File")
         file_button.clicked.connect(self.choose_output_file)
-        self.output_file = NXLineEdit(self)
+        self.output_file = NXLineEdit(parent=self)
         self.output_file.setMinimumWidth(300)
         layout.addWidget(file_button)
         layout.addWidget(self.output_file)
