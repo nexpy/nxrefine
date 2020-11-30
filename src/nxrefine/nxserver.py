@@ -58,7 +58,7 @@ class NXTask(object):
 
 class NXServer(NXDaemon):
 
-    def __init__(self, directory='/volt/nxserver'):
+    def __init__(self, directory=None):
         self.pid_name = 'NXServer'
         if directory:
             self.directory = directory = os.path.realpath(directory)
