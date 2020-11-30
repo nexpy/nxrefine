@@ -35,12 +35,12 @@ class WorkflowDialog(NXDialog):
         self.scroll_area = None
         self.sample_directory = None
         self.entries = ['f1', 'f2', 'f3']
-        self.layout.setSizeConstraint(QtWidgets.QLayout.SetFixedSize)
 
     def choose_directory(self):
         super(WorkflowDialog, self).choose_directory()
         self.sample_directory = self.get_directory()
         self.sample = os.path.basename(os.path.dirname(self.sample_directory))
+        self.label = os.path.join(os.path.basename(self.sample_directory))
         parent_file = os.path.join(self.sample_directory,
                                    self.sample+'_parent.nxs')
         if os.path.exists(parent_file):
@@ -112,11 +112,10 @@ class WorkflowDialog(NXDialog):
                             if self.is_valid(filename)] , key=natural_sort) }
         self.grid = QtWidgets.QGridLayout()
         self.grid_widget = NXWidget()
-        self.grid_widget.set_layout(self.grid)
-        self.scroll_area = NXScrollArea()
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setWidget(self.grid_widget)
-        self.scroll_area.setMinimumWidth(1250)
+        self.grid_widget.set_layout(self.grid, 'stretch')
+        self.scroll_area = NXScrollArea(self.grid_widget)
+        self.scroll_area.setMinimumSize(1250, 300)
+
         self.insert_layout(2, self.scroll_area)
         self.grid.setSpacing(1)
         row = 0
@@ -125,9 +124,7 @@ class WorkflowDialog(NXDialog):
                    'masked_combine', 'pdf', 'overwrite', 'reduce', 'sync']
         header = {}
         for col, column in enumerate(columns):
-            header[column] = NXLabel(column)
-            header[column].setFont(self.bold_font)
-            header[column].setFixedWidth(75)
+            header[column] = NXLabel(column, bold=True, width=75)
             if column == 'transform' or column == 'combine':
                 self.grid.addWidget(header[column], row, col, 1, 2,
                                     QtCore.Qt.AlignHCenter)
@@ -137,9 +134,7 @@ class WorkflowDialog(NXDialog):
         row = 1
         columns = ['regular', 'masked', 'regular', 'masked']
         for col, column in enumerate(columns):
-            header[column] = NXLabel(column)
-            header[column].setFixedWidth(75)
-            header[column].setAlignment(QtCore.Qt.AlignHCenter)
+            header[column] = NXLabel(column, width=75, align='center')
             self.grid.addWidget(header[column], row, col+8)
 
         self.scans = {}
@@ -237,14 +232,16 @@ class WorkflowDialog(NXDialog):
                     checkbox.setEnabled(False)
                 elif file_status == self.db.IN_PROGRESS:
                     checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
-                    checkbox.setEnabled(False)
+                    checkbox.setEnabled(True)
+                    checkbox.setStyleSheet("color: green")
                 elif file_status == self.db.QUEUED:
                     checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
                     checkbox.setEnabled(True)
+                    checkbox.setStyleSheet("color: blue")
                 elif file_status == self.db.FAILED:
-                    checkbox.setCheckState(QtCore.Qt.Unchecked)
+                    checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
                     checkbox.setEnabled(True)
-                # TODO: do i need to account for last?
+                    checkbox.setStyleSheet("color: red")
             if status['data'].checkState() == QtCore.Qt.Unchecked:
                 self.disable_status(status)
             self.update_progress(i)
@@ -296,8 +293,7 @@ class WorkflowDialog(NXDialog):
 
     @property
     def enabled_scans(self):
-        return [scan for scan in self.scans
-                if self.scans[scan]['data'].isChecked()]
+        return self.scans
 
     def overwrite_selected(self, scan):
         return self.scans[scan]['overwrite'].isChecked()
@@ -466,17 +462,18 @@ class WorkflowDialog(NXDialog):
                                   ('View Workflow Output', self.outview),
                                   ('View Database', self.databaseview)),
             dialog.close_buttons(close=True))
-        dialog.setWindowTitle("'%s' Logs" % self.sample)
+        scans = os.path.join(self.label, self.sample)
+        dialog.setWindowTitle("'%s' Logs" % scans)
         self.view_dialog = dialog
         self.view_dialog.show()
 
     def serverview(self):
         self.defaultview = self.serverview
-        scan = self.scan_combo.currentText()
+        scan = os.path.join(self.sample, self.label, 
+                            self.scan_combo.currentText())
         with open(os.path.join(self.task_directory, 'nxserver.log')) as f:
             lines = f.readlines()
-        text = [line for line in lines
-                if self.sample in line if scan in line]
+        text = [line for line in lines if scan in line]
         if text:
             self.output_box.setPlainText(''.join(text))
         else:
@@ -484,13 +481,15 @@ class WorkflowDialog(NXDialog):
 
     def logview(self):
         self.defaultview = self.logview
-        scan = self.sample + '_' + self.scan_combo.currentText()
+        scan = os.path.join(self.label, 
+                            self.sample + '_' + self.scan_combo.currentText())
         entry = self.entry_combo.currentText()
         prefix = scan + "['" + entry + "']: "
+        alternate_prefix = scan + "['entry']: "
         with open(os.path.join(self.task_directory, 'nxlogger.log')) as f:
             lines = f.readlines()
-        text = [line.replace(prefix, '') for line in lines
-                if scan in line if entry in line]
+        text = [line.replace(prefix, '').replace(alternate_prefix, '') 
+                for line in lines if scan in line if entry in line]
         if text:
             self.output_box.setPlainText(''.join(text))
         else:
