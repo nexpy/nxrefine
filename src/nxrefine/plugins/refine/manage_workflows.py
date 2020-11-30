@@ -3,7 +3,7 @@ import os
 from nexusformat.nexus import *
 from nexpy.gui.pyqt import QtCore, QtWidgets
 from nexpy.gui.datadialogs import NXWidget, NXDialog, GridParameters
-from nexpy.gui.utils import report_error, natural_sort
+from nexpy.gui.utils import report_error, natural_sort, format_mtime, human_size
 from nexpy.gui.widgets import NXLabel, NXScrollArea
 
 from nxrefine.nxreduce import NXReduce, NXMultiReduce
@@ -465,7 +465,8 @@ class WorkflowDialog(NXDialog):
             dialog.make_layout(self.scan_combo, self.entry_combo, 
                                self.program_combo),
             self.output_box,
-            dialog.action_buttons(('View Server Logs', self.serverview),
+            dialog.action_buttons(('View Data Directory', self.dataview),
+                                  ('View Server Logs', self.serverview),
                                   ('View Workflow Logs', self.logview),
                                   ('View Workflow Output', self.outview),
                                   ('View Database', self.databaseview)),
@@ -474,6 +475,21 @@ class WorkflowDialog(NXDialog):
         dialog.setWindowTitle("'%s' Logs" % scans)
         self.view_dialog = dialog
         self.view_dialog.show()
+
+    def dataview(self):
+        self.defaultview = self.dataview
+        scan = self.scan_combo.currentText()
+        files = os.scandir(os.path.join(self.sample_directory, scan))
+        text = []
+        for f in files:
+            text.append('{0}   {1:s}   {2}'.format(
+                            format_mtime(f.stat().st_mtime),
+                            human_size(f.stat().st_size), 
+                            f.name))
+        if text:
+            self.output_box.setPlainText('\n'.join(text))
+        else:
+            self.output_box.setPlainText('No Files')
 
     def serverview(self):
         self.defaultview = self.serverview
