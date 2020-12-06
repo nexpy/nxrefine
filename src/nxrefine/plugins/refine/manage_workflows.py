@@ -4,7 +4,7 @@ from nexusformat.nexus import *
 from nexpy.gui.pyqt import QtCore, QtWidgets
 from nexpy.gui.datadialogs import NXWidget, NXDialog, GridParameters
 from nexpy.gui.utils import report_error, natural_sort, format_mtime, human_size
-from nexpy.gui.widgets import NXLabel, NXScrollArea
+from nexpy.gui.widgets import NXLabel, NXScrollArea, NXPlainTextEdit
 
 from nxrefine.nxreduce import NXReduce, NXMultiReduce
 from nxrefine.nxdatabase import NXDatabase
@@ -116,7 +116,7 @@ class WorkflowDialog(NXDialog):
         self.grid_widget = NXWidget()
         self.grid_widget.set_layout(self.grid, 'stretch')
         self.scroll_area = NXScrollArea(self.grid_widget)
-        self.scroll_area.setMinimumSize(1250, 250)
+        self.scroll_area.setMinimumSize(1250, 300)
 
         self.insert_layout(2, self.scroll_area)
         self.grid.setSpacing(1)
@@ -442,7 +442,7 @@ class WorkflowDialog(NXDialog):
     def view_logs(self):
         if self.grid is None:
             raise NeXusError('Need to update status')
-        dialog = NXDialog(self)
+        dialog = NXDialog(parent=self)
         dialog.setMinimumWidth(800)
         dialog.setMinimumHeight(600)
         scans = [os.path.basename(scan) for scan in self.scans]
@@ -452,9 +452,7 @@ class WorkflowDialog(NXDialog):
         self.program_combo = dialog.select_box(self.programs, 
                                                slot=self.refreshview)
         self.defaultview = None
-        self.output_box = dialog.editor()
-        self.output_box.setStyleSheet('font-family: monospace;')
-        self.output_box.setLineWrapMode(QtWidgets.QPlainTextEdit.NoWrap)
+        self.output_box = NXPlainTextEdit(wrap=False)
         dialog.set_layout(
             dialog.make_layout(self.scan_combo, self.entry_combo, 
                                self.program_combo),
@@ -473,13 +471,18 @@ class WorkflowDialog(NXDialog):
     def dataview(self):
         self.defaultview = self.dataview
         scan = self.scan_combo.currentText()
-        files = os.scandir(os.path.join(self.sample_directory, scan))
+        scan_directory = os.path.join(self.sample_directory, scan)
+        if not os.path.exists(scan_directory):
+            self.output_box.setPlainText('Directory has not been created')
+            return
         text = []
-        for f in files:
-            text.append('{0}   {1:s}   {2}'.format(
-                            format_mtime(f.stat().st_mtime),
-                            human_size(f.stat().st_size), 
-                            f.name))
+        def _getmtime(entry):
+            return entry.stat().st_mtime
+        for f in sorted(os.scandir(scan_directory), key=_getmtime):
+            text.append('{0}   {1}   {2}'.format(
+                                        format_mtime(f.stat().st_mtime),
+                                        human_size(f.stat().st_size, width=6), 
+                                        f.name))
         if text:
             self.output_box.setPlainText('\n'.join(text))
         else:
