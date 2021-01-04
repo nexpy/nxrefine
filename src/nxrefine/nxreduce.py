@@ -149,7 +149,7 @@ class NXReduce(QtCore.QObject):
             self.logger.info(str(error))
             self.server = None
 
-        nxsetlock(600)
+        nxsetlock(1800)
 
     start = QtCore.Signal(object)
     update = QtCore.Signal(object)
