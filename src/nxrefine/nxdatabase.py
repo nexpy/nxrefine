@@ -423,7 +423,7 @@ class NXDatabase(object):
 
     def check_tasks(self):
         """Check that all tasks are present, adding a column if necessary."""
-        inspector = inspect(self.session.bind.engine)
+        inspector = inspect(self.engine)
         tasks = [task['name'] for task in inspector.get_columns('files')]
         for task in self.task_names:
             if task not in tasks:
