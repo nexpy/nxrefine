@@ -142,8 +142,7 @@ class NXRefine(object):
             if attr:
                 return self.entry[path].attrs[attr]
             else:
-                # return self.entry[path].nxvalue
-                return entry[path].nxdata
+                return entry[path].nxvalue
         except NeXusError:
             return default
 
