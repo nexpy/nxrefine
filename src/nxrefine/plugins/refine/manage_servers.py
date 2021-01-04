@@ -4,6 +4,7 @@ import subprocess
 from nexusformat.nexus import *
 from nexpy.gui.datadialogs import NXDialog
 from nexpy.gui.utils import report_error
+from nexpy.gui.widgets import NXPlainTextEdit
 from nxrefine.nxserver import NXServer
 
 
@@ -20,7 +21,7 @@ class ServerDialog(NXDialog):
     def __init__(self, parent=None):
         super(ServerDialog, self).__init__(parent)
 
-        self.node_editor = self.editor()
+        self.node_editor = self.NXPlainTextEdit()
         self.set_layout(self.directorybox('Choose Experiment Directory',
                                           slot=self.choose_directory,
                                           default=False),
