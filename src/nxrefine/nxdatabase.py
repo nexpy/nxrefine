@@ -122,7 +122,7 @@ class NXDatabase(object):
     @property
     def session(self):
         if self._session is None:
-            self._session = sessionmaker(bind=self.engine)
+            self._session = sessionmaker(bind=self.engine)()
         return self._session
 
     def get_filename(self, filename):
