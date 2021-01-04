@@ -117,7 +117,13 @@ class NXDatabase(object):
         self.engine = create_engine(connection, echo=echo, pool_pre_ping=True)
         Base.metadata.create_all(self.engine)
         self.database = os.path.realpath(self.engine.url.database)
-        self.sessionmaker = sessionmaker(bind=self.engine)
+        self._session = None
+
+    @property
+    def session(self):
+        if self._session is None:
+            self._session = sessionmaker(bind=self.engine)
+        return self._session
 
     def get_filename(self, filename):
         """Return the relative path of the requested filename."""
@@ -258,7 +264,6 @@ class NXDatabase(object):
         entry : str
             Entry of NeXus file being updated.
         """
-        self.session = self.sessionmaker()
         f = self.get_file(filename)
         for t in reversed(f.tasks):
             if t.name == task and t.entry == entry:
@@ -285,7 +290,6 @@ class NXDatabase(object):
         entry : str
             Entry of NeXus file being updated.
         """
-        self.session = self.sessionmaker()
         f = self.get_file(filename)
         #Find the desired task, and create a new one if it doesn't exist
         for t in reversed(f.tasks):
@@ -318,7 +322,6 @@ class NXDatabase(object):
         entry : str
             Entry of NeXus file being updated.
         """
-        self.session = self.sessionmaker()
         f = self.get_file(filename)
         # The entries that have finished this task
         for t in reversed(f.tasks):
@@ -347,7 +350,6 @@ class NXDatabase(object):
         entry : str
             Entry of NeXus file being updated.
         """
-        self.session = self.sessionmaker()
         f = self.get_file(filename)
         for t in reversed(f.tasks):
             if t.name == task and t.entry == entry:
@@ -406,7 +408,6 @@ class NXDatabase(object):
         sample_dir : str
             Directory containing the NeXus wrapper files.
         """
-        self.session = self.sessionmaker()
         # Get a list of all the .nxs wrapper files
         wrapper_files = [os.path.join(sample_dir, filename) for filename in
                          os.listdir(sample_dir) if filename.endswith('.nxs')
