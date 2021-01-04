@@ -5,7 +5,7 @@ from nxrefine.nxreduce import NXReduce
 def main():
 
     parser = argparse.ArgumentParser(
-        description="Find peaks within the NeXus data")
+        description="Sum raw data files")
     parser.add_argument('-d', '--directory', required=True,
                         help='directory containing summed files')
     parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'],
