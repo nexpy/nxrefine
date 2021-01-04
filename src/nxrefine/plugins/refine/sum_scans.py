@@ -4,9 +4,9 @@ import numpy as np
 import timeit
 from shutil import copyfile
 from nexusformat.nexus import *
-from nexpy.gui.datadialogs import NXDialog
+from nexpy.gui.datadialogs import NXWidget, NXDialog
 from nexpy.gui.utils import report_error, confirm_action, natural_sort
-from nexpy.gui.widgets import NXWidget, NXScrollArea
+from nexpy.gui.widgets import NXScrollArea
 from nexpy.gui.pyqt import QtCore, getSaveFileName
 from nxrefine.nxserver import NXServer
 from nxrefine.nxreduce import NXReduce
@@ -51,8 +51,10 @@ class SumDialog(NXDialog):
         for i, f in enumerate(filenames):
             scan = 'f%d' % i
             scans.append((scan, f, False))
-        widget = NXWidget(}
-        widget.set_layout(self.checkboxes(*scans, vertical=True), 'stretch'))
+        widget = NXWidget()
+        widget.set_layout('stretch', 
+                          self.checkboxes(*scans, vertical=True), 
+                          'stretch')
         self.scroll_area = NXScrollArea(widget)
         self.insert_layout(2, self.scroll_area)
 
