@@ -35,7 +35,6 @@ class WorkflowDialog(NXDialog):
         self.scroll_area = None
         self.sample_directory = None
         self.entries = ['f1', 'f2', 'f3']
-        self.layout.setSizeConstraint(QtWidgets.QLayout.SetFixedSize)
 
     def choose_directory(self):
         super(WorkflowDialog, self).choose_directory()
@@ -112,11 +111,10 @@ class WorkflowDialog(NXDialog):
                             if self.is_valid(filename)] , key=natural_sort) }
         self.grid = QtWidgets.QGridLayout()
         self.grid_widget = NXWidget()
-        self.grid_widget.set_layout(self.grid)
-        self.scroll_area = NXScrollArea()
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setWidget(self.grid_widget)
-        self.scroll_area.setMinimumWidth(1250)
+        self.grid_widget.set_layout(self.grid, 'stretch')
+        self.scroll_area = NXScrollArea(self.grid_widget)
+        self.scroll_area.setMinimumSize(1250, 300)
+
         self.insert_layout(2, self.scroll_area)
         self.grid.setSpacing(1)
         row = 0
@@ -125,9 +123,7 @@ class WorkflowDialog(NXDialog):
                    'masked_combine', 'pdf', 'overwrite', 'reduce', 'sync']
         header = {}
         for col, column in enumerate(columns):
-            header[column] = NXLabel(column)
-            header[column].setFont(self.bold_font)
-            header[column].setFixedWidth(75)
+            header[column] = NXLabel(column, bold=True, width=75)
             if column == 'transform' or column == 'combine':
                 self.grid.addWidget(header[column], row, col, 1, 2,
                                     QtCore.Qt.AlignHCenter)
@@ -137,9 +133,7 @@ class WorkflowDialog(NXDialog):
         row = 1
         columns = ['regular', 'masked', 'regular', 'masked']
         for col, column in enumerate(columns):
-            header[column] = NXLabel(column)
-            header[column].setFixedWidth(75)
-            header[column].setAlignment(QtCore.Qt.AlignHCenter)
+            header[column] = NXLabel(column, width=75, align='center')
             self.grid.addWidget(header[column], row, col+8)
 
         self.scans = {}
@@ -299,8 +293,7 @@ class WorkflowDialog(NXDialog):
 
     @property
     def enabled_scans(self):
-        return [scan for scan in self.scans
-                if self.scans[scan]['data'].isChecked()]
+        return self.scans
 
     def overwrite_selected(self, scan):
         return self.scans[scan]['overwrite'].isChecked()
@@ -447,7 +440,7 @@ class WorkflowDialog(NXDialog):
     def view_logs(self):
         if self.grid is None:
             raise NeXusError('Need to update status')
-        dialog = NXDialog(self)
+        dialog = NXDialog(parent=self)
         dialog.setMinimumWidth(800)
         dialog.setMinimumHeight(600)
         scans = [os.path.basename(scan) for scan in self.scans]
@@ -462,7 +455,8 @@ class WorkflowDialog(NXDialog):
             dialog.make_layout(self.scan_combo, self.entry_combo, 
                                self.program_combo),
             self.output_box,
-            dialog.action_buttons(('View Server Logs', self.serverview),
+            dialog.action_buttons(('View Data Directory', self.dataview),
+                                  ('View Server Logs', self.serverview),
                                   ('View Workflow Logs', self.logview),
                                   ('View Workflow Output', self.outview),
                                   ('View Database', self.databaseview)),
@@ -470,6 +464,26 @@ class WorkflowDialog(NXDialog):
         dialog.setWindowTitle("'%s' Logs" % self.sample)
         self.view_dialog = dialog
         self.view_dialog.show()
+
+    def dataview(self):
+        self.defaultview = self.dataview
+        scan = self.scan_combo.currentText()
+        scan_directory = os.path.join(self.sample_directory, scan)
+        if not os.path.exists(scan_directory):
+            self.output_box.setPlainText('Directory has not been created')
+            return
+        text = []
+        def _getmtime(entry):
+            return entry.stat().st_mtime
+        for f in sorted(os.scandir(scan_directory), key=_getmtime):
+            text.append('{0}   {1}   {2}'.format(
+                                        format_mtime(f.stat().st_mtime),
+                                        human_size(f.stat().st_size, width=6), 
+                                        f.name))
+        if text:
+            self.output_box.setPlainText('\n'.join(text))
+        else:
+            self.output_box.setPlainText('No Files')
 
     def serverview(self):
         self.defaultview = self.serverview
