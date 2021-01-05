@@ -40,6 +40,7 @@ class WorkflowDialog(NXDialog):
         super(WorkflowDialog, self).choose_directory()
         self.sample_directory = self.get_directory()
         self.sample = os.path.basename(os.path.dirname(self.sample_directory))
+        self.label = os.path.join(os.path.basename(self.sample_directory))
         parent_file = os.path.join(self.sample_directory,
                                    self.sample+'_parent.nxs')
         if os.path.exists(parent_file):
@@ -241,7 +242,6 @@ class WorkflowDialog(NXDialog):
                     checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
                     checkbox.setEnabled(True)
                     checkbox.setStyleSheet("color: red")
-                # TODO: do i need to account for last?
             if status['data'].checkState() == QtCore.Qt.Unchecked:
                 self.disable_status(status)
             self.update_progress(i)
@@ -461,7 +461,8 @@ class WorkflowDialog(NXDialog):
                                   ('View Workflow Output', self.outview),
                                   ('View Database', self.databaseview)),
             dialog.close_buttons(close=True))
-        dialog.setWindowTitle("'%s' Logs" % self.sample)
+        scans = os.path.join(self.label, self.sample)
+        dialog.setWindowTitle("'%s' Logs" % scans)
         self.view_dialog = dialog
         self.view_dialog.show()
 
@@ -487,11 +488,11 @@ class WorkflowDialog(NXDialog):
 
     def serverview(self):
         self.defaultview = self.serverview
-        scan = self.scan_combo.currentText()
+        scan = os.path.join(self.sample, self.label, 
+                            self.scan_combo.currentText())
         with open(os.path.join(self.task_directory, 'nxserver.log')) as f:
             lines = f.readlines()
-        text = [line for line in lines
-                if self.sample in line if scan in line]
+        text = [line for line in lines if scan in line]
         if text:
             self.output_box.setPlainText(''.join(text))
         else:
@@ -499,13 +500,15 @@ class WorkflowDialog(NXDialog):
 
     def logview(self):
         self.defaultview = self.logview
-        scan = self.sample + '_' + self.scan_combo.currentText()
+        scan = os.path.join(self.label, 
+                            self.sample + '_' + self.scan_combo.currentText())
         entry = self.entry_combo.currentText()
         prefix = scan + "['" + entry + "']: "
+        alternate_prefix = scan + "['entry']: "
         with open(os.path.join(self.task_directory, 'nxlogger.log')) as f:
             lines = f.readlines()
-        text = [line.replace(prefix, '') for line in lines
-                if scan in line if entry in line]
+        text = [line.replace(prefix, '').replace(alternate_prefix, '') 
+                for line in lines if scan in line if entry in line]
         if text:
             self.output_box.setPlainText(''.join(text))
         else:
