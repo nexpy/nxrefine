@@ -4,7 +4,7 @@ from nexusformat.nexus import *
 from nexpy.gui.pyqt import QtCore, QtWidgets
 from nexpy.gui.datadialogs import NXWidget, NXDialog, GridParameters
 from nexpy.gui.utils import report_error, natural_sort
-from nexpy.gui.widgets import NXLabel, NXScrollArea
+from nexpy.gui.widgets import NXLabel, NXPlainTextEdit, NXScrollArea
 
 from nxrefine.nxreduce import NXReduce, NXMultiReduce
 from nxrefine.nxdatabase import NXDatabase
@@ -457,9 +457,7 @@ class WorkflowDialog(NXDialog):
         self.program_combo = dialog.select_box(self.programs, 
                                                slot=self.refreshview)
         self.defaultview = None
-        self.output_box = dialog.editor()
-        self.output_box.setStyleSheet('font-family: monospace;')
-        self.output_box.setLineWrapMode(QtWidgets.QPlainTextEdit.NoWrap)
+        self.output_box = NXPlainTextEdit(wrap=False)
         dialog.set_layout(
             dialog.make_layout(self.scan_combo, self.entry_combo, 
                                self.program_combo),
