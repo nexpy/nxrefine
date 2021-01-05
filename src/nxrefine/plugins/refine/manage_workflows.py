@@ -3,8 +3,8 @@ import os
 from nexusformat.nexus import *
 from nexpy.gui.pyqt import QtCore, QtWidgets
 from nexpy.gui.datadialogs import NXWidget, NXDialog, GridParameters
-from nexpy.gui.utils import report_error, natural_sort
-from nexpy.gui.widgets import NXLabel, NXPlainTextEdit, NXScrollArea
+from nexpy.gui.utils import report_error, natural_sort, format_mtime, human_size
+from nexpy.gui.widgets import NXLabel, NXScrollArea, NXPlainTextEdit
 
 from nxrefine.nxreduce import NXReduce, NXMultiReduce
 from nxrefine.nxdatabase import NXDatabase
