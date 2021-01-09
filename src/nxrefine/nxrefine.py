@@ -1257,6 +1257,25 @@ class NXRefine(object):
         self.get_orientation_matrix(p)
         return self.diffs()
 
+    def get_polarization(self):
+        if 'polarization' in self.entry['instrument/detector']:
+            return self.entry['instrument/detector/polarization'].nxvalue
+        elif 'calibration' in self.entry['instrument']:
+            from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
+            parameters = self.entry['instrument/calibration/refinement/parameters']
+            ai = AzimuthalIntegrator(dist=parameters['Distance'].nxvalue,
+                                     poni1=parameters['Poni1'].nxvalue,
+                                     poni2=parameters['Poni2'].nxvalue,
+                                     rot1=parameters['Rot1'].nxvalue,
+                                     rot2=parameters['Rot2'].nxvalue,
+                                     rot3=parameters['Rot3'].nxvalue,
+                                     pixel1=parameters['PixelSize1'].nxvalue,
+                                     pixel2=parameters['PixelSize2'].nxvalue,
+                                     wavelength = parameters['Wavelength'].nxvalue)
+            return ai.polarization(shape=self.shape, factor=0.99)
+        else:
+            return 1
+
 
 class NXPeak(object):
 

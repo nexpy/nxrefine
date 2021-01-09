@@ -347,7 +347,7 @@ class CalibrateDialog(NXDialog):
         detector['beam_center_y'] = self.parameters['yc'].value
         try:
             detector['polarization'] = self.pattern_geometry.polarization(
-                                           factor=0.98, 
+                                           factor=0.99, 
                                            shape=detector['mask'].shape)
         except Exception:
             pass
