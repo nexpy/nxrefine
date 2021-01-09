@@ -57,7 +57,7 @@ class NXRefine(object):
         if node is not None:
             self.entry = node.nxentry
             if 'data' in self.entry:
-                 self.data = self.entry['data']
+                self.data = self.entry['data']
             else:
                 self.data = None
         else:
