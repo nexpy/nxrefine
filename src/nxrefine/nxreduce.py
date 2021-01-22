@@ -1572,7 +1572,7 @@ class NXMultiReduce(NXReduce):
                     data_lock = {}
                     for entry in self.entries:
                         data_lock[entry] = NXLock(
-                                            self.root[entry][transform_path].nxfilename)
+                                    self.root[entry][transform_path].nxfilename)
                         data_lock[entry].acquire()
                     process = subprocess.run(cctw_command, shell=True,
                                              stdout=subprocess.PIPE,
@@ -1612,6 +1612,7 @@ class NXMultiReduce(NXReduce):
                 if transform in self.entry:
                     del self.entry[transform]
                 self.entry[transform] = NXdata(data, [Ql,Qk,Qh])
+                self.entry[transform].set_default(over=True)
         except Exception as error:
             self.logger.info('Unable to initialize transform group')
             self.logger.info(str(error))

@@ -515,6 +515,7 @@ class NXRefine(object):
             self.entry[transform+'/weights'] = NXlink(target='/entry/data/n',
                                                       file=output_link)
             self.entry[transform+'/command'] = command
+            self.entry[transform].set_default()
 
     def cctw_command(self, mask=False):
         entry = self.entry.nxname
