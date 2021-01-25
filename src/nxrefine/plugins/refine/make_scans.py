@@ -62,6 +62,7 @@ class MakeDialog(NXDialog):
         scroll_area = NXScrollArea(scroll_widget)
         scroll_area.setMinimumHeight(min(scroll_widget.sizeHint().height(), 
                                          600))
+        scroll_area.setWidgetResizable(True)
         self.insert_layout(2, scroll_area)
 
     @property

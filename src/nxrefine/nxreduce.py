@@ -149,7 +149,7 @@ class NXReduce(QtCore.QObject):
             self.logger.info(str(error))
             self.server = None
 
-        nxsetlock(600)
+        nxsetlock(1800)
 
     start = QtCore.Signal(object)
     update = QtCore.Signal(object)
@@ -736,24 +736,28 @@ class NXReduce(QtCore.QObject):
             try:
                 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
                 parameters = self.entry['instrument/calibration/refinement/parameters']
-                cake = AzimuthalIntegrator(dist=parameters['Distance'].nxvalue,
-                                           poni1=parameters['Poni1'].nxvalue,
-                                           poni2=parameters['Poni2'].nxvalue,
-                                           rot1=parameters['Rot1'].nxvalue,
-                                           rot2=parameters['Rot2'].nxvalue,
-                                           rot3=parameters['Rot3'].nxvalue,
-                                           pixel1=parameters['PixelSize1'].nxvalue,
-                                           pixel2=parameters['PixelSize2'].nxvalue,
-                                           wavelength = parameters['Wavelength'].nxvalue)
-                counts = self.entry['summed_data/summed_data'].nxvalue
-                polar_angle, intensity = cake.integrate1d(counts, 2048,
-                                                          unit='2th_deg',
-                                                          mask=self.pixel_mask,
-                                                          correctSolidAngle=True)
+                ai = AzimuthalIntegrator(dist=parameters['Distance'].nxvalue,
+                                         poni1=parameters['Poni1'].nxvalue,
+                                         poni2=parameters['Poni2'].nxvalue,
+                                         rot1=parameters['Rot1'].nxvalue,
+                                         rot2=parameters['Rot2'].nxvalue,
+                                         rot3=parameters['Rot3'].nxvalue,
+                                         pixel1=parameters['PixelSize1'].nxvalue,
+                                         pixel2=parameters['PixelSize2'].nxvalue,
+                                         wavelength = parameters['Wavelength'].nxvalue)
+                polarization = ai.polarization(shape=self.shape, factor=0.99)
+                counts = self.summed_data.nxvalue / polarization
+                polar_angle, intensity = ai.integrate1d(counts, 
+                                                        2048,
+                                                        unit='2th_deg',
+                                                        mask=self.pixel_mask,
+                                                        correctSolidAngle=True)
                 if 'radial_sum' in self.entry:
                     del self.entry['radial_sum']
                 self.entry['radial_sum'] = NXdata(NXfield(intensity, name='radial_sum'),
                                                   NXfield(polar_angle, name='polar_angle'))
+                if 'polarization' not in self.entry['instrument/detector']:
+                    self.entry['instrument/detector/polarization'] = polarization
             except Exception as error:
                 self.logger.info('Unable to create radial sum')
                 self.logger.info(str(error))
@@ -1432,11 +1436,11 @@ class NXReduce(QtCore.QObject):
         self.nxcopy()
         if self.complete('nxcopy'):
             self.nxrefine()
-        if self.complete('nxrefine') and self.transform is not None:
+        if self.complete('nxrefine'):
             self.nxprepare()
             self.nxtransform()
             self.nxmasked_transform()
-        elif self.transform is not None:
+        else:
             self.logger.info('Orientation has not been refined')
             self.record_fail('nxtransform')
             self.record_fail('nxmasked_transform')
@@ -1568,7 +1572,7 @@ class NXMultiReduce(NXReduce):
                     data_lock = {}
                     for entry in self.entries:
                         data_lock[entry] = NXLock(
-                                            self.root[entry][transform_path].nxfilename)
+                                    self.root[entry][transform_path].nxfilename)
                         data_lock[entry].acquire()
                     process = subprocess.run(cctw_command, shell=True,
                                              stdout=subprocess.PIPE,
@@ -1608,6 +1612,7 @@ class NXMultiReduce(NXReduce):
                 if transform in self.entry:
                     del self.entry[transform]
                 self.entry[transform] = NXdata(data, [Ql,Qk,Qh])
+                self.entry[transform].set_default(over=True)
         except Exception as error:
             self.logger.info('Unable to initialize transform group')
             self.logger.info(str(error))

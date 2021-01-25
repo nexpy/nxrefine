@@ -1,10 +1,10 @@
 import numpy as np
 import operator
 from nexpy.gui.pyqt import QtCore, QtGui, QtWidgets
-from nexpy.gui.datadialogs import NXDialog, GridParameters
+from nexpy.gui.datadialogs import NXDialog, GridParameters, ExportDialog
 from nexpy.gui.plotview import NXPlotView, get_plotview, plotview
 from nexpy.gui.utils import report_error
-from nexpy.gui.widgets import NXLabel, NXLineEdit
+from nexpy.gui.widgets import NXLabel, NXLineEdit, NXPushButton
 from nexusformat.nexus import *
 from nxrefine.nxrefine import NXRefine, find_nearest
 from nxrefine.nxreduce import NXReduce
@@ -425,25 +425,19 @@ class RefineLatticeDialog(NXDialog):
         peak_list = self.refine.get_peaks()
         self.refine.assign_rings()
         self.rings = self.refine.get_ring_hkls()
-        orient_layout = QtWidgets.QHBoxLayout()
         if self.refine.primary is None:
             self.refine.primary = 0
         if self.refine.secondary is None:
             self.refine.secondary = 1
-        self.primary_box = NXLineEdit(str(self.refine.primary), width=80,
+        self.primary_box = NXLineEdit(self.refine.primary, width=80,
                                       align='right')
-        self.secondary_box = NXLineEdit(str(self.refine.secondary), width=80,
+        self.secondary_box = NXLineEdit(self.refine.secondary, width=80,
                                         align='right')
-        orient_button = QtWidgets.QPushButton('Orient')
-        orient_button.clicked.connect(self.orient)
-
-        orient_layout.addStretch()
-        orient_layout.addWidget(NXLabel('Primary'))
-        orient_layout.addWidget(self.primary_box)
-        orient_layout.addWidget(NXLabel('Secondary'))
-        orient_layout.addWidget(self.secondary_box)
-        orient_layout.addStretch()
-        orient_layout.addWidget(orient_button)     
+        orient_button = NXPushButton('Orient', self.orient)
+        orient_layout = self.make_layout(NXLabel('Primary'), self.primary_box,
+                                         NXLabel('Secondary'), 
+                                         self.secondary_box, 'stretch',
+                                         orient_button, align='right')
  
         self.table_view = QtWidgets.QTableView()
         self.table_model = NXTableModel(self, peak_list, header)
@@ -455,30 +449,20 @@ class RefineLatticeDialog(NXDialog):
         self.table_view.doubleClicked.connect(self.plot_peak)
         self.table_view.setSortingEnabled(True)
         self.table_view.sortByColumn(0, QtCore.Qt.AscendingOrder)
-        layout = QtWidgets.QVBoxLayout()
-        layout.addLayout(orient_layout)
-        layout.addWidget(self.table_view)
-        close_layout = QtWidgets.QHBoxLayout()
         self.status_text = NXLabel('Score: %.4f' % self.refine.score())
-        self.tolerance_box = NXLineEdit(str(self.refine.hkl_tolerance),
-                                        slot=self.update_table, width=80,
-                                        align='right')
+        self.tolerance_box = NXLineEdit(self.refine.hkl_tolerance, width=80,
+                                        slot=self.update_table, align='right')
         self.tolerance_box.setMaxLength(5)
-        save_button = QtWidgets.QPushButton('Save Orientation')
-        save_button.clicked.connect(self.save_orientation)
-        close_button = QtWidgets.QPushButton('Close Window')
-        close_button.clicked.connect(self.close_peaks_box)
-        close_layout.addWidget(self.status_text)
-        close_layout.addStretch()
-        close_layout.addWidget(NXLabel('Threshold'))
-        close_layout.addWidget(self.tolerance_box)
-        close_layout.addStretch()
-        close_layout.addWidget(save_button)
-        close_layout.addStretch()
-        close_layout.addWidget(close_button)
-        layout.addLayout(close_layout)
-        self.peaks_box.setLayout(layout)
-        self.peaks_box.setWindowTitle('%s Peak Table' % self.entry.nxtitle)
+        export_button = NXPushButton('Export', self.export_peaks)
+        save_button = NXPushButton('Save', self.save_orientation)
+        close_button = NXPushButton('Close', self.close_peaks_box)
+        close_layout = self.make_layout(self.status_text, 'stretch',
+                                        NXLabel('Threshold'), 
+                                        self.tolerance_box, 'stretch',
+                                        export_button, save_button, 
+                                        close_button)
+        self.peaks_box.set_layout(orient_layout, self.table_view, close_layout)
+        self.peaks_box.set_title('%s Peak Table' % self.entry.nxtitle)
         self.peaks_box.adjustSize()
         self.peaks_box.show()
         self.plotview = None
@@ -525,6 +509,25 @@ class RefineLatticeDialog(NXDialog):
                                                  self.refine.secondary)
                              * self.refine.Bimat)
         self.update_table()
+
+    def export_peaks(self):
+        peaks = list(zip(*[p for p in self.table_model.peak_list 
+                           if p[-1] < self.get_hkl_tolerance()]))
+        idx = NXfield(peaks[0], name='index')
+        x = NXfield(peaks[1], name='x')
+        y = NXfield(peaks[2], name='y')
+        z = NXfield(peaks[3], name='z')
+        pol = NXfield(peaks[4], name='polar_angle', units='degree')
+        azi = NXfield(peaks[5], name='azimuthal_angle', units='degree')
+        polarization = self.refine.get_polarization()
+        intensity = NXfield(peaks[6]/polarization[y,x], name='intensity')
+        H = NXfield(np.rint(peaks[7]), name='H', dtype=np.int64, units='rlu')
+        K = NXfield(np.rint(peaks[8]), name='K', dtype=np.int64, units='rlu')
+        L = NXfield(np.rint(peaks[9]), name='L', dtype=np.int64, units='rlu')
+        diff = NXfield(peaks[10], name='diff')
+        peaks_data = NXdata(intensity, idx, diff, H, K, L, pol, azi, x, y, z)
+        export_dialog = ExportDialog(peaks_data, parent=self)
+        export_dialog.show()
 
     def save_orientation(self):
         self.write_parameters()
