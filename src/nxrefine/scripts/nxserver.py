@@ -7,25 +7,35 @@ def main():
 
     parser = argparse.ArgumentParser(
         description="Launch server for data reduction workflow")
-    parser.add_argument('-c', '--cwd', default='/volt',
-                        help='directory containing experiment directories')
-    parser.add_argument('-e', '--exp', help='Experiment name, e.g., GUP-58981')
     parser.add_argument('-d', '--directory', nargs='?', const='.',
                         help='Start the server in this directory')
+    parser.add_argument('-t', '--type', default='multicore', 
+                        help='Server type: multicore|multinode')
+    parser.add_argument('-n', '--nodes', default=[], nargs='+', 
+                        help='Add nodes')
+    parser.add_argument('-r', '--remove', default=[], nargs='+', 
+                        help='Remove nodes')
     parser.add_argument('command', action='store',
-        help='valid commands are: status|start|stop|restart|clear|add')
+        help='valid commands are: status|start|list|stop|restart|clear')
 
     args = parser.parse_args()
 
     if args.directory:
-        server = NXServer(os.path.realpath(args.directory))
+        server = NXServer(directory=os.path.realpath(args.directory),
+                          type=args.type)
     else:
         server = NXServer()
+
+    if args.type == 'multinode':
+        server.write_nodes(args.nodes)
+        server.remove_nodes(args.remove)
 
     if args.command == 'status':
         print(server.status())
     elif args.command == 'start':
         server.start()
+    elif args.command == 'list':
+        print(','.join(server.read_nodes()))
     elif args.command == 'stop':
         server.stop()
     elif args.command == 'restart':
