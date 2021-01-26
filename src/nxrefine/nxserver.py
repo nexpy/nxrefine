@@ -82,62 +82,75 @@ class NXServer(NXDaemon):
 
         super(NXServer, self).__init__(self.pid_name, self.pid_file)
 
+    def __repr__(self):
+        return "NXServer(directory='{}', type='{}')".format(self.directory,
+                                                            self.server_type)
+
     def initialize(self, directory, server_type, nodes):
-        settings_file = os.path.join(os.path.abspath(os.path.expanduser('~')), 
-                                     '.nxserver', 'settings.ini')
-        self.settings = ConfigParser(settings_file)
-        if 'setup' not in self.settings.sections():
-            self.settings.add_section('setup')
+        self.home_settings = ConfigParser()
+        self.home_file = os.path.join(os.path.abspath(os.path.expanduser('~')), 
+                                      '.nxserver', 'settings.ini')
+        self.home_settings.read(self.home_file)
+        if 'setup' not in self.home_settings.sections():
+            self.home_settings.add_section('setup')
         if directory:
-            self.directory = directory
-            self.settings.set('setup', 'directory', directory)
-        elif self.settings.has_option('setup', 'directory'):
-            self.directory = self.settings.get('setup', 'directory')
+            self.home_settings.set('setup', 'directory', directory)
+            with open(self.home_file, 'w') as f:
+                self.home_settings.write(f)
+        elif self.home_settings.has_option('setup', 'directory'):
+            directory = self.home_settings.get('setup', 'directory')
         else:
             raise NeXusError('Server directory not specified')
+        self.directory = os.path.join(directory, 'nxserver')
+        if not os.path.exists(self.directory):
+            os.mkdir(self.directory)
+
+        self.server_settings = ConfigParser(allow_no_value=True)
+        self.server_file = os.path.join(self.directory, 'settings.ini')
+        self.server_settings.read(self.server_file)
+        if 'setup' not in self.server_settings.sections():
+            self.server_settings.add_section('setup')
         if server_type:
             self.server_type = server_type
-            self.settings.set('setup', 'type', type)
-        elif self.settings.has_option('setup', 'type'):
-            self.server_type = self.settings.get('setup', 'type')
+            self.server_settings.set('setup', 'type', server_type)
+        elif self.server_settings.has_option('setup', 'type'):
+            self.server_type = self.server_settings.get('setup', 'type')
         else:
             raise NeXusError('Server type not specified')
         if self.server_type == 'multinode':
-            self.nodefile = os.path.join(self.directory, 'nodefile')
+            if 'nodes' not in self.server_settings.sections():
+                self.server_settings.add_section('nodes')
             if nodes:
                 self.write_nodes(nodes)
             self.cpus = self.read_nodes()
         else:
             self.cpus = ['cpu'+str(cpu) for cpu in range(psutil.cpu_count())]
-            self.nodefile = None        
+        with open(self.server_file, 'w') as f:
+            self.server_settings.write(f)
 
     def read_nodes(self):
         """Read available nodes"""
-        if self.nodefile and os.path.exists(self.nodefile):
-            with open(self.nodefile, 'r') as f:
-                nodes = [line.strip() for line in f.readlines() 
-                         if line.strip() != '']
+        if 'nodes' in self.server_settings.sections():
+            nodes = self.server_settings.options('nodes')
         else:
             nodes = []
         return sorted(nodes)
 
     def write_nodes(self, nodes):
         """Write additional nodes"""
-        if self.nodefile is None:
-            return
         current_nodes = self.read_nodes()
-        with open(self.nodefile, 'a') as f:
-            f.write('\n'+'\n'.join([cpu for cpu in nodes 
-                                    if cpu not in current_nodes]))
+        for node in [cpu for cpu in nodes if cpu not in current_nodes]:
+            self.server_settings.set('nodes', node)
+        with open(self.server_file, 'w') as f:
+            self.server_settings.write(f)
         self.cpus = self.read_nodes()
 
     def remove_nodes(self, nodes):
         """Remove specified nodes"""
-        if self.nodefile is None:
-            return
-        cpus = [cpu for cpu in self.read_nodes() if cpu not in nodes]
-        with open(self.nodefile, 'w') as f:
-            f.write('\n'.join(cpus))
+        for node in nodes:
+            self.server_settings.remove_option('nodes', node)
+        with open(self.server_file, 'w') as f:
+            self.server_settings.write(f)
         self.cpus = self.read_nodes()
 
     def log(self, message):

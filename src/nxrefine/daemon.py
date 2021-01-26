@@ -88,7 +88,6 @@ class NXDaemon:
             return "{0} running in process {1}".format(self.pid_name, pid)
         else:
             return self.pid_name + " not running"
-                               
     
     def start(self):
         """Start the daemon."""
