@@ -9,20 +9,21 @@ def main():
         description="Launch server for data reduction workflow")
     parser.add_argument('-d', '--directory', nargs='?', const='.',
                         help='Start the server in this directory')
-    parser.add_argument('-t', '--type', default='multicore', 
-                        help='Server type: multicore|multinode')
+    parser.add_argument('-t', '--type', help='Server type: multicore|multinode')
     parser.add_argument('-n', '--nodes', default=[], nargs='+', 
                         help='Add nodes')
     parser.add_argument('-r', '--remove', default=[], nargs='+', 
                         help='Remove nodes')
-    parser.add_argument('command', action='store',
+    parser.add_argument('command', action='store', nargs='?',
         help='valid commands are: status|start|list|stop|restart|clear')
 
     args = parser.parse_args()
 
     if args.directory:
         server = NXServer(directory=os.path.realpath(args.directory),
-                          type=args.type)
+                          server_type=args.type)
+    elif args.type:
+        server = NXServer(server_type=args.type)
     else:
         server = NXServer()
 
