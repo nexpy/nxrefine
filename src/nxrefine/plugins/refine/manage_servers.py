@@ -35,7 +35,7 @@ class ServerDialog(NXDialog):
             self.pushbutton['server'].setText('Start Server')
         self.server_layout = self.make_layout(self.server_status, 
                                               self.server_actions)
-        if self.server_type == 'multinode':
+        if self.server.server_type == 'multinode':
             self.node_editor = NXPlainTextEdit()
             self.node_editor.setPlainText('\n'.join(self.server.read_nodes()))
             self.set_layout(self.labels(('Server Status'), header=True),
@@ -53,13 +53,27 @@ class ServerDialog(NXDialog):
 
     def toggle_server(self):
         if self.pushbutton['server'].text() == 'Start Server':
+            if self.server.server_type == 'multinode':
+                self.read_nodes()
             subprocess.run('nxserver start', shell=True)
+        else:
+            subprocess.run('nxserver stop', shell=True)
+        self.server = NXServer()
+        if self.server.is_running():
             self.server_status.setText('Server is running')
             self.pushbutton['server'].setText('Stop Server')
         else:
-            subprocess.run('nxserver stop', shell=True)
             self.server_status.setText('Server is not running')
             self.pushbutton['server'].setText('Start Server')
 
+    def read_nodes(self):
+        if self.server.server_type == 'multinode':
+            nodes = self.node_editor.document().toPlainText().split('\n')
+            self.server.write_nodes(nodes)
+            self.server.remove_nodes([node for node in self.server.read_nodes()
+                                      if node not in nodes])
+
     def accept(self):
+        if self.server.server_type == 'multinode':
+            self.read_nodes()
         super(ServerDialog, self).accept()
