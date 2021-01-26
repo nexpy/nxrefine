@@ -83,12 +83,11 @@ class NXServer(NXDaemon):
         super(NXServer, self).__init__(self.pid_name, self.pid_file)
 
     def initialize(self, directory, server_type, nodes):
-        self.server_dir = os.path.join(os.path.abspath(os.path.expanduser('~')), 
-                                       '.nxserver')
-        self.settings_file = os.path.join(self.server_dir, 'settings.ini')
-        self.settings = ConfigParser(self.settings_file)
+        settings_file = os.path.join(os.path.abspath(os.path.expanduser('~')), 
+                                     '.nxserver', 'settings.ini')
+        self.settings = ConfigParser(settings_file)
         if 'setup' not in self.settings.sections():
-            self.settins.add_section('setup')
+            self.settings.add_section('setup')
         if directory:
             self.directory = directory
             self.settings.set('setup', 'directory', directory)
@@ -104,7 +103,7 @@ class NXServer(NXDaemon):
         else:
             raise NeXusError('Server type not specified')
         if self.server_type == 'multinode':
-            self.nodefile = os.path.join(self.server_dir, 'nodefile')
+            self.nodefile = os.path.join(self.directory, 'nodefile')
             if nodes:
                 self.write_nodes(nodes)
             self.cpus = self.read_nodes()
@@ -114,7 +113,7 @@ class NXServer(NXDaemon):
 
     def read_nodes(self):
         """Read available nodes"""
-        if os.path.exists(self.nodefile):
+        if self.nodefile and os.path.exists(self.nodefile):
             with open(self.nodefile, 'r') as f:
                 nodes = [line.strip() for line in f.readlines() 
                          if line.strip() != '']
