@@ -116,8 +116,14 @@ class NXDatabase(object):
         connection = 'sqlite:///' + db_file
         self.engine = create_engine(connection, echo=echo, pool_pre_ping=True)
         Base.metadata.create_all(self.engine)
-        self.session = sessionmaker(bind=self.engine)()
-        self.database = os.path.realpath(self.session.bind.url.database)
+        self.database = os.path.realpath(self.engine.url.database)
+        self._session = None
+
+    @property
+    def session(self):
+        if self._session is None:
+            self._session = sessionmaker(bind=self.engine)()
+        return self._session
 
     def get_filename(self, filename):
         """Return the relative path of the requested filename."""
@@ -270,7 +276,6 @@ class NXDatabase(object):
             t.queue_time = queue_time
         else:
             t.queue_time = datetime.datetime.now()
-        self.session.commit()
         self.update_status(filename, task)
 
     def start_task(self, filename, task, entry, start_time=None):
@@ -300,7 +305,6 @@ class NXDatabase(object):
         else:
             t.start_time = datetime.datetime.now()
         t.pid = os.getpid()
-        self.session.commit()
         self.update_status(filename, task)
 
     def end_task(self, filename, task, entry, end_time=None):
@@ -332,7 +336,6 @@ class NXDatabase(object):
             t.end_time = end_time
         else:
             t.end_time = datetime.datetime.now()
-        self.session.commit()
         self.update_status(filename, task)
 
     def fail_task(self, filename, task, entry):
@@ -358,7 +361,6 @@ class NXDatabase(object):
         t.queue_time = None
         t.start_time = None
         t.end_time = None
-        self.session.commit()
         self.update_status(filename, task)
     
     def update_status(self, filename, task):
@@ -421,7 +423,7 @@ class NXDatabase(object):
 
     def check_tasks(self):
         """Check that all tasks are present, adding a column if necessary."""
-        inspector = inspect(self.session.bind.engine)
+        inspector = inspect(self.engine)
         tasks = [task['name'] for task in inspector.get_columns('files')]
         for task in self.task_names:
             if task not in tasks:
@@ -444,7 +446,7 @@ class NXDatabase(object):
                                  default=default)
         try:
             import sqlite3
-            connection = sqlite3.connect(os.path.realpath(self.database))
+            connection = sqlite3.connect(self.database)
             cursor = connection.cursor()
             cursor.execute(sql_command)
             connection.commit()

@@ -32,6 +32,7 @@ class CalibrateDialog(NXDialog):
         self.points = []
         self.pattern_geometry = None
         self.cake_geometry = None
+        self.polarization = None
         self.is_calibrated = False
         self.phi_max = -np.pi
 
@@ -344,6 +345,12 @@ class CalibrateDialog(NXDialog):
         detector['roll'] = self.parameters['roll'].value
         detector['beam_center_x'] = self.parameters['xc'].value
         detector['beam_center_y'] = self.parameters['yc'].value
+        try:
+            detector['polarization'] = self.pattern_geometry.polarization(
+                                           factor=0.99, 
+                                           shape=detector['mask'].shape)
+        except Exception:
+            pass
 
     def reject(self):
         super(CalibrateDialog, self).reject()
