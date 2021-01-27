@@ -32,7 +32,7 @@ class NXWorker(Process):
                 break
             else:
                 self.log("%s: Executing '%s'" % (self.cpu, next_task.command))
-                next_task.execute(self.cpu)
+                next_task.execute(self.cpu, self.cpu_log)
             self.task_queue.task_done()
             self.log("%s: Finished '%s'" % (self.cpu, next_task.command))
             self.result_queue.put(next_task.command)
