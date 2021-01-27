@@ -1,8 +1,6 @@
 import os
 import subprocess
 
-from nexpy.gui.pyqt import QtWidgets, getOpenFileName
-
 from nexusformat.nexus import *
 from nexpy.gui.datadialogs import NXDialog
 from nexpy.gui.utils import report_error
