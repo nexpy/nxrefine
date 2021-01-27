@@ -42,10 +42,7 @@ def main():
     elif args.command == 'restart':
         server.restart()
     elif args.command == 'clear':
-        if args.gup:
-            server.clear(os.path.join(args.cwd, args.gup))
-        else:
-            server.clear()
+        server.clear()
     elif args.command == 'status':
         if server.is_running():
             print("Server is running (pid=%s)" % server.get_pid())
