@@ -1440,7 +1440,7 @@ class NXReduce(QtCore.QObject):
             self.nxprepare()
             self.nxtransform()
             self.nxmasked_transform()
-        else:
+        elif self.transform:
             self.logger.info('Orientation has not been refined')
             self.record_fail('nxtransform')
             self.record_fail('nxmasked_transform')
