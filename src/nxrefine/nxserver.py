@@ -88,8 +88,11 @@ class NXServer(NXDaemon):
 
     def initialize(self, directory, server_type, nodes):
         self.home_settings = ConfigParser()
-        self.home_file = os.path.join(os.path.abspath(os.path.expanduser('~')), 
-                                      '.nxserver', 'settings.ini')
+        home_directory = os.path.join(os.path.abspath(os.path.expanduser('~')), 
+                                      '.nxserver')
+        if not os.path.exists(home_directory):
+            os.mkdir(home_directory)
+        self.home_file = os.path.join(home_directory, 'settings.ini')
         self.home_settings.read(self.home_file)
         if 'setup' not in self.home_settings.sections():
             self.home_settings.add_section('setup')
