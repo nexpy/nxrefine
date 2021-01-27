@@ -72,14 +72,14 @@ class NXServer(NXDaemon):
     def __init__(self, directory=None, server_type=None, nodes=None):
         self.pid_name = 'NXServer'
         self.initialize(directory, server_type, nodes)
-        if self.directory:
-            self.task_list = os.path.join(self.directory, 'task_list')
-            self.log_file = os.path.join(self.directory, 'nxserver.log')
-            self.pid_file = os.path.join(self.directory, 'nxserver.pid')
+        self.task_list = os.path.join(self.directory, 'task_list')
+        self.log_file = os.path.join(self.directory, 'nxserver.log')
+        self.pid_file = os.path.join(self.directory, 'nxserver.pid')
         self.tasks = None
         self.results = None
         self.workers = []
-
+        if not os.path.exists(self.task_list):
+            os.mkfifo(self.task_list)
         super(NXServer, self).__init__(self.pid_name, self.pid_file)
 
     def __repr__(self):
