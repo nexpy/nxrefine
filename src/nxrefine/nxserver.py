@@ -55,7 +55,7 @@ class NXTask(object):
         if self.server_type == 'multicore':
             return self.command
         else:
-            return "pdsh -w %s '%s'" % (self.cpu, self.command)
+            return "pdsh -w %s '%s'" % (cpu, self.command)
 
     def execute(self, cpu, log_file):
         process = subprocess.run(self.executable_command(cpu), 
