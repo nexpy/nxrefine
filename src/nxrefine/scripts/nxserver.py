@@ -27,7 +27,7 @@ def main():
     else:
         server = NXServer()
 
-    if args.type == 'multinode':
+    if server.server_type == 'multinode':
         server.write_nodes(args.nodes)
         server.remove_nodes(args.remove)
 
