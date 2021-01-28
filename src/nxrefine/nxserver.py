@@ -197,12 +197,9 @@ class NXServer(NXDaemon):
         """Add a task to the server queue"""
         task_fifo = os.open(self.task_list, os.O_RDWR)
         os.write(task_fifo, (command+'\n').encode())
-        self.log('Written to FIFO: ' + command)
 
     def read_task(self):
         command = self.task_fifo.readline()[:-1]
-        if command:
-            self.log('Read from FIFO: ' + command)
         return command
 
     def stop(self):
