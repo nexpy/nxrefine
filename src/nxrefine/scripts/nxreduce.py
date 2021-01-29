@@ -16,8 +16,8 @@ def main():
         description="Perform data reduction on entries")
     parser.add_argument('-d', '--directory', required=True, 
                         help='scan directory')
-    parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
-        nargs='+', help='names of entries to be processed')
+    parser.add_argument('-e', '--entries', nargs='+', 
+                        help='names of entries to be processed')
     parser.add_argument('-l', '--link', action='store_true',
                         help='link wrapper file to raw data')
     parser.add_argument('-m', '--max', action='store_true',

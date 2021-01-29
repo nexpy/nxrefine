@@ -15,7 +15,8 @@ def main():
     parser = argparse.ArgumentParser(
         description="Combine CCTW transforms")
     parser.add_argument('-d', '--directory', default='', help='scan directory')
-    parser.add_argument('-e', '--entries', help='names of entries to be searched')
+    parser.add_argument('-e', '--entries', nargs='+', 
+                        help='names of entries to be searched')
     parser.add_argument('-m', '--mask', action='store_true', 
                         help='combine transforms with 3D mask')
     parser.add_argument('-o', '--overwrite', action='store_true', 
