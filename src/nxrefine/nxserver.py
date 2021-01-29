@@ -20,6 +20,9 @@ class NXWorker(Process):
         self.server_log = server_log
         self.cpu_log = os.path.join(os.path.dirname(self.server_log), 
                                     self.cpu + '.log')
+  
+    def __repr__(self):
+        return "NXWorker(cpu={})".format(self.cpu)
 
     def run(self):
         self.log("Started worker on {} (pid={})".format(self.cpu, os.getpid()))
