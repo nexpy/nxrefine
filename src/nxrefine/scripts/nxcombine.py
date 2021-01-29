@@ -16,7 +16,7 @@ def main():
         description="Combine CCTW transforms")
     parser.add_argument('-d', '--directory', default='', help='scan directory')
     parser.add_argument('-e', '--entries', nargs='+', 
-                        help='names of entries to be searched')
+                        help='names of entries to be combined.')
     parser.add_argument('-m', '--mask', action='store_true', 
                         help='combine transforms with 3D mask')
     parser.add_argument('-o', '--overwrite', action='store_true', 
