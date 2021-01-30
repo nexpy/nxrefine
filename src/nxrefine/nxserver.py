@@ -13,7 +13,7 @@ from .daemon import NXDaemon
 class NXWorker(Process):
     """Class for processing tasks on a specific cpu."""
     def __init__(self, cpu, task_queue, result_queue, server_log):
-        super(NXWorker, self).__init__(name=self.cpu)
+        Process.__init__(self)
         self.cpu = cpu
         self.task_queue = task_queue
         self.result_queue = result_queue
