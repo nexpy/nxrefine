@@ -1580,7 +1580,7 @@ class NXMultiReduce(NXReduce):
                         data_lock[entry].release()
                 toc = timeit.default_timer()
                 if process.returncode == 0:
-                    self.logger.info('%s (%s)completed (%g seconds)'
+                    self.logger.info('%s (%s) completed (%g seconds)'
                         % (title, ', '.join(self.entries), toc-tic))
                     self.record(task, command=cctw_command,
                                 output=process.stdout.decode(),
