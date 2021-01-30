@@ -1112,9 +1112,8 @@ class NXReduce(QtCore.QObject):
         peaks = refine.get_xyzs()
         self.logger.info("Optimizing peak frames")
         with self.field.nxfile:
-            with self.root.nxfile:
-                for peak in peaks:
-                    self.get_xyz_frame(peak)
+            for peak in peaks:
+                self.get_xyz_frame(peak)
             self.write_xyz_peaks(peaks)
             self.logger.info("Determining 3D mask radii")
             masks = self.prepare_xyz_masks(peaks)
