@@ -219,7 +219,7 @@ class NXServer(NXDaemon):
             worker.start()
             self.workers.append()
 
-    self.remove_worker(self, cpu):
+    def remove_worker(self, cpu):
         for worker in [w for w in self.workers if w.cpu == cpu]:
             self.workers.remove(worker)        
             worker.terminate()
