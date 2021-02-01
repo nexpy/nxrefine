@@ -988,7 +988,7 @@ class NXReduce(QtCore.QObject):
             refine.write_parameters()
 
     def nxtransform(self):
-        if self.not_complete('nxtransform') and self.transform and not self.mask:
+        if self.not_complete('nxtransform') and self.transform:
             if not self.complete('nxrefine'):
                 self.logger.info('Cannot transform until the orientation is complete')
                 return
@@ -1018,7 +1018,7 @@ class NXReduce(QtCore.QObject):
             else:
                 self.logger.info('CCTW command invalid')
                 self.record_fail('nxtransform')
-        elif self.transform and not self.mask:
+        elif self.transform:
             self.logger.info('Data already transformed')
             self.record_end('nxtransform')
 
@@ -1438,10 +1438,8 @@ class NXReduce(QtCore.QObject):
             self.nxrefine()
         if self.complete('nxrefine'):
             self.nxprepare()
-            if self.mask:
-                self.nxmasked_transform()
-            else:
-                self.nxtransform()
+            self.nxtransform()
+            self.nxmasked_transform()
         elif self.transform:
             self.logger.info('Orientation has not been refined')
             self.record_fail('nxtransform')
