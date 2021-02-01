@@ -4,7 +4,7 @@ from nexusformat.nexus import *
 from nexpy.gui.pyqt import QtCore, QtWidgets
 from nexpy.gui.datadialogs import NXWidget, NXDialog, GridParameters
 from nexpy.gui.utils import report_error, natural_sort, format_mtime, human_size
-from nexpy.gui.widgets import NXLabel, NXScrollArea, NXPlainTextEdit
+from nexpy.gui.widgets import NXLabel, NXScrollArea, NXPlainTextEdit, NXPushButton
 
 from nxrefine.nxreduce import NXReduce, NXMultiReduce
 from nxrefine.nxdatabase import NXDatabase
@@ -453,6 +453,12 @@ class WorkflowDialog(NXDialog):
                                                slot=self.refreshview)
         self.defaultview = None
         self.output_box = NXPlainTextEdit(wrap=False)
+        self.cpu_combo = dialog.select_box(self.server.cpus)
+        self.cpu_button = NXPushButton('View CPU Log', self.cpuview)
+        close_layout = self.make_layout(self.cpu_button, self.cpu_combo,
+                                        'stretch', 
+                                        dialog.close_buttons(close=True),
+                                        align='justified')
         dialog.set_layout(
             dialog.make_layout(self.scan_combo, self.entry_combo, 
                                self.program_combo),
@@ -462,7 +468,7 @@ class WorkflowDialog(NXDialog):
                                   ('View Workflow Logs', self.logview),
                                   ('View Workflow Output', self.outview),
                                   ('View Database', self.databaseview)),
-            dialog.close_buttons(close=True))
+            close_layout)
         scans = os.path.join(self.label, self.sample)
         dialog.setWindowTitle("'%s' Logs" % scans)
         self.view_dialog = dialog
@@ -551,6 +557,16 @@ class WorkflowDialog(NXDialog):
             self.output_box.setPlainText('\n'.join(text))
         else:
             self.output_box.setPlainText('No Entries')
+
+    def cpuview(self):
+        cpu = self.cpu_combo.selected
+        cpu_log = os.path.join(self.task_directory, '{}.log'.format(cpu))
+        if os.path.exists(cpu_log):
+            with open() as f:
+                lines = f.readlines()
+            self.output_box.setPlainText(''.join(lines))
+        else:
+            self.output_box.setPlainText('No Logs')
 
     def refreshview(self):
         if self.defaultview:
