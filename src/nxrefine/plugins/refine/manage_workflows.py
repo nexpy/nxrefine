@@ -562,7 +562,7 @@ class WorkflowDialog(NXDialog):
         cpu = self.cpu_combo.selected
         cpu_log = os.path.join(self.task_directory, '{}.log'.format(cpu))
         if os.path.exists(cpu_log):
-            with open() as f:
+            with open(cpu_log) as f:
                 lines = f.readlines()
             self.output_box.setPlainText(''.join(lines))
             self.output_box.verticalScrollBar().setValue(
