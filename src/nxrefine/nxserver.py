@@ -221,6 +221,7 @@ class NXServer(NXDaemon):
 
     def remove_worker(self, cpu):
         for worker in [w for w in self.workers if w.cpu == cpu]:
+            self.log('Stopping worker {})'.format(cpu))
             self.workers.remove(worker)        
             worker.terminate()
             worker.join()
