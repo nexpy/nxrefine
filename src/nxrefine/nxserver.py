@@ -65,13 +65,15 @@ class NXTask(object):
             return "pdsh -w %s '%s'" % (cpu, self.command)
 
     def execute(self, cpu, log_file):
+        with open(log_file, 'a') as f:
+            f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' + 
+                    self.command + '\n')
         process = subprocess.run(self.executable_command(cpu), 
                                  shell=True, 
                                  stdout=subprocess.PIPE,
                                  stderr=subprocess.STDOUT)
         with open(log_file, 'a') as f:
-            f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' + 
-                    self.command + '\n' + process.stdout.decode() + '\n')
+            f.write(process.stdout.decode() + '\n')
 
 
 class NXServer(NXDaemon):
