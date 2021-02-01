@@ -200,6 +200,7 @@ class NXServer(NXDaemon):
             worker.join()
         self.log("Stopping server")
         super(NXServer, self).stop()
+        self.clear()
 
     def add_task(self, command):
         """Add a task to the server queue"""
