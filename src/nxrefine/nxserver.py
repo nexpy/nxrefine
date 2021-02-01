@@ -152,8 +152,6 @@ class NXServer(NXDaemon):
         """Write additional nodes"""
         current_nodes = self.read_nodes()
         for node in [cpu for cpu in nodes if cpu not in current_nodes]:
-            if self.is_running():
-                self.add_task('add ' + node)
             self.server_settings.set('nodes', node)
         with open(self.server_file, 'w') as f:
             self.server_settings.write(f)
@@ -162,8 +160,6 @@ class NXServer(NXDaemon):
     def remove_nodes(self, nodes):
         """Remove specified nodes"""
         for node in nodes:
-            if self.is_running():
-                self.add_task('remove ' + node)
             self.server_settings.remove_option('nodes', node)
         with open(self.server_file, 'w') as f:
             self.server_settings.write(f)
@@ -194,10 +190,6 @@ class NXServer(NXDaemon):
             command = self.read_task()
             if command == 'stop':
                 break
-            elif command.startswith('add'):
-                self.add_worker(command[4:])
-            elif command.startswith('remove'):
-                self.remove_worker(command[7:])
             elif command:
                 self.tasks.put(NXTask(command, self.server_type))
         for worker in self.workers:
@@ -217,18 +209,6 @@ class NXServer(NXDaemon):
     def read_task(self):
         command = self.task_fifo.readline()[:-1]
         return command
-
-    def add_worker(self, cpu):
-        if cpu not in [worker.cpu for worker in self.workers]:
-            worker = NXWorker(cpu, self.tasks, self.results, self.log_file)
-            worker.start()
-            self.workers.append()
-
-    def remove_worker(self, cpu):
-        for worker in [w for w in self.workers if w.cpu == cpu]:
-            self.workers.remove(worker)        
-            worker.terminate()
-            worker.join()
 
     def stop(self):
         if self.is_running():
