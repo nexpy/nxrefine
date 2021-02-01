@@ -198,7 +198,6 @@ class NXServer(NXDaemon):
                 self.remove_worker(command[7:])
             elif command:
                 self.tasks.put(NXTask(command, self.server_type))
-                self.log('Server listening')
         for worker in self.workers:
             self.tasks.put(None)
         self.tasks.join()
