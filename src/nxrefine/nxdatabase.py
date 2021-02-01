@@ -390,7 +390,9 @@ class NXDatabase(object):
                         break
                 else:
                     status[e] = NOT_STARTED
-            if IN_PROGRESS in status.values():
+            if FAILED in status.values():
+                setattr(f, task, FAILED)
+            elif IN_PROGRESS in status.values():
                 setattr(f, task, IN_PROGRESS)
             elif QUEUED in status.values():
                 setattr(f, task, QUEUED)
