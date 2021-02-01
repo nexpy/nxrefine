@@ -988,7 +988,7 @@ class NXReduce(QtCore.QObject):
             refine.write_parameters()
 
     def nxtransform(self):
-        if self.not_complete('nxtransform') and self.transform:
+        if self.not_complete('nxtransform') and self.transform and not self.mask:
             if not self.complete('nxrefine'):
                 self.logger.info('Cannot transform until the orientation is complete')
                 return
@@ -1018,7 +1018,7 @@ class NXReduce(QtCore.QObject):
             else:
                 self.logger.info('CCTW command invalid')
                 self.record_fail('nxtransform')
-        elif self.transform:
+        elif self.transform and not self.mask:
             self.logger.info('Data already transformed')
             self.record_end('nxtransform')
 
@@ -1288,11 +1288,12 @@ class NXReduce(QtCore.QObject):
 
     def nxmasked_transform(self):
         if self.not_complete('nxmasked_transform') and self.transform and self.mask:
+            self.record_start('nxmasked_transform')
             if not self.all_complete('nxprepare_mask'):
                 self.logger.info('Cannot perform masked transform until the 3D mask ' + 
                                  'is prepared for all entries')
+                self.record_fail('nxmasked_transform')
                 return
-            self.record_start('nxmasked_transform')
             self.logger.info("Completing and writing 3D mask")
             self.complete_xyz_mask()
             self.logger.info("3D mask written")
@@ -1437,8 +1438,10 @@ class NXReduce(QtCore.QObject):
             self.nxrefine()
         if self.complete('nxrefine'):
             self.nxprepare()
-            self.nxtransform()
-            self.nxmasked_transform()
+            if self.mask:
+                self.nxmasked_transform()
+            else:
+                self.nxtransform()
         elif self.transform:
             self.logger.info('Orientation has not been refined')
             self.record_fail('nxtransform')
@@ -1506,10 +1509,10 @@ class NXReduce(QtCore.QObject):
             if self.transform:
                 if self.mask:
                     self.db.queue_task(self.wrapper_file, 'nxmasked_transform', 
-                                    self.entry_name)
+                                       self.entry_name)
                 else:
                     self.db.queue_task(self.wrapper_file, 'nxtransform', 
-                                    self.entry_name)
+                                       self.entry_name)
 
 
 class NXMultiReduce(NXReduce):
