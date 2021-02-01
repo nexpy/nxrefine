@@ -25,7 +25,7 @@ class NXWorker(Process):
         return "NXWorker(cpu={})".format(self.cpu)
 
     def run(self):
-        self.log("Started worker on {} (pid={})".format(self.cpu, os.getpid()))
+        self.log("Starting worker on {} (pid={})".format(self.cpu, os.getpid()))
         while True:
             time.sleep(5)
             next_task = self.task_queue.get()
@@ -40,6 +40,10 @@ class NXWorker(Process):
             self.log("%s: Finished '%s'" % (self.cpu, next_task.command))
             self.result_queue.put(next_task.command)
         return
+
+    def terminate(self):
+        self.log("Stopping worker on {} (pid={})".format(self.cpu, os.getpid()))
+        Process.terminate(self)    
 
     def log(self, message):
         with open(self.server_log, 'a') as f:
@@ -221,7 +225,6 @@ class NXServer(NXDaemon):
 
     def remove_worker(self, cpu):
         for worker in [w for w in self.workers if w.cpu == cpu]:
-            self.log('Stopping worker {})'.format(cpu))
             self.workers.remove(worker)        
             worker.terminate()
             worker.join()
