@@ -453,7 +453,7 @@ class WorkflowDialog(NXDialog):
                                                slot=self.refreshview)
         self.defaultview = None
         self.output_box = NXPlainTextEdit(wrap=False)
-        self.cpu_combo = dialog.select_box(self.server.cpus)
+        self.cpu_combo = dialog.select_box(['nxserver'] + self.server.cpus)
         self.cpu_button = NXPushButton('View CPU Log', self.cpuview)
         close_layout = self.make_layout(self.cpu_button, self.cpu_combo,
                                         'stretch', 
@@ -560,7 +560,7 @@ class WorkflowDialog(NXDialog):
 
     def cpuview(self):
         cpu = self.cpu_combo.selected
-        cpu_log = os.path.join(self.task_directory, '{}.log'.format(cpu))
+        cpu_log = os.path.join(self.server.directory, '{}.log'.format(cpu))
         if os.path.exists(cpu_log):
             with open(cpu_log) as f:
                 lines = f.readlines()
