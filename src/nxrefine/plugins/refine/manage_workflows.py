@@ -565,8 +565,8 @@ class WorkflowDialog(NXDialog):
             with open() as f:
                 lines = f.readlines()
             self.output_box.setPlainText(''.join(lines))
-                    self.text_box.verticalScrollBar().setValue(
-            self.output_box.verticalScrollBar().maximum())
+            self.output_box.verticalScrollBar().setValue(
+                self.output_box.verticalScrollBar().maximum())
         else:
             self.output_box.setPlainText('No Logs')
 
