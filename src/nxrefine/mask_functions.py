@@ -1,5 +1,5 @@
-from nxrefine.nxrefine import NXRefine
-from nxrefine.nxreduce import NXReduce
+from .nxrefine import NXRefine
+from .nxreduce import NXReduce
 import time 
 from scipy import optimize
 import scipy.signal as signal

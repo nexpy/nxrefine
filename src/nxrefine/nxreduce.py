@@ -1117,8 +1117,10 @@ class NXReduce(QtCore.QObject):
             self.write_xyz_peaks(peaks)
             self.logger.info("Determining 3D mask radii")
             masks = self.prepare_xyz_masks(peaks)
-        self.logger.info("Writing 3D mask parameters")
+        self.logger.info("Writing 3D peak mask parameters")
         self.write_xyz_masks(masks)
+        self.logger.info("Writing 3D edge mask parameters")
+        self.write_xyz_edges()
         self.logger.info("Masked frames stored in %s" % self.mask_file)
 
     def link_mask(self):
@@ -1221,7 +1223,8 @@ class NXReduce(QtCore.QObject):
 
     def write_xyz_masks(self, peaks):
         peaks = sorted(peaks, key=operator.attrgetter('z'))
-        peak_array = np.array(list(zip(*[(peak.x, peak.y, peak.z, peak.H, peak.K, peak.L,
+        peak_array = np.array(list(zip(*[(peak.x, peak.y, peak.z, 
+                                          peak.H, peak.K, peak.L,
                                           peak.radius, peak.pixel_count) 
                                          for peak in peaks])))
         collection = NXcollection()
@@ -1239,9 +1242,28 @@ class NXReduce(QtCore.QObject):
                 del entry['mask_xyz']
             entry['mask_xyz'] = collection
     
+    def write_xyz_edges(self):
+        from .mask_functions import mask_edges
+        edges_array = mask_edges(self.entry)
+        collection = NXcollection()
+        collection['x'] = edges_array[:,0]
+        collection['y'] = edges_array[:,1]
+        collection['z'] = edges_array[:,2]
+        collection['radius'] = edges_array[:,3]
+        collection['H'] = np.zeros(edges_array[:,0].shape[0])
+        collection['K'] = np.zeros(edges_array[:,0].shape[0])
+        collection['L'] = np.zeros(edges_array[:,0].shape[0])
+        collection['pixel_count'] = np.zeros(edges_array[:,0].shape[0])
+        with self.mask_root.nxfile:
+            entry = self.mask_root['entry']
+            if 'mask_xyz_edges' in entry:
+                del entry['mask_xyz_edges']
+            entry['mask_xyz_edges'] = collection
+
     def write_xyz_extras(self, peaks):
         peaks = sorted(peaks, key=operator.attrgetter('z'))
-        peak_array = np.array(list(zip(*[(peak.x, peak.y, peak.z, peak.H, peak.K, peak.L,
+        peak_array = np.array(list(zip(*[(peak.x, peak.y, peak.z, 
+                                          peak.H, peak.K, peak.L,
                                           peak.radius, peak.pixel_count) 
                                          for peak in peaks])))
         collection = NXcollection()
