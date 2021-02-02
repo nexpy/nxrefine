@@ -1,8 +1,11 @@
-from .nxrefine import NXRefine
-from .nxreduce import NXReduce
+import numpy as np
 import time 
+
 from scipy import optimize
 import scipy.signal as signal
+
+from .nxrefine import NXRefine
+from .nxreduce import NXReduce
 
 def print_peak(input_entry,index):
     print(np.around(np.array([input_entry.peaks_inferred.x[index].nxdata,input_entry.peaks_inferred.y[index].nxdata,input_entry.peaks_inferred.z[index].nxdata]),decimals=3))
