@@ -453,7 +453,8 @@ class WorkflowDialog(NXDialog):
                                                slot=self.refreshview)
         self.defaultview = None
         self.output_box = NXPlainTextEdit(wrap=False)
-        self.cpu_combo = dialog.select_box(['nxserver'] + self.server.cpus)
+        self.cpu_combo = dialog.select_box(['nxserver'] + self.server.cpus,
+                                           slot=self.cpuview)
         self.cpu_button = NXPushButton('View CPU Log', self.cpuview)
         close_layout = self.make_layout(self.cpu_button, self.cpu_combo,
                                         'stretch', 
