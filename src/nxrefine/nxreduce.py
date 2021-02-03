@@ -1459,7 +1459,7 @@ class NXReduce(QtCore.QObject):
         self.nxmax()
         self.nxfind()
         self.nxcopy()
-        if self.complete('nxcopy'):
+        if self.complete('nxfind') and self.complete('nxcopy'):
             self.nxrefine()
         if self.complete('nxrefine'):
             self.nxprepare()
