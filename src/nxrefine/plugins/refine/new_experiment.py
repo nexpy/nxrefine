@@ -98,7 +98,7 @@ class ExperimentDialog(NXDialog):
             entry['instrument/detector/translation_y'] = self.detectors[position]['y'].value
             entry['instrument/detector/translation_y'].attrs['units'] = 'mm'
             entry['instrument/detector/frame_time'] = 0.1
-            entry['instrument/detector/frame_time'].attrs['units'] = 'seconds'
+            entry['instrument/detector/frame_time'].attrs['units'] = 's'
 
     def accept(self):
         try:
