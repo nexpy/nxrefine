@@ -379,6 +379,7 @@ class WorkflowDialog(NXDialog):
 
     def queued(self, scan, program):
         self.scans[scan][program].setCheckState(QtCore.Qt.PartiallyChecked)
+        self.scans[scan][program].setStyleSheet("")
         self.scans[scan][program].setEnabled(False)
 
     def add_tasks(self):
