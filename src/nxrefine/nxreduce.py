@@ -456,9 +456,11 @@ class NXReduce(QtCore.QObject):
         return program not in self.entry or self.overwrite
 
     def start_progress(self, start, stop):
+        self._start = start
+        self._stop = stop
         if self.gui:
-            self._step = (stop - start) / 100
-            self._value = int(start)
+            self._step = (self._stop - self._start) / 100
+            self._value = int(self._start)
             self.start.emit((0, 100))
         else:
             print('Frame', end='')
@@ -471,7 +473,7 @@ class NXReduce(QtCore.QObject):
             if  _value > self._value:
                 self.update.emit(_value)
                 self._value = _value
-        elif i % 100 == 0:
+        elif (i - self._start) % 100 == 0:
             print('\rFrame %d' % i, end='')
 
     def stop_progress(self):
