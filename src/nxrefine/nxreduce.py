@@ -457,10 +457,9 @@ class NXReduce(QtCore.QObject):
 
     def start_progress(self, start, stop):
         self._start = start
-        self._stop = stop
         if self.gui:
-            self._step = (self._stop - self._start) / 100
-            self._value = int(self._start)
+            self._step = (stop - start) / 100
+            self._value = int(start)
             self.start.emit((0, 100))
         else:
             print('Frame', end='')
