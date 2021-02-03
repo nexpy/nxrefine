@@ -471,7 +471,7 @@ class NXReduce(QtCore.QObject):
             if  _value > self._value:
                 self.update.emit(_value)
                 self._value = _value
-        else:
+        elif i % 100 == 0:
             print('\rFrame %d' % i, end='')
 
     def stop_progress(self):
