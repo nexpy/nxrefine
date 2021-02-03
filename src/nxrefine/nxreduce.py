@@ -774,11 +774,13 @@ class NXReduce(QtCore.QObject):
                 if peaks:
                     self.result.emit(peaks)
                 self.stop.emit()
-            else:
+            elif peaks:
                 self.write_peaks(peaks)
                 self.record('nxfind', threshold=self.threshold,
                             first_frame=self.first, last_frame=self.last,
                             peak_number=len(peaks))
+            else:
+                self.record_fail('nxfind')
         elif self.find:
             self.logger.info('Peaks already found')
             self.record_end('nxfind')
