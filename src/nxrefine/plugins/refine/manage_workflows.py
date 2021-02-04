@@ -568,7 +568,8 @@ class WorkflowDialog(NXDialog):
         process = subprocess.run(command, shell=True, stdout=subprocess.PIPE,
                                                       stderr=subprocess.PIPE)
         if process.returncode == 0:
-            self.output_box.setPlainText(process.stdout.decode())
+            lines = sorted(process.stdout.decode().split())
+            self.output_box.setPlainText('\n'.join(lines))
         else:
             self.output_box.setPlainText(process.stderr.decode())
 
