@@ -88,7 +88,7 @@ class SumDialog(NXDialog):
             self.checkbox[scan].setChecked(False)
 
     def sum_scans(self):
-        server = NXServer(self.experiment_directory)
+        server = NXServer()
         if not server.is_running():
             raise NeXusError('Server not running')
         scan_filter = ';;'.join(("NeXus Files (*.nxs)", "Any Files (*.* *)"))
