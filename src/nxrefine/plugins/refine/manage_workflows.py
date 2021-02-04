@@ -1,4 +1,5 @@
 import os
+import subprocess
 
 from nexusformat.nexus import *
 from nexpy.gui.pyqt import QtCore, QtWidgets
@@ -454,11 +455,12 @@ class WorkflowDialog(NXDialog):
                                                slot=self.refreshview)
         self.defaultview = None
         self.output_box = NXPlainTextEdit(wrap=False)
+        cpu_process_button = NXPushButton('View CPU Processes', self.procview)
+        cpu_log_button = NXPushButton('View CPU Log', self.cpuview)
         self.cpu_combo = dialog.select_box(['nxserver'] + self.server.cpus,
                                            slot=self.cpuview)
-        self.cpu_button = NXPushButton('View CPU Log', self.cpuview)
-        close_layout = self.make_layout(self.cpu_button, self.cpu_combo,
-                                        'stretch', 
+        close_layout = self.make_layout(cpu_process_button, cpu_log_button,
+                                        self.cpu_combo, 'stretch', 
                                         dialog.close_buttons(close=True),
                                         align='justified')
         dialog.set_layout(
@@ -559,6 +561,16 @@ class WorkflowDialog(NXDialog):
             self.output_box.setPlainText('\n'.join(text))
         else:
             self.output_box.setPlainText('No Entries')
+
+    def procview(self):
+        command = "pdsh -w {} 'ps -f' | grep nxreduce".format(
+                                                    ",".join(self.server.cpus))
+        process = subprocess.run(command, shell=True, stdout=subprocess.PIPE,
+                                                      stderr=subprocess.PIPE)
+        if process.returncode == 0:
+            self.output_box.setPlainText(process.stdout.decode())
+        else:
+            self.output_box.setPlainText(process.stderr.decode())
 
     def cpuview(self):
         cpu = self.cpu_combo.selected
