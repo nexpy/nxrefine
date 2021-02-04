@@ -8,8 +8,8 @@ import subprocess
 import sys
 import time
 import timeit
-import datetime
 from copy import deepcopy
+from datetime import datetime
 
 import numpy as np
 import h5py as h5
@@ -553,12 +553,18 @@ class NXReduce(QtCore.QObject):
     def link_data(self):
         if self.field:
             with self.root.nxfile:
+                frames = np.arange(self.shape[0], dtype=np.int32)
+                if 'instrument/detector/frame_time' in self.entry:
+                    frame_time = self.entry['instrument/detector/frame_time']
+                else:
+                    frame_time = 0.1
                 if 'data' not in self.entry:
                     self.entry['data'] = NXdata()
                     self.entry['data/x_pixel'] = np.arange(self.shape[2], dtype=np.int32)
                     self.entry['data/y_pixel'] = np.arange(self.shape[1], dtype=np.int32)
-                    self.entry['data/frame_number'] = np.arange(self.shape[0], 
-                                                                dtype=np.int32)
+                    self.entry['data/frame_number'] = frames
+                    self.entry['data/frame_time'] = frame_time * frames
+                    self.entry['data/frame_time'].attrs['units'] = 's'
                     data_file = os.path.relpath(self.data_file, 
                                                 os.path.dirname(self.wrapper_file))
                     self.entry['data/data'] = NXlink(self.path, data_file)
@@ -567,12 +573,24 @@ class NXReduce(QtCore.QObject):
                 else:
                     if self.entry['data/frame_number'].shape != self.shape[0]:
                         del self.entry['data/frame_number']
-                        self.entry['data/frame_number'] = np.arange(self.shape[0], 
-                                                                    dtype=np.int32)
+                        self.entry['data/frame_number'] = frames
+                        if 'frame_time' in self.entry['data']:
+                            del self.entry['data/frame_time']
                         self.logger.info('Fixed frame number axis')
+                    if 'data/frame_time' not in self.entry:
+                        self.entry['data/frame_time'] = frame_time * frames
+                        self.entry['data/frame_time'].attrs['units'] = 's'
                 self.entry['data'].nxaxes = [self.entry['data/frame_number'],
                                              self.entry['data/y_pixel'],
                                              self.entry['data/x_pixel']]
+                with self.field.nxfile as f:
+                    time_path = 'entry/instrument/NDAttributes/NDArrayTimeStamp'
+                    if time_path in f:
+                        start = datetime.fromtimestamp(f[time_path][0])
+                        #In EPICS, the epoch started in 1990, not 1970
+                        start_time = start.replace(year=start.year+20).isoformat()
+                        self.entry['start_time'] = start_time
+                        self.entry['data/frame_time'].attrs['start'] = start_time
         else:
             self.logger.info('No raw data loaded')
 
@@ -608,7 +626,8 @@ class NXReduce(QtCore.QObject):
             if 'logs' in self.entry['instrument']:
                 del self.entry['instrument/logs']
             self.entry['instrument/logs'] = logs
-            frames = self.entry['data/frame_number'].size
+            frame_number = self.entry['data/frame_number']
+            frames = frame_number.size
             if 'MCS1' in logs:
                 if 'monitor1' in self.entry:
                     del self.entry['monitor1']
@@ -617,9 +636,9 @@ class NXReduce(QtCore.QObject):
                 data[0] = data[1]
                 data[-1] = data[-2]
                 self.entry['monitor1'] = NXmonitor(NXfield(data, name='MCS1'),
-                                                   NXfield(np.arange(frames,
-                                                                     dtype=np.int32),
-                                                           name='frame_number'))
+                                                   frame_number)
+                if 'data/frame_time' in self.entry:
+                    self.entry['monitor1/frame_time'] = self.entry['data/frame_time']
             if 'MCS2' in logs:
                 if 'monitor2' in self.entry:
                     del self.entry['monitor2']
@@ -628,9 +647,9 @@ class NXReduce(QtCore.QObject):
                 data[0] = data[1]
                 data[-1] = data[-2]
                 self.entry['monitor2'] = NXmonitor(NXfield(data, name='MCS2'),
-                                                   NXfield(np.arange(frames,
-                                                                     dtype=np.int32),
-                                                           name='frame_number'))
+                                                   frame_number)
+                if 'data/frame_time' in self.entry:
+                    self.entry['monitor2/frame_time'] = self.entry['data/frame_time']
             if 'source' not in self.entry['instrument']:
                 self.entry['instrument/source'] = NXsource()
             self.entry['instrument/source/name'] = 'Advanced Photon Source'
@@ -638,6 +657,8 @@ class NXReduce(QtCore.QObject):
             self.entry['instrument/source/probe'] = 'x-ray'
             if 'Storage_Ring_Current' in logs:
                 self.entry['instrument/source/current'] = logs['Storage_Ring_Current']
+            if 'SCU_Current' in logs:
+                self.entry['instrument/source/undulator_current'] = logs['SCU_Current']
             if 'UndulatorA_gap' in logs:
                 self.entry['instrument/source/undulator_gap'] = logs['UndulatorA_gap']
             if 'Calculated_filter_transmission' in logs:
