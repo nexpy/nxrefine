@@ -563,8 +563,10 @@ class WorkflowDialog(NXDialog):
             self.output_box.setPlainText('No Entries')
 
     def procview(self):
-        command = "pdsh -w {} 'ps -f' | grep nxreduce".format(
-                                                    ",".join(self.server.cpus))
+        patterns = ['nxreduce', 'nxcombine', 'nxsum']
+        command = \
+        "pdsh -w {} 'ps -f' | grep -e {}".format(",".join(self.server.cpus),
+                                              " -e ".join(patterns))
         process = subprocess.run(command, shell=True, stdout=subprocess.PIPE,
                                                       stderr=subprocess.PIPE)
         if process.returncode == 0:
