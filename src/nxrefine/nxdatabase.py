@@ -114,7 +114,7 @@ class NXDatabase(object):
             True if SQL statements are echoed to `stdout`, by default False.
         """
         connection = 'sqlite:///' + db_file
-        self.engine = create_engine(connection, echo=echo, pool_pre_ping=True)
+        self.engine = create_engine(connection, echo=echo)
         Base.metadata.create_all(self.engine)
         self.database = os.path.realpath(self.engine.url.database)
         self._session = None
