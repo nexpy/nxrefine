@@ -141,8 +141,12 @@ class NXReduce(QtCore.QObject):
         db_file = os.path.join(self.task_directory, 'nxdatabase.db')
         try:
             self.db = NXDatabase(db_file)
-        except Exception as error:
-            self.logger.info(str(error))
+        except Exception:
+            time.sleep(5)
+            try:
+                self.db = NXDatabase(db_file)
+            except Exception as error:
+                self.logger.info(str(error))
         try:
             self.server = NXServer()
         except Exception as error:
@@ -506,10 +510,6 @@ class NXReduce(QtCore.QObject):
                                             version='nxrefine v'+__version__,
                                             note=note)
         self.record_end(program)
-        
-        # check if all 3 entries are done - update File
-        # if self.all_complete(program):
-        #     self.db.start_task(self.wrapper_file, program, 'done')
 
     def record_start(self, program):
         """ Record that a task has started. Update database """
