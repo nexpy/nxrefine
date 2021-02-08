@@ -1448,7 +1448,7 @@ class NXReduce(QtCore.QObject):
             self.logger.info('Data already summed')
 
     def update_sum_wrapper(self):
-        with self.nxroot.nxfile:
+        with self.root.nxfile:
             if 'data' in self.entry:
                 if 'data' in self.entry['data']:
                     del self.entry['data/data']
@@ -1502,7 +1502,7 @@ class NXReduce(QtCore.QObject):
                     new_slab = new_field[i:i+chunk_size,:,:]
                     scan_slab = scan_field[i:i+chunk_size,:,:]
                     new_field[i:i+chunk_size,:,:] = new_slab + scan_slab
-            with self.nxroot.nxfile:
+            with self.root.nxfile:
                 self.entry['monitor1/MCS1'] = monitor1
                 self.entry['monitor2/MCS2'] = monitor2
                 self.entry['data/monitor_weight'] = monitor_weight
