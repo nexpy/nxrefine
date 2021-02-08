@@ -15,7 +15,7 @@ def main():
     parser.add_argument('-r', '--remove', default=[], nargs='+', 
                         help='Remove nodes')
     parser.add_argument('command', action='store', nargs='?',
-        help='valid commands are: status|start|list|stop|restart|clear')
+        help='valid commands are: status|start|stop|list|clear|kill')
 
     args = parser.parse_args()
 
@@ -43,6 +43,8 @@ def main():
         server.restart()
     elif args.command == 'clear':
         server.clear()
+    elif args.command == 'kill':
+        server.kill()
     elif args.command == 'status':
         if server.is_running():
             print("Server is running (pid=%s)" % server.get_pid())
