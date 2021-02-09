@@ -67,7 +67,7 @@ class SumDialog(NXDialog):
     @property
     def scan_list(self):
         scan_list = []
-        for scan in self.scan_boxess:
+        for scan in self.scan_boxes:
             if self.checkbox[scan].isChecked():
                 base_name = os.path.splitext(self.checkbox[scan].text())[0]
                 scan_list.append(base_name.replace(self.sample+'_', ''))
