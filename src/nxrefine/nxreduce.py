@@ -1442,9 +1442,9 @@ class NXReduce(QtCore.QObject):
         else:
             if not os.path.exists(self.directory):
                 os.mkdir(self.directory)
-            shutil.copyfile(
-                os.path.join(self.base_directory, scan_list[0]+'.nxs'),
-                self.wrapper_file)
+            shutil.copyfile(os.path.join(self.base_directory, 
+                                         self.sample+'_'+scan_list[0]+'.nxs'),
+                            self.wrapper_file)
             self.record_start('nxsum')
             self.logger.info('Sum files launched')
             tic = timeit.default_timer()
