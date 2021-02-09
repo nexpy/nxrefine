@@ -1487,6 +1487,8 @@ class NXReduce(QtCore.QObject):
                     break
                 else:
                     continue
+            elif update:
+                self.logger.info("Updating %s sums" % self.entry_name)
             else:
                 self.logger.info("Summing %s in '%s'" % (self.entry_name,
                                                          reduce.data_file))
@@ -1494,7 +1496,7 @@ class NXReduce(QtCore.QObject):
                 monitor1 = self.entry['monitor1/MCS1'].nxvalue
                 monitor2 = self.entry['monitor2/MCS2'].nxvalue
                 monitor_weight = self.entry['data/monitor_weight'].nxvalue
-                if not updating:
+                if not update:
                     shutil.copyfile(reduce.data_file, self.data_file)
                     new_file = h5.File(self.data_file, 'r+')
                     new_field = new_file[self.path]
@@ -1504,7 +1506,7 @@ class NXReduce(QtCore.QObject):
                 monitor1 += reduce.entry['monitor1/MCS1'].nxvalue
                 monitor2 += reduce.entry['monitor2/MCS2'].nxvalue
                 monitor_weight += reduce.entry['data/monitor_weight'].nxvalue
-                if not updating:
+                if not update:
                     scan_file = h5.File(reduce.data_file, 'r')
                     scan_field = scan_file[self.path]
                     for i in range(0, nframes, chunk_size):
