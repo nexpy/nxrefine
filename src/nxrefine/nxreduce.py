@@ -1490,7 +1490,7 @@ class NXReduce(QtCore.QObject):
             elif update:
                 self.logger.info(
                     "Updating %s monitors in '%s'" % (self.entry_name,
-                                                      reduce.wrapper_file)
+                                                      reduce.wrapper_file))
             else:
                 self.logger.info("Summing %s in '%s'" % (self.entry_name,
                                                          reduce.data_file))
