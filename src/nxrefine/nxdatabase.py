@@ -61,6 +61,7 @@ class File(Base):
     nxcombine = Column(Integer, default=NOT_STARTED)
     nxmasked_combine = Column(Integer, default=NOT_STARTED)
     nxpdf = Column(Integer, default=NOT_STARTED)
+    nxsum = Column(Integer, default=NOT_STARTED)
 
     def __repr__(self):
         not_started = [k for k,v in vars(self).items() if v == NOT_STARTED]
@@ -211,6 +212,8 @@ class NXDatabase(object):
                         tasks['nxmasked_combine'] += 1
                     if 'nxpdf' in root['entry']:
                         tasks['nxpdf'] += 1
+                    if 'nxsum' in root['entry']:
+                        tasks['nxsum'] += 1
             for task, val in tasks.items():
                 if val == 0:
                     setattr(f, task, NOT_STARTED)
