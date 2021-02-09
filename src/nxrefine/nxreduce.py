@@ -1452,8 +1452,6 @@ class NXReduce(QtCore.QObject):
             toc = timeit.default_timer()
             self.logger.info('Sum completed (%g seconds)' % (toc-tic))
             self.record('nxsum', files=scan_list)
-        else:
-            self.logger.info('Data already summed')
 
     def configure_summed_wrapper(self):
         with self.root.nxfile:
