@@ -30,6 +30,8 @@ class SumDialog(NXDialog):
                         self.action_buttons(('Select All', self.select_scans),
                                             ('Clear All', self.clear_scans),
                                             ('Sum Scans', self.sum_scans)),
+                        self.checkboxes(('update', 'Update Existing File', False),
+                                        ('overwrite', 'Overwrite Existing File', False)),
                         self.close_layout(close=True))
         self.set_title('Sum Files')
 
@@ -104,18 +106,11 @@ class SumDialog(NXDialog):
             raise NeXusError("Summed file name must start with '%s'" % prefix)
         self.scan_label = self.get_label(scan_file)
         scan_dir = os.path.join(self.sample_directory, self.scan_label)
-        scan_file = os.path.join(self.sample_directory, 
-                                 self.sample+'_'+self.scan_label+'.nxs')
-        copy_file = os.path.join(self.sample_directory, self.scan_files[0])
-        if os.path.exists(scan_dir):
-            if not confirm_action(
-                "New scan directory already exists. Overwrite?"):
-                return
-        else:
-            os.mkdir(scan_dir)
-        copyfile(copy_file, scan_file)
-        self.treeview.tree.load(scan_file, 'rw')
-        reduce = NXReduce(directory=scan_dir)    
+        reduce = NXReduce(directory=scan_dir)  
         for entry in reduce.entries:
-            server.add_task('nxsum -d %s -e %s -o -s %s' 
-                            % (scan_dir, entry, self.scan_list))
+            if self.checkbox['update'].isChecked():
+                server.add_task('nxsum -d %s -e %s -u -s %s' 
+                                % (scan_dir, entry, self.scan_list))
+            else:
+                server.add_task('nxsum -d %s -e %s -s %s' 
+                                % (scan_dir, entry, self.scan_list))

@@ -1436,18 +1436,26 @@ class NXReduce(QtCore.QObject):
                     i, j, k= frame, frames, frames-frame
                     mask[i:j] = mask[i:j].nxvalue | mask_chunk[:k]
 
-    def nxsum(self, scan_list):
-        if self.overwrite or not os.path.exists(self.data_file):
+    def nxsum(self, scan_list, update=False):
+        if os.path.exists(self.data_file) and not (self.overwrite or update):
+            self.logger.info('Data already summed')
+        else:
+            if not os.path.exists(self.directory):
+                os.mkdir(self.directory)
+            shutil.copyfile(os.path.join(self.base_directory, scan_list[0]),
+                            self.wrapper_file)
+            self.record_start('nxsum')
             self.logger.info('Sum files launched')
             tic = timeit.default_timer()
-            self.update_sum_wrapper()
-            self.sum_files(scan_list)
+            self.configure_summed_wrapper()
+            self.sum_files(scan_list, update)
             toc = timeit.default_timer()
             self.logger.info('Sum completed (%g seconds)' % (toc-tic))
+            self.record('nxsum', files=scan_list)
         else:
             self.logger.info('Data already summed')
 
-    def update_sum_wrapper(self):
+    def configure_summed_wrapper(self):
         with self.root.nxfile:
             if 'data' in self.entry:
                 if 'data' in self.entry['data']:
@@ -1466,7 +1474,7 @@ class NXReduce(QtCore.QObject):
                 del self.entry['nxmasked_transform']
         self.db.sync_file(self.wrapper_file)
 
-    def sum_files(self, scan_list):
+    def sum_files(self, scan_list, update=False):
     
         nframes = 3650
         chunk_size = 50
@@ -1487,21 +1495,23 @@ class NXReduce(QtCore.QObject):
                 monitor1 = self.entry['monitor1/MCS1'].nxvalue
                 monitor2 = self.entry['monitor2/MCS2'].nxvalue
                 monitor_weight = self.entry['data/monitor_weight'].nxvalue
-                shutil.copyfile(reduce.data_file, self.data_file)
-                new_file = h5.File(self.data_file, 'r+')
-                new_field = new_file[self.path]
+                if not updating:
+                    shutil.copyfile(reduce.data_file, self.data_file)
+                    new_file = h5.File(self.data_file, 'r+')
+                    new_field = new_file[self.path]
                 if os.path.exists(reduce.mask_file):
                     shutil.copyfile(reduce.mask_file, self.mask_file)
             else:
                 monitor1 += reduce.entry['monitor1/MCS1'].nxvalue
                 monitor2 += reduce.entry['monitor2/MCS2'].nxvalue
                 monitor_weight += reduce.entry['data/monitor_weight'].nxvalue
-                scan_file = h5.File(reduce.data_file, 'r')
-                scan_field = scan_file[self.path]
-                for i in range(0, nframes, chunk_size):
-                    new_slab = new_field[i:i+chunk_size,:,:]
-                    scan_slab = scan_field[i:i+chunk_size,:,:]
-                    new_field[i:i+chunk_size,:,:] = new_slab + scan_slab
+                if not updating:
+                    scan_file = h5.File(reduce.data_file, 'r')
+                    scan_field = scan_file[self.path]
+                    for i in range(0, nframes, chunk_size):
+                        new_slab = new_field[i:i+chunk_size,:,:]
+                        scan_slab = scan_field[i:i+chunk_size,:,:]
+                        new_field[i:i+chunk_size,:,:] = new_slab + scan_slab
             with self.root.nxfile:
                 self.entry['monitor1/MCS1'] = monitor1
                 self.entry['monitor2/MCS2'] = monitor2
