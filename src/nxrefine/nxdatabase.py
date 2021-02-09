@@ -100,7 +100,7 @@ class NXDatabase(object):
 
     task_names = ('data', 'nxlink', 'nxmax', 'nxfind', 'nxcopy', 'nxrefine', 
                   'nxprepare', 'nxtransform', 'nxmasked_transform', 'nxcombine', 
-                  'nxmasked_combine', 'nxpdf')
+                  'nxmasked_combine', 'nxpdf', 'nxsum')
     NOT_STARTED, QUEUED, IN_PROGRESS, DONE, FAILED = 0,1,2,3,-1
 
     def __init__(self, db_file, echo=False):
