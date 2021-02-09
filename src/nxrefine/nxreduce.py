@@ -1471,6 +1471,10 @@ class NXReduce(QtCore.QObject):
                 del self.entry['nxtransform']
             if 'nxmasked_transform' in self.entry:
                 del self.entry['nxmasked_transform']
+            if 'nxcombine' in self.root['entry']:
+                del self.root['entry/nxcombine']
+            if 'nxmasked_combine' in self.root['entry']:
+                del self.root['entry/nxmasked_combine']
         self.db.sync_file(self.wrapper_file)
 
     def sum_files(self, scan_list, update=False):
