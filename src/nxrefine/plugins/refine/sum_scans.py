@@ -61,9 +61,13 @@ class SumDialog(NXDialog):
         self.insert_layout(2, self.scroll_area)
 
     @property
+    def scan_boxes(self):
+        return [s for s in self.checkbox is s not in ['update', 'overwrite']]
+
+    @property
     def scan_list(self):
         scan_list = []
-        for scan in self.checkbox:
+        for scan in self.scan_boxess:
             if self.checkbox[scan].isChecked():
                 base_name = os.path.splitext(self.checkbox[scan].text())[0]
                 scan_list.append(base_name.replace(self.sample+'_', ''))
@@ -72,7 +76,7 @@ class SumDialog(NXDialog):
     @property
     def scan_files(self):
         scan_files = []
-        for scan in self.checkbox:
+        for scan in self.scan_boxes:
             if self.checkbox[scan].isChecked():
                 scan_files.append(self.checkbox[scan].text())
         return scan_files
@@ -82,11 +86,11 @@ class SumDialog(NXDialog):
         return base_name.replace(self.sample+'_', '')
 
     def select_scans(self):
-        for scan in self.checkbox:
+        for scan in self.scan_boxes:
             self.checkbox[scan].setChecked(True)
 
     def clear_scans(self):
-        for scan in self.checkbox:
+        for scan in self.scan_boxes:
             self.checkbox[scan].setChecked(False)
 
     def sum_scans(self):
