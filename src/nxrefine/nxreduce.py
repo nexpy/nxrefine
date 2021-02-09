@@ -1489,8 +1489,8 @@ class NXReduce(QtCore.QObject):
                     continue
             elif update:
                 self.logger.info(
-                    "Updating %s monitors in '%s'" % (self.entry_name,
-                                                      reduce.wrapper_file))
+                    "Adding %s monitors in '%s'" % (self.entry_name,
+                                                    reduce.wrapper_file))
             else:
                 self.logger.info("Summing %s in '%s'" % (self.entry_name,
                                                          reduce.data_file))
@@ -1515,10 +1515,10 @@ class NXReduce(QtCore.QObject):
                         new_slab = new_field[i:i+chunk_size,:,:]
                         scan_slab = scan_field[i:i+chunk_size,:,:]
                         new_field[i:i+chunk_size,:,:] = new_slab + scan_slab
-            with self.root.nxfile:
-                self.entry['monitor1/MCS1'] = monitor1
-                self.entry['monitor2/MCS2'] = monitor2
-                self.entry['data/monitor_weight'] = monitor_weight
+        with self.root.nxfile:
+            self.entry['monitor1/MCS1'] = monitor1
+            self.entry['monitor2/MCS2'] = monitor2
+            self.entry['data/monitor_weight'] = monitor_weight
 
     def nxreduce(self):
         self.nxlink()
