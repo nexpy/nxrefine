@@ -30,8 +30,8 @@ class SumDialog(NXDialog):
                         self.action_buttons(('Select All', self.select_scans),
                                             ('Clear All', self.clear_scans),
                                             ('Sum Scans', self.sum_scans)),
-                        self.checkboxes(('update', 'Update Existing File', False),
-                                        ('overwrite', 'Overwrite Existing File', False)),
+                        self.checkboxes(('update', 'Update Existing Sums', False),
+                                        ('overwrite', 'Overwrite Existing Sums', False)),
                         self.close_layout(close=True))
         self.set_title('Sum Files')
 
@@ -58,11 +58,11 @@ class SumDialog(NXDialog):
                           self.checkboxes(*scans, vertical=True), 
                           'stretch')
         self.scroll_area = NXScrollArea(widget)
-        self.insert_layout(2, self.scroll_area)
+        self.insert_layout(3, self.scroll_area)
 
     @property
     def scan_boxes(self):
-        return [s for s in self.checkbox is s not in ['update', 'overwrite']]
+        return [s for s in self.checkbox if s not in ['update', 'overwrite']]
 
     @property
     def scan_list(self):
