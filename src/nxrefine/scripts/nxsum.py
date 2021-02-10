@@ -1,5 +1,5 @@
 import argparse
-from nxrefine.nxreduce import NXReduce
+from nxrefine.nxreduce import NXMultiReduce, NXReduce
 
 
 def main():
@@ -8,6 +8,8 @@ def main():
         description="Sum raw data files")
     parser.add_argument('-d', '--directory', required=True,
                         help='directory containing summed files')
+    parser.add_argument('-c', '--create', action='store_true',
+                        help='create the sum file and directory')
     parser.add_argument('-e', '--entries', nargs='+', 
                         help='names of entries to be summed')
     parser.add_argument('-s', '--scans', nargs='+', required=True,
@@ -18,10 +20,14 @@ def main():
                         help='overwrite existing summed files')
 
     args = parser.parse_args()
-    
-    for entry in args.entries:
-        reduce = NXReduce(entry, args.directory, overwrite=args.overwrite)
-        reduce.nxsum(args.scans, update=args.update)
+
+    if args.create:
+        reduce = NXMultiReduce(args.directory, overwrite=True)
+        reduce.nxsum(args.scans)
+    else:
+        for entry in args.entries:
+            reduce = NXReduce(entry, args.directory, overwrite=args.overwrite)
+            reduce.nxsum(args.scans, update=args.update)
 
 
 if __name__=="__main__":

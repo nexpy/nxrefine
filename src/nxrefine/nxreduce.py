@@ -1439,43 +1439,16 @@ class NXReduce(QtCore.QObject):
     def nxsum(self, scan_list, update=False):
         if os.path.exists(self.data_file) and not (self.overwrite or update):
             self.logger.info('Data already summed')
+        elif not os.path.exists(self.directory):
+            self.logger.info('Sum directory not created')
         else:
-            if not os.path.exists(self.directory):
-                os.mkdir(self.directory)
-            shutil.copyfile(os.path.join(self.base_directory, 
-                                         self.sample+'_'+scan_list[0]+'.nxs'),
-                            self.wrapper_file)
             self.record_start('nxsum')
             self.logger.info('Sum files launched')
             tic = timeit.default_timer()
             self.sum_files(scan_list, update)
-            self.configure_summed_wrapper()
             toc = timeit.default_timer()
             self.logger.info('Sum completed (%g seconds)' % (toc-tic))
-            self.record('nxsum', files=scan_list)
-
-    def configure_summed_wrapper(self):
-        with self.root.nxfile:
-            if 'data' in self.entry:
-                if 'data' in self.entry['data']:
-                    del self.entry['data/data']
-                    self.entry['data/data'] = NXlink('/entry/data/data', 
-                            os.path.join(self.directory, self.entry_name+'.h5'))
-                if 'data_mask' in self.entry['data']:
-                    mask_file = os.path.relpath(self.mask_file, 
-                                        os.path.dirname(self.wrapper_file))
-                    del self.entry['data/data_mask']
-                    self.entry['data/data_mask'] = NXlink('/entry/mask', 
-                                                          mask_file)
-            if 'nxtransform' in self.entry:
-                del self.entry['nxtransform']
-            if 'nxmasked_transform' in self.entry:
-                del self.entry['nxmasked_transform']
-            if 'nxcombine' in self.root['entry']:
-                del self.root['entry/nxcombine']
-            if 'nxmasked_combine' in self.root['entry']:
-                del self.root['entry/nxmasked_combine']
-        self.db.sync_file(self.wrapper_file)
+            self.record('nxsum', scans=','.join(scan_list))
 
     def sum_files(self, scan_list, update=False):
     
@@ -1720,6 +1693,43 @@ class NXMultiReduce(NXReduce):
 
     def nxpdf(self):
         pass
+
+    def nxsum(self, scan_list):
+        if not os.path.exists(self.wrapper_file) or self.overwrite:
+            if not os.path.exists(self.directory):
+                os.mkdir(self.directory)
+            shutil.copyfile(os.path.join(self.base_directory, 
+                                         self.sample+'_'+scan_list[0]+'.nxs'),
+                            self.wrapper_file)
+            self.logger.info('Creating sum file')
+            self.configure_sum_file()
+            self.logger.info('Sum file created')
+        else:
+            self.logger.info('Sum file already exists')
+
+    def configure_sum_file(self):
+        with self.root.nxfile:
+            if 'nxcombine' in self.root['entry']:
+                del self.root['entry/nxcombine']
+            if 'nxmasked_combine' in self.root['entry']:
+                del self.root['entry/nxmasked_combine']
+            for entry in self.entries:
+                if 'data' in entry:
+                    if 'data' in entry['data']:
+                        del entry['data/data']
+                    entry['data/data'] = NXlink('/entry/data/data', 
+                            os.path.join(self.directory, entry.nxname+'.h5'))
+                    if 'data_mask' in entry['data']:
+                        mask_file = os.path.join(self.directory, 
+                                                 entry.nxname+'_mask.nxs')
+                        del entry['data/data_mask']
+                        entry['data/data_mask'] = NXlink('/entry/mask', 
+                                                         mask_file)
+                if 'nxtransform' in entry:
+                    del entry['nxtransform']
+                if 'nxmasked_transform' in entry:
+                    del entry['nxmasked_transform']
+        self.db.sync_file(self.wrapper_file)
 
     def command(self):
         command = 'nxcombine '

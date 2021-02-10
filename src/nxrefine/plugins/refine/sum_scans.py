@@ -9,7 +9,7 @@ from nexpy.gui.utils import report_error, confirm_action, natural_sort
 from nexpy.gui.widgets import NXScrollArea
 from nexpy.gui.pyqt import QtCore, getSaveFileName
 from nxrefine.nxserver import NXServer
-from nxrefine.nxreduce import NXReduce
+from nxrefine.nxreduce import NXMultiReduce
 
 
 def show_dialog():
@@ -81,6 +81,14 @@ class SumDialog(NXDialog):
                 scan_files.append(self.checkbox[scan].text())
         return scan_files
 
+    @property
+    def overwrite(self):
+        return self.checkbox('overwrite').isChecked()
+
+    @property
+    def update(self):
+        return self.checkbox('update').isChecked()
+
     def get_label(self, scan_file):
         base_name = os.path.basename(os.path.splitext(scan_file)[0])
         return base_name.replace(self.sample+'_', '')
@@ -110,11 +118,14 @@ class SumDialog(NXDialog):
             raise NeXusError("Summed file name must start with '%s'" % prefix)
         self.scan_label = self.get_label(scan_file)
         scan_dir = os.path.join(self.sample_directory, self.scan_label)
-        reduce = NXReduce(directory=scan_dir)  
+        reduce = NXMultiReduce(directory=scan_dir, overwrite=True)
+        reduce.nxsum(self.scan_list)
+        self.treeview.tree.load(scan_file, 'rw')
+        switches = ''
+        if self.update:
+            switches += ' -u'
+        if self.overwrite:
+            switches += ' -o'
+        command = 'nxsum -d {} {} -s '.format(scan_dir, switches)
         for entry in reduce.entries:
-            if self.checkbox['update'].isChecked():
-                server.add_task('nxsum -d %s -e %s -u -s %s' 
-                                % (scan_dir, entry, self.scan_list))
-            else:
-                server.add_task('nxsum -d %s -e %s -s %s' 
-                                % (scan_dir, entry, self.scan_list))
+            server.add_task(command + '-e ' + entry) 
