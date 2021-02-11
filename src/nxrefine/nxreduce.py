@@ -1714,21 +1714,21 @@ class NXMultiReduce(NXReduce):
             if 'nxmasked_combine' in self.root['entry']:
                 del self.root['entry/nxmasked_combine']
             for entry in self.entries:
-                if 'data' in entry:
-                    if 'data' in entry['data']:
-                        del entry['data/data']
-                    entry['data/data'] = NXlink('/entry/data/data', 
+                if 'data' in self.root[entry]:
+                    if 'data' in self.root[entry]['data']:
+                        del self.root[entry]['data/data']
+                    self.root[entry]['data/data'] = NXlink('/entry/data/data', 
                             os.path.join(self.directory, entry.nxname+'.h5'))
-                    if 'data_mask' in entry['data']:
+                    if 'data_mask' in self.root[entry]['data']:
                         mask_file = os.path.join(self.directory, 
                                                  entry.nxname+'_mask.nxs')
-                        del entry['data/data_mask']
-                        entry['data/data_mask'] = NXlink('/entry/mask', 
-                                                         mask_file)
-                if 'nxtransform' in entry:
-                    del entry['nxtransform']
-                if 'nxmasked_transform' in entry:
-                    del entry['nxmasked_transform']
+                        del self.root[entry]['data/data_mask']
+                        self.root[entry]['data/data_mask'] = NXlink('/entry/mask', 
+                                                                    mask_file)
+                if 'nxtransform' in self.root[entry]:
+                    del self.root[entry]['nxtransform']
+                if 'nxmasked_transform' in self.root[entry]:
+                    del self.root[entry]['nxmasked_transform']
         self.db.sync_file(self.wrapper_file)
 
     def command(self):
