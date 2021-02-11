@@ -161,7 +161,8 @@ class NXReduce(QtCore.QObject):
     stop = QtCore.Signal()
 
     def __repr__(self):
-        return "NXReduce('"+self.sample+"_"+self.scan+"/"+self.entry_name+"')"
+        return "NXReduce('{}_{}/{}')".format(self.sample, self.scan, 
+                                             self.entry_name)
 
     def init_logs(self):
         self.logger = logging.getLogger("%s/%s_%s['%s']"
@@ -1593,6 +1594,9 @@ class NXMultiReduce(NXReduce):
         self.mask = mask
         self.pdf = pdf
 
+    def __repr__(self):
+        return "NXMultiReduce('{}_{}')".format(self.sample, self.scan)
+
     def complete(self, program):
         complete = True
         for entry in self.entries:
@@ -1713,22 +1717,23 @@ class NXMultiReduce(NXReduce):
                 del self.root['entry/nxcombine']
             if 'nxmasked_combine' in self.root['entry']:
                 del self.root['entry/nxmasked_combine']
-            for entry in self.entries:
-                if 'data' in self.root[entry]:
-                    if 'data' in self.root[entry]['data']:
-                        del self.root[entry]['data/data']
-                    self.root[entry]['data/data'] = NXlink('/entry/data/data', 
+            for e in self.entries:
+                entry = self.root[e]
+                if 'data' in entry:
+                    if 'data' in entry['data']:
+                        del entry['data/data']
+                    entry['data/data'] = NXlink('/entry/data/data', 
                             os.path.join(self.directory, entry.nxname+'.h5'))
-                    if 'data_mask' in self.root[entry]['data']:
+                    if 'data_mask' in entry['data']:
                         mask_file = os.path.join(self.directory, 
                                                  entry.nxname+'_mask.nxs')
-                        del self.root[entry]['data/data_mask']
-                        self.root[entry]['data/data_mask'] = NXlink('/entry/mask', 
+                        del entry['data/data_mask']
+                        entry['data/data_mask'] = NXlink('/entry/mask', 
                                                                     mask_file)
-                if 'nxtransform' in self.root[entry]:
-                    del self.root[entry]['nxtransform']
-                if 'nxmasked_transform' in self.root[entry]:
-                    del self.root[entry]['nxmasked_transform']
+                if 'nxtransform' in entry:
+                    del entry['nxtransform']
+                if 'nxmasked_transform' in entry:
+                    del entry['nxmasked_transform']
         self.db.sync_file(self.wrapper_file)
 
     def command(self):
