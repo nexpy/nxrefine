@@ -66,12 +66,12 @@ class SumDialog(NXDialog):
 
     @property
     def scan_list(self):
-        scan_list = []
+        scans = []
         for scan in self.scan_boxes:
             if self.checkbox[scan].isChecked():
                 base_name = os.path.splitext(self.checkbox[scan].text())[0]
-                scan_list.append(base_name.replace(self.sample+'_', ''))
-        return ' '.join(scan_list)
+                scans.append(base_name.replace(self.sample+'_', ''))
+        return scans
 
     @property
     def scan_files(self):
@@ -121,11 +121,11 @@ class SumDialog(NXDialog):
         reduce = NXMultiReduce(directory=scan_dir, overwrite=True)
         reduce.nxsum(self.scan_list)
         self.treeview.tree.load(scan_file, 'rw')
-        switches = ''
+        command = 'nxsum -d {}'.format(scan_dir)
         if self.update:
-            switches += ' -u'
+            command += ' -u'
         if self.overwrite:
-            switches += ' -o'
-        command = 'nxsum -d {} {} -s '.format(scan_dir, switches)
+            command += ' -o'
         for entry in reduce.entries:
-            server.add_task(command + '-e ' + entry) 
+            server.add_task('{} -e {} -s {}'.format(command, entry,
+                                                    ' '.join(self.scan_list)))
