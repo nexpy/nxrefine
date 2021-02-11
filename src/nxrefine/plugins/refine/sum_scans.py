@@ -83,11 +83,11 @@ class SumDialog(NXDialog):
 
     @property
     def overwrite(self):
-        return self.checkbox('overwrite').isChecked()
+        return self.checkbox['overwrite'].isChecked()
 
     @property
     def update(self):
-        return self.checkbox('update').isChecked()
+        return self.checkbox['update'].isChecked()
 
     def get_label(self, scan_file):
         base_name = os.path.basename(os.path.splitext(scan_file)[0])
