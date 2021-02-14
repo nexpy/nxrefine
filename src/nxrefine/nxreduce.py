@@ -142,11 +142,7 @@ class NXReduce(QtCore.QObject):
         try:
             self.db = NXDatabase(db_file)
         except Exception:
-            time.sleep(5)
-            try:
-                self.db = NXDatabase(db_file)
-            except Exception as error:
-                self.logger.info(str(error))
+            self.logger.info(str(error))
         try:
             self.server = NXServer()
         except Exception as error:

@@ -36,6 +36,7 @@ from sqlalchemy.dialects import mysql
 from sqlalchemy.exc import IntegrityError
 
 from nexusformat.nexus import nxload, NeXusError
+from .nxlock import NXLock, NXLockException
 
 NUM_ENTRIES = 3
 
@@ -113,9 +114,10 @@ class NXDatabase(object):
         echo : bool, optional
             True if SQL statements are echoed to `stdout`, by default False.
         """
-        connection = 'sqlite:///' + db_file
-        self.engine = create_engine(connection, echo=echo)
-        Base.metadata.create_all(self.engine)
+        with NXLock(db_file):
+            connection = 'sqlite:///' + db_file
+            self.engine = create_engine(connection, echo=echo)
+            Base.metadata.create_all(self.engine)
         self.database = os.path.realpath(self.engine.url.database)
         self._session = None
 
@@ -144,21 +146,23 @@ class NXDatabase(object):
             File object.
         """
         self.check_tasks()
-        f = self.session.query(File) \
-                .filter(File.filename == self.get_filename(filename)) \
-                .one_or_none()
+        f = self.query(filename)
 
         if f is None:
             filename = os.path.realpath(filename)
             if not os.path.exists(filename):
                 raise NeXusError("'%s' does not exist" % filename)
-            self.session.add(File(filename = self.get_filename(filename)))        
-            self.session.commit()
+            self.session.add(File(filename = self.get_filename(filename)))
+            self.session.commit()       
             f = self.sync_file(filename)
         else:
             f = self.sync_data(filename)
-        f.nxlink
         return f
+
+    def query(self, filename):
+        return self.session.query(File) \
+                .filter(File.filename == self.get_filename(filename)) \
+                .one_or_none()
 
     def sync_file(self, filename):
         """Synchronize the NeXus file contents to the database.
@@ -234,9 +238,7 @@ class NXDatabase(object):
         File
             Updated File object.
         """
-        f = self.session.query(File) \
-                .filter(File.filename == self.get_filename(filename)) \
-                .one_or_none()
+        f = self.query(filename)
         if f:
             scan_dir = get_directory(filename)
             data = 0
@@ -264,19 +266,20 @@ class NXDatabase(object):
         entry : str
             Entry of NeXus file being updated.
         """
-        f = self.get_file(filename)
-        for t in reversed(f.tasks):
-            if t.name == task and t.entry == entry:
-                break
-        else:
-            t = Task(name=task, entry=entry)
-            f.tasks.append(t)
-        t.status = QUEUED
-        if queue_time:
-            t.queue_time = queue_time
-        else:
-            t.queue_time = datetime.datetime.now()
-        self.update_status(filename, task)
+        with NXLock(self.database):
+            f = self.get_file(filename)
+            for t in reversed(f.tasks):
+                if t.name == task and t.entry == entry:
+                    break
+            else:
+                t = Task(name=task, entry=entry)
+                f.tasks.append(t)
+            t.status = QUEUED
+            if queue_time:
+                t.queue_time = queue_time
+            else:
+                t.queue_time = datetime.datetime.now()
+            self.update_status(filename, task)
 
     def start_task(self, filename, task, entry, start_time=None):
         """Record that a task has begun execution.
@@ -290,22 +293,23 @@ class NXDatabase(object):
         entry : str
             Entry of NeXus file being updated.
         """
-        f = self.get_file(filename)
-        #Find the desired task, and create a new one if it doesn't exist
-        for t in reversed(f.tasks):
-            if t.name == task and t.entry == entry:
-                break
-        else:
-            # This task was started from command line, not queued on the server
-            t = Task(name=task, entry=entry)
-            f.tasks.append(t)
-        t.status = IN_PROGRESS
-        if start_time:
-            t.start_time = start_time
-        else:
-            t.start_time = datetime.datetime.now()
-        t.pid = os.getpid()
-        self.update_status(filename, task)
+        with NXLock(self.database):
+            f = self.get_file(filename)
+            #Find the desired task, and create a new one if it doesn't exist
+            for t in reversed(f.tasks):
+                if t.name == task and t.entry == entry:
+                    break
+            else:
+                # This task was started from command line, not queued on the server
+                t = Task(name=task, entry=entry)
+                f.tasks.append(t)
+            t.status = IN_PROGRESS
+            if start_time:
+                t.start_time = start_time
+            else:
+                t.start_time = datetime.datetime.now()
+            t.pid = os.getpid()
+            self.update_status(filename, task)
 
     def end_task(self, filename, task, entry, end_time=None):
         """Record that a task finished execution.
@@ -322,21 +326,22 @@ class NXDatabase(object):
         entry : str
             Entry of NeXus file being updated.
         """
-        f = self.get_file(filename)
-        # The entries that have finished this task
-        for t in reversed(f.tasks):
-            if t.name == task and t.entry == entry:
-                break
-        else:
-            # This task was started from command line, not queued on the server
-            t = Task(name=task, entry=entry)
-            f.tasks.append(t)
-        t.status = DONE
-        if end_time:
-            t.end_time = end_time
-        else:
-            t.end_time = datetime.datetime.now()
-        self.update_status(filename, task)
+        with NXLock(self.database):
+            f = self.get_file(filename)
+            # The entries that have finished this task
+            for t in reversed(f.tasks):
+                if t.name == task and t.entry == entry:
+                    break
+            else:
+                # This task was started from command line, not queued on the server
+                t = Task(name=task, entry=entry)
+                f.tasks.append(t)
+            t.status = DONE
+            if end_time:
+                t.end_time = end_time
+            else:
+                t.end_time = datetime.datetime.now()
+            self.update_status(filename, task)
 
     def fail_task(self, filename, task, entry):
         """Record that a task failed during execution.
@@ -350,18 +355,19 @@ class NXDatabase(object):
         entry : str
             Entry of NeXus file being updated.
         """
-        f = self.get_file(filename)
-        for t in reversed(f.tasks):
-            if t.name == task and t.entry == entry:
-                break
-        else:
-            #No task recorded
-            return
-        t.status = FAILED
-        t.queue_time = None
-        t.start_time = None
-        t.end_time = None
-        self.update_status(filename, task)
+        with NXLock(self.database):
+            f = self.get_file(filename)
+            for t in reversed(f.tasks):
+                if t.name == task and t.entry == entry:
+                    break
+            else:
+                #No task recorded
+                return
+            t.status = FAILED
+            t.queue_time = None
+            t.start_time = None
+            t.end_time = None
+            self.update_status(filename, task)
     
     def update_status(self, filename, task):
         """Update the File object using the status of the specified task.
@@ -414,14 +420,14 @@ class NXDatabase(object):
         wrapper_files = [os.path.join(sample_dir, filename) for filename in
                          os.listdir(sample_dir) if filename.endswith('.nxs')
                          and all(x not in filename for x in ('parent', 'mask'))]
-
-        for wrapper_file in wrapper_files:
-            self.sync_file(get_file(wrapper_file))
-        tracked_files = list(self.session.query(File).all())
-        for f in tracked_files:
-            if f.filename not in [get_filename(w) for w in wrapper_files]:
-                self.session.delete(f)
-        self.session.commit()
+        with NXLock(self.database):
+            for wrapper_file in wrapper_files:
+                self.sync_file(get_file(wrapper_file))
+            tracked_files = list(self.session.query(File).all())
+            for f in tracked_files:
+                if f.filename not in [get_filename(w) for w in wrapper_files]:
+                    self.session.delete(f)
+            self.session.commit()
 
     def check_tasks(self):
         """Check that all tasks are present, adding a column if necessary."""
