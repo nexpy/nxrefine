@@ -1454,7 +1454,7 @@ class NXReduce(QtCore.QObject):
     def sum_files(self, scan_list, update=False):
     
         nframes = 3650
-        chunk_size = 50
+        chunk_size = 200
 
         for i, scan in enumerate(scan_list):
             reduce = NXReduce(self.entry_name, 
@@ -1729,7 +1729,7 @@ class NXMultiReduce(NXReduce):
                                                  entry.nxname+'_mask.nxs')
                         del entry['data/data_mask']
                         entry['data/data_mask'] = NXlink('/entry/mask', 
-                                                                    mask_file)
+                                                         mask_file)
                 if 'nxtransform' in entry:
                     del entry['nxtransform']
                 if 'nxmasked_transform' in entry:
