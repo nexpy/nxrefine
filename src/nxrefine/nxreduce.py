@@ -1730,7 +1730,7 @@ class NXMultiReduce(NXReduce):
                     del entry['nxtransform']
                 if 'nxmasked_transform' in entry:
                     del entry['nxmasked_transform']
-        self.db.sync_file(self.wrapper_file)
+        self.db.update_file(self.wrapper_file)
 
     def command(self):
         command = 'nxcombine '

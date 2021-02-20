@@ -408,6 +408,20 @@ class NXDatabase(object):
                 setattr(f, task, NOT_STARTED)    
         self.session.commit()
 
+    def update_file(self, filename):
+        """Update the File object for the specified file.
+        
+        This is just a wrapper for 'sync_file' that includes database file
+        locking.
+        
+        Parameters
+        ----------
+        filename : str
+            Path of wrapper file relative to GUP directory.
+        """
+        with NXLock(self.database):
+            self.sync_file(filename)
+
     def sync_db(self, sample_dir):
         """ Populate the database based on local files.
         

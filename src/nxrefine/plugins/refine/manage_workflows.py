@@ -79,9 +79,9 @@ class WorkflowDialog(NXDialog):
         reduce = NXReduce(directory=self.get_scan(self.get_filename()),
                           overwrite=True)
         reduce.make_parent()
-        self.db.sync_file(reduce.wrapper_file)
+        self.db.update_file(reduce.wrapper_file)
         if self.parent_file:
-            self.db.sync_file(self.parent_file)
+            self.db.update_file(self.parent_file)
         self.parent_file = reduce.wrapper_file
         self.filename.setText(os.path.basename(self.parent_file))
         self.update()
@@ -256,7 +256,7 @@ class WorkflowDialog(NXDialog):
     def sync_db(self):
         for scan in self.scans:
             if self.sync_selected(scan):
-                self.db.sync_file(self.get_scan_file(scan))
+                self.db.update_file(self.get_scan_file(scan))
         self.update()
 
     def new_checkbox(self, slot=None):
