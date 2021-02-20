@@ -1471,6 +1471,8 @@ class NXReduce(QtCore.QObject):
             if i == 0:
                 monitor1 = reduce.entry['monitor1/MCS1'].nxvalue
                 monitor2 = reduce.entry['monitor2/MCS2'].nxvalue
+                if 'monitor_weight' not in reduce.entry['data']:
+                    self.get_normalization()
                 monitor_weight = reduce.entry['data/monitor_weight'].nxvalue
                 if not update:
                     shutil.copyfile(reduce.data_file, self.data_file)
@@ -1481,6 +1483,8 @@ class NXReduce(QtCore.QObject):
             else:
                 monitor1 += reduce.entry['monitor1/MCS1'].nxvalue
                 monitor2 += reduce.entry['monitor2/MCS2'].nxvalue
+                if 'monitor_weight' not in reduce.entry['data']:
+                    self.get_normalization()
                 monitor_weight += reduce.entry['data/monitor_weight'].nxvalue
                 if not update:
                     scan_file = h5.File(reduce.data_file, 'r')
