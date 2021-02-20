@@ -1450,7 +1450,7 @@ class NXReduce(QtCore.QObject):
     def sum_files(self, scan_list, update=False):
     
         nframes = 3650
-        chunk_size = 200
+        chunk_size = 500
 
         for i, scan in enumerate(scan_list):
             reduce = NXReduce(self.entry_name, 
