@@ -1453,12 +1453,12 @@ class NXReduce(QtCore.QObject):
                 self.logger.info('Sum completed (%g seconds)' % (toc-tic))
                 self.record('nxsum', scans=','.join(scan_list))
 
-    def check_files(self, scan_list):
+    def check_files(self, scan_list, update=False):
         status = True
         for i, scan in enumerate(scan_list):
             reduce = NXReduce(self.entry_name, 
                               os.path.join(self.base_directory, scan))
-            if not os.path.exists(reduce.data_file):
+            if not update and not os.path.exists(reduce.data_file):
                 self.logger.info("'%s' does not exist" % reduce.data_file)
                 status = False
             elif 'monitor1' not in reduce.entry:
