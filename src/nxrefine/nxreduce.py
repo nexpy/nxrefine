@@ -1445,6 +1445,7 @@ class NXReduce(QtCore.QObject):
             if not self.check_files(scan_list, update):
                 self.record_fail('nxsum')
             else:
+                self.logger.info('All files and metadata have been checked')
                 if not update:
                     self.sum_files(scan_list)
                 self.sum_monitors(scan_list)
