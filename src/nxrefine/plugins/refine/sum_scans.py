@@ -25,6 +25,10 @@ class SumDialog(NXDialog):
     def __init__(self, parent=None):
         super(SumDialog, self).__init__(parent)
         self.scans = None
+        self.prefix_box = NXLineEdit()
+        self.prefix_box.textChanged.connect(self.select_prefix)
+        prefix_layout = self.make_layout(NXLabel('Prefix'), 
+                                         self.prefix_box)
         self.set_layout(self.directorybox("Choose Sample Directory",
                                           self.choose_sample),
                         self.action_buttons(('Select All', self.select_scans),
@@ -32,6 +36,7 @@ class SumDialog(NXDialog):
                                             ('Sum Scans', self.sum_scans)),
                         self.checkboxes(('update', 'Update Existing Sums', False),
                                         ('overwrite', 'Overwrite Existing Sums', False)),
+                        prefix_layout,
                         self.close_layout(close=True))
         self.set_title('Sum Files')
 
@@ -57,8 +62,19 @@ class SumDialog(NXDialog):
         widget.set_layout('stretch', 
                           self.checkboxes(*scans, vertical=True), 
                           'stretch')
+        widget.layout.setSpacing(0)
         self.scroll_area = NXScrollArea(widget)
-        self.insert_layout(3, self.scroll_area)
+        self.insert_layout(4, self.scroll_area)
+        scan_files = [self.checkbox[c].text() for c in self.scan_boxes]
+        self.prefix_box.setText(os.path.commonprefix(scan_files))
+
+    def select_prefix(self):
+        prefix = self.prefix_box.text()
+        for f in self.checkbox:
+            if f.startswith(prefix):
+                self.checkbox[f].setChecked(True)
+            else:
+                self.checkbox[f].setChecked(False)
 
     @property
     def scan_boxes(self):
