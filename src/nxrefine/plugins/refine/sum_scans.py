@@ -71,7 +71,7 @@ class SumDialog(NXDialog):
     def select_prefix(self):
         prefix = self.prefix_box.text()
         for f in self.checkbox:
-            if f.startswith(prefix):
+            if self.checkbox[f].text().startswith(prefix):
                 self.checkbox[f].setChecked(True)
             else:
                 self.checkbox[f].setChecked(False)
