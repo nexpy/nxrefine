@@ -509,6 +509,8 @@ class WorkflowDialog(NXDialog):
         text = [line for line in lines if scan in line]
         if text:
             self.output_box.setPlainText(''.join(text))
+            self.output_box.verticalScrollBar().setValue(
+                self.output_box.verticalScrollBar().maximum())
         else:
             self.output_box.setPlainText('No Logs')
 
@@ -525,6 +527,8 @@ class WorkflowDialog(NXDialog):
                 for line in lines if scan in line if entry in line]
         if text:
             self.output_box.setPlainText(''.join(text))
+            self.output_box.verticalScrollBar().setValue(
+                self.output_box.verticalScrollBar().maximum())
         else:
             self.output_box.setPlainText('No Logs')
 
