@@ -6,7 +6,7 @@ from shutil import copyfile
 from nexusformat.nexus import *
 from nexpy.gui.datadialogs import NXWidget, NXDialog
 from nexpy.gui.utils import report_error, confirm_action, natural_sort
-from nexpy.gui.widgets import NXLineEdit, NXScrollArea
+from nexpy.gui.widgets import NXLabel, NXLineEdit, NXScrollArea
 from nexpy.gui.pyqt import QtCore, getSaveFileName
 from nxrefine.nxserver import NXServer
 from nxrefine.nxreduce import NXMultiReduce
