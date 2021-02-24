@@ -594,26 +594,27 @@ class NXReduce(QtCore.QObject):
     def read_logs(self):
         head_file = os.path.join(self.directory, self.entry_name+'_head.txt')
         meta_file = os.path.join(self.directory, self.entry_name+'_meta.txt')
-        if os.path.exists(head_file) or os.path.exists(meta_file):
+        if os.path.exists(head_file) and os.path.exists(meta_file):
             logs = NXcollection()
         else:
-            self.logger.info('No metadata files found')
+            if not os.path.exists(head_file):
+                self.logger.info("'%s_head.txt' does not exist" % self.entry_name)
+            if not os.path.exists(meta_file):
+                self.logger.info("'%s_meta.txt' does not exist" % self.entry_name)
             return None
-        if os.path.exists(head_file):
-            with open(head_file) as f:
-                lines = f.readlines()
-            for line in lines:
-                key, value = line.split(', ')
-                value = value.strip('\n')
-                try:
-                   value = np.float(value)
-                except:
-                    pass
-                logs[key] = value
-        if os.path.exists(meta_file):
-            meta_input = np.genfromtxt(meta_file, delimiter=',', names=True)
-            for i, key in enumerate(meta_input.dtype.names):
-                logs[key] = [array[i] for array in meta_input]
+        with open(head_file) as f:
+            lines = f.readlines()
+        for line in lines:
+            key, value = line.split(', ')
+            value = value.strip('\n')
+            try:
+               value = np.float(value)
+            except:
+                pass
+            logs[key] = value
+        meta_input = np.genfromtxt(meta_file, delimiter=',', names=True)
+        for i, key in enumerate(meta_input.dtype.names):
+            logs[key] = [array[i] for array in meta_input]
         return logs
 
     def transfer_logs(self, logs):
