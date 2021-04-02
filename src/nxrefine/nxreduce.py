@@ -1216,11 +1216,9 @@ class NXReduce(QtCore.QObject):
         return masks
 
     def determine_mask(self, peak):
-        with self.root.nxfile:
-            with self.field.nxfile:
-                slab = self.get_xyz_slab(peak)
-                s = slab.nxsignal.nxdata
-                slab_axis = slab.nxaxes[0].nxdata
+        slab = self.get_xyz_slab(peak)
+        s = slab.nxsignal.nxdata
+        slab_axis = slab.nxaxes[0].nxdata
         frames = np.array([np.average(np.ma.masked_where(s[i]<0,s[i]))*np.prod(s[i].shape) 
                            for i in range(s.shape[0])])
         masked_frames = np.ma.masked_where(frames<350000, frames)
