@@ -1133,12 +1133,11 @@ class NXReduce(QtCore.QObject):
             refine = NXRefine(self.entry)
         peaks = refine.get_xyzs()
         self.logger.info("Optimizing peak frames")
-        with self.field.nxfile:
-            for peak in peaks:
-                self.get_xyz_frame(peak)
-            self.write_xyz_peaks(peaks)
-            self.logger.info("Determining 3D mask radii")
-            masks = self.prepare_xyz_masks(peaks)
+        for peak in peaks:
+            self.get_xyz_frame(peak)
+        self.write_xyz_peaks(peaks)
+        self.logger.info("Determining 3D mask radii")
+        masks = self.prepare_xyz_masks(peaks)
         self.logger.info("Writing 3D peak mask parameters")
         self.write_xyz_masks(masks)
         self.logger.info("Writing 3D edge mask parameters")
@@ -1174,11 +1173,10 @@ class NXReduce(QtCore.QObject):
         return slab
 
     def get_xyz_slab(self, peak, width=10):
-        x, y, z = int(peak.x), int(peak.y), int(peak.z)
         xmin, xmax = max(peak.x-width, 0), min(peak.x+width+1, self.shape[1]-1)
         ymin, ymax = max(peak.y-width, 0), min(peak.y+width+1, self.shape[0]-1)
         zmin, zmax = max(peak.z-10, 0), min(peak.z+11, self.shape[0])
-        return self.field[zmin:zmax, ymin:ymax, xmin:xmax]
+        return self.data[zmin:zmax, ymin:ymax, xmin:xmax]
 
     def write_xyz_peaks(self, peaks):
         extra_peaks = []
