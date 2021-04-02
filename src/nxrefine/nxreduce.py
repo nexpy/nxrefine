@@ -1177,7 +1177,7 @@ class NXReduce(QtCore.QObject):
         xmin, xmax = max(peak.x-width, 0), min(peak.x+width+1, self.shape[1]-1)
         ymin, ymax = max(peak.y-width, 0), min(peak.y+width+1, self.shape[0]-1)
         zmin, zmax = max(peak.z-10, 0), min(peak.z+11, self.shape[0])
-        return self.data[zmin:zmax, ymin:ymax, xmin:xmax]
+        return self.field[zmin:zmax, ymin:ymax, xmin:xmax]
 
     def write_xyz_peaks(self, peaks):
         extra_peaks = []
@@ -1413,8 +1413,9 @@ class NXReduce(QtCore.QObject):
                 peaks.extend(self.read_xyz_edges())
             peaks = sorted(peaks, key=operator.attrgetter('z'))
             entry = self.mask_root['entry']
-            if 'mask' not in entry:
-                entry['mask'] = NXfield(shape=self.shape, dtype=np.int8, fillvalue=0)
+            if 'mask' in entry:
+                del entry['mask']
+            entry['mask'] = NXfield(shape=self.shape, dtype=np.int8, fillvalue=0)
             mask = entry['mask']
             x, y = np.arange(self.shape[2]), np.arange(self.shape[1])
             frames = self.shape[0]
