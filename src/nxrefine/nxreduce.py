@@ -1174,6 +1174,7 @@ class NXReduce(QtCore.QObject):
         return slab
 
     def get_xyz_slab(self, peak, width=10):
+        x, y, z = int(peak.x), int(peak.y), int(peak.z)
         xmin, xmax = max(peak.x-width, 0), min(peak.x+width+1, self.shape[1]-1)
         ymin, ymax = max(peak.y-width, 0), min(peak.y+width+1, self.shape[0]-1)
         zmin, zmax = max(peak.z-10, 0), min(peak.z+11, self.shape[0])
