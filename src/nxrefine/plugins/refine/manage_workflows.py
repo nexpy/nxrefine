@@ -456,8 +456,7 @@ class WorkflowDialog(NXDialog):
         self.defaultview = None
         self.output_box = NXPlainTextEdit(wrap=False)
         cpu_process_button = NXPushButton('View CPU Processes', self.procview)
-        if self.server.server_type == 'multicore':
-            cpu_process_button.setVisible(False)
+        cpu_process_button.setVisible(False)
         cpu_log_button = NXPushButton('View CPU Log', self.cpuview)
         self.cpu_combo = dialog.select_box(['nxserver'] + self.server.cpus,
                                            slot=self.cpuview)
@@ -570,9 +569,11 @@ class WorkflowDialog(NXDialog):
 
     def procview(self):
         patterns = ['nxreduce', 'nxcombine', 'nxsum']
-        command = \
-        "pdsh -w {} 'ps -f' | grep -e {}".format(",".join(self.server.cpus),
-                                              " -e ".join(patterns))
+        if self.server.server_type == 'multicore':
+            command = "ps -aux | grep -e {}".format(" -e ".join(patterns))
+        else:
+            command = "pdsh -w {} 'ps -f' | grep -e {}".format(
+                ",".join(self.server.cpus), " -e ".join(patterns))
         process = subprocess.run(command, shell=True, stdout=subprocess.PIPE,
                                                       stderr=subprocess.PIPE)
         if process.returncode == 0:
