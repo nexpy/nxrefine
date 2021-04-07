@@ -456,7 +456,6 @@ class WorkflowDialog(NXDialog):
         self.defaultview = None
         self.output_box = NXPlainTextEdit(wrap=False)
         cpu_process_button = NXPushButton('View CPU Processes', self.procview)
-        cpu_process_button.setVisible(False)
         cpu_log_button = NXPushButton('View CPU Log', self.cpuview)
         self.cpu_combo = dialog.select_box(['nxserver'] + self.server.cpus,
                                            slot=self.cpuview)
