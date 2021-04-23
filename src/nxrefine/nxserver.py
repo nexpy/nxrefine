@@ -136,7 +136,13 @@ class NXServer(NXDaemon):
                 self.write_nodes(nodes)
             self.cpus = self.read_nodes()
         else:
-            self.cpus = ['cpu'+str(cpu) for cpu in range(psutil.cpu_count())]
+            if self.server_settings.has_option('setup', 'cores'):
+                cpu_count = int(self.server_settings.get('setup', 'cores'))
+                if cpu_count > psutil.cpu_count():
+                    cpu_count = psutil.cpu_count()
+            else:
+                cpu_count = psutil.cpu_count()          
+            self.cpus = ['cpu'+str(cpu) for cpu in range(1, cpu_count+1)]
         with open(self.server_file, 'w') as f:
             self.server_settings.write(f)
 
@@ -164,6 +170,17 @@ class NXServer(NXDaemon):
         with open(self.server_file, 'w') as f:
             self.server_settings.write(f)
         self.cpus = self.read_nodes()
+
+    def set_cores(self, cpu_count):
+        """Select number of cores"""
+        try:
+            cpu_count = int(cpu_count)
+        except ValueError:
+            raise NeXusError('Number of cores must be a valid integer')
+        self.server_settings.set('setup', 'cores', str(cpu_count))
+        with open(self.server_file, 'w') as f:
+            self.server_settings.write(f)
+        self.cpus = ['cpu'+str(cpu) for cpu in range(1, cpu_count+1)]        
 
     def log(self, message):
         with open(self.log_file, 'a') as f:

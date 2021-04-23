@@ -12,6 +12,7 @@ def main():
     parser.add_argument('-t', '--type', help='Server type: multicore|multinode')
     parser.add_argument('-n', '--nodes', default=[], nargs='+', 
                         help='Add nodes')
+    parser.add_argument('-c', '--cores', help='Number of cores')
     parser.add_argument('-r', '--remove', default=[], nargs='+', 
                         help='Remove nodes')
     parser.add_argument('command', action='store', nargs='?',
@@ -30,6 +31,8 @@ def main():
     if server.server_type == 'multinode':
         server.write_nodes(args.nodes)
         server.remove_nodes(args.remove)
+    elif args.cores:
+        server.set_cores(args.cores)
 
     if args.command == 'status':
         print(server.status())
