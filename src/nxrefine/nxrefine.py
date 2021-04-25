@@ -85,6 +85,8 @@ class NXRefine(object):
         self.xd = 0.0
         self.yd = 0.0
         self.frame_time = 0.1
+        self.space_group = ''
+        self.laue_group = ''
         self.symmetry = 'cubic'
         self.centring = 'P'
         self.peak = None
@@ -157,6 +159,8 @@ class NXRefine(object):
             self.alpha = self.read_parameter('sample/unitcell_alpha', self.alpha)
             self.beta = self.read_parameter('sample/unitcell_beta', self.beta)
             self.gamma = self.read_parameter('sample/unitcell_gamma', self.gamma)
+            self.space_group = self.read_parameter('sample/space_group', self.space_group)
+            self.laue_group = self.read_parameter('sample/laue_group', self.laue_group)
             self.wavelength = self.read_parameter('instrument/monochromator/wavelength', 
                                                   self.wavelength)
             self.distance = self.read_parameter('instrument/detector/distance', 
@@ -237,12 +241,14 @@ class NXRefine(object):
             elif attr is None:
                 entry[path] = value
 
-    def write_parameters(self, entry=None):
+    def write_parameters(self, entry=None, sample=False):
         if entry:
             self.entry = entry
         with self.entry.nxfile:
             if 'sample' not in self.entry:
                 self.entry['sample'] = NXsample()
+            self.write_parameter('sample/space_group', self.space_group)
+            self.write_parameter('sample/laue_group', self.laue_group)
             self.write_parameter('sample/unit_cell_group', self.symmetry)
             self.write_parameter('sample/lattice_centring', self.centring)
             self.write_parameter('sample/unitcell_a', self.a)
@@ -251,6 +257,8 @@ class NXRefine(object):
             self.write_parameter('sample/unitcell_alpha', self.alpha)
             self.write_parameter('sample/unitcell_beta', self.beta)
             self.write_parameter('sample/unitcell_gamma', self.gamma)
+            if sample:
+                return
             if 'instrument' not in self.entry:
                 self.entry['instrument'] = NXinstrument()
             if 'detector' not in self.entry['instrument']:
@@ -297,6 +305,8 @@ class NXRefine(object):
                     other.entry.nxroot['entry/sample'] = NXsample()
                 if 'sample' not in other.entry:
                     other.entry.makelink(other.entry.nxroot['entry/sample'])
+                other.write_parameter('sample/space_group', self.space_group)
+                other.write_parameter('sample/laue_group', self.laue_group)
                 other.write_parameter('sample/unit_cell_group', self.symmetry)
                 other.write_parameter('sample/lattice_centring', self.centring)
                 other.write_parameter('sample/unitcell_a', self.a)
