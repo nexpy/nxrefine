@@ -126,7 +126,7 @@ class LatticeDialog(NXDialog):
         self.parameters['gamma'].value = self.refine.gamma
 
     def set_groups(self):
-        if self.space_group:
+        if sgtbx and self.space_group:
             try:
                 if isinstance(self.space_group, float):
                     sgi = sgtbx.space_group_info(int(self.space_group))
