@@ -51,7 +51,7 @@ class CalibrateDialog(NXDialog):
         self.parameters.add('search_size', 10, 'Search Size (pixels)')
         self.rings_box = self.select_box(['Ring%s' % i for i in range(1,21)])
         self.set_layout(self.select_entry(self.choose_entry),
-                        self.action_buttons(('Plot Calibration', self.plot_data)),
+                        self.filebox('Choose Powder Calibration File'),
                         self.parameters.grid(header=False),
                         self.action_buttons(('Select Points', self.select),
                                             ('Autogenerate Rings', self.auto),
@@ -64,13 +64,15 @@ class CalibrateDialog(NXDialog):
                         self.progress_layout(close=True))
         self.set_title('Calibrating Powder')
 
-    def choose_entry(self):
-        if 'calibration' not in self.entry['instrument']:
-            raise NeXusError('Please load calibration data to this entry')
-        self.update_parameters()
-        self.plot_data()
+    def choose_file(self):
+        super(CalibrateDialog, self).choose_file()
+        powder_file = self.get_filename()
+        if powder_file:
+            self.data = load_image(powder_file)
+            self.counts = self.data.nxsignal.nxvalue
+            self.plot_data()         
 
-    def update_parameters(self):
+    def choose_entry(self):
         self.parameters['wavelength'].value = self.entry['instrument/monochromator/wavelength']
         detector = self.entry['instrument/detector']
         self.parameters['distance'].value = detector['distance']
@@ -81,11 +83,13 @@ class CalibrateDialog(NXDialog):
             self.parameters['xc'].value = detector['beam_center_x']
         if 'beam_center_y' in detector:
             self.parameters['yc'].value = detector['beam_center_y']
-        self.data = self.entry['instrument/calibration']
-        self.counts = self.data.nxsignal.nxvalue
         self.pixel_size = self.entry['instrument/detector/pixel_size'].nxvalue * 1e-3
         self.pixel_mask = self.entry['instrument/detector/pixel_mask'].nxvalue
         self.ring = self.selected_ring
+        if 'calibration' in self.entry['instrument']:
+            self.data = self.entry['instrument/calibration']
+            self.counts = self.data.nxsignal.nxvalue
+            self.plot_data()
 
     @property
     def search_size(self):
@@ -150,7 +154,7 @@ class CalibrateDialog(NXDialog):
         wavelength = self.parameters['wavelength'].value
         distance = self.parameters['distance'].value * 1e-3
         self.start_progress((0, self.selected_ring))
-        for ring in range(self.selected_ring):
+        for ring in range(self.selected_ring+1):
             self.update_progress(ring)
             if len([p for p in self.points if p[3] == ring]) > 0:
                 continue
@@ -288,7 +292,7 @@ class CalibrateDialog(NXDialog):
                                              correctSolidAngle=True)
         self.cake_data = NXdata(res[0], (NXfield(res[2], name='azimumthal_angle'),
                                          NXfield(res[1], name='polar_angle')))
-        self.cake_data['title'] = self.entry['instrument/calibration/title']
+        self.cake_data['title'] = 'Cake Plot'
         plotview.plot(self.cake_data, log=True)
         wavelength = self.parameters['wavelength'].value
         polar_angles = [2 * np.degrees(np.arcsin(wavelength/(2*d)))
@@ -314,7 +318,14 @@ class CalibrateDialog(NXDialog):
     def save_parameters(self):
         if not self.is_calibrated:
             raise NeXusError('No refinement performed')
-        elif 'refinement' in self.entry['instrument/calibration']:
+        elif 'calibration' in self.entry['instrument']:
+            if confirm_action(
+                        "Do you want to overwrite existing calibration data?"):
+                del self.entry['instrument/calibration']
+            else:
+                return
+        self.entry['instrument/calibration'] = self.data
+        if 'refinement' in self.entry['instrument/calibration']:
             if confirm_action('Overwrite previous refinement?'):
                 del self.entry['instrument/calibration/refinement']
             else:
