@@ -76,9 +76,6 @@ class NXReduce(QtCore.QObject):
             self.entry_name = entry
             self._root = None
         self.base_directory = os.path.dirname(self.wrapper_file)
-        self.task_directory = os.path.join(self.root_directory, 'tasks')
-        if not os.path.exists(self.task_directory):
-            os.mkdir(self.task_directory)
         if parent is None:
             self.parent_file = os.path.join(self.base_directory,
                                             self.sample+'_parent.nxs')
@@ -87,7 +84,6 @@ class NXReduce(QtCore.QObject):
         
         self.mask_file = os.path.join(self.directory,
                                       self.entry_name+'_mask.nxs')
-        self.log_file = os.path.join(self.task_directory, 'nxlogger.log')
         self.transform_file = os.path.join(self.directory,
                                            self.entry_name+'_transform.nxs')
         self.masked_transform_file = os.path.join(self.directory,
@@ -138,17 +134,9 @@ class NXReduce(QtCore.QObject):
 
         self._stopped = False
 
-        self.init_logs()
-        db_file = os.path.join(self.task_directory, 'nxdatabase.db')
-        try:
-            self.db = NXDatabase(db_file)
-        except Exception as error:
-            self.logger.info(str(error))
-        try:
-            self.server = NXServer()
-        except Exception as error:
-            self.logger.info(str(error))
-            self.server = None
+        self._server = None
+        self._db = None
+        self._logger = None
 
         nxsetlock(1800)
 
@@ -161,27 +149,57 @@ class NXReduce(QtCore.QObject):
         return "NXReduce('{}_{}/{}')".format(self.sample, self.scan, 
                                              self.entry_name)
 
-    def init_logs(self):
-        self.logger = logging.getLogger("%s/%s_%s['%s']"
-                      % (self.label, self.sample, self.scan, self.entry_name))
-        self.logger.setLevel(logging.DEBUG)
-        formatter = logging.Formatter(
-                        '%(asctime)s %(name)-12s: %(message)s',
-                        datefmt='%Y-%m-%d %H:%M:%S')
-        for handler in self.logger.handlers:
-            self.logger.removeHandler(handler)
-        if os.path.exists(self.task_directory):
+    @property
+    def task_directory(self):
+        _directory = os.path.join(self.root_directory, 'tasks')
+        if not os.path.exists(_directory):
+            os.mkdir(_directory)
+        return _directory
+
+    @property
+    def logger(self):
+        if self._logger is None:
+            self._logger = logging.getLogger("%s/%s_%s['%s']"
+                  % (self.label, self.sample, self.scan, self.entry_name))
+            self._logger.setLevel(logging.DEBUG)
+            formatter = logging.Formatter(
+                            '%(asctime)s %(name)-12s: %(message)s',
+                            datefmt='%Y-%m-%d %H:%M:%S')
+            for handler in self._logger.handlers:
+                self._logger.removeHandler(handler)
             if os.path.exists(os.path.join(self.task_directory, 'nxlogger.pid')):
                 socketHandler = logging.handlers.SocketHandler('localhost',
                                     logging.handlers.DEFAULT_TCP_LOGGING_PORT)
-                self.logger.addHandler(socketHandler)
+                self._logger.addHandler(socketHandler)
             else:
-                fileHandler = logging.FileHandler(self.log_file)
+                fileHandler = logging.FileHandler(os.path.join(
+                                                    self.task_directory, 
+                                                    'nxlogger.log'))
                 fileHandler.setFormatter(formatter)
-                self.logger.addHandler(fileHandler)
-        if not self.gui:
-            streamHandler = logging.StreamHandler()
-            self.logger.addHandler(streamHandler)
+                self._logger.addHandler(fileHandler)
+            if not self.gui:
+                streamHandler = logging.StreamHandler()
+                self._logger.addHandler(streamHandler)
+        return self._logger
+
+    @property
+    def server(self):
+        if self._server is None:
+            try:
+                self._server = NXServer()
+            except Exception as error:
+                self.logger.info(str(error))
+        return self._server
+
+    @property
+    def db(self):
+        if self._db is None:
+            try:
+                self._db = NXDatabase(os.path.join(self.task_directory, 
+                                                   'nxdatabase.db'))
+            except Exception as error:
+                self.logger.info(str(error))
+        return self._db
 
     @property
     def root(self):
