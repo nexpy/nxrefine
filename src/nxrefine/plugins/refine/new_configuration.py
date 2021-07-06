@@ -74,15 +74,15 @@ class ConfigurationDialog(NXDialog):
         self.analysis = GridParameters()
         self.analysis.add('threshold', entry['nxreduce/threshold'], 
                           'Peak Threshold')
+        self.analysis.add('first', entry['nxreduce/first_frame'], 
+                          'First Frame')
+        self.analysis.add('last', entry['nxreduce/last_frame'], 
+                          'Last Frame')
         self.analysis.add('monitor', ['monitor1', 'monitor2'], 
                           'Normalization Monitor')
         self.analysis['monitor'].value = 'monitor2'
         self.analysis.add('norm', entry['nxreduce/norm'], 
                           'Normalization Value')
-        self.analysis.add('first', entry['nxreduce/first_frame'], 
-                          'First Frame')
-        self.analysis.add('last', entry['nxreduce/last_frame'], 
-                          'Last Frame')
 
     def setup_scan(self):
         entry = self.configuration_file['entry']
@@ -95,8 +95,8 @@ class ConfigurationDialog(NXDialog):
         entry['instrument/detector/frame_time'] = 0.1
         self.scan = GridParameters()
         self.scan.add('chi', -90.0, 'Chi (deg)')
-        self.scan.add('phi_start', -2.5, 'Phi Start (deg)')
-        self.scan.add('phi_end', 362.5, 'Phi End (deg)')
+        self.scan.add('phi_start', -5.0, 'Phi Start (deg)')
+        self.scan.add('phi_end', 360.0, 'Phi End (deg)')
         self.scan.add('phi_step', 0.1, 'Phi Step (deg)')
         self.scan.add('frame_rate', 10, 'Frame Rate (Hz)')
 
@@ -143,10 +143,10 @@ class ConfigurationDialog(NXDialog):
     def get_parameters(self):
         entry = self.configuration_file['entry']
         entry['nxreduce/threshold'] = self.analysis['threshold'].value
-        entry['nxreduce/monitor'] = self.analysis['monitor'].value
-        entry['nxreduce/norm'] = self.analysis['norm'].value
         entry['nxreduce/first_frame'] = self.analysis['first'].value
         entry['nxreduce/last_frame'] = self.analysis['last'].value
+        entry['nxreduce/monitor'] = self.analysis['monitor'].value
+        entry['nxreduce/norm'] = self.analysis['norm'].value
         entry['instrument/monochromator/wavelength'] = self.configuration['wavelength'].value
         entry['instrument/monochromator/energy'] = 12.398419739640717 /  self.configuration['wavelength'].value
         detector = self.get_detector()
