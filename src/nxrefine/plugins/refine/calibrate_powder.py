@@ -90,6 +90,8 @@ class CalibrateDialog(NXDialog):
             self.data = self.entry['instrument/calibration']
             self.counts = self.data.nxsignal.nxvalue
             self.plot_data()
+        else:
+            self.close_plots()
 
     @property
     def search_size(self):
@@ -363,10 +365,22 @@ class CalibrateDialog(NXDialog):
         except Exception:
             pass
 
+    def close_plots(self):
+        if 'Powder Calibration' in plotviews:
+            plotviews['Powder Calibration'].close()
+        if 'Cake Plot' in plotviews:
+            plotviews['Cake Plot'].close()        
+
+    def closeEvent(self, event):
+        self.close_plots()
+        event.accept()
+
+    def accept(self):
+        super(CalibrateDialog, self).accept()
+        self.close_plots()
+
     def reject(self):
         super(CalibrateDialog, self).reject()
-        if 'Powder Calibration' in plotviews:
-            plotviews['Powder Calibration'].close_view()
-        if 'Cake Plot' in plotviews:
-            plotviews['Cake Plot'].close_view()
+        self.close_plots()
+        
 
