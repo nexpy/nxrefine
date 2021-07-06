@@ -44,17 +44,28 @@ class ParametersDialog(NXDialog):
         self.layout.insertLayout(1, self.parameters.grid())
 
     def read_parameters(self):
-        reduce = NXReduce(self.entries[0])
-        if reduce.first:
-            self.parameters['first'].value = reduce.first
-        if reduce.last:
-            self.parameters['last'].value = reduce.last
-        if reduce.threshold:
-            self.parameters['threshold'].value = reduce.threshold
-        if reduce.monitor:
-            self.parameters['monitor'].value = reduce.monitor
-        if reduce.norm:
-            self.parameters['norm'].value = reduce.norm
+        if 'nxreduce' in self.root['entry']:
+            reduce = self.root['entry/nxreduce']
+            self.parameters['threshold'].value = reduce['threshold']
+            self.parameters['first'].value = reduce['first_frame']
+            self.parameters['last'].value = reduce['last_frame']
+            self.parameters['monitor'].value = reduce['monitor']
+            self.parameters['norm'].value = reduce['norm']
+        else:
+            try:
+                reduce = NXReduce(self.entries[0])
+                if reduce.first:
+                    self.parameters['first'].value = reduce.first
+                if reduce.last:
+                    self.parameters['last'].value = reduce.last
+                if reduce.threshold:
+                    self.parameters['threshold'].value = reduce.threshold
+                if reduce.monitor:
+                    self.parameters['monitor'].value = reduce.monitor
+                if reduce.norm:
+                    self.parameters['norm'].value = reduce.norm
+            except Exception:
+                pass
 
     def write_parameters(self):
         if 'nxreduce' not in self.root['entry']:
@@ -64,6 +75,9 @@ class ParametersDialog(NXDialog):
         self.root['entry/nxreduce/last_frame'] = self.last
         self.root['entry/nxreduce/monitor'] = self.monitor
         self.root['entry/nxreduce/norm'] = self.norm
+#        self.remove_parameters()
+
+    def remove_parameters(self):
         for entry in self.entries:
             if 'peaks' in entry:
                 if 'threshold' in entry['peaks'].attrs:
