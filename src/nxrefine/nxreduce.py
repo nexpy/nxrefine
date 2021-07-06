@@ -33,7 +33,7 @@ class NXReduce(QtCore.QObject):
     def __init__(self, entry='f1', directory=None, parent=None, entries=None,
                  data='data/data', extension='.h5', path='/entry/data/data',
                  threshold=None, first=None, last=None, radius=None, width=None,
-                 norm=None, Qh=None, Qk=None, Ql=None, 
+                 monitor=None, norm=None, Qh=None, Qk=None, Ql=None, 
                  link=False, maxcount=False, find=False, copy=False,
                  refine=False, lattice=False, transform=False, prepare=False, mask=False,
                  overwrite=False, gui=False):
@@ -118,6 +118,7 @@ class NXReduce(QtCore.QObject):
         self._last = last
         self._radius = radius
         self._width = width
+        self._monitor = monitor
         self._norm = norm
         self.Qh = Qh
         self.Qk = Qk
@@ -190,7 +191,10 @@ class NXReduce(QtCore.QObject):
 
     @property
     def entry(self):
-        return self.root[self.entry_name]
+        if self.entry_name in self.root:
+            return self.root[self.entry_name]
+        else:
+            return None
 
     @property
     def entries(self):
@@ -201,11 +205,17 @@ class NXReduce(QtCore.QObject):
 
     @property
     def first_entry(self):
-        return self.entry_name == self.entries[0]
+        if self.entries:
+            return self.entry_name == self.entries[0]
+        else:
+            return None
 
     @property
     def data(self):
-        return self.entry['data']
+        if 'data' in self.entry:
+            return self.entry['data']
+        else:
+            return None
 
     @property
     def field(self):
@@ -287,19 +297,23 @@ class NXReduce(QtCore.QObject):
     def first(self):
         _first = self._first
         if _first is None:
-            if 'peaks' in self.entry and 'first' in self.entry['peaks'].attrs:
-                _first = np.int32(self.entry['peaks'].attrs['first'])
-            elif 'first' in self.entry['data'].attrs:
-                _first = np.int32(self.entry['data'].attrs['first'])
+            if 'nxreduce' in self.root['entry']:
+                _first = self.root['entry/nxreduce/first_frame']
+            elif 'peaks' in self.entry and 'first' in self.entry['peaks'].attrs:
+                _first = self.entry['peaks'].attrs['first']
+            elif 'data' in self.entry and 'first' in self.entry['data'].attrs:
+                _first = self.entry['data'].attrs['first']
             elif self.parent:
                 root = self.parent_root
-                if ('peaks' in root[self.entry_name] and
-                    'first' in root[self.entry_name]['peaks'].attrs):
-                    _first = np.int32(root[self.entry_name]['peaks'].attrs['first'])
-                elif 'first' in root[self.entry_name]['data'].attrs:
-                    _first = np.int32(root[self.entry_name]['data'].attrs['first'])
+                entry = root[self.entry_name]
+                if 'nxreduce' in root['entry']:
+                    _first = root['entry/nxreduce/first_frame']
+                elif 'peaks' in entry and 'first' in entry['peaks'].attrs:
+                    _first = entry['peaks'].attrs['first']
+                elif 'first' in entry['data'].attrs:
+                    _first = entry['data'].attrs['first']
         try:
-            self._first = np.int(_first)
+            self._first = int(_first)
         except Exception as error:
             self._first = None
         return self._first
@@ -315,19 +329,23 @@ class NXReduce(QtCore.QObject):
     def last(self):
         _last = self._last
         if _last is None:
-            if 'peaks' in self.entry and 'last' in self.entry['peaks'].attrs:
-                _last = np.int32(self.entry['peaks'].attrs['last'])
-            elif 'last' in self.entry['data'].attrs:
-                _last = np.int32(self.entry['data'].attrs['last'])
+            if 'nxreduce' in self.root['entry']:
+                _last = self.root['entry/nxreduce/last_frame']
+            elif 'peaks' in self.entry and 'last' in self.entry['peaks'].attrs:
+                _last = self.entry['peaks'].attrs['last']
+            elif 'data' in self.entry and 'last' in self.entry['data'].attrs:
+                _last = self.entry['data'].attrs['last']
             elif self.parent:
                 root = self.parent_root
-                if ('peaks' in root[self.entry_name] and
-                    'last' in root[self.entry_name]['peaks'].attrs):
-                    _last = np.int32(root[self.entry_name]['peaks'].attrs['last'])
+                entry = root[self.entry_name]
+                if 'nxreduce' in root['entry']:
+                    _last = root['entry/nxreduce/last_frame']
+                elif 'peaks' in entry and 'last' in entry['peaks'].attrs:
+                    _last = entry['peaks'].attrs['last']
                 elif 'last' in root[self.entry_name]['data'].attrs:
-                    _last = np.int32(root[self.entry_name]['data'].attrs['last'])
+                    _last = entry['data'].attrs['last']
         try:
-            self._last = np.int(_last)
+            self._last = int(_last)
         except Exception as error:
             self._last = None
         return self._last
@@ -343,18 +361,23 @@ class NXReduce(QtCore.QObject):
     def threshold(self):
         _threshold = self._threshold
         if _threshold is None:
-            if 'peaks' in self.entry and 'threshold' in self.entry['peaks'].attrs:
-                _threshold = np.int32(self.entry['peaks'].attrs['threshold'])
+            if 'nxreduce' in self.root['entry']:
+                _threshold = self.root['entry/nxreduce/threshold']
+            elif ('peaks' in self.entry and 
+                  'threshold' in self.entry['peaks'].attrs):
+                _threshold = self.entry['peaks'].attrs['threshold']
             elif self.parent:
                 root = self.parent_root
-                if ('peaks' in root[self.entry_name] and
-                    'threshold' in root[self.entry_name]['peaks'].attrs):
-                    _threshold = np.int32(root[self.entry_name]['peaks'].attrs['threshold'])
+                entry = root[self.entry_name]
+                if 'nxreduce' in root['entry']:
+                    _threshold = root['entry/nxreduce/threshold']
+                elif ('peaks' in entry and 'threshold' in entry['peaks'].attrs):
+                    _threshold = entry['peaks'].attrs['threshold']
         if _threshold is None:
             if self.maximum is not None:
                 _threshold = self.maximum / 10
         try:
-            self._threshold = np.float(_threshold)
+            self._threshold = float(_threshold)
             if self._threshold <= 0.0:
                 self._threshold = None
         except:
@@ -396,6 +419,7 @@ class NXReduce(QtCore.QObject):
                 _width = np.int32(self.entry['peaks'].attrs['width'])
             elif self.parent:
                 root = self.parent_root
+                entry = root[self.entry_name]
                 if ('peaks' in root[self.entry_name] and
                     'width' in root[self.entry_name]['peaks'].attrs):
                     _width = np.int32(root[self.entry_name]['peaks'].attrs['width'])
@@ -413,13 +437,17 @@ class NXReduce(QtCore.QObject):
     def norm(self):
         _norm = self._norm
         if _norm is None:
-            if 'peaks' in self.entry and 'norm' in self.entry['peaks'].attrs:
-                _norm = np.int32(self.entry['peaks'].attrs['norm'])
+            elif 'peaks' in self.entry and 'norm' in self.entry['peaks'].attrs:
+                _norm = self.entry['peaks'].attrs['norm']
             elif self.parent:
                 root = self.parent_root
                 if ('peaks' in root[self.entry_name] and
                     'norm' in root[self.entry_name]['peaks'].attrs):
-                    _norm = np.int32(root[self.entry_name]['peaks'].attrs['norm'])
+                entry = root[self.entry_name]
+                if 'nxreduce' in root['entry']:
+                    _norm = root['entry/nxreduce/norm']
+                elif 'peaks' in entry and 'norm' in entry['peaks'].attrs:
+                    _norm = entry['peaks'].attrs['norm']
         try:
             self._norm = np.float(_norm)
             if self._norm <= 0:
@@ -432,10 +460,23 @@ class NXReduce(QtCore.QObject):
     def norm(self, value):
         self._norm = value
 
+    def monitor(self):
+            if 'nxreduce' in self.root['entry']:
+                _monitor = self.root['entry/nxreduce/monitor']
+            elif self.parent:
+                root = self.parent_root
+                _monitor = 'monitor1'
+        self._monitor = str(_monitor)
+        return self._monitor
+
+    @monitor.setter
+    def monitor(self, value):
+        self._monitor = value
+
     @property
     def maximum(self):
         if self._maximum is None:
-            if 'maximum' in self.entry['data'].attrs:
+            if 'data' in self.entry and 'maximum' in self.entry['data'].attrs:
                 self._maximum = self.entry['data'].attrs['maximum']
         return self._maximum
 
@@ -1074,9 +1115,14 @@ class NXReduce(QtCore.QObject):
                 self.Qh = self.Qk = self.Ql = None
 
     def get_normalization(self):
+        from scipy.signal import savgol_filter
         with self.root.nxfile:
-            if self.norm and 'monitor1' in self.entry:
-                self.data['monitor_weight'] = self.entry['monitor1'].nxsignal / self.norm
+            if self.norm and self.monitor in self.entry:
+                monitor_signal = self.entry[self.monitor].nxsignal / self.norm
+                monitor_signal[0] = monitor_signal[1]
+                monitor_signal[-1] = monitor_signal[-2]
+                self.data['monitor_weight'] = savgol_filter(monitor_signal, 
+                                                            501, 2)
                 self.data['monitor_weight'].attrs['axes'] = 'frame_number'
                 self.data['monitor_weight'][0] = self.data['monitor_weight'][1]
                 self.data['monitor_weight'][-1] = self.data['monitor_weight'][-2]
@@ -1441,7 +1487,7 @@ class NXReduce(QtCore.QObject):
             self.record_start('nxsum')
             self.logger.info('Sum files launched')
             tic = timeit.default_timer()
-            if not self.check_files(scan_list, update):
+            if not self.check_files(scan_list):
                 self.record_fail('nxsum')
             else:
                 self.logger.info('All files and metadata have been checked')
@@ -1452,12 +1498,12 @@ class NXReduce(QtCore.QObject):
                 self.logger.info('Sum completed (%g seconds)' % (toc-tic))
                 self.record('nxsum', scans=','.join(scan_list))
 
-    def check_files(self, scan_list, update=False):
+    def check_sum_files(self, scan_list):
         status = True
         for i, scan in enumerate(scan_list):
             reduce = NXReduce(self.entry_name, 
                               os.path.join(self.base_directory, scan))
-            if not update and not os.path.exists(reduce.data_file):
+            if not os.path.exists(reduce.data_file):
                 self.logger.info("'%s' does not exist" % reduce.data_file)
                 status = False
             elif 'monitor1' not in reduce.entry:
@@ -1718,18 +1764,23 @@ class NXMultiReduce(NXReduce):
 
     def nxsum(self, scan_list):
         if not os.path.exists(self.wrapper_file) or self.overwrite:
+            for e in self.entries:
+                reduce = NXReduce(self.root[e])
+                status = reduce.check_sum_files(scan_list)
+                if not status:
+                    return status
             if not os.path.exists(self.directory):
                 os.mkdir(self.directory)
-            shutil.copyfile(os.path.join(self.base_directory, 
-                                         self.sample+'_'+scan_list[0]+'.nxs'),
-                            self.wrapper_file)
             self.logger.info('Creating sum file')
-            self.configure_sum_file()
+            self.configure_sum_file(scan_list)
             self.logger.info('Sum file created')
         else:
             self.logger.info('Sum file already exists')
 
-    def configure_sum_file(self):
+    def configure_sum_file(self, scan_list):
+        shutil.copyfile(os.path.join(self.base_directory, 
+                                     self.sample+'_'+scan_list[0]+'.nxs'),
+                        self.wrapper_file)
         with self.root.nxfile:
             if 'nxcombine' in self.root['entry']:
                 del self.root['entry/nxcombine']

@@ -23,14 +23,27 @@ class ParametersDialog(NXDialog):
         super(ParametersDialog, self).__init__(parent)
 
         self.select_root(self.choose_root)
+        if 'nxreduce' in self.root['entry']:
+            threshold = self.root['entry/nxreduce/threshold']
+            first = self.root['entry/nxreduce/first_frame']
+            last = self.root['entry/nxreduce/last_frame']
+            monitor = self.root['entry/nxreduce/monitor']
+            norm = self.root['entry/nxreduce/norm']
+        else:
+            threshold = 1000.0
+            first = 25
+            last = 3650
+            monitor = 'monitor2'
+            norm = 30000
 
         self.parameters = GridParameters()
-        self.parameters.add('threshold', '', 'Threshold')
-        self.parameters.add('first', 25, 'First Frame')
-        self.parameters.add('last', 3625, 'Last Frame')
-        self.parameters.add('radius', 200, 'Radius')
-        self.parameters.add('width', 3, 'Frame Width')
-        self.parameters.add('norm', '', 'Normalization')
+        self.parameters.add('threshold', threshold, 'Peak Threshold')
+        self.parameters.add('first', first, 'First Frame')
+        self.parameters.add('last', last, 'Last Frame')
+        self.parameters.add('monitor', ['monitor1', 'monitor2'], 
+                            'Normalization Monitor')
+        self.parameters['monitor'].value = monitor
+        self.parameters.add('norm', norm, 'Normalization Value')
 
         self.set_layout(self.root_layout,
                         self.parameters.grid(),
@@ -40,9 +53,9 @@ class ParametersDialog(NXDialog):
     def choose_root(self):
         self.entries = [self.root[entry] 
                         for entry in self.root if entry != 'entry']
-        self.update_parameters()
+        self.read_parameters()
 
-    def update_parameters(self):
+    def read_parameters(self):
         reduce = NXReduce(self.entries[0])
         if reduce.first:
             self.parameters['first'].value = reduce.first
@@ -50,75 +63,50 @@ class ParametersDialog(NXDialog):
             self.parameters['last'].value = reduce.last
         if reduce.threshold:
             self.parameters['threshold'].value = reduce.threshold
-        if reduce.radius:
-            self.parameters['radius'].value = reduce.radius
-        if reduce.width:
-            self.parameters['width'].value = reduce.width        
+        if reduce.monitor:
+            self.parameters['monitor'].value = reduce.monitor
         if reduce.norm:
             self.parameters['norm'].value = reduce.norm
 
-    def write_parameters(self, entry):
-        if 'peaks' not in entry:
-            entry['peaks'] = NXreflections()
-        if self.first:
-            entry['peaks'].attrs['first'] = np.int(self.first)
-        elif 'first' in entry['peaks'].attrs:
-            del entry['peaks'].attrs['first']
-        if self.last:
-            entry['peaks'].attrs['last'] = np.int(self.last)
-        elif 'last' in entry['peaks'].attrs:
-            del entry['peaks'].attrs['last']
-        if self.threshold:
-            entry['peaks'].attrs['threshold'] = self.threshold
-        elif 'threshold' in entry['peaks'].attrs:
-            del entry['peaks'].attrs['threshold']
-        if self.radius:
-            entry['peaks'].attrs['radius'] = np.int(self.radius)
-        elif 'radius' in entry['peaks'].attrs:
-            del entry['peaks'].attrs['radius']
-        if self.width:
-            entry['peaks'].attrs['width'] = np.int(self.width)
-        elif 'width' in entry['peaks'].attrs:
-            del entry['peaks'].attrs['width']
-        if self.norm:
-            entry['peaks'].attrs['norm'] = self.norm
-        elif 'norm' in entry['peaks'].attrs:
-            del entry['peaks'].attrs['norm']
+    def write_parameters(self):
+        if 'nxreduce' not in self.root['entry']:
+            self.root['entry/nxreduce'] = NXparameters()
+        self.root['entry/nxreduce/threshold'] = self.threshold
+        self.root['entry/nxreduce/first_frame'] = self.first
+        self.root['entry/nxreduce/last_frame'] = self.last
+        self.root['entry/nxreduce/monitor'] = self.monitor
+        self.root['entry/nxreduce/norm'] = self.norm
+        for entry in self.entries:
+            if 'peaks' in entry:
+                if 'threshold' in entry['peaks'].attrs:
+                    del entry['peaks'].attrs['threshold']
+                if 'first' in entry['peaks'].attrs:
+                    del entry['peaks'].attrs['first']
+                if 'last' in entry['peaks'].attrs:
+                    del entry['peaks'].attrs['last']
+                if 'norm' in entry['peaks'].attrs:
+                    del entry['peaks'].attrs['norm']
 
-    def get_value(self, key):
-        value = self.parameters[key].value
-        if isinstance(value, float) and value <= 0:
-            return None
-        elif isinstance(value, str):
-            return None
-        else:
-            return value
-    
     @property
     def threshold(self):
-        return self.get_value('threshold')
+        return float(self.parameters['threshold'].value)
 
     @property
     def first(self):
-        return self.get_value('first')
+        return int(self.parameters['first'].value)
 
     @property
     def last(self):
-        return self.get_value('last')
+        return int(self.parameters['last'].value)
 
     @property
-    def radius(self):
-        return self.get_value('radius')
-
-    @property
-    def width(self):
-        return self.get_value('width')
+    def monitor(self):
+        return self.parameters['monitor'].value
 
     @property
     def norm(self):
-        return self.get_value('norm')
+        return float(self.parameters['norm'].value)
 
     def accept(self):
-        for entry in self.entries:
-            self.write_parameters(entry)
+        self.write_parameters()
         super(ParametersDialog, self).accept()
