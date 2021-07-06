@@ -437,19 +437,19 @@ class NXReduce(QtCore.QObject):
     def norm(self):
         _norm = self._norm
         if _norm is None:
+            if 'nxreduce' in self.root['entry']:
+                _norm = self.root['entry/nxreduce/norm']
             elif 'peaks' in self.entry and 'norm' in self.entry['peaks'].attrs:
                 _norm = self.entry['peaks'].attrs['norm']
             elif self.parent:
                 root = self.parent_root
-                if ('peaks' in root[self.entry_name] and
-                    'norm' in root[self.entry_name]['peaks'].attrs):
                 entry = root[self.entry_name]
                 if 'nxreduce' in root['entry']:
                     _norm = root['entry/nxreduce/norm']
                 elif 'peaks' in entry and 'norm' in entry['peaks'].attrs:
                     _norm = entry['peaks'].attrs['norm']
         try:
-            self._norm = np.float(_norm)
+            self._norm = float(_norm)
             if self._norm <= 0:
                 self._norm = None
         except:
@@ -460,11 +460,19 @@ class NXReduce(QtCore.QObject):
     def norm(self, value):
         self._norm = value
 
+    @property
     def monitor(self):
+        _monitor = self._monitor
+        if _monitor is None:
             if 'nxreduce' in self.root['entry']:
                 _monitor = self.root['entry/nxreduce/monitor']
             elif self.parent:
                 root = self.parent_root
+                if 'nxreduce' in root['entry']:
+                    _monitor = root['entry/nxreduce/monitor']
+                else:
+                    _monitor = 'monitor1'
+            else:
                 _monitor = 'monitor1'
         self._monitor = str(_monitor)
         return self._monitor
