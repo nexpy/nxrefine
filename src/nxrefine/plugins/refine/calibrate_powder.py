@@ -155,7 +155,7 @@ class CalibrateDialog(NXDialog):
         xc, yc = self.parameters['xc'].value, self.parameters['yc'].value
         wavelength = self.parameters['wavelength'].value
         distance = self.parameters['distance'].value * 1e-3
-        self.start_progress((0, self.selected_ring))
+        self.start_progress((0, self.selected_ring+1))
         for ring in range(self.selected_ring+1):
             self.update_progress(ring)
             if len([p for p in self.points if p[3] == ring]) > 0:
