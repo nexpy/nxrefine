@@ -142,7 +142,7 @@ class NXReduce(QtCore.QObject):
         db_file = os.path.join(self.task_directory, 'nxdatabase.db')
         try:
             self.db = NXDatabase(db_file)
-        except Exception:
+        except Exception as error:
             self.logger.info(str(error))
         try:
             self.server = NXServer()
