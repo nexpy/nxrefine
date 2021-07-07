@@ -177,10 +177,14 @@ class ScanDialog(NXDialog):
     def read_parameters(self):
         for position in range(1, self.positions+1):
             entry = self.scan_file['f%d' % position]
-            self.entries[position]['chi'].value = entry['instrument/goniometer/chi']
-            self.entries[position]['omega'].value = entry['instrument/goniometer/omega']
-            self.entries[position]['x'].value = entry['instrument/detector/translation_x']
-            self.entries[position]['y'].value = entry['instrument/detector/translation_y']
+            if 'instrument/goniometer/chi' in entry:
+                self.entries[position]['chi'].value = entry['instrument/goniometer/chi']
+            if 'instrument/goniometer/omega' in entry:
+                self.entries[position]['omega'].value = entry['instrument/goniometer/omega']
+            if 'instrument/detector/translation_x' in entry:
+                self.entries[position]['x'].value = entry['instrument/detector/translation_x']
+            if 'instrument/detector/translation_y' in entry:
+                self.entries[position]['y'].value = entry['instrument/detector/translation_y']
 
     def get_parameters(self):
         entry = self.scan_file['entry']
