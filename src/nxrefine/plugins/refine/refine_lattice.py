@@ -63,6 +63,7 @@ class RefineLatticeDialog(NXDialog):
                             'Polar Angle Tolerance')
         self.parameters.add('peak_tolerance', self.refine.peak_tolerance, 
                             'Peak Angle Tolerance')
+        self.parameters.grid()
         self.set_symmetry()
 
         self.refine_buttons = self.action_buttons(
@@ -79,12 +80,7 @@ class RefineLatticeDialog(NXDialog):
                                    ('List', self.list_peaks),
                                    ('Save', self.write_parameters))
 
-        self.set_layout(self.entry_layout, self.parameters.grid(), 
-                        self.refine_buttons,
-                        self.orientation_button,
-                        self.parameters.report_layout(),
-                        self.lattice_buttons,
-                        self.close_layout())
+        self.set_layout(self.entry_layout, self.close_layout())
 
         self.parameters.grid_layout.setVerticalSpacing(1)
         self.layout.setSpacing(2)
@@ -97,6 +93,12 @@ class RefineLatticeDialog(NXDialog):
         
     def choose_entry(self):
         self.refine = NXRefine(self.entry)
+        if self.layout.count() == 2:
+            self.insert_layout(1, self.parameters.grid_layout)
+            self.insert_layout(2, self.refine_buttons)
+            self.insert_layout(3, self.orientation_button)
+            self.insert_layout(4, self.parameters.report_layout())
+            self.insert_layout(5, self.lattice_buttons)
         self.update_parameters()
         if self.peaks_box:
             self.update_table()

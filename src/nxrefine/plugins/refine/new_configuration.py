@@ -33,12 +33,9 @@ class ConfigurationDialog(NXDialog):
 
         self.set_layout(self.directorybox('Choose Experiment Directory', default=False),
                         self.configuration.grid(header=False),
-                        NXLabel('Analysis Settings', bold=True, align='center'),
-                        self.analysis.grid(header=False),
-                        NXLabel('Scan Settings', bold=True, align='center'),
-                        self.scan.grid(header=False),
-                        NXLabel('Detector Settings', bold=True, align='center'),
-                        self.instrument.grid(header=False))
+                        self.analysis.grid(header=False, title='Analysis Settings'),
+                        self.scan.grid(header=False, title='Scan Settings'),
+                        self.instrument.grid(header=False, title='Detector Settings'))
         self.set_title('New Configuration')
 
     def setup_groups(self):
@@ -66,10 +63,10 @@ class ConfigurationDialog(NXDialog):
 
     def setup_analysis(self):
         entry = self.configuration_file['entry']        
-        entry['nxreduce/threshold'] = NXfield(1000.0, dtype=np.float32)
+        entry['nxreduce/threshold'] = NXfield(50000.0, dtype=np.float32)
         entry['nxreduce/monitor'] = NXfield('monitor2')
         entry['nxreduce/norm'] = NXfield(30000.0, dtype=np.float32)
-        entry['nxreduce/first_frame'] = NXfield(25, dtype=np.int32)
+        entry['nxreduce/first_frame'] = NXfield(0, dtype=np.int32)
         entry['nxreduce/last_frame'] = NXfield(3650, dtype=np.int32)
         self.analysis = GridParameters()
         self.analysis.add('threshold', entry['nxreduce/threshold'], 
@@ -111,7 +108,7 @@ class ConfigurationDialog(NXDialog):
                                     for detector in ALL_DETECTORS.values()])))
         self.instrument.add('detector', detector_list, 'Detector')
         self.instrument['detector'].value = 'Pilatus CdTe 2M'
-        self.instrument.add('positions', [0,1,2,3,4], 
+        self.instrument.add('positions', [0,1,2,3,4,5,6,7,8], 
                             'Number of Detector Positions', 
                             slot=self.set_entries)
         self.instrument['positions'].value = '0'
@@ -132,13 +129,32 @@ class ConfigurationDialog(NXDialog):
     @property
     def positions(self):
         return int(self.instrument['positions'].value)
+
+    @property
+    def position(self):
+        try:
+            return int(self.entry_box.currentText())
+        except ValueError:
+            return 1
  
     def set_entries(self):
+        self.entry_box = self.select_box([str(i) for i in range(1,self.positions+1)], 
+                                         slot=self.choose_position)
+        self.entry_layout = self.make_layout(self.labels('Position', header=True), 
+                                             self.entry_box)
+        self.add_layout(self.entry_layout)
         for position in range(1,self.positions+1):
             self.setup_entry(position)
-            self.layout.addLayout(self.detectors[position].grid(header=False, 
-                                                title='Position %s'%position))
-        self.layout.addWidget(self.close_buttons(save=True))
+            self.add_layout(self.detectors[position].grid(header=False))
+            if position != 1:
+                self.detectors[position].hide_grid()
+        self.add_layout(self.close_buttons(save=True))
+
+    def choose_position(self):
+        for i in self.detectors:
+            self.detectors[i].hide_grid()
+        if self.position in self.detectors:
+            self.detectors[self.position].show_grid()
 
     def get_parameters(self):
         entry = self.configuration_file['entry']

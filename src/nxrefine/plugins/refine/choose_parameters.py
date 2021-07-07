@@ -25,8 +25,8 @@ class ParametersDialog(NXDialog):
         self.select_root(self.choose_root)
 
         self.parameters = GridParameters()
-        self.parameters.add('threshold', 1000.0, 'Peak Threshold')
-        self.parameters.add('first', 25, 'First Frame')
+        self.parameters.add('threshold', 50000.0, 'Peak Threshold')
+        self.parameters.add('first', 0, 'First Frame')
         self.parameters.add('last', 3650, 'Last Frame')
         self.parameters.add('monitor', ['monitor1', 'monitor2'], 
                             'Normalization Monitor')
@@ -40,8 +40,9 @@ class ParametersDialog(NXDialog):
     def choose_root(self):
         self.entries = [self.root[entry] 
                         for entry in self.root if entry != 'entry']
+        if self.layout.count() == 2:
+            self.layout.insertLayout(1, self.parameters.grid(header=False))
         self.read_parameters()
-        self.layout.insertLayout(1, self.parameters.grid())
 
     def read_parameters(self):
         if 'nxreduce' in self.root['entry']:

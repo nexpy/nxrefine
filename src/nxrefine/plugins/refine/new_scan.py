@@ -36,7 +36,7 @@ class ScanDialog(NXDialog):
                                  self.choose_configuration)),
             self.configuration_box)
         self.scan_box = self.select_box(['1'], slot=self.choose_position)
-        self.scan_layout = self.make_layout(self.labels('Position'), 
+        self.scan_layout = self.make_layout(self.labels('Position', header=True), 
                                             self.scan_box)
         self.set_layout(self.directory_box,
                         self.close_buttons(close=True))
@@ -66,7 +66,7 @@ class ScanDialog(NXDialog):
         super(ScanDialog, self).choose_directory()
         self.mainwindow.default_directory = self.get_directory()
         self.setup_directory()
-        self.layout.insertLayout(1, self.sample_layout)
+        self.insert_layout(1, self.sample_layout)
 
     def setup_directory(self):
         self.sample_box.clear()
@@ -102,7 +102,7 @@ class ScanDialog(NXDialog):
         return [sample.strip() for sample in samples]
                         
     def choose_sample(self):
-        self.layout.insertLayout(2, self.configuration_layout)
+        self.insert_layout(2, self.configuration_layout)
                 
     def select_configuration(self):
         return self.select_box(self.get_configurations())
@@ -131,13 +131,13 @@ class ScanDialog(NXDialog):
             self.copy_configuration()
         self.setup_scans()
         self.read_parameters()
-        self.layout.insertLayout(3, self.scan.grid(header=False))
-        self.layout.insertLayout(4, self.scan_layout)
+        self.insert_layout(3, self.scan.grid(header=False))
+        self.insert_layout(4, self.scan_layout)
         for p in range(1, self.positions+1):
-            self.layout.insertLayout(p+4, self.entries[p].grid_layout)
-        self.layout.insertLayout(self.positions+5, 
-                                 self.action_buttons(('Make Scan File', 
-                                                      self.make_scan)))
+            self.insert_layout(p+4, self.entries[p].grid_layout)
+        self.insert_layout(self.positions+5, 
+                           self.action_buttons(('Make Scan File', 
+                                                self.make_scan)))
 
     def setup_scans(self):
         self.scan = GridParameters()

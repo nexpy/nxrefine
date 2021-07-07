@@ -2,7 +2,7 @@ import numpy as np
 from nexusformat.nexus import *
 from nexpy.gui.plotview import get_plotview, plotview
 from nexpy.gui.datadialogs import NXDialog, GridParameters
-from nexpy.gui.utils import report_error
+from nexpy.gui.utils import report_error, display_message
 from nxrefine.nxrefine import NXRefine
 
 
@@ -29,15 +29,21 @@ class CalculateDialog(NXDialog):
         self.parameters.add('xc', self.refine.xc, 'Beam Center - x')
         self.parameters.add('yc', self.refine.yc, 'Beam Center - y')
         self.parameters.add('pixel', self.refine.pixel_size, 'Pixel Size (mm)')
-        action_buttons = self.action_buttons(('Plot', self.plot_lattice),
-                                             ('Save', self.write_parameters))
-        self.set_layout(self.entry_layout, self.parameters.grid(), 
-                        action_buttons, self.close_buttons())
+        self.action_buttons = self.action_buttons(('Plot', self.plot_lattice),
+                                                  ('Save', self.write_parameters))
+        self.set_layout(self.entry_layout, self.close_buttons())
         self.set_title('Calculate Angles')
 
     def choose_entry(self):
         self.refine = NXRefine(self.entry)
-        self.update_parameters()
+        if 'peaks' in self.entry:
+            if self.layout.count() == 2:
+                self.insert_layout(1, self.parameters.grid(header=False))
+                self.insert_layout(2, self.action_buttons)
+            self.update_parameters()
+        else:
+            self.display_message("Calculating Angles", 
+                                 "No peaks have been found in this entry")
 
     def update_parameters(self):
         self.parameters['wavelength'].value = self.refine.wavelength
