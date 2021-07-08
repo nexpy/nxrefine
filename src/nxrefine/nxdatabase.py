@@ -396,14 +396,16 @@ class NXDatabase(object):
                         break
                 else:
                     status[e] = NOT_STARTED
-            if FAILED in status.values():
+            if all(s == DONE for s in status.values()):
+                setattr(f, task, DONE)
+            elif FAILED in status.values():
                 setattr(f, task, FAILED)
             elif IN_PROGRESS in status.values():
                 setattr(f, task, IN_PROGRESS)
             elif QUEUED in status.values():
                 setattr(f, task, QUEUED)
-            elif all(s == DONE for s in status.values()):
-                setattr(f, task, DONE)
+            elif DONE in status.values():
+                setattr(f, task, IN_PROGRESS)
             else:
                 setattr(f, task, NOT_STARTED)    
         self.session.commit()
