@@ -3,7 +3,7 @@
 '''package requirements are checked at runtime and installation time'''
 
 #-----------------------------------------------------------------------------
-# Copyright (c) 2013-2016, NeXpy Development Team.
+# Copyright (c) 2013-2021, NeXpy Development Team.
 #
 # Distributed under the terms of the Modified BSD License.
 #
@@ -11,10 +11,11 @@
 #-----------------------------------------------------------------------------
 
 pkg_requirements = [
-    'nexpy>=0.12.0',
+    'nexpy>=0.13.0',
     'qtpy',
     'lmfit',
     'pyfai',
     'sqlalchemy',
-    'psutil'
+    'psutil',
+    'cctbx-base'
 ]
