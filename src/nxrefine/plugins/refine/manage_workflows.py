@@ -151,6 +151,7 @@ class WorkflowDialog(NXDialog):
             status['scan'] = NXLabel(scan_label)
             if self.parent_file == wrapper_file:
                 status['scan'].setStyleSheet('font-weight:bold')
+            status['entries'] = []
             status['data'] = self.new_checkbox()
             status['link'] = self.new_checkbox()
             status['max'] = self.new_checkbox()
@@ -222,6 +223,7 @@ class WorkflowDialog(NXDialog):
             status = self.scans[scan]
             status['data'].setEnabled(False)
             f = self.db.get_file(wrapper)
+            status['entries'] = f.get_entries()
             for task_name in self.db.task_names:
                 # Database columns use nx* names while columns don't
                 if task_name.startswith('nx'):
@@ -387,7 +389,7 @@ class WorkflowDialog(NXDialog):
         if self.grid is None:
             raise NeXusError('Need to update status')
         for scan in self.enabled_scans:
-            for entry in self.entries:
+            for entry in self.enabled_scans[scan]['entries']:
                 reduce = NXReduce(entry, scan)
                 if self.selected(scan, 'link'):
                     reduce.link = True
@@ -426,20 +428,19 @@ class WorkflowDialog(NXDialog):
             if self.selected(scan, 'masked_transform'):
                 self.queued(scan, 'masked_transform')
             if self.selected(scan, 'combine'):
-                reduce = NXMultiReduce(scan, self.entries)
+                reduce = NXMultiReduce(scan)
                 if self.selected(scan, 'overwrite'):
                     reduce.overwrite = True
                 reduce.queue()
                 self.queued(scan, 'combine')
             elif self.selected(scan, 'masked_combine'):
-                reduce = NXMultiReduce(scan, self.entries, mask=True)
+                reduce = NXMultiReduce(scan, mask=True)
                 if self.selected(scan, 'overwrite'):
                     reduce.overwrite = True
                 reduce.queue()
                 self.queued(scan, 'masked_combine')
             self.scans[scan]
         self.deselect_all()
-
 
     def view_logs(self):
         if self.grid is None:
@@ -448,7 +449,7 @@ class WorkflowDialog(NXDialog):
         dialog.setMinimumWidth(800)
         dialog.setMinimumHeight(600)
         scans = [os.path.basename(scan) for scan in self.scans]
-        self.scan_combo = dialog.select_box(scans, slot=self.refreshview)
+        self.scan_combo = dialog.select_box(scans, slot=self.choose_scan)
         self.entry_combo = dialog.select_box(self.entries, 
                                              slot=self.refreshview)
         self.program_combo = dialog.select_box(self.programs, 
@@ -477,6 +478,17 @@ class WorkflowDialog(NXDialog):
         dialog.setWindowTitle("'%s' Logs" % scans)
         self.view_dialog = dialog
         self.view_dialog.show()
+
+    def choose_scan(self):
+        scan = os.path.join(self.sample_directory, self.scan_combo.selected)
+        current_entry = self.entry_combo.selected
+        self.entry_combo.clear()
+        self.entry_combo.add(*self.scans[scan]['entries'])
+        if current_entry in self.entry_combo:
+            self.entry_combo.select(current_entry)
+        else:
+            self.entry_combo.select(self.scans[scan]['entries'][0])
+        self.refreshview()
 
     def dataview(self):
         self.defaultview = self.dataview
