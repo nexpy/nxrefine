@@ -8,7 +8,7 @@
 #-----------------------------------------------------------------------------
 
 import argparse
-from nxrefine.nxreduce import NXReduce
+from nxrefine.nxreduce import NXMultiReduce, NXReduce
 
 
 def main():
@@ -17,8 +17,8 @@ def main():
         description="Copy instrument parameters from a parent file")
     parser.add_argument('-d', '--directory', required=True, 
                         help='scan directory')
-    parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
-        nargs='+', help='names of entries to be searched')
+    parser.add_argument('-e', '--entries', nargs='+', 
+                        help='names of entries to be searched')
     parser.add_argument('-p', '--parent', help='file name of file to copy from')
     parser.add_argument('-o', '--overwrite', action='store_true', 
                         help='overwrite existing peaks')
@@ -27,7 +27,12 @@ def main():
 
     args = parser.parse_args()
 
-    for entry in args.entries:
+    if args.entries:
+        entries = args.entries
+    else:
+        entries = NXMultiReduce(args.directory).entries
+
+    for entry in entries:
         reduce = NXReduce(entry, args.directory, parent=args.parent, copy=True,
                           overwrite=args.overwrite)
         if args.queue:

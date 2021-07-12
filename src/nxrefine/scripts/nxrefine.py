@@ -8,8 +8,8 @@ def main():
         description="Refine lattice parameters and goniometer angles")
     parser.add_argument('-d', '--directory', required=True, 
                         help='scan directory')
-    parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
-        nargs='+', help='names of entries to be processed')
+    parser.add_argument('-e', '--entries', nargs='+', 
+                        help='names of entries to be processed')
     parser.add_argument('-l', '--lattice', action='store_true',
                         help='refine lattice parameters')
     parser.add_argument('-o', '--overwrite', action='store_true', 
@@ -19,7 +19,12 @@ def main():
 
     args = parser.parse_args()
 
-    for i, entry in enumerate(args.entries):
+    if args.entries:
+        entries = args.entries
+    else:
+        entries = NXMultiReduce(args.directory).entries
+
+    for i, entry in enumerate(entries):
         if i == 0:
             lattice = args.lattice
         else:

@@ -8,7 +8,7 @@
 #-----------------------------------------------------------------------------
 
 import argparse
-from nxrefine.nxreduce import NXReduce
+from nxrefine.nxreduce import NXMultiReduce, NXReduce
 
 def main():
 
@@ -16,16 +16,21 @@ def main():
         description="Link data and metadata to NeXus file")
     parser.add_argument('-d', '--directory', required=True,
                         help='scan directory')
-    parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'],
-        nargs='+', help='names of entries to be searched')
+    parser.add_argument('-e', '--entries', nargs='+', 
+                        help='names of entries to be searched')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing peaks')
     parser.add_argument('-q', '--queue', action='store_true',
                         help='add to server task queue')
 
     args = parser.parse_args()
+    
+    if args.entries:
+        entries = args.entries
+    else:
+        entries = NXMultiReduce(args.directory).entries
 
-    for entry in args.entries:
+    for entry in entries:
         reduce = NXReduce(entry, args.directory, link=True,
                           overwrite=args.overwrite)
         if args.queue:

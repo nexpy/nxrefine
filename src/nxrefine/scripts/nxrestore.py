@@ -15,12 +15,17 @@ def main():
         description="Restore orientation from CCTW parameter file")
     parser.add_argument('-d', '--directory', required=True, 
                         help='scan directory')
-    parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
-        nargs='+', help='names of entries to be processed')
+    parser.add_argument('-e', '--entries', nargs='+', 
+                        help='names of entries to be processed')
     
     args = parser.parse_args()
 
-    for entry in args.entries:
+    if args.entries:
+        entries = args.entries
+    else:
+        entries = NXMultiReduce(args.directory).entries
+
+    for entry in entries:
         reduce = NXReduce(entry, args.directory)
         if os.path.exists(reduce.settings_file):
             refine = NXRefine(reduce.entry)

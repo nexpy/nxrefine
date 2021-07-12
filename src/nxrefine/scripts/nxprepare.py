@@ -8,7 +8,7 @@
 #-----------------------------------------------------------------------------
 from __future__ import print_function
 import argparse
-from nxrefine.nxreduce import NXReduce
+from nxrefine.nxreduce import NXMultiReduce, NXReduce
 
 
 def main():
@@ -17,8 +17,8 @@ def main():
         description="Prepare 3D mask around Bragg peaks")
     parser.add_argument('-d', '--directory', required=True, 
                         help='scan directory')
-    parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
-        nargs='+', help='names of entries to be processed')
+    parser.add_argument('-e', '--entries', nargs='+', 
+                        help='names of entries to be processed')
     parser.add_argument('-o', '--overwrite', action='store_true', 
                         help='overwrite existing mask')
     parser.add_argument('-q', '--queue', action='store_true',
@@ -26,7 +26,12 @@ def main():
 
     args = parser.parse_args()
 
-    for entry in args.entries:
+    if args.entries:
+        entries = args.entries
+    else:
+        entries = NXMultiReduce(args.directory).entries
+
+    for entry in entries:
         reduce = NXReduce(entry, args.directory, prepare=True,
                           overwrite=args.overwrite)
         if args.queue:

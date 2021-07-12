@@ -7,7 +7,7 @@
 # The full license is in the file COPYING, distributed with this software.
 #-----------------------------------------------------------------------------
 import argparse
-from nxrefine.nxreduce import NXReduce
+from nxrefine.nxreduce import NXMultiReduce, NXReduce
 
 
 def main():
@@ -16,8 +16,8 @@ def main():
         description="Find maximum counts of the signal in the specified path")
     parser.add_argument('-d', '--directory', required=True, 
                         help='scan directory')
-    parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
-        nargs='+', help='names of entries to be processed')
+    parser.add_argument('-e', '--entries', nargs='+', 
+                        help='names of entries to be processed')
     parser.add_argument('-f', '--first', type=int, help='first frame')
     parser.add_argument('-l', '--last', type=int, help='last frame')
     parser.add_argument('-o', '--overwrite', action='store_true', 
@@ -27,7 +27,12 @@ def main():
 
     args = parser.parse_args()
 
-    for entry in args.entries:
+    if args.entries:
+        entries = args.entries
+    else:
+        entries = NXMultiReduce(args.directory).entries
+
+    for entry in entries:
         reduce = NXReduce(entry, args.directory, maxcount=True,
                           first=args.first, last=args.last, 
                           overwrite=args.overwrite)

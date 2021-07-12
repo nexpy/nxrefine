@@ -6,11 +6,10 @@ from nexpy.gui.utils import natural_sort
 
 def main():
 
-    parser = argparse.ArgumentParser(
-        description="Perform workflow for scan")
+    parser = argparse.ArgumentParser(description="Perform workflow for scan")
     parser.add_argument('-d', '--directory', default='', help='scan directory')
-    parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
-        nargs='+', help='names of NeXus files linked to this file')
+    parser.add_argument('-e', '--entries', nargs='+', 
+                        help='names of NeXus files linked to this file')
     parser.add_argument('-f', '--first', default=20, type=int, 
                         help='first frame')
     parser.add_argument('-l', '--last', default=3630, type=int, 
@@ -28,7 +27,10 @@ def main():
     label = os.path.basename(os.path.dirname(directory))
     scan = os.path.basename(directory)
     wrapper_file = os.path.join(sample, label, '%s_%s.nxs' % (sample, scan))
-    entries = args.entries
+    if args.entries:
+        entries = args.entries
+    else:
+        entries = NXMultiReduce(args.directory).entries
     parent = args.parent
     first = args.first
     last = args.last

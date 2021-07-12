@@ -12,8 +12,8 @@ def main():
                         help='directory containing GUP directories')
     parser.add_argument('-g', '--gup', default='GUP-58981',
                         help='GUP number, e.g., GUP-58981')
-    parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
-        nargs='+', help='names of entries to be processed')
+    parser.add_argument('-e', '--entries', nargs='+', 
+                        help='names of entries to be processed')
     parser.add_argument('-t', '--timeout', default=120,
                         help='Time elapsed before initiating action')
     parser.add_argument('command', action='store',
@@ -21,8 +21,13 @@ def main():
     
     args = parser.parse_args()
 
+    if args.entries:
+        entries = args.entries
+    else:
+        entries = NXMultiReduce(args.directory).entries
+
     server = NXWatcher(os.path.join(args.cwd, args.gup), 
-                       entries=args.entries, timeout=args.timeout)
+                       entries=entries, timeout=args.timeout)
     
     if args.command == 'start':
         server.start()

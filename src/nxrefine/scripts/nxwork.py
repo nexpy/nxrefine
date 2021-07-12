@@ -9,8 +9,8 @@ def main():
     parser = argparse.ArgumentParser(
         description="Perform workflow for scan")
     parser.add_argument('-d', '--directory', default='', help='scan directory')
-    parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
-        nargs='+', help='names of NeXus files linked to this file')
+    parser.add_argument('-e', '--entries', nargs='+', 
+                        help='names of NeXus files linked to this file')
     parser.add_argument('-t', '--threshold', type=float,
                         help='peak threshold - defaults to maximum counts/20')
     parser.add_argument('-f', '--first', default=20, type=int, 
@@ -30,7 +30,10 @@ def main():
 
     print("Processing directory '%s'" % directory)
     
-    entries = args.entries
+    if args.entries:
+        entries = args.entries
+    else:
+        entries = NXMultiReduce(args.directory).entries
     parent = args.parent
     threshold = args.threshold
     first = args.first

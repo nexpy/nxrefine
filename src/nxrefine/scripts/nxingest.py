@@ -25,8 +25,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Read metadata from Sector 6 scan")
     parser.add_argument('-d', '--directory', default='', help='scan directory')
-    parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
-        nargs='+', help='names of entries')
+    parser.add_argument('-e', '--entries', nargs='+', help='names of entries')
 
     args = parser.parse_args()
 

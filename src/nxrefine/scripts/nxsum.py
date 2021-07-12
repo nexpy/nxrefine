@@ -4,8 +4,7 @@ from nxrefine.nxreduce import NXMultiReduce, NXReduce
 
 def main():
 
-    parser = argparse.ArgumentParser(
-        description="Sum raw data files")
+    parser = argparse.ArgumentParser(description="Sum raw data files")
     parser.add_argument('-d', '--directory', required=True,
                         help='directory containing summed files')
     parser.add_argument('-c', '--create', action='store_true',

@@ -1,5 +1,5 @@
 import argparse
-from nxrefine.nxreduce import NXReduce
+from nxrefine.nxreduce import NXMultiReduce, NXReduce
 
 
 def main():
@@ -8,8 +8,8 @@ def main():
         description="Find peaks within the NeXus data")
     parser.add_argument('-d', '--directory', required=True,
                         help='scan directory')
-    parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'],
-        nargs='+', help='names of entries to be searched')
+    parser.add_argument('-e', '--entries', nargs='+', 
+                        help='names of entries to be searched')
     parser.add_argument('-t', '--threshold', type=float,
                         help='peak threshold - defaults to maximum counts/10')
     parser.add_argument('-f', '--first', type=int, help='first frame')
@@ -23,7 +23,12 @@ def main():
 
     args = parser.parse_args()
 
-    for entry in args.entries:
+    if args.entries:
+        entries = args.entries
+    else:
+        entries = NXMultiReduce(args.directory).entries
+
+    for entry in entries:
         reduce = NXReduce(entry, args.directory, find=True,
                           threshold=args.threshold,
                           first=args.first, last=args.last,

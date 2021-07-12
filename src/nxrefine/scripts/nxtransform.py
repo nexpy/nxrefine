@@ -6,17 +6,16 @@ import sys
 import numpy as np
 from nexusformat.nexus import *
 from nxrefine.nxrefine import NXRefine
-from nxrefine.nxreduce import NXReduce
+from nxrefine.nxreduce import NXMultiReduce, NXReduce
 
 
 def main():
 
-    parser = argparse.ArgumentParser(
-        description="Perform CCTW transform")
+    parser = argparse.ArgumentParser(description="Perform CCTW transform")
     parser.add_argument('-d', '--directory', required=True, 
                         help='scan directory')
-    parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
-        nargs='+', help='names of entries to be processed')
+    parser.add_argument('-e', '--entries', nargs='+', 
+                        help='names of entries to be processed')
     parser.add_argument('-m', '--mask', action='store_true', help='use 3D mask')
     parser.add_argument('-qh', nargs=3, help='Qh - min, step, max')
     parser.add_argument('-qk', nargs=3, help='Qk - min, step, max')
@@ -32,7 +31,12 @@ def main():
     
     args = parser.parse_args()
     
-    for entry in args.entries:
+    if args.entries:
+        entries = args.entries
+    else:
+        entries = NXMultiReduce(args.directory).entries
+
+    for entry in entries:
         reduce = NXReduce(entry, args.directory, transform=True, mask=args.mask,
                           Qh=args.qh, Qk=args.qk, Ql=args.ql,
                           radius=args.radius, width=args.width,
