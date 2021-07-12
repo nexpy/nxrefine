@@ -391,6 +391,7 @@ class NXDatabase(object):
         task : str
             Task being updated.        
         """
+        self.session.commit()
         sample_dir = os.path.dirname(f.filename)
         status = {}
         if task == 'nxcopy' and is_parent(f.filename, sample_dir):
