@@ -43,7 +43,12 @@ def main():
 
     args = parser.parse_args()
 
-    for entry in args.entries:
+    if args.entries:
+        entries = args.entries
+    else:
+        entries = NXMultiReduce(args.directory).entries
+
+    for entry in entries:
         reduce = NXReduce(entry, args.directory, link=args.link,
                           maxcount=args.max, find=args.find, copy=args.copy,
                           refine=args.refine, prepare=args.prepare,
