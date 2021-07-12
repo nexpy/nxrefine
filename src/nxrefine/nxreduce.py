@@ -30,7 +30,7 @@ from .labelimage import labelimage, flip1
 
 class NXReduce(QtCore.QObject):
 
-    def __init__(self, entry='f1', directory=None, parent=None, entries=None,
+    def __init__(self, entry=None, directory=None, parent=None, entries=None,
                  data='data/data', extension='.h5', path='/entry/data/data',
                  threshold=None, first=None, last=None, radius=None, width=None,
                  monitor=None, norm=None, Qh=None, Qk=None, Ql=None, 
@@ -1674,7 +1674,7 @@ class NXReduce(QtCore.QObject):
 
 class NXMultiReduce(NXReduce):
 
-    def __init__(self, directory, entries=['f1', 'f2', 'f3'], 
+    def __init__(self, directory, entries=None, 
                  mask=False, pdf=False, overwrite=False):
         super(NXMultiReduce, self).__init__(entry='entry', directory=directory,
                                             entries=entries, overwrite=overwrite)
