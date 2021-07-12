@@ -29,7 +29,7 @@ file) will be queued or running at the same time
 
 import os
 import datetime
-from sqlalchemy import create_engine, types, inspect, Column, Integer, String, ForeignKey
+from sqlalchemy import create_engine, inspect, Column, Integer, String, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.dialects import mysql
@@ -37,8 +37,6 @@ from sqlalchemy.exc import IntegrityError
 
 from nexusformat.nexus import nxload, NeXusError
 from .nxlock import NXLock, NXLockException
-
-NUM_ENTRIES = 3
 
 Base = declarative_base();
 # Records files that have: not been processed, queued on the NXserver
@@ -50,6 +48,7 @@ class File(Base):
     __tablename__ = 'files'
 
     filename = Column(String(255), nullable=False, primary_key=True)
+    entries = Column(String(128), nullable=True)
     data = Column(Integer, default=NOT_STARTED)
     nxlink = Column(Integer, default=NOT_STARTED)
     nxmax = Column(Integer, default=NOT_STARTED)
@@ -73,13 +72,22 @@ class File(Base):
                 "in_progress={}\n\tdone={}".format(
                 self.filename, not_started, queued, in_progress, done)
 
+    def get_entries(self):
+        if self.entries:
+            return self.entries.split('|')
+        else:
+            return None
+
+    def set_entries(self, entries):
+        self.entries = '|'.join(entries)
+
 
 class Task(Base):
     __tablename__ = 'tasks'
 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
-    entry = Column(String)
+    entry = Column(String, default='')
     status = Column(Integer, default=QUEUED)
     entries = Column(Integer, default=NOT_STARTED)
     # Timestamps with microsecond precision
@@ -100,8 +108,8 @@ File.tasks = relationship('Task', back_populates='file', order_by=Task.id)
 class NXDatabase(object):
 
     task_names = ('data', 'nxlink', 'nxmax', 'nxfind', 'nxcopy', 'nxrefine', 
-                  'nxprepare', 'nxtransform', 'nxmasked_transform', 'nxcombine', 
-                  'nxmasked_combine', 'nxpdf')
+                  'nxprepare', 'nxtransform', 'nxmasked_transform', 
+                  'nxcombine', 'nxmasked_combine', 'nxpdf')
     NOT_STARTED, QUEUED, IN_PROGRESS, DONE, FAILED = 0,1,2,3,-1
 
     def __init__(self, db_file, echo=False):
@@ -156,6 +164,9 @@ class NXDatabase(object):
             self.session.commit()       
             f = self.sync_file(filename)
         else:
+            if f.entries is None:
+                root = nxload(filename)
+                f.set_entries([e for e in root.entries if e != 'entry'])
             f = self.sync_data(filename)
         return f
 
@@ -184,10 +195,9 @@ class NXDatabase(object):
                 scan_files = os.listdir(get_directory(filename))
             except OSError:
                 scan_files = []
-
-            tasks = { t: 0 for t in self.task_names }
             root = nxload(filename)
-            entries = (e for e in root.entries if e != 'entry')
+            entries = [e for e in root.entries if e != 'entry']
+            tasks = { t: 0 for t in self.task_names }
             for e in entries:
                 nxentry = root[e]
                 if e in root and 'data' in nxentry and 'instrument' in nxentry:
@@ -218,10 +228,11 @@ class NXDatabase(object):
             for task, val in tasks.items():
                 if val == 0:
                     setattr(f, task, NOT_STARTED)
-                elif val == NUM_ENTRIES:
+                elif val == len(entries):
                     setattr(f, task, DONE)
                 else:
                     setattr(f, task, IN_PROGRESS)
+            f.set_entries(entries)
             self.session.commit()
         return f
 
@@ -241,13 +252,14 @@ class NXDatabase(object):
         f = self.query(filename)
         if f:
             scan_dir = get_directory(filename)
+            entries = f.get_entries()
             data = 0
-            for e in ['f1', 'f2', 'f3']:
+            for e in entries:
                 if os.path.exists(os.path.join(scan_dir, e+'.h5')):
                     data += 1
             if data == 0:
                 f.data = NOT_STARTED
-            elif data == NUM_ENTRIES:
+            elif data == len(entries):
                 f.data = DONE
             else:
                 f.data = IN_PROGRESS
@@ -388,7 +400,7 @@ class NXDatabase(object):
             if task == 'nxcombine' or task == 'nxmasked_combine':
                 entries = ['entry']
             else:
-                entries = ['f1', 'f2', 'f3']
+                entries = f.get_entries()
             for e in entries:
                 for t in reversed(f.tasks):
                     if t.name == task and t.entry == e:
@@ -452,9 +464,11 @@ class NXDatabase(object):
         for task in self.task_names:
             if task not in tasks:
                 self.add_column(task)
+        if 'entries' not in tasks:
+            self.add_column('entries', data_type=String)            
 
     def add_column(self, column_name, table_name = 'files', 
-                   data_type=types.Integer, default=0):
+                   data_type=Integer, default=None):
         """Add a missing column to the database."""
         ret = False
         if default is not None:
