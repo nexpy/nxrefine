@@ -379,22 +379,21 @@ class NXDatabase(object):
             t.queue_time = None
             t.start_time = None
             t.end_time = None
-            self.update_status(filename, task)
+            self.update_status(f, task)
     
-    def update_status(self, filename, task):
+    def update_status(self, f, task):
         """Update the File object using the status of the specified task.
         
         Parameters
         ----------
-        filename : str
-            Path of wrapper file relative to GUP directory.
+        f : File
+            File table being updated
         task : str
             Task being updated.        
         """
-        f = self.get_file(filename)
-        sample_dir = os.path.dirname(filename)
+        sample_dir = os.path.dirname(f.filename)
         status = {}
-        if task == 'nxcopy' and is_parent(filename, sample_dir):
+        if task == 'nxcopy' and is_parent(f.filename, sample_dir):
             setattr(f, task, DONE)
         else:
             if task == 'nxcombine' or task == 'nxmasked_combine':
