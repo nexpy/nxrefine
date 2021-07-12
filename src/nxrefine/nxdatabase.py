@@ -291,7 +291,7 @@ class NXDatabase(object):
                 t.queue_time = queue_time
             else:
                 t.queue_time = datetime.datetime.now()
-            self.update_status(filename, task)
+            self.update_status(f, task)
 
     def start_task(self, filename, task, entry, start_time=None):
         """Record that a task has begun execution.
@@ -321,7 +321,7 @@ class NXDatabase(object):
             else:
                 t.start_time = datetime.datetime.now()
             t.pid = os.getpid()
-            self.update_status(filename, task)
+            self.update_status(f, task)
 
     def end_task(self, filename, task, entry, end_time=None):
         """Record that a task finished execution.
@@ -353,7 +353,7 @@ class NXDatabase(object):
                 t.end_time = end_time
             else:
                 t.end_time = datetime.datetime.now()
-            self.update_status(filename, task)
+            self.update_status(f, task)
 
     def fail_task(self, filename, task, entry):
         """Record that a task failed during execution.
