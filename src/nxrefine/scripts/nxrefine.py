@@ -1,5 +1,5 @@
 import argparse
-from nxrefine.nxreduce import NXReduce
+from nxrefine.nxreduce import NXMultiReduce, NXReduce
 
 
 def main():
