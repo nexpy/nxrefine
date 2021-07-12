@@ -16,6 +16,5 @@ pkg_requirements = [
     'lmfit',
     'pyfai',
     'sqlalchemy',
-    'psutil',
-    'cctbx-base'
+    'psutil'
 ]
