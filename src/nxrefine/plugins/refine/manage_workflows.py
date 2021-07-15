@@ -76,8 +76,8 @@ class WorkflowDialog(NXDialog):
                             self.sample+'_'+os.path.basename(scan)+'.nxs')
 
     def make_parent(self):
-        reduce = NXReduce(directory=self.get_scan(self.get_filename()),
-                          overwrite=True)
+        reduce = NXMultiReduce(directory=self.get_scan(self.get_filename()),
+                               overwrite=True)
         reduce.make_parent()
         self.db.update_file(reduce.wrapper_file)
         if self.parent_file:
