@@ -57,9 +57,6 @@ class LatticeDialog(NXDialog):
         self.parameters['centring'].value = self.refine.centring
         self.import_button = NXPushButton('Import CIF', self.import_cif)
         self.import_checkbox = NXCheckBox('Update Lattice Parameters')
-        if sgtbx is None:
-            self.import_button.setVisible(False)
-            self.import_checkbox.setVisible(False)
         self.set_layout(self.root_layout, self.close_buttons(save=True))
         self.set_title('Defining Lattice')
 
@@ -67,9 +64,10 @@ class LatticeDialog(NXDialog):
         self.refine = NXRefine(self.root['entry'])
         if self.layout.count() == 2:
             self.insert_layout(1, self.parameters.grid(header=False))
-            self.insert_layout(self.make_layout(self.import_button, 
-                                                self.import_checkbox, 
-                                                align='center'))
+            if sgtbx:
+                self.insert_layout(2, self.make_layout(self.import_button, 
+                                                       self.import_checkbox, 
+                                                       align='center'))
         self.update_parameters()
 
     def import_cif(self):
