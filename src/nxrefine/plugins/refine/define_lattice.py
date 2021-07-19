@@ -36,7 +36,7 @@ class LatticeDialog(NXDialog):
         self.parameters = GridParameters()
         self.parameters.add('space_group', self.refine.space_group, 
                             'Space Group', slot=self.set_groups)
-        self.parameters.add('laue_group', self.refine.laue_group, 
+        self.parameters.add('laue_group', self.refine.laue_groups, 
                             'Laue Group')
         self.parameters.add('symmetry', self.refine.symmetries, 'Symmetry',
                             slot=self.set_lattice_parameters)
@@ -53,6 +53,7 @@ class LatticeDialog(NXDialog):
                             slot=self.set_lattice_parameters)
         self.parameters.add('gamma', self.refine.gamma, 'Unit Cell - gamma (deg)', 
                             slot=self.set_lattice_parameters)
+        self.parameters['laue_group'].value = self.refine.laue_group
         self.parameters['symmetry'].value = self.refine.symmetry
         self.parameters['centring'].value = self.refine.centring
         self.import_button = NXPushButton('Import CIF', self.import_cif)

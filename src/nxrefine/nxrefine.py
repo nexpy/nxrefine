@@ -51,6 +51,8 @@ class NXRefine(object):
 
     symmetries = ['cubic', 'tetragonal', 'orthorhombic', 'hexagonal', 
                   'monoclinic', 'triclinic']
+    laue_groups = ['-1', '2/m', 'mmm', '4/m', '4/mmm', '-3', '-3m', 
+                   '6/m', '6/mmm', 'm-3', 'm-3m']
     centrings = ['P', 'A', 'B', 'C', 'I', 'F', 'R']
 
     def __init__(self, node=None):
@@ -85,9 +87,9 @@ class NXRefine(object):
         self.xd = 0.0
         self.yd = 0.0
         self.frame_time = 0.1
-        self.space_group = ''
-        self.laue_group = ''
-        self.symmetry = 'cubic'
+        self.space_group = 'P 1'
+        self.laue_group = '-1'
+        self.symmetry = 'triclinic'
         self.centring = 'P'
         self.peak = None
         self.xp = None
