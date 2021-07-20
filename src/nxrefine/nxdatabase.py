@@ -164,7 +164,7 @@ class NXDatabase(object):
             self.session.commit()       
             f = self.sync_file(filename)
         else:
-            if f.entries is None:
+            if f.entries is None or f.entries == '':
                 root = nxload(filename)
                 f.set_entries([e for e in root.entries if e != 'entry'])
             f = self.sync_data(filename)
