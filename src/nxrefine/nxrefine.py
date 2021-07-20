@@ -87,8 +87,8 @@ class NXRefine(object):
         self.xd = 0.0
         self.yd = 0.0
         self.frame_time = 0.1
-        self.space_group = 'P 1'
-        self.laue_group = '-1'
+        self.space_group = ''
+        self.laue_group = ''
         self.symmetry = 'triclinic'
         self.centring = 'P'
         self.peak = None
