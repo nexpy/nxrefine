@@ -76,7 +76,7 @@ class File(Base):
         if self.entries:
             return self.entries.split('|')
         else:
-            return None
+            return []
 
     def set_entries(self, entries):
         self.entries = '|'.join(entries)
