@@ -112,10 +112,9 @@ class NXReduce(QtCore.QObject):
         self.summed_data = None
         self._first = first
         self._last = last
-        self._radius = radius
-        self._width = width
         self._monitor = monitor
         self._norm = norm
+        self._radius = radius
         self.Qh = Qh
         self.Qk = Qk
         self.Ql = Ql
@@ -428,28 +427,6 @@ class NXReduce(QtCore.QObject):
     @radius.setter
     def radius(self, value):
         self._radius = value
-
-    @property
-    def width(self):
-        _width = self._width
-        if _width is None:
-            if 'peaks' in self.entry and 'width' in self.entry['peaks'].attrs:
-                _width = np.int32(self.entry['peaks'].attrs['width'])
-            elif self.parent:
-                root = self.parent_root
-                entry = root[self.entry_name]
-                if ('peaks' in root[self.entry_name] and
-                    'width' in root[self.entry_name]['peaks'].attrs):
-                    _width = np.int32(root[self.entry_name]['peaks'].attrs['width'])
-        try:
-            self._width = np.int(_width)
-        except:
-            self._width = 3
-        return self._width
-
-    @width.setter
-    def width(self, value):
-        self._width = value
 
     @property
     def norm(self):
@@ -1424,7 +1401,7 @@ class NXReduce(QtCore.QObject):
                     self.logger.info('Masked transform completed (%g seconds)'
                                      % (toc-tic))
                     self.record('nxmasked_transform', mask=self.mask_file,
-                                radius=self.radius, width=self.width, norm=self.norm,
+                                norm=self.norm,
                                 command=cctw_command,
                                 output=process.stdout.decode(),
                                 errors=process.stderr.decode())
@@ -1614,12 +1591,10 @@ class NXReduce(QtCore.QObject):
                 switches.append('-l %s' % self.last)
             if self.threshold is not None:
                 switches.append('-t %s' % self.threshold)
-            if self.radius is not None:
-                switches.append('-r %s' % self.radius)
-            if self.width is not None:
-                switches.append('-w %s' % self.width)
             if self.norm is not None:
                 switches.append('-n %s' % self.norm)
+            if self.radius is not None:
+                switches.append('-r %s' % self.radius)
             switches.append('-s')
         else:
             command = 'nxreduce '
