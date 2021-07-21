@@ -21,7 +21,8 @@ from qtpy import QtCore
 from nexpy.gui.utils import clamp, timestamp
 
 from .nxdatabase import NXDatabase
-from .nxrefine import NXRefine, NXPeak, NXSymmetry
+from .nxrefine import NXRefine, NXPeak
+from .nxsymmetry import NXSymmetry
 from .nxserver import NXServer
 from . import blobcorrector, __version__
 from .connectedpixels import blob_moments
@@ -1642,25 +1643,36 @@ class NXReduce(QtCore.QObject):
                 if self.mask:
                     self.db.queue_task(self.wrapper_file, 'nxmasked_transform', 
                                        self.entry_name)
+                    self.db_queue_task(self.wrapper_file, 'nxmasked_combine', 
+                                       'entry')
                 else:
                     self.db.queue_task(self.wrapper_file, 'nxtransform', 
                                        self.entry_name)
+                    self.db_queue_task(self.wrapper_file, 'nxcombine', 'entry')
 
 
 class NXMultiReduce(NXReduce):
 
     def __init__(self, directory, entries=None, 
-                 mask=False, pdf=False, overwrite=False):
-        super(NXMultiReduce, self).__init__(entry='entry', directory=directory,
+                 mask=False, pdf=False, laue='-1', radius=0.15,
+                 overwrite=False):
+        if isinstance(directory, NXroot):
+            entry = directory['entry']
+        else:
+            entry = 'entry'
+        super(NXMultiReduce, self).__init__(entry=entry, directory=directory,
                                             entries=entries, overwrite=overwrite)
-        self.transform_file = os.path.join(self.directory, 'transform.nxs')
-        self.masked_transform_file = os.path.join(self.directory,
-                                                  'masked_transform.nxs')
-        self.symm_file = os.path.join(self.directory, 'symm_transform.nxs')
-        self.masked_symm_file = os.path.join(self.directory, 
-                                             'symm_masked_transform.nxs')
         self.mask = mask
         self.pdf = pdf
+        if self.mask:
+            self.transform_file = os.path.join(self.directory,
+                                               'masked_transform.nxs')
+            self.symm_file = os.path.join(self.directory, 
+                                          'symm_masked_transform.nxs')
+        else:
+            self.transform_file = os.path.join(self.directory, 'transform.nxs')
+            self.symm_file = os.path.join(self.directory, 'symm_transform.nxs')
+        self.total_pdf_file = os.path.join(self.directory, 'total_pdf.nxs')
 
     def __repr__(self):
         return "NXMultiReduce('{}_{}')".format(self.sample, self.scan)
@@ -1698,17 +1710,15 @@ class NXMultiReduce(NXReduce):
                 if self.mask:
                     self.logger.info('Combining masked transforms (%s)'
                                      % ', '.join(self.entries))
-                    transform_file = self.masked_transform_file
                     transform_path = 'masked_transform/data'
                 else:
                     self.logger.info('Combining transforms (%s)'
                                      % ', '.join(self.entries))
-                    transform_file = self.transform_file
                     transform_path = 'transform/data'
                 tic = timeit.default_timer()
-                with NXLock(transform_file):
-                    if os.path.exists(transform_file):
-                        os.remove(transform_file)
+                with NXLock(self.transform_file):
+                    if os.path.exists(self.transform_file):
+                        os.remove(self.transform_file)
                     data_lock = {}
                     for entry in self.entries:
                         data_lock[entry] = NXLock(
@@ -1763,19 +1773,29 @@ class NXMultiReduce(NXReduce):
         output = os.path.join(self.directory, transform+'.nxs\#/entry/data/v')
         return 'cctw merge %s -o %s' % (input, output)
 
-    def nxsymmetrize(self):
+    def nxpdf(self):
+        if self.not_complete('nxpdf'):
+            self.record_start('nxpdf')
+            self.symmetrize()
+        else:
+            self.logger.info('PDF already calculated')
+
+
+    def symmetrize(self):
         if self.mask:
             task = 'nxmasked_combine'
             transform = 'masked_transform'
             symm_transform = 'symm_masked_transform'
-            symm_file = self.symm_file
         else:
             task = 'nxcombine'
             transform = 'transform'
             symm_transform = 'symm_transform'
-            symm_file = self.masked_symm_file
-        if os.path.exists(symm_file) and not self.overwrite:
-            self.logger.info('Symmetrized data already exists')
+        if os.path.exists(self.symm_file):
+            if self.overwrite:
+                os.remove(self.symm_file)
+            else:
+                self.logger.info('Symmetrized data already exists')
+                return
         if self.not_complete(task):
             if self.mask:
                 if not self.complete('nxmasked_combine'):
@@ -1786,16 +1806,61 @@ class NXMultiReduce(NXReduce):
                 return
         refine = NXRefine(self.entry)
         if refine.laue_group in refine.laue_groups:
-            symmetry = NXSymmetry(self.entry[transform], refine.laue_group)
-            symm_root = nxload(symm_file, 'a')
-            symm_root['entry'] = NXentry()
-            symm_root['entry/data'] = symmetry.symmetrize()
+            for i, entry in enumerate(self.entries):
+                r = NXReduce(self.root[entry])
+                if i == 0:
+                    summed_transforms = r.entry[transform]
+                else:
+                    summed_transforms += r.entry[transform]
+            symmetry = NXSymmetry(summed_transforms, refine.laue_group)
+            root = nxload(self.symm_file, 'a')
+            root['entry'] = NXentry()
+            root['entry/data'] = symmetry.symmetrize()
             if symm_transform in self.entry:
                 del self.entry[symm_transform]
             data = NXlink('/entry/data/data',
                           file=self.symm_file, name='data')
             self.entry[symm_transform] = NXdata(data, 
                                                 self.entry[transform].nxaxes)
+            self.logger.info("'{}' added to entry".format(symm_transform))
+        else:
+            self.logger.info('The Laue group has not been defined')
+            return
+
+    def total_pdf(self):
+        self.logger.info('Calculating total PDF')
+        if os.path.exists(self.total_pdf_file):
+            if self.overwrite:
+                os.remove(self.total_pdf_file)
+            else:
+                self.logger.info('Total PDF file already exists')
+                return
+        symm_data = self.entry['symm_transform'].nxsignal[:-1,:-1,:-1].nxvalue
+        symm_data = np.nan_to_num(symm_data * self.fft_window(symm_data.shape))
+        fft = np.real(np.fft.fftshift(np.fft.fftn(np.fft.fftshift(symm_data))))
+        
+        root = nxload(self.total_pdf_file, 'a')
+        root['entry'] = NXentry()
+        root['entry/pdf'] = NXdata(NXfield(fft, name='pdf'))
+
+        if 'total_pdf' in self.entry:
+            del self.entry['total_pdf']
+        pdf = NXlink('/entry/pdf/pdf', file=self.total_pdf_file, name='pdf')
+        
+        dh, dk, dl = [(ax[1]-ax[0]).nxvalue 
+                      for ax in self.entry['symm_transform'].nxaxes]
+        x = NXfield(np.fft.fftshift(np.fft.fftfreq(fft.shape[2], dh)), name='x')
+        y = NXfield(np.fft.fftshift(np.fft.fftfreq(fft.shape[1], dh)), name='y')
+        z = NXfield(np.fft.fftshift(np.fft.fftfreq(fft.shape[0], dh)), name='z')
+        self.entry['total_pdf'] = NXdata(pdf, (z, y, x))
+        self.logger.info("'{}' added to entry".format('total_pdf'))
+
+    def fft_window(self, shape, alpha=0.5):
+        from scipy.signal import tukey
+        a = tukey(shape[0], alpha=alpha)
+        b = tukey(shape[1], alpha=alpha)
+        c = tukey(shape[2], alpha=alpha)
+        return np.einsum('i,j,k->ijk', a, b, c)
 
     def nxsum(self, scan_list):
         if not os.path.exists(self.wrapper_file) or self.overwrite:
