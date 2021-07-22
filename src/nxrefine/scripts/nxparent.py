@@ -24,7 +24,7 @@ def main():
     parser.add_argument('-l', '--last', type=int, help='last frame')
     parser.add_argument('-n', '--norm', default=50000, 
                         help='normalization to monitor1')
-    parser.add_argument('-r', '--radius', type=int, default=0.15, 
+    parser.add_argument('-r', '--radius', type=int, default=0.2, 
                         help='radius of punched holes in Å-1')
     parser.add_argument('-s', '--start', action='store_true',
                         help='start data reduction')
