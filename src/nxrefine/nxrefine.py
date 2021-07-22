@@ -1039,7 +1039,7 @@ class NXRefine(object):
         Main.Dvec = list(np.array(self.Dvec.T).reshape((3)))
         Main.Evec = list(np.array(self.Evec.T).reshape((3)))
         Main.shape = self.shape
-        Main.include(pkg_resources.resource_filename('nxrefine', 'get_xyzs.jl'))
+        Main.include(pkg_resources.resource_filename('nxrefine', 'julia/get_xyzs.jl'))
         if Qh is None:
             Qh = int(self.Qh[-1])
         if Qk is None:
