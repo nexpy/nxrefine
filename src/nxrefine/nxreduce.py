@@ -1830,7 +1830,7 @@ class NXMultiReduce(NXReduce):
                                                 self.entry[transform].nxaxes)
         self.logger.info("'{}' added to entry".format(self.symm_transform))
         tic = timeit.default_timer()
-        self.logger.info('Symmetrization completed (%g seconds)' % toc-tic))
+        self.logger.info('Symmetrization completed (%g seconds)' % (toc-tic))
 
     def total_pdf(self):
         self.logger.info('Calculating total PDF')
@@ -1862,7 +1862,7 @@ class NXMultiReduce(NXReduce):
         self.entry['total_pdf'] = NXdata(pdf, (z, y, x))
         self.logger.info("'{}' added to entry".format('total_pdf'))
         tic = timeit.default_timer()
-        self.logger.info('Total PDF calculated (%g seconds)' % toc-tic))
+        self.logger.info('Total PDF calculated (%g seconds)' % (toc-tic))
 
     def fft_window(self, shape, alpha=0.5):
         from scipy.signal import tukey
@@ -1926,7 +1926,7 @@ class NXMultiReduce(NXReduce):
         self.logger.info("'punched_data' added to '{}'".format(
                                                           self.symm_transform))
         tic = timeit.default_timer()
-        self.logger.info('Hole punch completed (%g seconds)' % toc-tic))
+        self.logger.info('Hole punch completed (%g seconds)' % (toc-tic))
 
     def nxsum(self, scan_list):
         if not os.path.exists(self.wrapper_file) or self.overwrite:
