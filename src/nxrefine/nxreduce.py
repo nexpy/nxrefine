@@ -410,19 +410,20 @@ class NXReduce(QtCore.QObject):
     def radius(self):
         _radius = self._radius
         if _radius is None:
-            if 'peaks' in self.entry and 'radius' in self.entry['peaks'].attrs:
-                _radius = np.int32(self.entry['peaks'].attrs['radius'])
+            if ('nxreduce' in self.root['entry'] and 
+                'radius' in self.root['entry/nxreduce']):
+                _radius = self.root['entry/nxreduce/radius']
             elif self.parent:
                 root = self.parent_root
-                if ('peaks' in root[self.entry_name] and
-                    'radius' in root[self.entry_name]['peaks'].attrs):
-                    _radius = np.int32(root[self.entry_name]['peaks'].attrs['radius'])
+                if ('nxreduce' in root['entry'] and 
+                    'radius' in root['entry/nxreduce']):
+                    _radius = root['entry/nxreduce/radius']
         if _radius is None:
-            _radius = 200
+            _radius = 0.2
         try:
-            self._radius = np.int(_radius)
+            self._radius = float(_radius)
         except:
-            self._radius = 200
+            self._radius = 0.2  
         return self._radius
 
     @radius.setter
@@ -1654,7 +1655,7 @@ class NXReduce(QtCore.QObject):
 class NXMultiReduce(NXReduce):
 
     def __init__(self, directory, entries=None, 
-                 mask=False, pdf=False, laue='-1', radius=0.15,
+                 mask=False, pdf=False, laue='-1', radius=None,
                  overwrite=False):
         if isinstance(directory, NXroot):
             entry = directory['entry']
@@ -1669,9 +1670,13 @@ class NXMultiReduce(NXReduce):
                                                'masked_transform.nxs')
             self.symm_file = os.path.join(self.directory, 
                                           'symm_masked_transform.nxs')
+            self.symm_transform = 'symm_masked_transform'
+            self.pdf_file = os.path.join(self.directory, 'masked_pdf.nxs')
         else:
             self.transform_file = os.path.join(self.directory, 'transform.nxs')
             self.symm_file = os.path.join(self.directory, 'symm_transform.nxs')
+            self.symm_transform = 'symm_transform'
+            self.pdf_file = os.path.join(self.directory, 'pdf.nxs')
         self.total_pdf_file = os.path.join(self.directory, 'total_pdf.nxs')
 
     def __repr__(self):
@@ -1774,58 +1779,58 @@ class NXMultiReduce(NXReduce):
         return 'cctw merge %s -o %s' % (input, output)
 
     def nxpdf(self):
+        if self.mask:
+            if not self.complete('nxmasked_combine'):
+                self.logger.info(
+            'Cannot calculate PDFs until the masked transforms are combined')
+                return
+            elif not self.complete('nxcombine'):
+                self.logger.info(
+            'Cannot calculate PDFs until the transforms are combined')
+                return
+        refine = NXRefine(self.entry)
+        if refine.laue_group not in refine.laue_groups:
+            self.logger.info('Need to define Laue group before PDF calculation')
+            return
         if self.not_complete('nxpdf'):
             self.record_start('nxpdf')
             self.symmetrize()
+            self.total_pdf()
+            self.punch_holes()
         else:
             self.logger.info('PDF already calculated')
 
-
     def symmetrize(self):
         if self.mask:
-            task = 'nxmasked_combine'
             transform = 'masked_transform'
-            symm_transform = 'symm_masked_transform'
         else:
-            task = 'nxcombine'
             transform = 'transform'
-            symm_transform = 'symm_transform'
         if os.path.exists(self.symm_file):
             if self.overwrite:
                 os.remove(self.symm_file)
             else:
                 self.logger.info('Symmetrized data already exists')
                 return
-        if self.not_complete(task):
-            if self.mask:
-                if not self.complete('nxmasked_combine'):
-                    self.logger.info('Cannot symmetrize until masked transforms are combined')
-                    return
-            elif not self.complete('nxtransform'):
-                self.logger.info('Cannot symmetrize until transforms are combined')
-                return
-        refine = NXRefine(self.entry)
-        if refine.laue_group in refine.laue_groups:
-            for i, entry in enumerate(self.entries):
-                r = NXReduce(self.root[entry])
-                if i == 0:
-                    summed_transforms = r.entry[transform]
-                else:
-                    summed_transforms += r.entry[transform]
-            symmetry = NXSymmetry(summed_transforms, refine.laue_group)
-            root = nxload(self.symm_file, 'a')
-            root['entry'] = NXentry()
-            root['entry/data'] = symmetry.symmetrize()
-            if symm_transform in self.entry:
-                del self.entry[symm_transform]
-            data = NXlink('/entry/data/data',
-                          file=self.symm_file, name='data')
-            self.entry[symm_transform] = NXdata(data, 
+        self.logger.info('Transforms being symmetrized')
+        toc = timeit.default_timer()
+        for i, entry in enumerate(self.entries):
+            r = NXReduce(self.root[entry])
+            if i == 0:
+                summed_transforms = r.entry[transform]
+            else:
+                summed_transforms += r.entry[transform]
+        symmetry = NXSymmetry(summed_transforms, refine.laue_group)
+        root = nxload(self.symm_file, 'a')
+        root['entry'] = NXentry()
+        root['entry/data'] = symmetry.symmetrize()
+        if self.symm_transform in self.entry:
+            del self.entry[self.symm_transform]
+        symm_data = NXlink('/entry/data/data', file=self.symm_file, name='data')
+        self.entry[self.symm_transform] = NXdata(symm_data, 
                                                 self.entry[transform].nxaxes)
-            self.logger.info("'{}' added to entry".format(symm_transform))
-        else:
-            self.logger.info('The Laue group has not been defined')
-            return
+        self.logger.info("'{}' added to entry".format(self.symm_transform))
+        tic = timeit.default_timer()
+        self.logger.info('Symmetrization completed (%g seconds)' % toc-tic))
 
     def total_pdf(self):
         self.logger.info('Calculating total PDF')
@@ -1835,9 +1840,11 @@ class NXMultiReduce(NXReduce):
             else:
                 self.logger.info('Total PDF file already exists')
                 return
+        toc = timeit.default_timer()
         symm_data = self.entry['symm_transform'].nxsignal[:-1,:-1,:-1].nxvalue
-        symm_data = np.nan_to_num(symm_data * self.fft_window(symm_data.shape))
+        symm_data = np.nan_to_num(symm_data) * self.fft_window(symm_data.shape)
         fft = np.real(np.fft.fftshift(np.fft.fftn(np.fft.fftshift(symm_data))))
+        fft = fft / np.prod(fft.shape)
         
         root = nxload(self.total_pdf_file, 'a')
         root['entry'] = NXentry()
@@ -1847,20 +1854,79 @@ class NXMultiReduce(NXReduce):
             del self.entry['total_pdf']
         pdf = NXlink('/entry/pdf/pdf', file=self.total_pdf_file, name='pdf')
         
-        dh, dk, dl = [(ax[1]-ax[0]).nxvalue 
+        dl, dk, dh = [(ax[1]-ax[0]).nxvalue 
                       for ax in self.entry['symm_transform'].nxaxes]
         x = NXfield(np.fft.fftshift(np.fft.fftfreq(fft.shape[2], dh)), name='x')
-        y = NXfield(np.fft.fftshift(np.fft.fftfreq(fft.shape[1], dh)), name='y')
-        z = NXfield(np.fft.fftshift(np.fft.fftfreq(fft.shape[0], dh)), name='z')
+        y = NXfield(np.fft.fftshift(np.fft.fftfreq(fft.shape[1], dk)), name='y')
+        z = NXfield(np.fft.fftshift(np.fft.fftfreq(fft.shape[0], dl)), name='z')
         self.entry['total_pdf'] = NXdata(pdf, (z, y, x))
         self.logger.info("'{}' added to entry".format('total_pdf'))
+        tic = timeit.default_timer()
+        self.logger.info('Total PDF calculated (%g seconds)' % toc-tic))
 
     def fft_window(self, shape, alpha=0.5):
         from scipy.signal import tukey
-        a = tukey(shape[0], alpha=alpha)
-        b = tukey(shape[1], alpha=alpha)
-        c = tukey(shape[2], alpha=alpha)
-        return np.einsum('i,j,k->ijk', a, b, c)
+        x = tukey(shape[0], alpha=alpha)
+        y = tukey(shape[1], alpha=alpha)
+        z = tukey(shape[2], alpha=alpha)
+        return np.einsum('i,j,k->ijk', z, y, x)
+
+    def hole_mask(self):
+        refine = NXRefine(self.entry)
+        symm_group = self.entry[self.symm_transform]
+        Qh, Qk, Ql = (symm_group['Qh'], symm_group['Qk'], symm_group['Ql'])
+        dl, dk, dh = [(ax[1]-ax[0]).nxvalue for ax in symm_group.nxaxes]
+        astar = 2 * np.pi * refine.unitcell.astar
+        bstar = 2 * np.pi * refine.unitcell.bstar
+        cstar = 2 * np.pi * refine.unitcell.cstar
+        dhp = np.rint(self.radius / (dh * astar))
+        dkp = np.rint(self.radius / (dk * bstar))
+        dlp = np.rint(self.radius / (dl * cstar))
+        ml, mk, mh = np.ogrid[0:2*int(dlp)+1, 0:2*int(dkp)+1, 0:2*int(dhp)+1]
+        mask = ((((ml-dlp)/dlp)**2+((mk-dkp)/dkp)**2+((mh-dhp)/dhp)**2) <= 1)
+        return np.where(mask==0, 1.0, np.nan)
+
+    def punch_holes(self):
+        self.logger.info('Punching holes')
+        toc = timeit.default_timer()
+        refine = NXRefine(self.entry)
+        symm_group = self.entry[self.symm_transform]
+        Qh, Qk, Ql = (symm_group['Qh'], symm_group['Qk'], symm_group['Ql'])
+        idh = np.argwhere(np.remainder(Qh,1)==0)[:,0]
+        idk = np.argwhere(np.remainder(Qk,1)==0)[:,0]
+        idl = np.argwhere(np.remainder(Ql,1)==0)[:,0]
+        h_list = Qh[idh].nxvalue.astype(int)
+        k_list = Qk[idk].nxvalue.astype(int)
+        l_list = Ql[idl].nxvalue.astype(int)
+
+        entry = nxload(self.symm_file, 'rw')['entry']
+        if 'punch' in entry['data']:
+            del entry['data/punch']
+        entry['data/punch'] = entry['data/data']
+        
+        mask = self.hole_mask()
+        ml = int((mask.shape[0]-1)/2)
+        mk = int((mask.shape[1]-1)/2)
+        mh = int((mask.shape[2]-1)/2)
+        for il,l in enumerate(l_list):
+            for ik,k in enumerate(k_list):
+                for ih,h in enumerate(h_list):
+                    if not refine.absent(h,k,l):
+                        lslice = slice(idl[il]-ml, idl[il]+ml+1)
+                        kslice = slice(idk[ik]-mk, idk[ik]+mk+1)
+                        hslice = slice(idh[ih]-mh, idh[ih]+mh+1)
+                        try:
+                            entry['data/punch'][(lslice, kslice, hslice)] += mask
+                        except Exception:
+                            pass
+        if 'punched_data' in self.entry[self.symm_transform]:
+            del self.entry[self.symm_transform]['punched_data']
+        self.entry[self.symm_transform]['punched_data'] = NXlink(
+                                    '/entry/data/punch', file=self.symm_file)
+        self.logger.info("'punched_data' added to '{}'".format(
+                                                          self.symm_transform))
+        tic = timeit.default_timer()
+        self.logger.info('Hole punch completed (%g seconds)' % toc-tic))
 
     def nxsum(self, scan_list):
         if not os.path.exists(self.wrapper_file) or self.overwrite:
