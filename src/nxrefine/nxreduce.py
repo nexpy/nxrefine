@@ -1794,13 +1794,13 @@ class NXMultiReduce(NXReduce):
             return
         if self.not_complete('nxpdf'):
             self.record_start('nxpdf')
-            self.symmetrize()
+            self.symmetrize(refine.laue_group)
             self.total_pdf()
             self.punch_holes()
         else:
             self.logger.info('PDF already calculated')
 
-    def symmetrize(self):
+    def symmetrize(self, laue_group='-1'):
         if self.mask:
             transform = 'masked_transform'
         else:
@@ -1819,7 +1819,7 @@ class NXMultiReduce(NXReduce):
                 summed_transforms = r.entry[transform]
             else:
                 summed_transforms += r.entry[transform]
-        symmetry = NXSymmetry(summed_transforms, refine.laue_group)
+        symmetry = NXSymmetry(summed_transforms, laue_group)
         root = nxload(self.symm_file, 'a')
         root['entry'] = NXentry()
         root['entry/data'] = symmetry.symmetrize()
@@ -1834,7 +1834,7 @@ class NXMultiReduce(NXReduce):
                                 '/entry/data/data_weights', file=self.symm_file)
         self.logger.info("'{}' added to entry".format(self.symm_transform))
         tic = timeit.default_timer()
-        self.logger.info('Symmetrization completed (%g seconds)' % (toc-tic))
+        self.logger.info('Symmetrization completed (%g seconds)' % (tic-toc))
 
     def fft_window(self, shape, alpha=0.5):
         from scipy.signal import tukey
