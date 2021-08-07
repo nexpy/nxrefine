@@ -555,17 +555,15 @@ class RefineLatticeDialog(NXDialog):
         self.orient_box.show()
 
     def setup_secondary_grid(self):
-        p = int(self.peak_parameters['primary'].value)
-        s = int(self.peak_parameters['secondary'].value)
-        ps_angle = self.refine.angle_peaks(p, s)
-        n_phkl = len(self.ring_list[self.refine.rp[p]])
+        ps_angle = self.refine.angle_peaks(self.primary, self.secondary)
+        n_phkl = len(self.ring_list[self.refine.rp[self.primary]])
         self.hkl_parameters = [GridParameters() for i in range(n_phkl)]
         min_diff = self.get_peak_tolerance()
         min_p = None
         min_hkl = None
         for i in range(n_phkl):
             phkl = eval(self.peak_parameters['primary_hkl'].box.items()[i])
-            for hkls in self.rings[self.refine.rp[s]][1]:
+            for hkls in self.rings[self.refine.rp[self.secondary]][1]:
                 for hkl in hkls:
                     hkl_angle = self.refine.angle_hkls(phkl, hkl)
                     diff = abs(ps_angle - hkl_angle)
