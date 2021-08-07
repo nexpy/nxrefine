@@ -11,8 +11,7 @@ from nxrefine.nxreduce import NXMultiReduce, NXReduce
 
 def main():
 
-    parser = argparse.ArgumentParser(
-        description="Create delta-PDF")
+    parser = argparse.ArgumentParser(description="Calculate PDF transforms")
     parser.add_argument('-d', '--directory', required=True, 
                         help='scan directory')
     parser.add_argument('-e', '--entries', nargs='+', 
