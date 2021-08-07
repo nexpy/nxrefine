@@ -1188,6 +1188,8 @@ class NXRefine(object):
         if self.Umat is None:
             raise NeXusError('No orientation matrix defined')
         p0 = self.define_parameters(**opts)
+        if len(p0) == 0:
+            raise NeXusError('No parameters selected for refinement')
         self.result = minimize(self.hkl_residuals, p0, method=method)
         self.fit_report = fit_report(self.result)
         if self.result.success:

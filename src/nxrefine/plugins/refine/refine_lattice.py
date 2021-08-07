@@ -362,8 +362,13 @@ class RefineLatticeDialog(NXDialog):
         self.mainwindow.app.app.processEvents()
         self.parameters['phi'].vary = False
         self.transfer_parameters()
-        self.set_symmetry()
-        self.refine.refine_angles(**self.refined)
+        self.set_lattice_parameters()
+        try:
+            self.refine.refine_angles(**self.refined)
+        except NeXusError as error:
+            report_error('Refining Lattice', error)
+            self.parameters.status_message.setText('')
+            return
         self.parameters.result = self.refine.result
         self.parameters.fit_report = self.refine.fit_report
         self.fit_report.append(self.refine.fit_report)
@@ -377,7 +382,12 @@ class RefineLatticeDialog(NXDialog):
         self.parameters.status_message.repaint()
         self.mainwindow.app.app.processEvents()
         self.transfer_parameters()
-        self.refine.refine_hkls(**self.refined)
+        try:
+            self.refine.refine_hkls(**self.refined)
+        except NeXusError as error:
+            report_error('Refining Lattice', error)
+            self.parameters.status_message.setText('')
+            return
         self.parameters.result = self.refine.result
         self.parameters.fit_report = self.refine.fit_report
         self.fit_report.append(self.refine.fit_report)
@@ -489,6 +499,7 @@ class RefineLatticeDialog(NXDialog):
         self.status_text.setText('Score: %.4f' % self.refine.score())
         self.peaks_box.setWindowTitle('%s Peak Table' % self.entry.nxtitle)
         self.peaks_box.setVisible(True)
+        self.report_score()
 
     def plot_peak(self):
         row = self.table_view.currentIndex().row()
