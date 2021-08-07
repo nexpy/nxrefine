@@ -4,7 +4,7 @@ from nexpy.gui.pyqt import QtCore, QtGui, QtWidgets
 from nexpy.gui.datadialogs import NXDialog, GridParameters, ExportDialog
 from nexpy.gui.plotview import NXPlotView, get_plotview, plotview
 from nexpy.gui.utils import report_error
-from nexpy.gui.widgets import NXLabel, NXLineEdit, NXPushButton
+from nexpy.gui.widgets import NXComboBox, NXLabel, NXLineEdit, NXPushButton
 from nexusformat.nexus import *
 from nxrefine.nxrefine import NXRefine, find_nearest
 from nxrefine.nxreduce import NXReduce
@@ -89,6 +89,7 @@ class RefineLatticeDialog(NXDialog):
 
         self.peaks_box = None
         self.table_model = None
+        self.orient_box = None
         self.fit_report = []
         
     def choose_entry(self):
@@ -131,6 +132,7 @@ class RefineLatticeDialog(NXDialog):
         self.parameters['gonpitch'].value = self.refine.gonpitch
         self.parameters['polar'].value = self.refine.polar_max
         self.parameters['polar_tolerance'].value = self.refine.polar_tolerance
+        self.parameters['peak_tolerance'].value = self.refine.peak_tolerance
         self.parameters['symmetry'].value = self.refine.symmetry
         try:
             self.refine.polar_angles, self.refine.azimuthal_angles = \
@@ -152,7 +154,8 @@ class RefineLatticeDialog(NXDialog):
         self.refine.chi, self.refine.omega, self.refine.twotheta, \
             self.refine.gonpitch = self.get_angles()
         self.refine.polar_max = self.get_polar_max()
-        self.refine.polar_tol = self.get_tolerance()
+        self.refine.polar_tolerance = self.get_polar_tolerance()
+        self.refine.peak_tolerance = self.get_peak_tolerance()
 
     def write_parameters(self):
         self.transfer_parameters()
@@ -304,8 +307,11 @@ class RefineLatticeDialog(NXDialog):
     def set_polar_max(self):
         self.refine.polar_max = self.get_polar_max()
 
-    def get_tolerance(self):
+    def get_polar_tolerance(self):
         return self.parameters['polar_tolerance'].value
+
+    def get_peak_tolerance(self):
+        return self.parameters['peak_tolerance'].value
 
     def get_hkl_tolerance(self):
         try:
@@ -333,16 +339,13 @@ class RefineLatticeDialog(NXDialog):
             polar_field.long_name = 'Polar Angle'
             plotview = get_plotview()
             plotview.plot(NXdata(azimuthal_field, polar_field, 
-                          title='Peak Angles'))
+                          title='Peak Angles'), xmax=self.get_polar_max())
         except NeXusError as error:
             report_error('Plotting Lattice', error)
 
-    def plot_rings(self, polar_max=None):
-        if polar_max is None:
-            polar_max = self.refine.polar_max
-        peaks = self.refine.calculate_rings(polar_max)
+    def plot_rings(self):
         plotview = get_plotview()
-        plotview.vlines(peaks, colors='r', linestyles='dotted')
+        plotview.vlines(self.refine.two_thetas, colors='r', linestyles='dotted')
         plotview.draw()
     
     @property
@@ -352,7 +355,6 @@ class RefineLatticeDialog(NXDialog):
             if self.parameters[p].vary:
                 refined[p] = True
         return refined
-
 
     def refine_angles(self):
         self.parameters.status_message.setText('Fitting...')
@@ -416,7 +418,8 @@ class RefineLatticeDialog(NXDialog):
             pass
 
     def list_peaks(self):
-        if self.peaks_box is not None and self.table_model is not None:
+        if (self.peaks_box in self.mainwindow.dialogs and 
+            self.table_model is not None):
             self.update_table()
             return
         self.peaks_box = NXDialog(self)
@@ -426,7 +429,8 @@ class RefineLatticeDialog(NXDialog):
                   'H', 'K', 'L', 'Diff']
         peak_list = self.refine.get_peaks()
         self.refine.assign_rings()
-        self.rings = self.refine.get_ring_hkls()
+        self.rings = self.refine.make_rings()
+        self.ring_list = self.refine.get_ring_list()
         if self.refine.primary is None:
             self.refine.primary = 0
         if self.refine.secondary is None:
@@ -435,7 +439,7 @@ class RefineLatticeDialog(NXDialog):
                                       align='right')
         self.secondary_box = NXLineEdit(self.refine.secondary, width=80,
                                         align='right')
-        orient_button = NXPushButton('Orient', self.orient)
+        orient_button = NXPushButton('Orient', self.choose_peaks)
         orient_layout = self.make_layout(NXLabel('Primary'), self.primary_box,
                                          NXLabel('Secondary'), 
                                          self.secondary_box, 'stretch',
@@ -476,7 +480,7 @@ class RefineLatticeDialog(NXDialog):
         self.refine.hkl_tolerance = self.get_hkl_tolerance()
         self.table_model.peak_list = self.refine.get_peaks()
         self.refine.assign_rings()
-        self.rings = self.refine.get_ring_hkls()
+        self.ring_list = self.refine.get_ring_list()
         rows, columns = len(self.table_model.peak_list), 11
         self.table_model.dataChanged.emit(self.table_model.createIndex(0, 0),
                                           self.table_model.createIndex(rows-1, 
@@ -504,12 +508,98 @@ class RefineLatticeDialog(NXDialog):
         self.plotview.aspect = 'equal'
         self.plotview.crosshairs(x, y, color='r', linewidth=0.5)
 
+    @property
+    def primary(self):
+        return int(self.primary_box.text())
+
+    @property
+    def secondary(self):
+        return int(self.secondary_box.text())
+
+    def choose_peaks(self):
+        try:
+            if self.orient_box in self.mainwindow.dialogs:
+                self.orient_box.close()
+        except Exception:
+            pass
+        self.orient_box = NXDialog(self)
+        self.peak_parameters = GridParameters()
+        self.peak_parameters.add('primary', self.primary, 'Primary',
+                                 readonly=True)
+        self.peak_parameters.add('secondary', self.secondary, 'Secondary',
+                                 readonly=True)
+        self.peak_parameters.add('angle', 
+                                 self.refine.angle_peaks(self.primary, 
+                                                         self.secondary),
+                                 'Angle (deg)', readonly=True)
+        self.peak_parameters.add('primary_hkl', 
+                            self.ring_list[self.refine.rp[self.primary]],
+                            'Primary HKL', slot=self.choose_secondary_grid)
+        self.orient_box.set_layout(self.peak_parameters.grid(header=False, 
+                                                             spacing=5),
+                                   self.action_buttons(('Orient', self.orient)),
+                                   self.orient_box.close_buttons(close=True))
+        self.setup_secondary_grid()
+        self.orient_box.set_title('Orient Lattice')
+        self.orient_box.show()
+
+    def setup_secondary_grid(self):
+        p = int(self.peak_parameters['primary'].value)
+        s = int(self.peak_parameters['secondary'].value)
+        ps_angle = self.refine.angle_peaks(p, s)
+        n_phkl = len(self.ring_list[self.refine.rp[p]])
+        self.hkl_parameters = [GridParameters() for i in range(n_phkl)]
+        min_diff = self.get_peak_tolerance()
+        min_p = None
+        min_hkl = None
+        for i in range(n_phkl):
+            phkl = eval(self.peak_parameters['primary_hkl'].box.items()[i])
+            for hkls in self.rings[self.refine.rp[s]][1]:
+                for hkl in hkls:
+                    hkl_angle = self.refine.angle_hkls(phkl, hkl)
+                    diff = abs(ps_angle - hkl_angle)
+                    if diff < self.get_peak_tolerance():
+                        self.hkl_parameters[i].add(str(hkl), hkl_angle, 
+                                                   str(hkl), vary=False,
+                                                   readonly=True)
+                        if diff < min_diff:
+                            min_diff = diff
+                            min_p = i
+                            min_hkl = str(hkl)
+            self.orient_box.insert_layout(i+1, self.hkl_parameters[i].grid(
+                                    header=['HKL', 'Angle (deg)', 'Select'],
+                                    spacing=5))
+        if min_hkl is None:
+            report_error("Refining Lattice", "No matching peaks found")
+            return
+        self.peak_parameters['primary_hkl'].box.setCurrentIndex(min_p)
+        self.hkl_parameters[min_p][min_hkl].vary=True
+        self.choose_secondary_grid() 
+
+    def choose_secondary_grid(self):
+        box = self.peak_parameters['primary_hkl'].box
+        for i in [i for i in range(box.count()) if i != box.currentIndex()]:
+            self.hkl_parameters[i].hide_grid()
+        self.hkl_parameters[box.currentIndex()].show_grid()
+
+    @property
+    def primary_hkl(self):
+        return eval(self.peak_parameters['primary_hkl'].value)
+
+    @property
+    def secondary_hkl(self):
+        for hkls in self.hkl_parameters:
+            for hkl in hkls:
+                if hkls[hkl].vary == True:
+                    return eval(hkls[hkl].name)
+
     def orient(self):
-        self.refine.primary = int(self.primary_box.text())
-        self.refine.secondary = int(self.secondary_box.text())
-        self.refine.Umat =  (self.refine.get_UBmat(self.refine.primary, 
-                                                 self.refine.secondary)
-                             * self.refine.Bimat)
+        self.refine.primary = self.primary
+        self.refine.secondary = self.secondary
+        self.refine.Umat =  self.refine.get_UBmat(self.primary, 
+                                                  self.secondary,
+                                                  self.primary_hkl,
+                                                  self.secondary_hkl)
         self.update_table()
 
     def export_peaks(self):
@@ -559,7 +649,7 @@ class NXTableModel(QtCore.QAbstractTableModel):
         elif role == QtCore.Qt.ToolTipRole:
             row, col = index.row(), index.column()
             peak = self.peak_list[row][0]
-            return str(self.parent.rings[self.parent.refine.rp[peak]])
+            return str(self.parent.ring_list[self.parent.refine.rp[peak]])[1:-1]
         elif role == QtCore.Qt.DisplayRole:
             row, col = index.row(), index.column()
             value = self.peak_list[row][col]
