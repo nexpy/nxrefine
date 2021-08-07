@@ -11,8 +11,8 @@ class NXSymmetry(object):
                           '4/mmm': self.tetragonal2,
                           '-3': self.triclinic,
                           '-3m': self.triclinic,
-                          '6/m': self.monoclinic,
-                          '6/mmm': self.monoclinic,
+                          '6/m': self.hexagonal,
+                          '6/mmm': self.hexagonal,
                           'm-3': self.cubic,
                           'm-3m': self.cubic}
         if laue_group in laue_functions:
@@ -20,7 +20,7 @@ class NXSymmetry(object):
         else:
             self._function = self.triclinic
         self._data = data
-        self._signal = data.nxsignal.nxvalue
+        self._signal = np.nan_to_num(data.nxsignal.nxvalue)
         self._wts = data.nxweights.nxvalue
 
     def triclinic(self, data):
@@ -58,6 +58,13 @@ class NXSymmetry(object):
         outarr += np.rot90(outarr, 1, (1,2))
         outarr += np.rot90(outarr, 2, (1,2))
         outarr += np.rot90(outarr, 2, (0,1))
+        outarr += np.flip(outarr, 0)
+        return outarr
+
+    def hexagonal(self, data):
+        """Laue group: 6/m, 6/mmm (modeled as 2/m along the c-axis)"""
+        outarr = data
+        outarr += np.rot90(outarr, 2, (0,2))
         outarr += np.flip(outarr, 0)
         return outarr
 
