@@ -924,8 +924,8 @@ class NXRefine(object):
 
     def angle_hkls(self, h1, h2):
         """Calculate the angle (in degrees) between two (hkl) tuples"""
-        h1v = norm_vec(self.Bimat * vec(*h1))
-        h2v = norm_vec(self.Bimat * vec(*h2))      
+        h1v = norm_vec((vec(*h1).T * self.Bmat)).T
+        h2v = norm_vec((vec(*h2).T * self.Bmat)).T
         return np.around(np.arccos(h1v.T*h2v)[0,0] * degrees, 3)
         
     def assign_rings(self):
