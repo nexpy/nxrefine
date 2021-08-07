@@ -624,6 +624,18 @@ class NXRefine(object):
         return self.unit_cell.reciprocal()
 
     @property
+    def astar(self):
+        return self.reciprocal_lattice_parameters[0]
+
+    @property
+    def bstar(self):
+        return self.reciprocal_lattice_parameters[1]
+
+    @property
+    def cstar(self):
+        return self.reciprocal_lattice_parameters[2]
+
+    @property
     def sgi(self):
         if self.space_group == '':
             sg = self.space_groups[self.centring]
@@ -931,7 +943,12 @@ class NXRefine(object):
             return None
 
     def get_UBmat(self, i, j, hi, hj):
-        """Determine a UBmatrix using the specified peaks"""
+        """Determine a UBmatrix using the specified peaks.
+        
+        This is based on the algorithem described by Busing and Levy in 
+        Acta Crystallographica 22, 457 (1967). It is an implementation of 
+        equations (23) to (27).  
+        """
         h1c = (self.Bmat * vec(*hi)).T
         h2c = (self.Bmat * vec(*hj)).T
 
