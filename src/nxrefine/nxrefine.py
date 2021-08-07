@@ -1,13 +1,11 @@
 import numpy as np
 import os
 import random
+from cctbx import crystal, miller, sgtbx, uctbx
+from numpy.linalg import inv, norm
 from scipy import optimize
 
 from nexusformat.nexus import *
-from .unitcell import unitcell, outif
-from . import closest
-
-from numpy.linalg import inv, norm
 
 
 degrees = 180.0 / np.pi
@@ -51,6 +49,8 @@ class NXRefine(object):
     laue_groups = ['-1', '2/m', 'mmm', '4/m', '4/mmm', '-3', '-3m', 
                    '6/m', '6/mmm', 'm-3', 'm-3m']
     centrings = ['P', 'A', 'B', 'C', 'I', 'F', 'R']
+    space_groups = {'P': 'P1', 'A': 'Amm2', 'B': 'P1', 'C': 'C121', 
+                    'I': 'I222', 'F': 'F222', 'R': 'R3'}
 
     def __init__(self, node=None):
         if node is not None:
@@ -105,7 +105,6 @@ class NXRefine(object):
         self.Umat = None
         self.primary = None
         self.secondary = None
-        self._unitcell = None
         self.polar_tolerance = 0.1
         self.peak_tolerance = 5.0
         self.hkl_tolerance = 0.05
@@ -125,8 +124,6 @@ class NXRefine(object):
         self._julia = None
         
         self.parameters = None
-        
-        self.grains = None
         
         if self.entry is not None:
             self.read_parameters()
@@ -456,7 +453,7 @@ class NXRefine(object):
 
     def initialize_peaks(self):
         peaks=list(zip(self.xp,  self.yp, self.zp, self.intensity))
-        self.peak = dict(zip(range(len(peaks)),[NXPeak(*args) for args in peaks]))
+        self.peak = dict(zip(range(len(peaks)),[NXPeak(*p) for p in peaks]))
 
     def initialize_grid(self):
         if self.Qh is not None and self.Qk is not None and self.Ql is not None:
@@ -587,14 +584,110 @@ class NXRefine(object):
         else:
             return 'triclinic'
 
+    def set_polar_max(self, polar_max):
+        try:
+            if not isinstance(self.polar_angle, np.ndarray):
+                self.polar_angle, self.azimuthal_angle = \
+                    self.calculate_angles(self.xp, self.yp)
+            self.x = []
+            self.y = []
+            for i in range(self.npks):
+                if self.polar_angle[i] <= polar_max:
+                    self.x.append(self.xp[i])
+                    self.y.append(self.yp[i])
+        except Exception:
+            pass
+        self.polar_max = polar_max
+        self._idx = None
+
     @property
     def lattice_parameters(self):
         return self.a, self.b, self.c, self.alpha, self.beta, self.gamma
 
     @property
+    def reciprocal_lattice_parameters(self):
+        rlp = list(self.unit_cell.reciprocal().parameters())
+        rlp[0:3] = [2*np.pi*p for p in rlp[0:3]]
+        return rlp 
+
+    @property
     def lattice_settings(self):
         return (self.a, self.b, self.c, 
                 self.alpha*radians, self.beta*radians, self.gamma*radians)
+
+    @property
+    def unit_cell(self):
+        return uctbx.unit_cell(self.lattice_parameters)
+
+    @property
+    def reciprocal_cell(self):
+        return self.unit_cell.reciprocal()
+
+    @property
+    def sgi(self):
+        if self.space_group == '':
+            sg = self.space_groups[self.centring]
+        else:
+            sg = self.space_group
+        return sgtbx.space_group_info(sg)
+
+    @property
+    def sgn(self):
+        return self.sgi.type().lookup_symbol()
+
+    @property
+    def sg(self):
+        return self.sgi.group()
+
+    @property
+    def miller(self):
+        d_min = self.wavelength / (2 * np.sin(self.polar_max*radians/2))
+        return miller.build_set(crystal_symmetry=crystal.symmetry(
+                                    space_group_symbol=self.sgn,
+                                    unit_cell=self.lattice_parameters),
+                                anomalous_flag=False, d_min=d_min).sort()
+
+    @property
+    def indices(self):
+        _indices = []
+        for h in self.miller.indices():
+            _indices.append(self.indices_hkl(*h)[0])
+        return _indices
+
+    def indices_hkl(self, h, k, l):
+        _symm_equiv = miller.sym_equiv_indices(self.sg, (h, k, l))
+        _indices = sorted([i.h() for i in _symm_equiv.indices()], 
+                           reverse=True)
+        if len(_indices) < _symm_equiv.multiplicity(False):
+            _indices = _indices + [(-hh,-kk,-ll) for (hh,kk,ll) in _indices]
+        return _indices
+
+    @property
+    def two_thetas(self):
+        return list(self.unit_cell.two_theta(self.miller.indices(), 
+                                             self.wavelength, deg=True))
+
+    def two_theta_hkl(self, h, k, l):
+        return self.unit_cell.two_theta((h, k, l), self.wavelength, deg=True)
+
+    def make_rings(self):
+        _rings = {}
+        _r = 0
+        _indices = self.indices
+        for i, polar_angle in enumerate(self.two_thetas):
+            if i == 0:
+                _rings[0] = [polar_angle, [self.indices_hkl(*_indices[i])]]         
+            elif polar_angle-_rings[_r][0] > self.polar_tolerance:
+                _r += 1
+                _rings[_r] = [polar_angle, [self.indices_hkl(*_indices[i])]]
+            else:
+                _rings[_r][1].append(self.indices_hkl(*_indices[i]))
+                pa = wa = 0.0
+                for j, hkl in enumerate(_rings[_r][1]):
+                    pa += self.two_theta_hkl(*hkl[0]) * len(hkl)
+                    wa += len(hkl)
+                _rings[_r][0] = pa / wa
+        return _rings
 
     @property
     def tilts(self):
@@ -612,7 +705,8 @@ class NXRefine(object):
     def roll(self, value):
         self._roll = value
         try:
-            self._Dmat_cache = inv(rotmat(1, self.roll) * rotmat(2, self.pitch) *
+            self._Dmat_cache = inv(rotmat(1, self.roll) * 
+                                   rotmat(2, self.pitch) *
                                    rotmat(3, self.yaw))
 
         except:
@@ -693,17 +787,8 @@ class NXRefine(object):
     def ds_max(self):
         return 2 * np.sin(self.polar_max*radians/2) / self.wavelength
 
-    @property
-    def unitcell(self):
-        if (self._unitcell is None or
-            not np.allclose(self._unitcell.lattice_parameters,
-                            np.array(self.lattice_parameters))):
-           self._unitcell = unitcell(self.lattice_parameters, self.centring)
-        self._unitcell.makerings(self.ds_max)
-        return self._unitcell
-
     def absent(self, h, k, l):
-        return outif[self.centring](h, k, l)
+        return self.sg.is_sys_absent((h,k,l))
 
     @property
     def npks(self):
@@ -711,11 +796,6 @@ class NXRefine(object):
             return self.xp.size
         except Exception:
             return 0
-
-    @property
-    def rings(self):
-        return 2 * np.arcsin(np.array(self.unitcell.ringds) * 
-                             self.wavelength/2) * degrees
 
     @property
     def UBmat(self):
@@ -809,22 +889,6 @@ class NXRefine(object):
                       in zip(self.xp[idx], self.yp[idx], self.zp[idx])]
         return self.Gvecs
 
-    def set_polar_max(self, polar_max):
-        try:
-            if not isinstance(self.polar_angle, np.ndarray):
-                self.polar_angle, self.azimuthal_angle = \
-                    self.calculate_angles(self.xp, self.yp)
-            self.x = []
-            self.y = []
-            for i in range(self.npks):
-                if self.polar_angle[i] <= polar_max:
-                    self.x.append(self.xp[i])
-                    self.y.append(self.yp[i])
-        except Exception:
-            pass
-        self.polar_max = polar_max
-        self._idx = None
-
     def calculate_angles(self, x, y):
         """Calculate the polar and azimuthal angles of the specified pixels"""
         Oimat = inv(self.Omat)
@@ -840,18 +904,6 @@ class NXRefine(object):
         return (np.array(polar_angles) * degrees, 
                 np.array(azimuthal_angles) * degrees)
 
-    def calculate_rings(self, polar_max=None):
-        """Calculate the polar angles of the Bragg peak rings"""
-        if polar_max is None:
-            polar_max = self.polar_max
-        ds_max = 2 * np.sin(polar_max*radians/2) / self.wavelength
-        dss = set(sorted([np.around(x[0],3) 
-                          for x in self.unitcell.gethkls(ds_max)]))
-        peaks = []
-        for ds in dss:
-            peaks.append(2*np.arcsin(self.wavelength*ds/2)*degrees)
-        return sorted(peaks)
-
     def angle_peaks(self, i, j):
         """Calculate the angle (in degrees) between two peaks"""
         g1 = norm_vec(self.Gvec(self.xp[i], self.yp[i], self.zp[i]))
@@ -860,82 +912,17 @@ class NXRefine(object):
 
     def angle_hkls(self, h1, h2):
         """Calculate the angle (in degrees) between two (hkl) tuples"""
-        return self.unitcell.anglehkls(h1, h2)[0]
+        h1v = norm_vec(self.Bimat * vec(*h1))
+        h2v = norm_vec(self.Bimat * vec(*h2))      
+        return np.around(np.arccos(h1v.T*h2v)[0,0] * degrees, 3)
         
-    def angle_rings(self, ring1, ring2):
-        """Calculate the set of angles allowed between peaks in two rings"""
-        return set(np.around(np.arccos(
-                                 self.unitcell.getanglehkls(ring1, ring2)[1])
-                             * degrees, 3))
-
     def assign_rings(self):
         """Assign all the peaks to rings (stored in 'rp')"""
-        polar_max = self.polar_max
-        self.set_polar_max(max(self.polar_angle))
-        rings = self.rings
-        self.rp = np.zeros((self.npks), np.int16)
+        rings = self.make_rings()
+        ring_angles = [rings[r][0] for r in rings]
+        self.rp = np.zeros((self.npks), dtype=int)
         for i in range(self.npks):
-            self.rp[i] = (np.abs(self.polar_angle[i] - rings)).argmin()
-        self.set_polar_max(polar_max)
-
-    def compatible(self, i, j):
-        """Determine if the angle between two peaks is contained in the set of
-        angles between their respective rings"""
-        if i == j:
-            return False
-        angle = self.angle_peaks(i, j)
-        angles = self.angle_rings(self.rp[i], self.rp[j])
-        close = [a for a in angles if abs(a-angle) < self.peak_tolerance]
-        if close:
-            return True
-        else:
-            return False
-        
-    def generate_grains(self):
-        self.assign_rings()
-        grains = []
-        peaks = [i for i in range(self.npks) 
-                 if self.polar_angle[i] < self.polar_max]
-        assigned = set()
-        for (i, j) in [(i, j) for i in peaks for j in peaks if j > i]:
-            if self.compatible(i,j):
-                if i not in assigned and j not in assigned:
-                    grains.append([i,j])
-                    assigned.add(i)
-                    assigned.add(j)
-                else:
-                    for grain in grains:
-                        if i not in grain:
-                            bad = [k for k in grain if not self.compatible(i,k)]
-                            if not bad:
-                                grain.append(i)
-                                assigned.add(i)
-                        if j not in grain:
-                            bad = [k for k in grain if not self.compatible(j,k)]
-                            if not bad:
-                                grain.append(j)
-                                assigned.add(j)
-        self.grains = sorted([NXgrain(grain) 
-                              for grain in grains if len(grain) > 2])
-        for grain in self.grains:
-            self.orient(grain)
-            grain.peaks = [i for i in range(self.npks) 
-                           if self.diff(i) < self.hkl_tolerance]
-            grain.score = self.score(grain)            
-        
-    def orient(self, grain=None):
-        """Determine the UB matrix (optionally for the specified grain)"""
-        if grain:
-            for (i, j) in [(i,j) for i in grain.peaks 
-                           for j in grain.peaks if j > i]:
-                angle = self.angle_peaks(i, j)
-                if abs(angle) > 20.0 and abs(angle-180.0) > 20.0:
-                    break
-            grain.primary, grain.secondary = i, j
-            self.Umat = grain.Umat = self.get_UBmat(i, j) * self.Bimat
-        else:
-            self.Umat = (self.get_UBmat(self.primary, self.secondary) 
-                         * self.Bimat)
+            self.rp[i] = (np.abs(self.polar_angle[i] - ring_angles)).argmin()
 
     def unitarity(self):
         if self.Umat is not None:
@@ -943,21 +930,32 @@ class NXRefine(object):
         else:
             return None
 
-    def get_UBmat(self, i, j):
+    def get_UBmat(self, i, j, hi, hj):
         """Determine a UBmatrix using the specified peaks"""
-        ring1 = np.abs(self.polar_angle[i] - self.rings).argmin()
-        g1 = np.array(self.Gvec(self.xp[i], self.yp[i], self.zp[i]).T)[0]
-        ring2 = np.abs(self.polar_angle[j] - self.rings).argmin()
-        g2 = np.array(self.Gvec(self.xp[j], self.yp[j], self.zp[j]).T)[0]
-        self.unitcell.orient(ring1, g1, ring2, g2, verbose=1)
-        return np.matrix(self.unitcell.UB)
+        h1c = (self.Bmat * vec(*hi)).T
+        h2c = (self.Bmat * vec(*hj)).T
+
+        t1c = norm_vec(h1c)
+        t3c = norm_vec(np.cross(h1c, h2c))
+        t2c = norm_vec(np.cross(h1c, t3c))
+        Tc = np.concatenate((t1c, t2c, t3c)).T
+
+        g1 = self.Gvec(self.xp[i], self.yp[i], self.zp[i]).T
+        g2 = self.Gvec(self.xp[j], self.yp[j], self.zp[j]).T
+
+        t1g=norm_vec(g1)
+        t3g=norm_vec(np.cross(g1, g2))
+        t2g=norm_vec(np.cross(g1, t3g))
+        Tg = np.concatenate((t1g, t2g, t3g)).T
+
+        return Tg * np.linalg.inv(Tc)
 
     def get_hkl(self, x, y, z):
         """Determine hkl for the specified pixel coordinates"""
         if self.Umat is not None:
             v5 = self.Gvec(x, y, z)
-#            v6 = inv(self.Umat) * v5
-#            v7 = inv(self.Bmat) * v6
+#           v6 = inv(self.Umat) * v5
+#           v7 = inv(self.Bmat) * v6
             v7 = inv(self.UBmat) * v5
             return list(np.array(v7.T)[0])
         else:
@@ -1062,7 +1060,7 @@ class NXRefine(object):
         v = norm(Mat * peak)
         return np.arctan(v / self.distance)
 
-    def score(self, grain=None):
+    def score(self):
         self.set_idx()
         if self.idx:
             diffs = self.diffs()
@@ -1106,16 +1104,15 @@ class NXRefine(object):
     def angle_diff(self, i):
         """Determine the polar angle difference between the calculated 
         (hkl) and the closest integer (hkl) of the specified peak"""
-        h, k, l = self.hkl(i)
-        (h0, k0, l0) = (np.rint(h), np.rint(k), np.rint(l))
-        polar0 = 2 * np.arcsin(self.unitcell.ds((h0,k0,l0))*self.wavelength/2)
+        (h0, k0, l0) = [int(np.rint(x)) for x in self.hkl(i)]
+        polar0 = self.unit_cell.two_theta((h0,k0,l0), self.wavelength)
         return np.abs(self.polar(i) - polar0)
 
     def xyz(self, i):
         """Return the pixel coordinates of the specified peak"""
         return self.xp[i], self.yp[i], self.zp[i]
 
-    def get_peaks(self, polar_max=None):
+    def get_peaks(self):
         """Return tuples containing the peaks and their respective parameters"""
         peaks = np.array([i for i in range(self.npks) 
                           if self.polar_angle[i] < self.polar_max])
@@ -1131,40 +1128,16 @@ class NXRefine(object):
             l = np.array(l)[peaks]
             diffs = np.array([self.diff(i) for i in peaks])
         else:
-            h = k = l = diffs = np.zeros(peaks.shape, dtype=np.float32)
+            h = k = l = diffs = np.zeros(peaks.shape, dtype=float)
         return list(zip(peaks, x, y, z, polar, azi, intensity, h, k, l, diffs))
 
-    def get_ring_hkls(self):
-        polar_max = self.polar_max
-        self.set_polar_max(max(self.polar_angle))
-        dss = sorted([ringds for ringds in self.unitcell.ringds])
-        hkls=[self.unitcell.ringhkls[ds] for ds in dss]
-        self.set_polar_max(polar_max)
+    def get_ring_list(self):
+        hkls = []
+        _rings = self.make_rings()
+        for r in _rings:
+            hkls.append([_rings[r][1][i][0] 
+                         for i in range(len(_rings[r][1]))])
         return hkls
-#
-#    def find_ring(self, h, k, l):
-#        hkl_list = self.unitcell.gethkls(self.ds_max)
-#        try:
-#            idx = [x[1] for x in hkl_list].index((h,k,l))
-#            return self.unitcell.ringds.index(hkl_list[idx][0])
-#        except ValueError:
-#            return None
-#
-#    def find_ring_indices(self, ring):
-#        if ring is None:
-#            return []
-#        less = list(np.where(self.polar_angle>self.rings[ring]
-#                             - self.polar_tolerance)[0])
-#        more = list(np.where(self.polar_angle<self.rings[ring]
-#                             + self.polar_tolerance)[0])
-#        return [idx for idx in less if idx in more]
-#    def Gvs(self, polar_max=None):
-#        if self.polar_max is None:
-#            self.polar_max = polar_max
-#        result = np.array([self.Gvec(self.xp[i], self.yp[i], self.zp[i]) 
-#                         for i in self.idx])
-#        result.shape = (len(self.idx),3)
-#        return result
 
     def define_parameters(self, **opts):
         from lmfit import Parameters
@@ -1309,25 +1282,3 @@ class NXPeak(object):
 
     def __repr__(self):
         return "NXPeak(x=%.2f, y=%.2f, z=%.2f)" % (self.x, self.y, self.z)
-
-
-class NXgrain(object):
-
-    def __init__(self, peaks, Umat=None, primary=None, secondary=None):
-        self.peaks = sorted(list(set(sorted(peaks))))
-        self.primary = primary
-        self.secondary = secondary
-        self.Umat = Umat
-        self.score = 0
-
-    def __repr__(self):
-        return "NXgrain(%s)" % self.peaks
-
-    def __lt__(self, other):
-        return len(self.peaks) < len(other.peaks)
-
-    def __contains__(self, peak):
-        return peak in self.peaks
-
-    def __len__(self):
-        return len(self.peaks)
