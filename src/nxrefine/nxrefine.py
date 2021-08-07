@@ -1,9 +1,6 @@
-from __future__ import absolute_import, unicode_literals
-
 import numpy as np
 import os
 import random
-import six
 from scipy import optimize
 
 from nexusformat.nexus import *
