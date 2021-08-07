@@ -501,11 +501,11 @@ class NXRefine(object):
     def prepare_transform(self, output_link, mask=None):
         command = self.cctw_command(mask)
         h = NXfield(np.linspace(self.h_start, self.h_stop, self.h_shape), 
-                    name='Qh')
+                    name='Qh', scaling_factor=self.astar, long_name='H (rlu)')
         k = NXfield(np.linspace(self.k_start, self.k_stop, self.k_shape), 
-                    name='Qk')
+                    name='Qk', scaling_factor=self.bstar, long_name='K (rlu)')
         l = NXfield(np.linspace(self.l_start, self.l_stop, self.l_shape), 
-                    name='Ql')
+                    name='Ql', scaling_factor=self.cstar, long_name='L (rlu)')
         if mask:
             transform = 'masked_transform'
         else:
