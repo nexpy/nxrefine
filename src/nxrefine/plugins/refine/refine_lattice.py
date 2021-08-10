@@ -1,7 +1,8 @@
 import numpy as np
 import operator
 from nexpy.gui.pyqt import QtCore, QtGui, QtWidgets
-from nexpy.gui.datadialogs import NXDialog, GridParameters, ExportDialog
+from nexpy.gui.datadialogs import (NXWidget, NXDialog, GridParameters, 
+                                   ExportDialog)
 from nexpy.gui.plotview import NXPlotView, get_plotview, plotview
 from nexpy.gui.utils import report_error
 from nexpy.gui.widgets import NXComboBox, NXLabel, NXLineEdit, NXPushButton
@@ -78,6 +79,7 @@ class RefineLatticeDialog(NXDialog):
         self.lattice_buttons = self.action_buttons(
                                    ('Plot', self.plot_lattice),
                                    ('List', self.list_peaks),
+                                   ('Update', self.update_scaling),
                                    ('Save', self.write_parameters))
 
         self.set_layout(self.entry_layout, self.close_layout())
@@ -90,6 +92,7 @@ class RefineLatticeDialog(NXDialog):
         self.peaks_box = None
         self.table_model = None
         self.orient_box = None
+        self.update_box = None
         self.fit_report = []
         
     def choose_entry(self):
@@ -174,6 +177,58 @@ class RefineLatticeDialog(NXDialog):
             om = self.entry['instrument/detector/orientation_matrix']
             for entry in entries:
                 root[entry]['instrument/detector/orientation_matrix'] = om
+        self.define_data()
+        if len(self.paths) > 0:
+            self.update_scaling()
+
+    def update_scaling(self):
+        self.define_data()
+        if len(self.paths) == 0:
+            display_message('Refining Lattice', 'No data groups to update')
+        if self.update_box in self.mainwindow.dialogs:
+            try:
+                self.update_box.close()
+            except Exception:
+                pass
+        self.update_box = NXDialog(parent=self)
+        self.update_box.setWindowTitle('Update Scaling Factors')
+        self.update_box.setMinimumWidth(300)
+        self.update_box.set_layout(self.paths.grid(header=('', 'Data Groups', 
+                                                           '')), 
+                                   self.update_box.close_layout())
+        self.update_box.close_box.accepted.connect(self.update_data)
+        self.update_box.show()
+
+    def define_data(self):
+
+        def is_valid(data):
+            valid_axes = [['Ql', 'Qk', 'Qh'], ['l', 'k', 'h'], ['z', 'y', 'x']]
+            axis_names = [axis.nxname for axis in data.nxaxes]
+            return axis_names in valid_axes
+        
+        root = self.entry.nxroot
+        self.paths = GridParameters()
+        i = 0
+        for entry in root.NXentry:
+            for data in [d for d in entry.NXdata if is_valid(d)]:
+                i += 1
+                self.paths.add(i, data.nxpath, i, True, width=200)
+
+    def update_data(self):
+        try:
+            for path in [self.paths[p].value for p in self.paths 
+                         if self.paths[p].vary]:
+                data = self.entry.nxroot[path]
+                if [axis.nxname for axis in data.nxaxes] == ['z', 'y', 'x']:
+                    lp = self.refine.lattice_parameters
+                else:
+                    lp = self.refine.reciprocal_lattice_parameters
+                for i, axis in enumerate(data.nxaxes):
+                    data[axis.nxname].attrs['scaling_factor'] = lp[2-i]
+                data.attrs['angles'] = lp[5:2:-1]
+            self.update_box.close()
+        except NeXusError as error:
+            report_error("Updating Groups", error)
 
     def get_symmetry(self):
         return self.parameters['symmetry'].value
@@ -550,9 +605,13 @@ class RefineLatticeDialog(NXDialog):
                                                              spacing=5),
                                    self.action_buttons(('Orient', self.orient)),
                                    self.orient_box.close_buttons(close=True))
-        self.setup_secondary_grid()
         self.orient_box.set_title('Orient Lattice')
         self.orient_box.show()
+        try:
+            self.setup_secondary_grid()
+        except NeXusError as error:
+            report_error("Refining Lattice", error)
+            self.orient_box.close()
 
     def setup_secondary_grid(self):
         ps_angle = self.refine.angle_peaks(self.primary, self.secondary)
@@ -579,8 +638,7 @@ class RefineLatticeDialog(NXDialog):
                                     header=['HKL', 'Angle (deg)', 'Select'],
                                     spacing=5))
         if min_hkl is None:
-            report_error("Refining Lattice", "No matching peaks found")
-            return
+            raise NeXusError("No matching peaks found")
         self.peak_parameters['primary_hkl'].box.setCurrentIndex(min_p)
         self.hkl_parameters[min_p][min_hkl].vary=True
         self.choose_secondary_grid() 
