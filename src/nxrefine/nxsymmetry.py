@@ -64,7 +64,7 @@ class NXSymmetry(object):
     def hexagonal(self, data):
         """Laue group: 6/m, 6/mmm (modeled as 2/m along the c-axis)"""
         outarr = data
-        outarr += np.rot90(outarr, 2, (0,2))
+        outarr += np.rot90(outarr, 2, (1,2))
         outarr += np.flip(outarr, 0)
         return outarr
 
