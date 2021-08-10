@@ -518,6 +518,9 @@ class NXRefine(object):
             self.entry[transform] = NXdata(NXlink(name = 'data', 
                                            target='/entry/data/v',
                                            file=output_link), [l, k, h])
+            self.entry[transform].attrs['angles'] = (gamma_star,
+                                                     beta_star,
+                                                     alpha_star)
             self.entry[transform+'/weights'] = NXlink(target='/entry/data/n',
                                                       file=output_link)
             self.entry[transform+'/command'] = command
@@ -634,6 +637,18 @@ class NXRefine(object):
     @property
     def cstar(self):
         return self.reciprocal_lattice_parameters[2]
+
+    @property
+    def alpha_star(self):
+        return self.reciprocal_lattice_parameters[3]
+
+    @property
+    def beta_star(self):
+        return self.reciprocal_lattice_parameters[4]
+
+    @property
+    def gamma_star(self):
+        return self.reciprocal_lattice_parameters[5]
 
     @property
     def sgi(self):
