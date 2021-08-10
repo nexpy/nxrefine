@@ -1881,9 +1881,9 @@ class NXMultiReduce(NXReduce):
         symm_group = self.entry[self.symm_transform]
         Qh, Qk, Ql = (symm_group['Qh'], symm_group['Qk'], symm_group['Ql'])
         dl, dk, dh = [(ax[1]-ax[0]).nxvalue for ax in symm_group.nxaxes]
-        astar = 2 * np.pi * refine.unitcell.astar
-        bstar = 2 * np.pi * refine.unitcell.bstar
-        cstar = 2 * np.pi * refine.unitcell.cstar
+        astar = 2 * np.pi * refine.astar
+        bstar = 2 * np.pi * refine.bstar
+        cstar = 2 * np.pi * refine.cstar
         dhp = np.rint(self.radius / (dh * astar))
         dkp = np.rint(self.radius / (dk * bstar))
         dlp = np.rint(self.radius / (dl * cstar))
