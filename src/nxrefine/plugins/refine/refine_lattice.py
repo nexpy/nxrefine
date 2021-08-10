@@ -202,9 +202,13 @@ class RefineLatticeDialog(NXDialog):
     def define_data(self):
 
         def is_valid(data):
-            valid_axes = [['Ql', 'Qk', 'Qh'], ['l', 'k', 'h'], ['z', 'y', 'x']]
-            axis_names = [axis.nxname for axis in data.nxaxes]
-            return axis_names in valid_axes
+            try:
+                valid_axes = [['Ql', 'Qk', 'Qh'], ['l', 'k', 'h'], 
+                              ['z', 'y', 'x']]
+                axis_names = [axis.nxname for axis in data.nxaxes]
+                return axis_names in valid_axes
+            except Exception:
+                return False
         
         root = self.entry.nxroot
         self.paths = GridParameters()
