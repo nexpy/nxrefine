@@ -32,6 +32,7 @@ class ParametersDialog(NXDialog):
                             'Normalization Monitor')
         self.parameters['monitor'].value = 'monitor2'
         self.parameters.add('norm', 30000.0, 'Normalization Value')
+        self.parameters.add('radius', 0.2, 'Punch Radius (Å)')
 
         self.set_layout(self.root_layout,
                         self.close_buttons(save=True))

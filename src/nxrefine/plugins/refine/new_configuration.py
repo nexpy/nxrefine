@@ -59,15 +59,16 @@ class ConfigurationDialog(NXDialog):
                                'Configuration Filename')
         self.configuration.add('wavelength', 
                                entry['instrument/monochromator/wavelength'], 
-                               'Wavelength (Ang)')
+                               'Wavelength (Å)')
 
     def setup_analysis(self):
         entry = self.configuration_file['entry']        
-        entry['nxreduce/threshold'] = NXfield(50000.0, dtype=np.float32)
+        entry['nxreduce/threshold'] = NXfield(50000.0, dtype=float)
         entry['nxreduce/monitor'] = NXfield('monitor2')
-        entry['nxreduce/norm'] = NXfield(30000.0, dtype=np.float32)
-        entry['nxreduce/first_frame'] = NXfield(0, dtype=np.int32)
-        entry['nxreduce/last_frame'] = NXfield(3650, dtype=np.int32)
+        entry['nxreduce/norm'] = NXfield(30000.0, dtype=float)
+        entry['nxreduce/first_frame'] = NXfield(0, dtype=int)
+        entry['nxreduce/last_frame'] = NXfield(3650, dtype=int)
+        entry['nxreduce/radius'] = NXfield(0.2, dtype=float)
         self.analysis = GridParameters()
         self.analysis.add('threshold', entry['nxreduce/threshold'], 
                           'Peak Threshold')
@@ -80,6 +81,8 @@ class ConfigurationDialog(NXDialog):
         self.analysis['monitor'].value = 'monitor2'
         self.analysis.add('norm', entry['nxreduce/norm'], 
                           'Normalization Value')
+        self.analysis.add('radius', entry['nxreduce/radius'], 
+                          'Punch Radius (Å)')
 
     def setup_scan(self):
         entry = self.configuration_file['entry']
@@ -163,6 +166,7 @@ class ConfigurationDialog(NXDialog):
         entry['nxreduce/last_frame'] = self.analysis['last'].value
         entry['nxreduce/monitor'] = self.analysis['monitor'].value
         entry['nxreduce/norm'] = self.analysis['norm'].value
+        entry['nxreduce/radius'] = self.analysis['radius'].value
         entry['instrument/monochromator/wavelength'] = self.configuration['wavelength'].value
         entry['instrument/monochromator/energy'] = 12.398419739640717 /  self.configuration['wavelength'].value
         detector = self.get_detector()

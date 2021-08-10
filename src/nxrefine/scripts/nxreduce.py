@@ -60,7 +60,7 @@ def main():
             reduce.nxreduce()
     if args.combine:
         reduce = NXMultiReduce(args.directory, entries=args.entries,
-                                     mask=args.mask, overwrite=args.overwrite)
+                               mask=args.mask, overwrite=args.overwrite)
         if args.queue:
             reduce.queue()
         else:
