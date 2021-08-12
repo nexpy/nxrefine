@@ -1678,7 +1678,7 @@ class NXMultiReduce(NXReduce):
             self.symm_transform = 'symm_transform'
             self.pdf_file = os.path.join(self.directory, 'pdf.nxs')
         self.total_pdf_file = os.path.join(self.directory, 'total_pdf.nxs')
-        self._julia = None
+        self.julia = None
 
     def __repr__(self):
         return "NXMultiReduce('{}_{}')".format(self.sample, self.scan)
@@ -1934,20 +1934,22 @@ class NXMultiReduce(NXReduce):
         self.logger.info('Hole punch completed (%g seconds)' % (toc-tic))
 
     def init_julia(self):
-        if self._julia is None:
+        if self.julia is None:
             try:
                 from julia import Julia
-                self._julia = Julia(compiled_modules=False)
-                from julia import Main, Pkg
-#                Pkg.add(path=pkg_resources.resource_filename('nxrefine', 
-#                                            'julia/LaplaceInterpolation.jl'))
+                self.julia = Julia(compiled_modules=False)
+                from julia import Main
+                Main.include(pkg_resources.resource_filename('nxrefine', 
+                                            'julia/LaplaceInterpolation.jl'))
             except Exception as error:
                 raise NeXusError(str(error))
 
     def punch_and_fill(self):
         self.logger.info('Performing punch-and-fill')
         self.init_julia()
-        from julia import Main, LaplaceInterpolation
+        from julia import Main
+        LaplaceInterpolation = self.julia.LaplaceInterpolation
+
         m = 1
         epsilon = 0
         toc = timeit.default_timer()
@@ -1966,9 +1968,9 @@ class NXMultiReduce(NXReduce):
             del entry['data/fill']
         entry['data/fill'] = entry['data/data']
         
-        mask, midx = self.hole_mask()
+        mask, mask_indices = self.hole_mask()
         idx = [Main.CartesianIndex(int(i[0]+1),int(i[1]+1),int(i[2]+1)) 
-               for i in midx]
+               for i in mask_indices]
         ml = int((mask.shape[0]-1)/2)
         mk = int((mask.shape[1]-1)/2)
         mh = int((mask.shape[2]-1)/2)
