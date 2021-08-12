@@ -1975,9 +1975,9 @@ class NXMultiReduce(NXReduce):
         ml = int((mask.shape[0]-1)/2)
         mk = int((mask.shape[1]-1)/2)
         mh = int((mask.shape[2]-1)/2)
-        for il,l in enumerate(l_list):
-            for ik,k in enumerate(k_list):
-                for ih,h in enumerate(h_list):
+        for il,l in enumerate(l_list[1:-1]):
+            for ik,k in enumerate(k_list[1:-1]):
+                for ih,h in enumerate(h_list[1:-1]):
                     if not refine.absent(h, k, l):
                         lslice = slice(idl[il]-ml, idl[il]+ml+1)
                         kslice = slice(idk[ik]-mk, idk[ik]+mk+1)
