@@ -1939,6 +1939,7 @@ class NXMultiReduce(NXReduce):
                 from julia import Julia
                 self.julia = Julia(compiled_modules=False)
                 from julia import Main
+                import pkg_resources
                 Main.include(pkg_resources.resource_filename('nxrefine', 
                                             'julia/LaplaceInterpolation.jl'))
             except Exception as error:
