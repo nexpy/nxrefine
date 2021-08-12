@@ -1948,7 +1948,7 @@ class NXMultiReduce(NXReduce):
         self.logger.info('Performing punch-and-fill')
         self.init_julia()
         from julia import Main
-        LaplaceInterpolation = self.julia.LaplaceInterpolation
+        LaplaceInterpolation = Main.LaplaceInterpolation
 
         m = 1
         epsilon = 0
@@ -1981,9 +1981,9 @@ class NXMultiReduce(NXReduce):
                         lslice = slice(idl[il]-ml, idl[il]+ml+1)
                         kslice = slice(idk[ik]-mk, idk[ik]+mk+1)
                         hslice = slice(idh[ih]-mh, idh[ih]+mh+1)
-                        v = entry['data/fill'][(lslice, kslice, hslice)]
+                        v = entry['data/fill'][(lslice, kslice, hslice)].nxdata
                         entry['data/fill'][(lslice, kslice, hslice)] = (
-                                LaplaceInterpolation.matern_3d_grid(v, idx))
+                            LaplaceInterpolation.matern_3d_grid(v, idx))
         if 'filled_data' in self.entry[self.symm_transform]:
             del self.entry[self.symm_transform]['filled_data']
         self.entry[self.symm_transform]['filled_data'] = NXlink(
