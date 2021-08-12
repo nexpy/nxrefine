@@ -1957,9 +1957,9 @@ class NXMultiReduce(NXReduce):
         refine = NXRefine(self.entry)
         symm_group = self.entry[self.symm_transform]
         Qh, Qk, Ql = (symm_group['Qh'], symm_group['Qk'], symm_group['Ql'])
-        idh = np.argwhere(np.remainder(Qh,1)==0)[:,0].astype(int)
-        idk = np.argwhere(np.remainder(Qk,1)==0)[:,0].astype(int)
-        idl = np.argwhere(np.remainder(Ql,1)==0)[:,0].astype(int)
+        idh = np.argwhere(np.remainder(Qh,1)==0)[:,0].astype(int)[1:-1]
+        idk = np.argwhere(np.remainder(Qk,1)==0)[:,0].astype(int)[1:-1]
+        idl = np.argwhere(np.remainder(Ql,1)==0)[:,0].astype(int)[1:-1]
         h_list = list(Qh[idh].nxvalue.astype(int))
         k_list = list(Qk[idk].nxvalue.astype(int))
         l_list = list(Ql[idl].nxvalue.astype(int))
@@ -1975,9 +1975,9 @@ class NXMultiReduce(NXReduce):
         ml = int((mask.shape[0]-1)/2)
         mk = int((mask.shape[1]-1)/2)
         mh = int((mask.shape[2]-1)/2)
-        for il,l in enumerate(l_list[1:-1]):
-            for ik,k in enumerate(k_list[1:-1]):
-                for ih,h in enumerate(h_list[1:-1]):
+        for il,l in enumerate(l_list):
+            for ik,k in enumerate(k_list):
+                for ih,h in enumerate(h_list):
                     if not refine.absent(h, k, l):
                         lslice = slice(idl[il]-ml, idl[il]+ml+1)
                         kslice = slice(idk[ik]-mk, idk[ik]+mk+1)
