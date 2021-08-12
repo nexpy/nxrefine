@@ -1678,6 +1678,7 @@ class NXMultiReduce(NXReduce):
             self.symm_transform = 'symm_transform'
             self.pdf_file = os.path.join(self.directory, 'pdf.nxs')
         self.total_pdf_file = os.path.join(self.directory, 'total_pdf.nxs')
+        self._julia = None
 
     def __repr__(self):
         return "NXMultiReduce('{}_{}')".format(self.sample, self.scan)
@@ -1881,15 +1882,14 @@ class NXMultiReduce(NXReduce):
         symm_group = self.entry[self.symm_transform]
         Qh, Qk, Ql = (symm_group['Qh'], symm_group['Qk'], symm_group['Ql'])
         dl, dk, dh = [(ax[1]-ax[0]).nxvalue for ax in symm_group.nxaxes]
-        astar = 2 * np.pi * refine.astar
-        bstar = 2 * np.pi * refine.bstar
-        cstar = 2 * np.pi * refine.cstar
-        dhp = np.rint(self.radius / (dh * astar))
-        dkp = np.rint(self.radius / (dk * bstar))
-        dlp = np.rint(self.radius / (dl * cstar))
-        ml, mk, mh = np.ogrid[0:2*int(dlp)+1, 0:2*int(dkp)+1, 0:2*int(dhp)+1]
-        mask = ((((ml-dlp)/dlp)**2+((mk-dkp)/dkp)**2+((mh-dhp)/dhp)**2) <= 1)
-        return np.where(mask==0, 1.0, np.nan)
+        dhp = np.rint(self.radius / (dh * refine.astar))
+        dkp = np.rint(self.radius / (dk * refine.bstar))
+        dlp = np.rint(self.radius / (dl * refine.cstar))
+        ml, mk, mh = np.ogrid[0:8*int(dlp)+1, 0:8*int(dkp)+1, 0:8*int(dhp)+1]
+        mask = ((((ml-4*dlp)/dlp)**2+((mk-4*dkp)/dkp)**2+((mh-4*dhp)/dhp)**2) <= 1)
+        mask_array = np.where(mask==0, 0, 1)
+        mask_indices = [list(idx) for idx in list(np.argwhere(mask==1))]
+        return mask_array, mask_indices
 
     def punch_holes(self):
         self.logger.info('Punching holes')
@@ -1909,7 +1909,7 @@ class NXMultiReduce(NXReduce):
             del entry['data/punch']
         entry['data/punch'] = entry['data/data']
         
-        mask = self.hole_mask()
+        mask, _ = self.hole_mask()
         ml = int((mask.shape[0]-1)/2)
         mk = int((mask.shape[1]-1)/2)
         mh = int((mask.shape[2]-1)/2)
@@ -1932,6 +1932,64 @@ class NXMultiReduce(NXReduce):
                                                           self.symm_transform))
         tic = timeit.default_timer()
         self.logger.info('Hole punch completed (%g seconds)' % (toc-tic))
+
+    def init_julia(self):
+        if self._julia is None:
+            try:
+                from julia import Julia
+                self._julia = Julia(compiled_modules=False)
+                from julia import Main, Pkg
+#                Pkg.add(path=pkg_resources.resource_filename('nxrefine', 
+#                                            'julia/LaplaceInterpolation.jl'))
+            except Exception as error:
+                raise NeXusError(str(error))
+
+    def punch_and_fill(self):
+        self.logger.info('Performing punch-and-fill')
+        self.init_julia()
+        from julia import Main, LaplaceInterpolation
+        m = 1
+        epsilon = 0
+        toc = timeit.default_timer()
+        refine = NXRefine(self.entry)
+        symm_group = self.entry[self.symm_transform]
+        Qh, Qk, Ql = (symm_group['Qh'], symm_group['Qk'], symm_group['Ql'])
+        idh = np.argwhere(np.remainder(Qh,1)==0)[:,0].astype(int)
+        idk = np.argwhere(np.remainder(Qk,1)==0)[:,0].astype(int)
+        idl = np.argwhere(np.remainder(Ql,1)==0)[:,0].astype(int)
+        h_list = list(Qh[idh].nxvalue.astype(int))
+        k_list = list(Qk[idk].nxvalue.astype(int))
+        l_list = list(Ql[idl].nxvalue.astype(int))
+
+        entry = nxload(self.symm_file, 'rw')['entry']
+        if 'fill' in entry['data']:
+            del entry['data/fill']
+        entry['data/fill'] = entry['data/data']
+        
+        mask, midx = self.hole_mask()
+        idx = [Main.CartesianIndex(int(i[0]+1),int(i[1]+1),int(i[2]+1)) 
+               for i in midx]
+        ml = int((mask.shape[0]-1)/2)
+        mk = int((mask.shape[1]-1)/2)
+        mh = int((mask.shape[2]-1)/2)
+        for il,l in enumerate(l_list):
+            for ik,k in enumerate(k_list):
+                for ih,h in enumerate(h_list):
+                    if not refine.absent(h, k, l):
+                        lslice = slice(idl[il]-ml, idl[il]+ml+1)
+                        kslice = slice(idk[ik]-mk, idk[ik]+mk+1)
+                        hslice = slice(idh[ih]-mh, idh[ih]+mh+1)
+                        v = entry['data/fill'][(lslice, kslice, hslice)]
+                        entry['data/fill'][(lslice, kslice, hslice)] = (
+                                LaplaceInterpolation.matern_3d_grid(v, idx))
+        if 'filled_data' in self.entry[self.symm_transform]:
+            del self.entry[self.symm_transform]['filled_data']
+        self.entry[self.symm_transform]['filled_data'] = NXlink(
+                                    '/entry/data/fill', file=self.symm_file)
+        self.logger.info("'filled_data' added to '{}'".format(
+                                                          self.symm_transform))
+        tic = timeit.default_timer()
+        self.logger.info('Punch-and-fill completed (%g seconds)' % (toc-tic))
 
     def nxsum(self, scan_list):
         if not os.path.exists(self.wrapper_file) or self.overwrite:

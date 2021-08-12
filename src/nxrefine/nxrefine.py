@@ -501,11 +501,11 @@ class NXRefine(object):
     def prepare_transform(self, output_link, mask=None):
         command = self.cctw_command(mask)
         h = NXfield(np.linspace(self.h_start, self.h_stop, self.h_shape), 
-                    name='Qh', scaling_factor=self.astar, long_name='H (rlu)')
+                name='Qh', scaling_factor=self.astar, long_name='H (r.l.u.)')
         k = NXfield(np.linspace(self.k_start, self.k_stop, self.k_shape), 
-                    name='Qk', scaling_factor=self.bstar, long_name='K (rlu)')
+                name='Qk', scaling_factor=self.bstar, long_name='K (r.l.u.)')
         l = NXfield(np.linspace(self.l_start, self.l_stop, self.l_shape), 
-                    name='Ql', scaling_factor=self.cstar, long_name='L (rlu)')
+                name='Ql', scaling_factor=self.cstar, long_name='L (r.l.u.)')
         if mask:
             transform = 'masked_transform'
         else:
@@ -815,7 +815,7 @@ class NXRefine(object):
         return 2 * np.sin(self.polar_max*radians/2) / self.wavelength
 
     def absent(self, h, k, l):
-        return self.sg.is_sys_absent((h,k,l))
+        return self.sg.is_sys_absent((int(h), int(k), int(l)))
 
     @property
     def npks(self):
@@ -1066,7 +1066,8 @@ class NXRefine(object):
         Main.Dvec = list(np.array(self.Dvec.T).reshape((3)))
         Main.Evec = list(np.array(self.Evec.T).reshape((3)))
         Main.shape = self.shape
-        Main.include(pkg_resources.resource_filename('nxrefine', 'julia/get_xyzs.jl'))
+        Main.include(pkg_resources.resource_filename('nxrefine', 
+                                                     'julia/get_xyzs.jl'))
         if Qh is None:
             Qh = int(self.Qh[-1])
         if Qk is None:
