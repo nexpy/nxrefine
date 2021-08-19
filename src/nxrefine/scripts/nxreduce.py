@@ -36,6 +36,8 @@ def main():
                         help='perform CCTW transforms with 3D mask')
     parser.add_argument('-b', '--combine', action='store_true',
                         help='combine CCTW transforms')
+    parser.add_argument('-P', '--pdf', action='store_true',
+                        help='perform PDF transforms')
     parser.add_argument('-o', '--overwrite', action='store_true', 
                         help='overwrite existing maximum')
     parser.add_argument('-q', '--queue', action='store_true',
@@ -58,13 +60,14 @@ def main():
             reduce.queue()
         else:
             reduce.nxreduce()
-    if args.combine:
+    if args.combine or args.pdf:
         reduce = NXMultiReduce(args.directory, entries=args.entries,
+                               combine=args.combine, pdf=args.pdf,
                                mask=args.mask, overwrite=args.overwrite)
         if args.queue:
             reduce.queue()
         else:
-            reduce.nxcombine()
+            reduce.nxreduce()
 
 
 

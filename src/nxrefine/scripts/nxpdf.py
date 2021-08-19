@@ -14,21 +14,15 @@ def main():
     parser = argparse.ArgumentParser(description="Calculate PDF transforms")
     parser.add_argument('-d', '--directory', required=True, 
                         help='scan directory')
-    parser.add_argument('-e', '--entries', nargs='+', 
-                        help='names of entries to be processed')
     parser.add_argument('-o', '--overwrite', action='store_true', 
                         help='overwrite existing transforms')
     
     args = parser.parse_args()
     
-    if args.entries:
-        entries = args.entries
+    reduce = NXMultiReduce(args.directory, pdf=True, overwrite=args.overwrite)
+    if args.queue:
+        reduce.queue()
     else:
-        entries = NXMultiReduce(args.directory).entries
-
-    for entry in entries:
-        reduce = NXMultiReduce(entry, args.directory, pdf=True,
-                               overwrite=args.overwrite)
         reduce.nxpdf()
 
 
