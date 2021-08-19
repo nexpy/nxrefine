@@ -247,8 +247,8 @@ class WorkflowDialog(NXDialog):
                     checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
                     checkbox.setEnabled(True)
                     checkbox.setStyleSheet("color: red")
-            if status['data'].checkState() == QtCore.Qt.Unchecked:
-                self.disable_status(status)
+#            if status['data'].checkState() == QtCore.Qt.Unchecked:
+#                self.disable_status(status)
             self.update_progress(i)
 
         self.stop_progress()
