@@ -439,6 +439,12 @@ class WorkflowDialog(NXDialog):
                     reduce.overwrite = True
                 reduce.queue()
                 self.queued(scan, 'masked_combine')
+            if self.selected(scan, 'pdf'):
+                reduce = NXMultiReduce(scan)
+                if self.selected(scan, 'overwrite'):
+                    reduce.overwrite = True
+                reduce.queue()
+                self.queued(scan, 'pdf')
             self.scans[scan]
         self.deselect_all()
 
