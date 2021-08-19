@@ -1655,7 +1655,7 @@ class NXReduce(QtCore.QObject):
 class NXMultiReduce(NXReduce):
 
     def __init__(self, directory, entries=None, 
-                 mask=False, pdf=False, laue='-1', radius=None,
+                 combine=False, pdf=False, mask=False, laue='-1', radius=None,
                  overwrite=False):
         if isinstance(directory, NXroot):
             entry = directory['entry']
@@ -1663,8 +1663,10 @@ class NXMultiReduce(NXReduce):
             entry = 'entry'
         super(NXMultiReduce, self).__init__(entry=entry, directory=directory,
                                             entries=entries, overwrite=overwrite)
-        self.mask = mask
+        self.refine = NXRefine(self.entry)
+        self.combine = combine
         self.pdf = pdf
+        self.mask = mask
         if self.mask:
             self.transform_file = os.path.join(self.directory,
                                                'masked_transform.nxs')
@@ -1702,7 +1704,7 @@ class NXMultiReduce(NXReduce):
         else:
             task = 'nxcombine'
             title = 'Combine'
-        if self.not_complete(task):
+        if self.not_complete(task) and self.combine:
             if self.mask:
                 if not self.complete('nxmasked_transform'):
                     self.logger.info('Cannot combine until masked transforms complete')
@@ -1780,24 +1782,19 @@ class NXMultiReduce(NXReduce):
         return 'cctw merge %s -o %s' % (input, output)
 
     def nxpdf(self):
-        if self.mask:
-            if not self.complete('nxmasked_combine'):
+        if self.not_complete('nxpdf') and self.pdf:
+            if not self.complete('nxcombine'):
                 self.logger.info(
-            'Cannot calculate PDFs until the masked transforms are combined')
+                    'Cannot calculate PDFs until the transforms are combined')
                 return
-            elif not self.complete('nxcombine'):
-                self.logger.info(
-            'Cannot calculate PDFs until the transforms are combined')
+            elif self.refine.laue_group not in self.refine.laue_groups:
+                self.logger.info('Need to define Laue group before PDF calculation')
                 return
-        refine = NXRefine(self.entry)
-        if refine.laue_group not in refine.laue_groups:
-            self.logger.info('Need to define Laue group before PDF calculation')
-            return
-        if self.not_complete('nxpdf'):
             self.record_start('nxpdf')
-            self.symmetrize(refine.laue_group)
+            self.symmetrize(self.refine.laue_group)
             self.total_pdf()
-            self.punch_holes()
+            self.punch_and_fill()
+            self.delta_pdf()
         else:
             self.logger.info('PDF already calculated')
 
@@ -1813,7 +1810,7 @@ class NXMultiReduce(NXReduce):
                 self.logger.info('Symmetrized data already exists')
                 return
         self.logger.info('Transforms being symmetrized')
-        toc = timeit.default_timer()
+        tic = timeit.default_timer()
         for i, entry in enumerate(self.entries):
             r = NXReduce(self.root[entry])
             if i == 0:
@@ -1834,8 +1831,8 @@ class NXMultiReduce(NXReduce):
         self.entry[self.symm_transform]['data_weights'] = NXlink(
                                 '/entry/data/data_weights', file=self.symm_file)
         self.logger.info("'{}' added to entry".format(self.symm_transform))
-        tic = timeit.default_timer()
-        self.logger.info('Symmetrization completed (%g seconds)' % (tic-toc))
+        toc = timeit.default_timer()
+        self.logger.info('Symmetrization completed (%g seconds)' % (toc-tic))
 
     def fft_window(self, shape, alpha=0.5):
         from scipy.signal import tukey
@@ -1852,12 +1849,12 @@ class NXMultiReduce(NXReduce):
             else:
                 self.logger.info('Total PDF file already exists')
                 return
-        toc = timeit.default_timer()
+        tic = timeit.default_timer()
         symm_data = self.entry['symm_transform'].nxsignal[:-1,:-1,:-1].nxvalue
         fft_taper = self.entry['symm_transform'].nxweights[:-1,:-1,:-1].nxvalue
         symm_data = np.nan_to_num(symm_data) * fft_taper
         fft = np.real(np.fft.fftshift(np.fft.fftn(np.fft.fftshift(symm_data))))
-        fft = fft / np.prod(fft.shape)
+        fft *= (1.0 / np.prod(fft.shape))
         
         root = nxload(self.total_pdf_file, 'a')
         root['entry'] = NXentry()
@@ -1869,22 +1866,25 @@ class NXMultiReduce(NXReduce):
         
         dl, dk, dh = [(ax[1]-ax[0]).nxvalue 
                       for ax in self.entry['symm_transform'].nxaxes]
-        x = NXfield(np.fft.fftshift(np.fft.fftfreq(fft.shape[2], dh)), name='x')
-        y = NXfield(np.fft.fftshift(np.fft.fftfreq(fft.shape[1], dk)), name='y')
-        z = NXfield(np.fft.fftshift(np.fft.fftfreq(fft.shape[0], dl)), name='z')
-        self.entry['total_pdf'] = NXdata(pdf, (z, y, x))
+        x = NXfield(np.fft.fftshift(np.fft.fftfreq(fft.shape[2], dh)), name='x',
+                    scaling_factor=self.refine.a)
+        y = NXfield(np.fft.fftshift(np.fft.fftfreq(fft.shape[1], dk)), name='y',
+                    scaling_factor=self.refine.b)
+        z = NXfield(np.fft.fftshift(np.fft.fftfreq(fft.shape[0], dl)), name='z',
+                    scaling_factor=self.refine.c)
+        self.entry['total_pdf'] = NXdata(pdf, (z, y, x), 
+                                   angles=self.refine.lattice_parameters[3:])
         self.logger.info("'{}' added to entry".format('total_pdf'))
-        tic = timeit.default_timer()
+        toc = timeit.default_timer()
         self.logger.info('Total PDF calculated (%g seconds)' % (toc-tic))
 
     def hole_mask(self):
-        refine = NXRefine(self.entry)
         symm_group = self.entry[self.symm_transform]
         Qh, Qk, Ql = (symm_group['Qh'], symm_group['Qk'], symm_group['Ql'])
         dl, dk, dh = [(ax[1]-ax[0]).nxvalue for ax in symm_group.nxaxes]
-        dhp = np.rint(self.radius / (dh * refine.astar))
-        dkp = np.rint(self.radius / (dk * refine.bstar))
-        dlp = np.rint(self.radius / (dl * refine.cstar))
+        dhp = np.rint(self.radius / (dh * self.refine.astar))
+        dkp = np.rint(self.radius / (dk * self.refine.bstar))
+        dlp = np.rint(self.radius / (dl * self.refine.cstar))
         ml, mk, mh = np.ogrid[0:8*int(dlp)+1, 0:8*int(dkp)+1, 0:8*int(dhp)+1]
         mask = ((((ml-4*dlp)/dlp)**2+((mk-4*dkp)/dkp)**2+((mh-4*dhp)/dhp)**2) <= 1)
         mask_array = np.where(mask==0, 0, 1)
@@ -1893,8 +1893,7 @@ class NXMultiReduce(NXReduce):
 
     def punch_holes(self):
         self.logger.info('Punching holes')
-        toc = timeit.default_timer()
-        refine = NXRefine(self.entry)
+        tic = timeit.default_timer()
         symm_group = self.entry[self.symm_transform]
         Qh, Qk, Ql = (symm_group['Qh'], symm_group['Qk'], symm_group['Ql'])
         idh = np.argwhere(np.remainder(Qh,1)==0)[:,0]
@@ -1916,7 +1915,7 @@ class NXMultiReduce(NXReduce):
         for il,l in enumerate(l_list):
             for ik,k in enumerate(k_list):
                 for ih,h in enumerate(h_list):
-                    if not refine.absent(h,k,l):
+                    if not self.refine.absent(h,k,l):
                         lslice = slice(idl[il]-ml, idl[il]+ml+1)
                         kslice = slice(idk[ik]-mk, idk[ik]+mk+1)
                         hslice = slice(idh[ih]-mh, idh[ih]+mh+1)
@@ -1930,7 +1929,7 @@ class NXMultiReduce(NXReduce):
                                     '/entry/data/punch', file=self.symm_file)
         self.logger.info("'punched_data' added to '{}'".format(
                                                           self.symm_transform))
-        tic = timeit.default_timer()
+        toc = timeit.default_timer()
         self.logger.info('Hole punch completed (%g seconds)' % (toc-tic))
 
     def init_julia(self):
@@ -1953,8 +1952,7 @@ class NXMultiReduce(NXReduce):
 
         m = 1
         epsilon = 0
-        toc = timeit.default_timer()
-        refine = NXRefine(self.entry)
+        tic = timeit.default_timer()
         symm_group = self.entry[self.symm_transform]
         Qh, Qk, Ql = (symm_group['Qh'], symm_group['Qk'], symm_group['Ql'])
         idh = np.argwhere(np.remainder(Qh,1)==0)[:,0].astype(int)[1:-1]
@@ -1964,10 +1962,12 @@ class NXMultiReduce(NXReduce):
         k_list = list(Qk[idk].nxvalue.astype(int))
         l_list = list(Ql[idl].nxvalue.astype(int))
 
-        entry = nxload(self.symm_file, 'rw')['entry']
-        if 'fill' in entry['data']:
-            del entry['data/fill']
-        entry['data/fill'] = entry['data/data']
+        root = nxload(self.symm_file, 'rw')
+        if 'fill' in root['entry/data']:
+            del root['entry/data/fill']
+        root.nxfile.copy('/entry/data/data', '/entry/data/fill')
+        root.reload()
+        entry = root['entry']
         
         mask, mask_indices = self.hole_mask()
         idx = [Main.CartesianIndex(int(i[0]+1),int(i[1]+1),int(i[2]+1)) 
@@ -1978,14 +1978,14 @@ class NXMultiReduce(NXReduce):
         for il,l in enumerate(l_list):
             for ik,k in enumerate(k_list):
                 for ih,h in enumerate(h_list):
-                    if not refine.absent(h, k, l):
+                    if not self.refine.absent(h, k, l):
                         lslice = slice(idl[il]-ml, idl[il]+ml+1)
                         kslice = slice(idk[ik]-mk, idk[ik]+mk+1)
                         hslice = slice(idh[ih]-mh, idh[ih]+mh+1)
                         try:
                             v = entry['data/fill'][(lslice, kslice, hslice)].nxdata
-                            entry['data/fill'][(lslice, kslice, hslice)] = (
-                                LaplaceInterpolation.matern_3d_grid(v, idx))
+                            w = LaplaceInterpolation.matern_3d_grid(v, idx)
+                            entry['data/fill'][(lslice, kslice, hslice)] = w
                         except Exception:
                             self.logger.info(
                                 'Failed to fill ({},{},{})'.format(h, k, l))
@@ -1995,8 +1995,45 @@ class NXMultiReduce(NXReduce):
                                     '/entry/data/fill', file=self.symm_file)
         self.logger.info("'filled_data' added to '{}'".format(
                                                           self.symm_transform))
-        tic = timeit.default_timer()
+        toc = timeit.default_timer()
         self.logger.info('Punch-and-fill completed (%g seconds)' % (toc-tic))
+
+    def delta_pdf(self):
+        self.logger.info('Calculating Delta-PDF')
+        if os.path.exists(self.pdf_file):
+            if self.overwrite:
+                os.remove(self.pdf_file)
+            else:
+                self.logger.info('Delta-PDF file already exists')
+                return
+        tic = timeit.default_timer()
+        symm_data = self.entry['symm_transform/filled_data'][:-1,:-1,:-1].nxvalue
+        fft_taper = self.entry['symm_transform'].nxweights[:-1,:-1,:-1].nxvalue
+        symm_data = np.nan_to_num(symm_data) * fft_taper
+        fft = np.real(np.fft.fftshift(np.fft.fftn(np.fft.fftshift(symm_data))))
+        fft *= (1.0 / np.prod(fft.shape))
+        
+        root = nxload(self.pdf_file, 'a')
+        root['entry'] = NXentry()
+        root['entry/pdf'] = NXdata(NXfield(fft, name='pdf'))
+
+        if 'pdf' in self.entry:
+            del self.entry['pdf']
+        pdf = NXlink('/entry/pdf/pdf', file=self.pdf_file, name='pdf')
+        
+        dl, dk, dh = [(ax[1]-ax[0]).nxvalue 
+                      for ax in self.entry['symm_transform'].nxaxes]
+        x = NXfield(np.fft.fftshift(np.fft.fftfreq(fft.shape[2], dh)), name='x',
+                    scaling_factor=self.refine.a)
+        y = NXfield(np.fft.fftshift(np.fft.fftfreq(fft.shape[1], dk)), name='y',
+                    scaling_factor=self.refine.b)
+        z = NXfield(np.fft.fftshift(np.fft.fftfreq(fft.shape[0], dl)), name='z',
+                    scaling_factor=self.refine.c)
+        self.entry['pdf'] = NXdata(pdf, (z, y, x), 
+                                   angles=self.refine.lattice_parameters[3:])
+        self.logger.info("'{}' added to entry".format('pdf'))
+        toc = timeit.default_timer()
+        self.logger.info('Delta-PDF calculated (%g seconds)' % (toc-tic))
 
     def nxsum(self, scan_list):
         if not os.path.exists(self.wrapper_file) or self.overwrite:
@@ -2041,23 +2078,35 @@ class NXMultiReduce(NXReduce):
                     del entry['nxmasked_transform']
         self.db.update_file(self.wrapper_file)
 
+    def nxreduce(self):
+        self.nxcombine()
+        self.nxpdf()
+
     def command(self):
-        command = 'nxcombine '
+        command = 'nxreduce '
         switches = ['-d %s' %  self.directory, '-e %s' % ' '.join(self.entries)]
+        if self.combine:
+            switches.append('--combine')
+        if self.pdf:
+            switches.append('--pdf')
         if self.mask:
-            switches.append('-m')
+            switches.append('--mask')
         if self.overwrite:
-            switches.append('-o')
+            switches.append('--overwrite')
         return command+' '.join(switches)
 
     def queue(self):
         if self.server is None:
             raise NeXusError("NXServer not running")
         self.server.add_task(self.command())
-        if self.mask:
-            self.db.queue_task(self.wrapper_file, 'nxmasked_combine', 'entry')
-        else:
-            self.db.queue_task(self.wrapper_file, 'nxcombine', 'entry')
+        
+        if self.combine:
+            if self.mask:
+                self.db.queue_task(self.wrapper_file, 'nxmasked_combine', 'entry')
+            else:
+                self.db.queue_task(self.wrapper_file, 'nxcombine', 'entry')
+        if self.pdf:
+            self.db.queue_task(self.wrapper_file, 'nxpdf', 'entry')
 
 
 class NXBlob(object):
