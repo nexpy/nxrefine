@@ -16,6 +16,8 @@ def main():
                         help='scan directory')
     parser.add_argument('-o', '--overwrite', action='store_true', 
                         help='overwrite existing transforms')
+    parser.add_argument('-q', '--queue', action='store_true',
+                        help='add to server task queue')
     
     args = parser.parse_args()
     
