@@ -61,6 +61,7 @@ class File(Base):
     nxcombine = Column(Integer, default=NOT_STARTED)
     nxmasked_combine = Column(Integer, default=NOT_STARTED)
     nxpdf = Column(Integer, default=NOT_STARTED)
+    nxmasked_pdf = Column(Integer, default=NOT_STARTED)
 
     def __repr__(self):
         not_started = [k for k,v in vars(self).items() if v == NOT_STARTED]
@@ -109,7 +110,7 @@ class NXDatabase(object):
 
     task_names = ('data', 'nxlink', 'nxmax', 'nxfind', 'nxcopy', 'nxrefine', 
                   'nxprepare', 'nxtransform', 'nxmasked_transform', 
-                  'nxcombine', 'nxmasked_combine', 'nxpdf')
+                  'nxcombine', 'nxmasked_combine', 'nxpdf', 'nxmasked_pdf')
     NOT_STARTED, QUEUED, IN_PROGRESS, DONE, FAILED = 0,1,2,3,-1
 
     def __init__(self, db_file, echo=False):
@@ -225,6 +226,8 @@ class NXDatabase(object):
                         tasks['nxmasked_combine'] += 1
                     if 'nxpdf' in root['entry']:
                         tasks['nxpdf'] += 1
+                    if 'nxmasked_pdf' in root['entry']:
+                        tasks['nxmasked_pdf'] += 1
             for task, val in tasks.items():
                 if val == 0:
                     setattr(f, task, NOT_STARTED)
