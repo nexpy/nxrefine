@@ -1841,8 +1841,7 @@ class NXMultiReduce(NXReduce):
         root = nxload(self.symm_file, 'a')
         root['entry'] = NXentry()
         root['entry/data'] = symmetry.symmetrize()
-        fft_taper = self.fft_window(root['entry/data'].shape)
-        root['entry/data'].nxweights = np.where(fft_taper>0, 1.0/fft_taper, 0.0)
+        root['entry/data'].nxweights = self.fft_weights(root['entry/data'].shape)
         if self.symm_transform in self.entry:
             del self.entry[self.symm_transform]
         symm_data = NXlink('/entry/data/data', file=self.symm_file, name='data')
@@ -1854,7 +1853,16 @@ class NXMultiReduce(NXReduce):
         toc = timeit.default_timer()
         self.logger.info('Symmetrization completed (%g seconds)' % (toc-tic))
 
-    def fft_window(self, shape, alpha=0.5):
+    def fft_weights(self, shape, alpha=0.5):
+        from scipy.signal import tukey
+        x = tukey(shape[0], alpha=alpha)
+        y = tukey(shape[1], alpha=alpha)
+        z = tukey(shape[2], alpha=alpha)
+        return np.einsum('i,j,k->ijk', 1.0/np.where(z>0, z, z[1]/2), 
+                                       1.0/np.where(y>0, y, y[1]/2),
+                                       1.0/np.where(x>0, x, x[1]/2))
+
+    def fft_taper(self, shape, alpha=0.5):
         from scipy.signal import tukey
         x = tukey(shape[0], alpha=alpha)
         y = tukey(shape[1], alpha=alpha)
@@ -1871,8 +1879,7 @@ class NXMultiReduce(NXReduce):
                 return
         tic = timeit.default_timer()
         symm_data = self.entry[self.symm_transform].nxsignal[:-1,:-1,:-1].nxvalue
-        fft_taper = self.entry[self.symm_transform].nxweights[:-1,:-1,:-1].nxvalue
-        symm_data = np.nan_to_num(symm_data) * fft_taper
+        symm_data *= self.fft_taper(symm_data.shape)
         fft = np.real(np.fft.fftshift(np.fft.fftn(np.fft.fftshift(symm_data))))
         fft *= (1.0 / np.prod(fft.shape))
         
@@ -2028,8 +2035,7 @@ class NXMultiReduce(NXReduce):
                 return
         tic = timeit.default_timer()
         symm_data = self.entry[self.symm_transform]['filled_data'][:-1,:-1,:-1].nxvalue
-        fft_taper = self.entry[self.symm_transform].nxweights[:-1,:-1,:-1].nxvalue
-        symm_data = np.nan_to_num(symm_data) * fft_taper
+        symm_data *= self.fft_taper(symm_data.shape)
         fft = np.real(np.fft.fftshift(np.fft.fftn(np.fft.fftshift(symm_data))))
         fft *= (1.0 / np.prod(fft.shape))
         
