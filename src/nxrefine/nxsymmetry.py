@@ -21,7 +21,7 @@ class NXSymmetry(object):
             self._function = self.triclinic
         self._data = data
         self._signal = np.nan_to_num(data.nxsignal.nxvalue)
-        self._wts = data.nxweights.nxvalue
+        self._wts = np.nan_to_num(data.nxweights.nxvalue, nan=1.0)
 
     def triclinic(self, data):
         """Laue group: -1"""
