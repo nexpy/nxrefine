@@ -1899,8 +1899,8 @@ class NXMultiReduce(NXReduce):
                     scaling_factor=self.refine.b)
         z = NXfield(np.fft.fftshift(np.fft.fftfreq(fft.shape[0], dl)), name='z',
                     scaling_factor=self.refine.c)
-        self.entry['total_pdf'] = NXdata(pdf, (z, y, x), 
-                                   angles=self.refine.lattice_parameters[3:])
+        self.entry['total_pdf'] = NXdata(pdf, (z, y, x))
+        self.entry['total_pdf'].attrs['angles'] = self.refine.lattice_parameters[3:]
         self.logger.info("'{}' added to entry".format('total_pdf'))
         toc = timeit.default_timer()
         self.logger.info('Total PDF calculated (%g seconds)' % (toc-tic))
@@ -2055,8 +2055,8 @@ class NXMultiReduce(NXReduce):
                     scaling_factor=self.refine.b)
         z = NXfield(np.fft.fftshift(np.fft.fftfreq(fft.shape[0], dl)), name='z',
                     scaling_factor=self.refine.c)
-        self.entry['pdf'] = NXdata(pdf, (z, y, x), 
-                                   angles=self.refine.lattice_parameters[3:])
+        self.entry['pdf'] = NXdata(pdf, (z, y, x))
+        self.entry['pdf'].attrs['angles'] = self.refine.lattice_parameters[3:]
         self.logger.info("'{}' added to entry".format('pdf'))
         toc = timeit.default_timer()
         self.logger.info('Delta-PDF calculated (%g seconds)' % (toc-tic))
