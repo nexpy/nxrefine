@@ -1687,14 +1687,18 @@ class NXMultiReduce(NXReduce):
 
     def complete(self, program):
         complete = True
-        for entry in self.entries:
-            if program not in self.root[entry]:
+        if program == 'nxcombine' or program == 'nxmasked_combine':
+            if program not in self.entry:
                 complete = False
-        if not complete and program == 'nxmasked_transform':
-            complete = True
+        elif program == 'nxtransform' or program == 'nxmasked_transform':
             for entry in self.entries:
-                if 'nxmask' not in self.root[entry]:
-                    complete = False                        
+                if program not in self.root[entry]:
+                    complete = False
+            if not complete and program == 'nxmasked_transform':
+                complete = True
+                for entry in self.entries:
+                    if 'nxmask' not in self.root[entry]:
+                        complete = False                        
         return complete
 
     def nxcombine(self):
