@@ -1782,10 +1782,19 @@ class NXMultiReduce(NXReduce):
         return 'cctw merge %s -o %s' % (input, output)
 
     def nxpdf(self):
-        if self.not_complete('nxpdf') and self.pdf:
-            if not self.complete('nxcombine'):
-                self.logger.info(
-                    'Cannot calculate PDFs until the transforms are combined')
+        if self.mask:
+            task = 'nxmasked_pdf'
+            title = 'Masked PDF'
+        else:
+            task = 'nxpdf'
+            title = 'PDF'
+        if self.not_complete(task) and self.pdf:
+            if self.mask:
+                if not self.complete('nxmasked_combine'):
+                    self.logger.info('Cannot calculate PDF until the masked transforms are combined')
+                    return
+            elif not self.complete('nxcombine'):
+                self.logger.info('Cannot calculate PDF until the transforms are combined')
                 return
             elif self.refine.laue_group not in self.refine.laue_groups:
                 self.logger.info('Need to define Laue group before PDF calculation')
@@ -1850,8 +1859,8 @@ class NXMultiReduce(NXReduce):
                 self.logger.info('Total PDF file already exists')
                 return
         tic = timeit.default_timer()
-        symm_data = self.entry['symm_transform'].nxsignal[:-1,:-1,:-1].nxvalue
-        fft_taper = self.entry['symm_transform'].nxweights[:-1,:-1,:-1].nxvalue
+        symm_data = self.entry[self.symm_transform].nxsignal[:-1,:-1,:-1].nxvalue
+        fft_taper = self.entry[self.symm_transform].nxweights[:-1,:-1,:-1].nxvalue
         symm_data = np.nan_to_num(symm_data) * fft_taper
         fft = np.real(np.fft.fftshift(np.fft.fftn(np.fft.fftshift(symm_data))))
         fft *= (1.0 / np.prod(fft.shape))
@@ -1865,7 +1874,7 @@ class NXMultiReduce(NXReduce):
         pdf = NXlink('/entry/pdf/pdf', file=self.total_pdf_file, name='pdf')
         
         dl, dk, dh = [(ax[1]-ax[0]).nxvalue 
-                      for ax in self.entry['symm_transform'].nxaxes]
+                      for ax in self.entry[self.symm_transform].nxaxes]
         x = NXfield(np.fft.fftshift(np.fft.fftfreq(fft.shape[2], dh)), name='x',
                     scaling_factor=self.refine.a)
         y = NXfield(np.fft.fftshift(np.fft.fftfreq(fft.shape[1], dk)), name='y',
@@ -2007,8 +2016,8 @@ class NXMultiReduce(NXReduce):
                 self.logger.info('Delta-PDF file already exists')
                 return
         tic = timeit.default_timer()
-        symm_data = self.entry['symm_transform/filled_data'][:-1,:-1,:-1].nxvalue
-        fft_taper = self.entry['symm_transform'].nxweights[:-1,:-1,:-1].nxvalue
+        symm_data = self.entry[self.symm_transform]['filled_data'][:-1,:-1,:-1].nxvalue
+        fft_taper = self.entry[self.symm_transform].nxweights[:-1,:-1,:-1].nxvalue
         symm_data = np.nan_to_num(symm_data) * fft_taper
         fft = np.real(np.fft.fftshift(np.fft.fftn(np.fft.fftshift(symm_data))))
         fft *= (1.0 / np.prod(fft.shape))
@@ -2022,7 +2031,7 @@ class NXMultiReduce(NXReduce):
         pdf = NXlink('/entry/pdf/pdf', file=self.pdf_file, name='pdf')
         
         dl, dk, dh = [(ax[1]-ax[0]).nxvalue 
-                      for ax in self.entry['symm_transform'].nxaxes]
+                      for ax in self.entry[self.symm_transform].nxaxes]
         x = NXfield(np.fft.fftshift(np.fft.fftfreq(fft.shape[2], dh)), name='x',
                     scaling_factor=self.refine.a)
         y = NXfield(np.fft.fftshift(np.fft.fftfreq(fft.shape[1], dk)), name='y',
@@ -2084,7 +2093,7 @@ class NXMultiReduce(NXReduce):
 
     def command(self):
         command = 'nxreduce '
-        switches = ['-d %s' %  self.directory, '-e %s' % ' '.join(self.entries)]
+        switches = ['-d %s' %  self.directory]
         if self.combine:
             switches.append('--combine')
         if self.pdf:
@@ -2106,7 +2115,10 @@ class NXMultiReduce(NXReduce):
             else:
                 self.db.queue_task(self.wrapper_file, 'nxcombine', 'entry')
         if self.pdf:
-            self.db.queue_task(self.wrapper_file, 'nxpdf', 'entry')
+            if self.mask:
+                self.db.queue_task(self.wrapper_file, 'nxmasked_pdf', 'entry')
+            else:
+                self.db.queue_task(self.wrapper_file, 'nxpdf', 'entry')
 
 
 class NXBlob(object):
