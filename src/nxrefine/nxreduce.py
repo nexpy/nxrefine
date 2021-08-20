@@ -1811,6 +1811,12 @@ class NXMultiReduce(NXReduce):
         else:
             self.logger.info('PDF already calculated')
 
+    def set_memory(self, data):
+        signal = data.nxsignal
+        total_size = np.prod(signal.shape) * np.dtype(signal.dtype).itemsize / 1e6
+        if total_size > nxgetmemory():
+            nxsetmemory(total_size + 1000)
+
     def symmetrize(self, laue_group='-1'):
         if self.mask:
             transform = 'masked_transform'
@@ -1828,6 +1834,7 @@ class NXMultiReduce(NXReduce):
             r = NXReduce(self.root[entry])
             if i == 0:
                 summed_transforms = r.entry[transform]
+                self.set_memory(self, summed_transforms)
             else:
                 summed_transforms += r.entry[transform]
         symmetry = NXSymmetry(summed_transforms, laue_group)
