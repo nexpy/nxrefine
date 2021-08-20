@@ -1834,7 +1834,7 @@ class NXMultiReduce(NXReduce):
             r = NXReduce(self.root[entry])
             if i == 0:
                 summed_transforms = r.entry[transform]
-                self.set_memory(self, summed_transforms)
+                self.set_memory(summed_transforms)
             else:
                 summed_transforms += r.entry[transform]
         symmetry = NXSymmetry(summed_transforms, laue_group)
