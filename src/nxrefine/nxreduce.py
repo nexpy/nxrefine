@@ -1830,7 +1830,7 @@ class NXMultiReduce(NXReduce):
                 return
         self.logger.info('Transforms being symmetrized')
         tic = timeit.default_timer()
-        self.set_memory(self.entry[transform].shape)
+        self.set_memory(self.entry[transform])
         for i, entry in enumerate(self.entries):
             r = NXReduce(self.root[entry])
             if i == 0:
