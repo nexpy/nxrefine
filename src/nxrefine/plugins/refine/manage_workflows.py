@@ -584,6 +584,7 @@ class WorkflowDialog(NXDialog):
                                                       stderr=subprocess.PIPE)
         if process.returncode == 0:
             lines = [l for l in sorted(process.stdout.decode().split('\n')) if l]
+            lines = [l for l in lines if 'grep' not in l]
             self.output_box.setPlainText('\n'.join(lines))
         else:
             self.output_box.setPlainText(process.stderr.decode())
