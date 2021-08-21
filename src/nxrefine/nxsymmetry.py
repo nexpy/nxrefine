@@ -79,7 +79,7 @@ class NXSymmetry(object):
         return outarr
 
     def symmetrize(self):
-        result = NXfield(self._function(self._signal)/self._function(self._wts), 
-                         name='data')
-        return NXdata(result, self._data.nxaxes)
+        result = np.nan_to_num(self._function(self._signal)/
+                               self._function(self._wts))
+        return NXdata(NXfield(result, name='data'), self._data.nxaxes)
 
