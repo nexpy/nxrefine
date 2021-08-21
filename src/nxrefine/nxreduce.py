@@ -2012,8 +2012,9 @@ class NXMultiReduce(NXReduce):
                         hslice = slice(idh[ih]-mh, idh[ih]+mh+1)
                         try:
                             v = entry['data/fill'][(lslice, kslice, hslice)].nxdata
-                            w = LaplaceInterpolation.matern_3d_grid(v, idx)
-                            entry['data/fill'][(lslice, kslice, hslice)] = w
+                            if v.max() > 0.0:
+                                w = LaplaceInterpolation.matern_3d_grid(v, idx)
+                                entry['data/fill'][(lslice, kslice, hslice)] = w
                         except Exception:
                             pass
         if 'filled_data' in self.entry[self.symm_transform]:
