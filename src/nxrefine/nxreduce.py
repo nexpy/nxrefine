@@ -2015,8 +2015,7 @@ class NXMultiReduce(NXReduce):
                             w = LaplaceInterpolation.matern_3d_grid(v, idx)
                             entry['data/fill'][(lslice, kslice, hslice)] = w
                         except Exception:
-                            self.logger.info(
-                                'Failed to fill ({},{},{})'.format(h, k, l))
+                            pass
         if 'filled_data' in self.entry[self.symm_transform]:
             del self.entry[self.symm_transform]['filled_data']
         self.entry[self.symm_transform]['filled_data'] = NXlink(
