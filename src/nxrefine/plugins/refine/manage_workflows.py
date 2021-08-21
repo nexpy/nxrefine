@@ -40,6 +40,8 @@ class WorkflowDialog(NXDialog):
 
     def choose_directory(self):
         super(WorkflowDialog, self).choose_directory()
+        if self.scroll_area is None:
+            self.add_grid_headers()
         self.sample_directory = self.get_directory()
         self.sample = os.path.basename(os.path.dirname(self.sample_directory))
         self.label = os.path.join(os.path.basename(self.sample_directory))
@@ -61,6 +63,33 @@ class WorkflowDialog(NXDialog):
         self.db = NXDatabase(db_file)
         self.server = NXServer()
         self.update()
+
+    def add_grid_headers(self):
+        header_grid = QtWidgets.QGridLayout()
+        header_widget = NXWidget()
+        header_widget.set_layout(header_grid, 'stretch')
+
+        header_grid.setSpacing(1)
+        row = 0
+        columns = ['Scan', 'data', 'link', 'max', 'find', 'copy', 'refine', 
+                   'prepare', 'transform', 'masked_transform', 'combine', 
+                   'masked_combine', 'pdf', 'masked_pdf', 'overwrite', 'sync']
+        header = {}
+        for col, column in enumerate(columns):
+            header[column] = NXLabel(column, bold=True, width=75, align='center')
+            if column == 'transform' or column == 'combine' or column == 'pdf':
+                header_grid.addWidget(header[column], row, col, 1, 2,
+                                      QtCore.Qt.AlignHCenter)
+            elif 'masked' not in column:
+                header_grid.addWidget(header[column], row, col)
+                header[column].setAlignment(QtCore.Qt.AlignHCenter)
+        row = 1
+        columns = 3 * ['regular', 'masked']
+        for col, column in enumerate(columns):
+            header[column] = NXLabel(column, width=75, align='center')
+            header_grid.addWidget(header[column], row, col+8)
+        header_widget.setStyleSheet("border:0; margin:0")
+        self.insert_layout(2, header_widget)
 
     def choose_file(self):
         super(WorkflowDialog, self).choose_file()
@@ -119,34 +148,16 @@ class WorkflowDialog(NXDialog):
         self.scroll_area = NXScrollArea(self.grid_widget)
         self.scroll_area.setMinimumSize(1250, 300)
 
-        self.insert_layout(2, self.scroll_area)
+        self.insert_layout(3, self.scroll_area)
         self.grid.setSpacing(1)
-        row = 0
-        columns = ['Scan', 'data', 'link', 'max', 'find', 'copy', 'refine', 
-                   'prepare', 'transform', 'masked_transform', 'combine', 
-                   'masked_combine', 'pdf', 'masked_pdf', 'overwrite', 'sync']
-        header = {}
-        for col, column in enumerate(columns):
-            header[column] = NXLabel(column, bold=True, width=75)
-            if column == 'transform' or column == 'combine' or column == 'pdf':
-                self.grid.addWidget(header[column], row, col, 1, 2,
-                                    QtCore.Qt.AlignHCenter)
-            elif 'masked' not in column:
-                self.grid.addWidget(header[column], row, col)
-                header[column].setAlignment(QtCore.Qt.AlignHCenter)
-        row = 1
-        columns = 3 * ['regular', 'masked']
-        for col, column in enumerate(columns):
-            header[column] = NXLabel(column, width=75, align='center')
-            self.grid.addWidget(header[column], row, col+8)
 
         self.scans = {}
         self.scans_backup = {}
 
+        row = 0
         # Create (unchecked) checkboxes
         for wrapper_file, scan in wrapper_files.items():
             scan_label = os.path.basename(scan)
-            row += 1
             status = {}
             status['scan'] = NXLabel(scan_label)
             if self.parent_file == wrapper_file:
@@ -184,7 +195,7 @@ class WorkflowDialog(NXDialog):
             self.grid.addWidget(status['overwrite'], row, 14, QtCore.Qt.AlignCenter)
             self.grid.addWidget(status['sync'], row, 15, QtCore.Qt.AlignCenter)
             self.scans[scan] = status
-        row += 1
+            row += 1
         self.grid.addWidget(NXLabel('All'), row, 0, QtCore.Qt.AlignCenter)
         all_boxes = {}
         all_boxes['link'] = self.new_checkbox(lambda:self.select_status('link'))
@@ -563,7 +574,7 @@ class WorkflowDialog(NXDialog):
             self.output_box.setPlainText('No Entries')
 
     def procview(self):
-        patterns = ['nxreduce', 'nxcombine', 'nxsum']
+        patterns = ['nxreduce', 'nxcombine', 'nxpdf', 'nxsum']
         if self.server.server_type == 'multicore':
             command = "ps -aux | grep -e {}".format(" -e ".join(patterns))
         else:
