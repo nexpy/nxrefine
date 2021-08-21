@@ -697,6 +697,14 @@ class NXRefine(object):
     def two_theta_hkl(self, h, k, l):
         return self.unit_cell.two_theta((h, k, l), self.wavelength, deg=True)
 
+    def two_theta_max(self):
+        ym, xm = self.shape
+        max_radius = np.sqrt(max(self.xc**2 + self.yc**2,
+                                 (xm-self.xc)**2 + self.yc**2,
+                                 self.xc**2 + (ym-self.yc**2),
+                                 (xm-self.xc)**2 + (ym-self.yc)**2))
+        return np.arcsin(max_radius * self.pixel_size / self.distance) * degrees
+
     def make_rings(self):
         _rings = {}
         _r = 0
