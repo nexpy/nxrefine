@@ -1808,6 +1808,7 @@ class NXMultiReduce(NXReduce):
             self.total_pdf()
             self.punch_and_fill()
             self.delta_pdf()
+            self.record(task, laue=self.refine.laue_group, radius=self.radius)
         else:
             self.logger.info('PDF already calculated')
 
