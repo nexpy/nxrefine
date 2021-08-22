@@ -576,7 +576,7 @@ class WorkflowDialog(NXDialog):
     def procview(self):
         patterns = ['nxreduce', 'nxcombine', 'nxpdf', 'nxsum']
         if self.server.server_type == 'multicore':
-            command = "ps -aux | grep -e {}".format(" -e ".join(patterns))
+            command = "ps -auxww | grep -e {}".format(" -e ".join(patterns))
         else:
             command = "pdsh -w {} 'ps -f' | grep -e {}".format(
                 ",".join(self.server.cpus), " -e ".join(patterns))
@@ -584,7 +584,7 @@ class WorkflowDialog(NXDialog):
                                                       stderr=subprocess.PIPE)
         if process.returncode == 0:
             lines = [l for l in sorted(process.stdout.decode().split('\n')) if l]
-            lines = [l for l in lines if 'grep' not in l]
+            lines = [l[l.index('nx'):] for l in lines if 'grep' not in l]
             self.output_box.setPlainText('\n'.join(lines))
         else:
             self.output_box.setPlainText(process.stderr.decode())
