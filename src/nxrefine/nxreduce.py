@@ -1663,7 +1663,7 @@ class NXMultiReduce(NXReduce):
             entry = 'entry'
         super(NXMultiReduce, self).__init__(entry=entry, directory=directory,
                                             entries=entries, overwrite=overwrite)
-        self.refine = NXRefine(self.entry)
+        self.refine = NXRefine(self.root[self.entries[0]])
         self.combine = combine
         self.pdf = pdf
         self.mask = mask
@@ -1913,52 +1913,58 @@ class NXMultiReduce(NXReduce):
         dhp = np.rint(self.radius / (dh * self.refine.astar))
         dkp = np.rint(self.radius / (dk * self.refine.bstar))
         dlp = np.rint(self.radius / (dl * self.refine.cstar))
-        ml, mk, mh = np.ogrid[0:8*int(dlp)+1, 0:8*int(dkp)+1, 0:8*int(dhp)+1]
-        mask = ((((ml-4*dlp)/dlp)**2+((mk-4*dkp)/dkp)**2+((mh-4*dhp)/dhp)**2) <= 1)
+        ml, mk, mh = np.ogrid[0:4*int(dlp)+1, 0:4*int(dkp)+1, 0:4*int(dhp)+1]
+        mask = ((((ml-2*dlp)/dlp)**2+((mk-2*dkp)/dkp)**2+((mh-2*dhp)/dhp)**2) <= 1)
         mask_array = np.where(mask==0, 0, 1)
         mask_indices = [list(idx) for idx in list(np.argwhere(mask==1))]
         return mask_array, mask_indices
 
     def punch_holes(self):
         self.logger.info('Punching holes')
+
         tic = timeit.default_timer()
         symm_group = self.entry[self.symm_transform]
         Qh, Qk, Ql = (symm_group['Qh'], symm_group['Qk'], symm_group['Ql'])
-        idh = np.argwhere(np.remainder(Qh,1)==0)[:,0]
-        idk = np.argwhere(np.remainder(Qk,1)==0)[:,0]
-        idl = np.argwhere(np.remainder(Ql,1)==0)[:,0]
-        h_list = Qh[idh].nxvalue.astype(int)
-        k_list = Qk[idk].nxvalue.astype(int)
-        l_list = Ql[idl].nxvalue.astype(int)
 
-        entry = nxload(self.symm_file, 'rw')['entry']
-        if 'punch' in entry['data']:
-            del entry['data/punch']
-        entry['data/punch'] = entry['data/data']
+        root = nxload(self.symm_file, 'rw')
+        entry = root['entry']
         
         mask, _ = self.hole_mask()
         ml = int((mask.shape[0]-1)/2)
         mk = int((mask.shape[1]-1)/2)
         mh = int((mask.shape[2]-1)/2)
-        for il,l in enumerate(l_list):
-            for ik,k in enumerate(k_list):
-                for ih,h in enumerate(h_list):
-                    if not self.refine.absent(h,k,l):
-                        lslice = slice(idl[il]-ml, idl[il]+ml+1)
-                        kslice = slice(idk[ik]-mk, idk[ik]+mk+1)
-                        hslice = slice(idh[ih]-mh, idh[ih]+mh+1)
-                        try:
-                            entry['data/punch'][(lslice, kslice, hslice)] += mask
-                        except Exception:
-                            pass
+        symm_data = entry['data/data'].nxdata
+        punch_data = np.zeros(shape=symm_data.shape, dtype=symm_data.dtype)
+        self.refine.polar_max = self.refine.two_theta_max()
+        for h, k, l in self.refine.indices:
+            try:
+                ih = np.argwhere(np.isclose(Qh, h))[0][0]
+                ik = np.argwhere(np.isclose(Qk, k))[0][0]
+                il = np.argwhere(np.isclose(Ql, l))[0][0]
+                lslice = slice(il-ml, il+ml+1)
+                kslice = slice(ik-mk, ik+mk+1)
+                hslice = slice(ih-mh, ih+mh+1)
+                punch_data[(lslice, kslice, hslice)] = mask
+            except Exception as error:
+                pass
+        symmetry = NXSymmetry(punch_data, self.refine.laue_group)
+        punch_data = symmetry.symmetrize()
+        changed_idx = np.where(punch_data>0)
+        symm_data[changed_idx] *= 0
+
+        if 'punch' in entry['data']:
+            del entry['data/punch']
+        entry['data/punch'] = symm_data
         if 'punched_data' in self.entry[self.symm_transform]:
             del self.entry[self.symm_transform]['punched_data']
         self.entry[self.symm_transform]['punched_data'] = NXlink(
                                     '/entry/data/punch', file=self.symm_file)
         self.logger.info("'punched_data' added to '{}'".format(
                                                           self.symm_transform))
+
         toc = timeit.default_timer()
-        self.logger.info('Hole punch completed (%g seconds)' % (toc-tic))
+        self.logger.info('Punches completed (%g seconds)' % (toc-tic))
+
 
     def init_julia(self):
         if self.julia is None:
@@ -1983,18 +1989,8 @@ class NXMultiReduce(NXReduce):
         tic = timeit.default_timer()
         symm_group = self.entry[self.symm_transform]
         Qh, Qk, Ql = (symm_group['Qh'], symm_group['Qk'], symm_group['Ql'])
-        idh = np.argwhere(np.remainder(Qh,1)==0)[:,0].astype(int)[1:-1]
-        idk = np.argwhere(np.remainder(Qk,1)==0)[:,0].astype(int)[1:-1]
-        idl = np.argwhere(np.remainder(Ql,1)==0)[:,0].astype(int)[1:-1]
-        h_list = list(Qh[idh].nxvalue.astype(int))
-        k_list = list(Qk[idk].nxvalue.astype(int))
-        l_list = list(Ql[idl].nxvalue.astype(int))
 
         root = nxload(self.symm_file, 'rw')
-        if 'fill' in root['entry/data']:
-            del root['entry/data/fill']
-        root.nxfile.copy('/entry/data/data', '/entry/data/fill')
-        root.reload()
         entry = root['entry']
         
         mask, mask_indices = self.hole_mask()
@@ -2003,26 +1999,38 @@ class NXMultiReduce(NXReduce):
         ml = int((mask.shape[0]-1)/2)
         mk = int((mask.shape[1]-1)/2)
         mh = int((mask.shape[2]-1)/2)
-        for il,l in enumerate(l_list):
-            for ik,k in enumerate(k_list):
-                for ih,h in enumerate(h_list):
-                    if not self.refine.absent(h, k, l):
-                        lslice = slice(idl[il]-ml, idl[il]+ml+1)
-                        kslice = slice(idk[ik]-mk, idk[ik]+mk+1)
-                        hslice = slice(idh[ih]-mh, idh[ih]+mh+1)
-                        try:
-                            v = entry['data/fill'][(lslice, kslice, hslice)].nxdata
-                            if v.max() > 0.0:
-                                w = LaplaceInterpolation.matern_3d_grid(v, idx)
-                                entry['data/fill'][(lslice, kslice, hslice)] = w
-                        except Exception:
-                            pass
+        symm_data = entry['data/data'].nxdata
+        fill_data = np.zeros(shape=symm_data.shape, dtype=symm_data.dtype)
+        self.refine.polar_max = self.refine.two_theta_max()
+        for h, k, l in self.refine.indices:
+            try:
+                ih = np.argwhere(np.isclose(Qh, h))[0][0]
+                ik = np.argwhere(np.isclose(Qk, k))[0][0]
+                il = np.argwhere(np.isclose(Ql, l))[0][0]
+                lslice = slice(il-ml, il+ml+1)
+                kslice = slice(ik-mk, ik+mk+1)
+                hslice = slice(ih-mh, ih+mh+1)
+                v = symm_data[(lslice, kslice, hslice)]
+                if v.max() > 0.0:
+                    w = LaplaceInterpolation.matern_3d_grid(v, idx)
+                    fill_data[(lslice, kslice, hslice)] = w
+            except Exception as error:
+                pass
+        symmetry = NXSymmetry(fill_data, self.refine.laue_group)
+        fill_data = symmetry.symmetrize()
+        changed_idx = np.where(fill_data>0)
+        symm_data[changed_idx] = fill_data[changed_idx]
+
+        if 'fill' in entry['data']:
+            del entry['data/fill']        
+        entry['data/fill'] = symm_data
         if 'filled_data' in self.entry[self.symm_transform]:
             del self.entry[self.symm_transform]['filled_data']
         self.entry[self.symm_transform]['filled_data'] = NXlink(
                                     '/entry/data/fill', file=self.symm_file)
         self.logger.info("'filled_data' added to '{}'".format(
                                                           self.symm_transform))
+
         toc = timeit.default_timer()
         self.logger.info('Punch-and-fill completed (%g seconds)' % (toc-tic))
 
