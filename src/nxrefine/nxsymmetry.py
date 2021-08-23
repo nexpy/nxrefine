@@ -88,8 +88,9 @@ class NXSymmetry(object):
         return outarr
 
     def symmetrize(self):
-        result = np.nan_to_num(self._function(self._signal)/
-                               self._function(self._wts))
+        signal = np.nan_to_num(self._function(self._signal))
+        weights = np.nan_to_num(self._function(self._wts))
+        result = np.where(weights>0, signal/weights, 0.0)
         if self._data:
             return NXdata(NXfield(result, name='data'), self._data.nxaxes)
         else:
