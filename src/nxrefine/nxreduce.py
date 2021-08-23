@@ -1804,7 +1804,7 @@ class NXMultiReduce(NXReduce):
                 self.logger.info('Need to define Laue group before PDF calculation')
                 return
             self.record_start('nxpdf')
-            self.symmetrize(self.refine.laue_group)
+            self.symmetrize_transform(self.refine.laue_group)
             self.total_pdf()
             self.punch_holes()
             self.punch_and_fill()
@@ -1819,7 +1819,7 @@ class NXMultiReduce(NXReduce):
         if total_size > nxgetmemory():
             nxsetmemory(total_size + 1000)
 
-    def symmetrize(self, laue_group='-1'):
+    def symmetrize_transform(self):
         if self.mask:
             transform = 'masked_transform'
         else:
@@ -1839,7 +1839,7 @@ class NXMultiReduce(NXReduce):
                 summed_transforms = r.entry[transform]
             else:
                 summed_transforms += r.entry[transform]
-        symmetry = NXSymmetry(summed_transforms, laue_group)
+        symmetry = NXSymmetry(summed_transforms, self.refine.laue_group)
         root = nxload(self.symm_file, 'a')
         root['entry'] = NXentry()
         root['entry/data'] = symmetry.symmetrize()
@@ -1920,6 +1920,24 @@ class NXMultiReduce(NXReduce):
         mask_indices = [list(idx) for idx in list(np.argwhere(mask==1))]
         return mask_array, mask_indices
 
+    @property
+    def indices(self):
+        self.refine.polar_max = self.refine.two_theta_max()
+        if self.refine.laue_group in ['-3', '-3m', '6/m', '6/mmm']:
+            _indices = []
+            for idx in self.refine.indices:
+                _indices += self.refine.indices_hkl(*idx)
+            return _indices
+        else:
+            return self.refine.indices
+
+    def symmetrize(self, data):
+        if refine.laue_group in ['-3', '-3m', '6/m', '6/mmm']:
+            return data
+        else:
+            symmetry = NXSymmetry(data, self.refine.laue_group)
+            return symmetry.symmetrize()
+
     def punch_holes(self):
         self.logger.info('Punching holes')
 
@@ -1936,8 +1954,7 @@ class NXMultiReduce(NXReduce):
         mh = int((mask.shape[2]-1)/2)
         symm_data = entry['data/data'].nxdata
         punch_data = np.zeros(shape=symm_data.shape, dtype=symm_data.dtype)
-        self.refine.polar_max = self.refine.two_theta_max()
-        for h, k, l in self.refine.indices:
+        for h, k, l in self.indices:
             try:
                 ih = np.argwhere(np.isclose(Qh, h))[0][0]
                 ik = np.argwhere(np.isclose(Qk, k))[0][0]
@@ -1948,8 +1965,7 @@ class NXMultiReduce(NXReduce):
                 punch_data[(lslice, kslice, hslice)] = mask
             except Exception as error:
                 pass
-        symmetry = NXSymmetry(punch_data, self.refine.laue_group)
-        punch_data = symmetry.symmetrize()
+        punch_data = self.symmetrize(punch_data)
         changed_idx = np.where(punch_data>0)
         symm_data[changed_idx] *= 0
 
@@ -1965,7 +1981,6 @@ class NXMultiReduce(NXReduce):
 
         toc = timeit.default_timer()
         self.logger.info('Punches completed (%g seconds)' % (toc-tic))
-
 
     def init_julia(self):
         if self.julia is None:
@@ -2003,7 +2018,7 @@ class NXMultiReduce(NXReduce):
         symm_data = entry['data/data'].nxdata
         fill_data = np.zeros(shape=symm_data.shape, dtype=symm_data.dtype)
         self.refine.polar_max = self.refine.two_theta_max()
-        for h, k, l in self.refine.indices:
+        for h, k, l in self.indices:
             try:
                 ih = np.argwhere(np.isclose(Qh, h))[0][0]
                 ik = np.argwhere(np.isclose(Qk, k))[0][0]
@@ -2017,8 +2032,7 @@ class NXMultiReduce(NXReduce):
                     fill_data[(lslice, kslice, hslice)] = w
             except Exception as error:
                 pass
-        symmetry = NXSymmetry(fill_data, self.refine.laue_group)
-        fill_data = symmetry.symmetrize()
+        fill_data = self.symmetrize(fill_data)
         changed_idx = np.where(fill_data>0)
         symm_data[changed_idx] = fill_data[changed_idx]
 
