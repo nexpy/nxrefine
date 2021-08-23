@@ -1830,7 +1830,7 @@ class NXMultiReduce(NXReduce):
             else:
                 self.logger.info('Symmetrized data already exists')
                 return
-        self.logger.info('Transforms being symmetrized')
+        self.logger.info('Transform being symmetrized')
         tic = timeit.default_timer()
         self.set_memory(self.entry[transform])
         for i, entry in enumerate(self.entries):
