@@ -658,6 +658,14 @@ class NXRefine(object):
             sg = self.space_group
         return sgtbx.space_group_info(sg)
 
+    @sgi.setter
+    def sgi(self, value):
+        _sgi = sgtbx.space_group_info(value)
+        self.space_group = _sgi.type().lookup_symbol()
+        self.symmetry = _sgi.group().crystal_system().lower()
+        self.laue_group = _sgi.group().laue_group_type()
+        self.centring = self.space_group[0]
+
     @property
     def sgn(self):
         return self.sgi.type().lookup_symbol()
