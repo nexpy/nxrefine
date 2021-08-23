@@ -1804,7 +1804,7 @@ class NXMultiReduce(NXReduce):
                 self.logger.info('Need to define Laue group before PDF calculation')
                 return
             self.record_start('nxpdf')
-            self.symmetrize_transform(self.refine.laue_group)
+            self.symmetrize_transform()
             self.total_pdf()
             self.punch_holes()
             self.punch_and_fill()
