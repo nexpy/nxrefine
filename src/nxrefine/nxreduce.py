@@ -1806,6 +1806,7 @@ class NXMultiReduce(NXReduce):
             self.record_start('nxpdf')
             self.symmetrize(self.refine.laue_group)
             self.total_pdf()
+            self.punch_holes()
             self.punch_and_fill()
             self.delta_pdf()
             self.record(task, laue=self.refine.laue_group, radius=self.radius)
