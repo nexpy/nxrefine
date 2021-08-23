@@ -399,7 +399,8 @@ class NXDatabase(object):
         if task == 'nxcopy' and is_parent(f.filename, sample_dir):
             setattr(f, task, DONE)
         else:
-            if task == 'nxcombine' or task == 'nxmasked_combine':
+            if (task == 'nxcombine' or task == 'nxmasked_combine' or
+                task == 'nxpdf' or task == 'nxmasked_pdf'):
                 entries = ['entry']
             else:
                 entries = f.get_entries()
