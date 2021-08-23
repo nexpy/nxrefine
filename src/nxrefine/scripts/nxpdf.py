@@ -14,6 +14,8 @@ def main():
     parser = argparse.ArgumentParser(description="Calculate PDF transforms")
     parser.add_argument('-d', '--directory', required=True, 
                         help='scan directory')
+    parser.add_argument('-m', '--mask', action='store_true', 
+                        help='Calculate using masked transforms')
     parser.add_argument('-o', '--overwrite', action='store_true', 
                         help='overwrite existing transforms')
     parser.add_argument('-q', '--queue', action='store_true',
@@ -21,7 +23,8 @@ def main():
     
     args = parser.parse_args()
     
-    reduce = NXMultiReduce(args.directory, pdf=True, overwrite=args.overwrite)
+    reduce = NXMultiReduce(args.directory, pdf=True, mask=args.mask,
+                           overwrite=args.overwrite)
     if args.queue:
         reduce.queue()
     else:
