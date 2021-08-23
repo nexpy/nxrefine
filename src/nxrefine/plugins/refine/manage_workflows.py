@@ -529,7 +529,8 @@ class WorkflowDialog(NXDialog):
         with open(os.path.join(self.task_directory, 'nxlogger.log')) as f:
             lines = f.readlines()
         text = [line.replace(prefix, '').replace(alternate_prefix, '') 
-                for line in lines if scan in line if entry in line]
+                for line in lines if scan in line 
+                if (entry in line or 'entry' in line)]
         if text:
             self.output_box.setPlainText(''.join(text))
             self.output_box.verticalScrollBar().setValue(
