@@ -1932,7 +1932,7 @@ class NXMultiReduce(NXReduce):
             return self.refine.indices
 
     def symmetrize(self, data):
-        if refine.laue_group in ['-3', '-3m', '6/m', '6/mmm']:
+        if self.refine.laue_group in ['-3', '-3m', '6/m', '6/mmm']:
             return data
         else:
             symmetry = NXSymmetry(data, self.refine.laue_group)
