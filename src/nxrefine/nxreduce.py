@@ -552,7 +552,6 @@ class NXReduce(QtCore.QObject):
                                             sequence_index=len(self.entry.NXprocess)+1,
                                             version='nxrefine v'+__version__,
                                             note=note)
-        self.record_end(program)
 
     def record_start(self, program):
         """ Record that a task has started. Update database """
@@ -586,6 +585,7 @@ class NXReduce(QtCore.QObject):
             if logs:
                 self.transfer_logs(logs)
                 self.record('nxlink', logs='Transferred')
+                self.record_end('nxlink')
                 self.logger.info('Entry linked to raw data')
             else:
                 self.record_fail('nxlink')
@@ -726,6 +726,7 @@ class NXReduce(QtCore.QObject):
                 self.write_maximum(maximum)
                 self.record('nxmax', maximum=maximum,
                             first_frame=self.first, last_frame=self.last)
+                self.record_end('nxmax')
         elif self.maxcount:
             self.logger.info('Maximum counts already found')
             self.record_end('nxmax')
@@ -844,6 +845,7 @@ class NXReduce(QtCore.QObject):
                 self.record('nxfind', threshold=self.threshold,
                             first_frame=self.first, last_frame=self.last,
                             peak_number=len(peaks))
+                self.record_end('nxfind')
             else:
                 self.record_fail('nxfind')
         elif self.find:
@@ -995,6 +997,7 @@ class NXReduce(QtCore.QObject):
             if self.parent:
                 self.copy_parameters()
                 self.record('nxcopy', parent=self.parent)
+                self.record_end('nxcopy')
             else:
                 self.logger.info('No parent defined')
                 self.record_fail('nxcopy')
@@ -1028,6 +1031,7 @@ class NXReduce(QtCore.QObject):
                 if not self.gui:
                     self.write_refinement(result)
                 self.record('nxrefine', fit_report=result.fit_report)
+                self.record_end('nxrefine')
             else:
                 self.record_fail('nxrefine')
         elif self.refine:
@@ -1078,6 +1082,7 @@ class NXReduce(QtCore.QObject):
                                 command=cctw_command,
                                 output=process.stdout.decode(),
                                 errors=process.stderr.decode())
+                    self.record_end('nxtransform')
                 else:
                     self.logger.info(
                         'Transform completed - errors reported (%g seconds)'
@@ -1171,6 +1176,7 @@ class NXReduce(QtCore.QObject):
             self.link_mask()
             self.record('nxprepare', masked_file=self.mask_file, 
                         process='nxprepare_mask')
+            self.record_end('nxprepare')
             toc = timeit.default_timer()
             self.logger.info("3D Mask stored in '%s' (%g seconds)"
                              % (self.mask_file, toc-tic))
@@ -1407,6 +1413,7 @@ class NXReduce(QtCore.QObject):
                                 command=cctw_command,
                                 output=process.stdout.decode(),
                                 errors=process.stderr.decode())
+                    self.record_end('nxmasked_transform')
                 else:
                     self.logger.info(
                         'Masked transform completed - errors reported (%g seconds)'
@@ -1502,6 +1509,7 @@ class NXReduce(QtCore.QObject):
                 toc = timeit.default_timer()
                 self.logger.info('Sum completed (%g seconds)' % (toc-tic))
                 self.record('nxsum', scans=','.join(scan_list))
+                self.record_end('nxsum')
 
     def check_sum_files(self, scan_list):
         status = True
@@ -1748,6 +1756,7 @@ class NXMultiReduce(NXReduce):
                     self.record(task, command=cctw_command,
                                 output=process.stdout.decode(),
                                 errors=process.stderr.decode())
+                    self.record_end(task)
                 else:
                     self.logger.info(
                         '%s (%s) completed - errors reported (%g seconds)'
@@ -1810,6 +1819,7 @@ class NXMultiReduce(NXReduce):
             self.punch_and_fill()
             self.delta_pdf()
             self.record(task, laue=self.refine.laue_group, radius=self.radius)
+            self.record_end(task)
         else:
             self.logger.info('PDF already calculated')
 
