@@ -1847,8 +1847,13 @@ class NXMultiReduce(NXReduce):
             r = NXReduce(self.root[entry])
             if i == 0:
                 summed_transforms = r.entry[transform]
+                summed_data = summed_transforms.nxsignal.nxvalue
+                summed_weights = summed_transforms.nxweights.nxvalue
             else:
-                summed_transforms += r.entry[transform]
+                summed_data += r.entry[transform].nxsignal.nxvalue
+                summed_weights += r.entry[transform].nxweights.nxvalue
+        summed_transforms.nxsignal = summed_data
+        summed_transforms.nxweights = summed_weights
         symmetry = NXSymmetry(summed_transforms, self.refine.laue_group)
         root = nxload(self.symm_file, 'a')
         root['entry'] = NXentry()
