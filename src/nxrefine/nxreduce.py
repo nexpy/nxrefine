@@ -1846,15 +1846,16 @@ class NXMultiReduce(NXReduce):
         for i, entry in enumerate(self.entries):
             r = NXReduce(self.root[entry])
             if i == 0:
-                summed_transforms = r.entry[transform]
-                summed_data = summed_transforms.nxsignal.nxvalue
-                summed_weights = summed_transforms.nxweights.nxvalue
+                summed_data = r.entry[transform].nxsignal.nxvalue
+                summed_weights = r.entry[transform].nxweights.nxvalue
+                summed_axes = r.entry[transform].nxaxes
             else:
                 summed_data += r.entry[transform].nxsignal.nxvalue
                 summed_weights += r.entry[transform].nxweights.nxvalue
-        summed_transforms.nxsignal = summed_data
-        summed_transforms.nxweights = summed_weights
-        symmetry = NXSymmetry(summed_transforms, self.refine.laue_group)
+        summed_transforms = NXdata(NXfield(summed_data, name='data'),
+                                   summed_axes, weights=summed_weights)
+        symmetry = NXSymmetry(summed_transforms, 
+                              laue_group=self.refine.laue_group)
         root = nxload(self.symm_file, 'a')
         root['entry'] = NXentry()
         root['entry/data'] = symmetry.symmetrize()
@@ -1950,7 +1951,7 @@ class NXMultiReduce(NXReduce):
         if self.refine.laue_group in ['-3', '-3m', '6/m', '6/mmm']:
             return data
         else:
-            symmetry = NXSymmetry(data, self.refine.laue_group)
+            symmetry = NXSymmetry(data, laue_group=self.refine.laue_group)
             return symmetry.symmetrize()
 
     def punch_holes(self):

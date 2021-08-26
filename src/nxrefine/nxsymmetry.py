@@ -19,18 +19,23 @@ class NXSymmetry(object):
             self._function = laue_functions[laue_group]
         else:
             self._function = self.triclinic
-        self._wts = None
         if isinstance(data, NXdata):
             self._data = data
-            self._signal = np.nan_to_num(data.nxsignal.nxvalue)
-            if data.nxweights:
-                self._wts = np.nan_to_num(data.nxweights.nxvalue, nan=1.0)
+            signal = data.nxsignal.nxvalue
+            weights = data.nxweights.nxvalue
         else:
-            self._signal = data
             self._data = None
-        if self._wts is None:
+            if isinstance(data, NXfield):
+                signal = data.nxvalue
+            else:
+                signal = data
+            weights = None
+        self._signal = np.nan_to_num(signal)
+        if weights is None:
             self._wts = np.zeros(self._signal.shape, dtype=self._signal.dtype)
             self._wts[np.where(self._signal>0)] = 1
+        else:
+            self._wts = np.nan_to_num(weights, nan=1.0)
 
     def triclinic(self, data):
         """Laue group: -1"""
@@ -93,7 +98,8 @@ class NXSymmetry(object):
         with np.errstate(divide='ignore'):
             result = np.where(weights>0, signal/weights, 0.0)
         if self._data:
-            return NXdata(NXfield(result, name='data'), self._data.nxaxes)
+            return NXdata(NXfield(result, name=self._data.nxsignal.nxname), 
+                          self._data.nxaxes)
         else:
             return result
 
