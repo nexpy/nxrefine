@@ -518,9 +518,9 @@ class NXRefine(object):
             self.entry[transform] = NXdata(NXlink(name = 'data', 
                                            target='/entry/data/v',
                                            file=output_link), [l, k, h])
-            self.entry[transform].attrs['angles'] = (gamma_star,
-                                                     beta_star,
-                                                     alpha_star)
+            self.entry[transform].attrs['angles'] = (self.gamma_star,
+                                                     self.beta_star,
+                                                     self.alpha_star)
             self.entry[transform+'/weights'] = NXlink(target='/entry/data/n',
                                                       file=output_link)
             self.entry[transform+'/command'] = command
