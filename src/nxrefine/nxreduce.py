@@ -1813,6 +1813,7 @@ class NXMultiReduce(NXReduce):
                 self.logger.info('Need to define Laue group before PDF calculation')
                 return
             self.record_start('nxpdf')
+            self.set_memory()
             self.symmetrize_transform()
             self.total_pdf()
             self.punch_holes()
@@ -1823,8 +1824,12 @@ class NXMultiReduce(NXReduce):
         else:
             self.logger.info('PDF already calculated')
 
-    def set_memory(self, data):
-        signal = data.nxsignal
+    def set_memory(self):
+        if self.mask:
+            transform = 'masked_transform'
+        else:
+            transform = 'transform'
+        signal = self.entry[transform].nxsignal
         total_size = np.prod(signal.shape) * np.dtype(signal.dtype).itemsize / 1e6
         if total_size > nxgetmemory():
             nxsetmemory(total_size + 1000)
@@ -1842,7 +1847,6 @@ class NXMultiReduce(NXReduce):
                 return
         self.logger.info('Transform being symmetrized')
         tic = timeit.default_timer()
-        self.set_memory(self.entry[transform])
         for i, entry in enumerate(self.entries):
             r = NXReduce(self.root[entry])
             if i == 0:
