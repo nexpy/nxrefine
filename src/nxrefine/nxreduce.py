@@ -990,9 +990,11 @@ class NXReduce(QtCore.QObject):
             refine.write_angles(polar_angles, azimuthal_angles)
 
     def nxcopy(self):
-        if self.is_parent():
+        if not self.copy:
+            return
+        elif self.is_parent():
             self.logger.info('Set as parent; no parameters copied')
-        elif self.not_complete('nxcopy') and self.copy:
+        elif self.not_complete('nxcopy'):
             self.record_start('nxcopy')
             if self.parent:
                 self.copy_parameters()
@@ -1001,7 +1003,7 @@ class NXReduce(QtCore.QObject):
             else:
                 self.logger.info('No parent defined')
                 self.record_fail('nxcopy')
-        elif self.copy:
+        else:
             self.logger.info('Parameters already copied')
             self.record_end('nxcopy')
 
