@@ -1654,12 +1654,12 @@ class NXReduce(QtCore.QObject):
                 if self.mask:
                     self.db.queue_task(self.wrapper_file, 'nxmasked_transform', 
                                        self.entry_name)
-                    self.db_queue_task(self.wrapper_file, 'nxmasked_combine', 
+                    self.db.queue_task(self.wrapper_file, 'nxmasked_combine', 
                                        'entry')
                 else:
                     self.db.queue_task(self.wrapper_file, 'nxtransform', 
                                        self.entry_name)
-                    self.db_queue_task(self.wrapper_file, 'nxcombine', 'entry')
+                    self.db.queue_task(self.wrapper_file, 'nxcombine', 'entry')
 
 
 class NXMultiReduce(NXReduce):
