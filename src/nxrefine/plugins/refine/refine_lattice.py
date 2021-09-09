@@ -96,7 +96,15 @@ class RefineLatticeDialog(NXDialog):
         self.fit_report = []
         
     def choose_entry(self):
-        self.refine = NXRefine(self.entry)
+        try:
+            refine = NXRefine(self.entry)
+            if refine.xp is None:
+                raise NeXusError("No peaks in entry")
+        except NeXusError as error:
+            report_error("Refining Lattice", error)
+            return
+        self.refine = refine
+        self.set_title(f"Refining {self.refine.name}")
         if self.layout.count() == 2:
             self.insert_layout(1, self.parameters.grid_layout)
             self.insert_layout(2, self.refine_buttons)
@@ -104,8 +112,7 @@ class RefineLatticeDialog(NXDialog):
             self.insert_layout(4, self.parameters.report_layout())
             self.insert_layout(5, self.lattice_buttons)
         self.update_parameters()
-        if self.peaks_box:
-            self.update_table()
+        self.update_table()
 
     def report_score(self):
         try:
@@ -433,8 +440,7 @@ class RefineLatticeDialog(NXDialog):
         self.fit_report.append(self.refine.fit_report)
         self.update_parameters()
         self.parameters.status_message.setText(self.parameters.result.message)
-        if self.peaks_box and self.peaks_box.isVisible():
-            self.update_table()
+        self.update_table()
 
     def refine_hkls(self):
         self.parameters.status_message.setText('Fitting...')
@@ -452,8 +458,7 @@ class RefineLatticeDialog(NXDialog):
         self.fit_report.append(self.refine.fit_report)
         self.update_parameters()
         self.parameters.status_message.setText(self.parameters.result.message)
-        if self.peaks_box and self.peaks_box.isVisible():
-            self.update_table()
+        self.update_table()
 
     def refine_orientation(self):
         self.parameters.status_message.setText('Fitting...')
@@ -466,8 +471,7 @@ class RefineLatticeDialog(NXDialog):
         self.fit_report.append(self.refine.fit_report)
         self.update_parameters()
         self.parameters.status_message.setText(self.parameters.result.message)
-        if self.peaks_box and self.peaks_box.isVisible():
-            self.update_table()
+        self.update_table()
 
     def restore_parameters(self):
         self.refine.restore_parameters()
@@ -487,8 +491,7 @@ class RefineLatticeDialog(NXDialog):
             pass
 
     def list_peaks(self):
-        if (self.peaks_box in self.mainwindow.dialogs and 
-            self.table_model is not None):
+        if self.peaks_box in self.mainwindow.dialogs:
             self.update_table()
             return
         self.peaks_box = NXDialog(self)
@@ -537,13 +540,16 @@ class RefineLatticeDialog(NXDialog):
                                         export_button, save_button, 
                                         close_button)
         self.peaks_box.set_layout(orient_layout, self.table_view, close_layout)
-        self.peaks_box.set_title('%s Peak Table' % self.entry.nxtitle)
+        self.peaks_box.set_title('%s Peak Table' % self.refine.name)
         self.peaks_box.adjustSize()
         self.peaks_box.show()
         self.plotview = None
 
     def update_table(self):
-        if self.peaks_box is None:
+        if self.peaks_box not in self.mainwindow.dialogs:
+            return
+        elif self.table_model is None:
+            self.close_peaks_box()
             self.list_peaks()
         self.transfer_parameters()
         self.refine.hkl_tolerance = self.get_hkl_tolerance()
@@ -556,7 +562,8 @@ class RefineLatticeDialog(NXDialog):
                                               columns-1))
         self.table_view.resizeColumnsToContents()
         self.status_text.setText('Score: %.4f' % self.refine.score())
-        self.peaks_box.setWindowTitle('%s Peak Table' % self.entry.nxtitle)
+        self.peaks_box.set_title('%s Peak Table' % self.refine.name)
+        self.peaks_box.adjustSize()
         self.peaks_box.setVisible(True)
         self.report_score()
 
@@ -696,7 +703,10 @@ class RefineLatticeDialog(NXDialog):
         self.write_parameters()
 
     def close_peaks_box(self):
-        self.peaks_box.close()
+        try:
+            self.peaks_box.close()
+        except Exception:
+            pass
         self.peaks_box = None
 
 
