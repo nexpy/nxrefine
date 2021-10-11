@@ -1674,6 +1674,11 @@ class NXMultiReduce(NXReduce):
         super(NXMultiReduce, self).__init__(entry=entry, directory=directory,
                                             entries=entries, overwrite=overwrite)
         self.refine = NXRefine(self.root[self.entries[0]])
+        if laue:
+            if laue in self.refine.laue_groups:
+                self.refine.laue_group = laue
+            else:
+                raise NeXusError('Invalid Laue group specified')
         self.combine = combine
         self.pdf = pdf
         self.mask = mask
@@ -1812,7 +1817,7 @@ class NXMultiReduce(NXReduce):
                 self.logger.info('Cannot calculate PDF until the transforms are combined')
                 return
             elif self.refine.laue_group not in self.refine.laue_groups:
-                self.logger.info('Need to define Laue group before PDF calculation')
+                self.logger.info('Need to define a valid Laue group before PDF calculation')
                 return
             self.record_start('nxpdf')
             self.set_memory()
