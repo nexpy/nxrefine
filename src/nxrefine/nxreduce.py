@@ -1962,7 +1962,13 @@ class NXMultiReduce(NXReduce):
 
     def punch_holes(self):
         self.logger.info('Punching holes')
-
+        if (self.symm_transform in self.entry and
+            'punched_data' in self.entry[self.symm_transform]):
+            if self.overwrite:
+                del self.entry[self.symm_transform]['punched_data']
+            else:
+                self.logger.info('Punched holes already exists')
+                return
         tic = timeit.default_timer()
         symm_group = self.entry[self.symm_transform]
         Qh, Qk, Ql = (symm_group['Qh'], symm_group['Qk'], symm_group['Ql'])
@@ -1994,8 +2000,6 @@ class NXMultiReduce(NXReduce):
         if 'punch' in entry['data']:
             del entry['data/punch']
         entry['data/punch'] = symm_data
-        if 'punched_data' in self.entry[self.symm_transform]:
-            del self.entry[self.symm_transform]['punched_data']
         self.entry[self.symm_transform]['punched_data'] = NXlink(
                                     '/entry/data/punch', file=self.symm_file)
         self.logger.info("'punched_data' added to '{}'".format(
@@ -2018,6 +2022,14 @@ class NXMultiReduce(NXReduce):
 
     def punch_and_fill(self):
         self.logger.info('Performing punch-and-fill')
+        if (self.symm_transform in self.entry and
+            'filled_data' in self.entry[self.symm_transform]):
+            if self.overwrite:
+                del self.entry[self.symm_transform]['filled_data']
+            else:
+                self.logger.info('Data already punched-and-filled')
+                return
+
         self.init_julia()
         from julia import Main
         LaplaceInterpolation = Main.LaplaceInterpolation
@@ -2061,8 +2073,6 @@ class NXMultiReduce(NXReduce):
         if 'fill' in entry['data']:
             del entry['data/fill']        
         entry['data/fill'] = symm_data
-        if 'filled_data' in self.entry[self.symm_transform]:
-            del self.entry[self.symm_transform]['filled_data']
         self.entry[self.symm_transform]['filled_data'] = NXlink(
                                     '/entry/data/fill', file=self.symm_file)
         self.logger.info("'filled_data' added to '{}'".format(
