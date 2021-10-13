@@ -70,10 +70,11 @@ class NXRefine(object):
     scheme defined by Branton Campbell to transform from the experimental 
     frame of coordinates to the crystal's reciprocal lattice. 
 
-
-    lattice and orientation matrix for a rotation scan defined within the
-    entry of a NeXus file used in single crystal diffuse scattering, along
-    with functions that are used to refine the orientation matrix and prepare
+    Functions are provided to derive nominal Bragg peak indices and two-theta 
+    angles for the defined space group using CCTBX, to define the orientation 
+    matrix using the Busing and Levy method, and to refine the matrix and 
+    experimental parameters using the measured Bragg peak positions. Parameters
+    are updated in the NeXus file and a settings file is created to be used in
     coordinate transformations from instrumental coordinates to reciprocal
     lattice coordinates, using the CCTW software package 
     (https://sourceforge.net/projects/cctw/).
