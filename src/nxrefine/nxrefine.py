@@ -19,7 +19,20 @@ def find_nearest(array, value):
  
 
 def rotmat(axis, angle):
-    """Return a rotation matrix for rotation about the specified axis."""
+    """Return a rotation matrix for rotation about the specified axis.
+
+    Parameters
+    ----------
+    axis : {1, 2, 3}
+        Index of the rotation axis.
+    angle : `float`
+        Angle of rotation in degrees.
+
+    Returns
+    -------
+    np.matrix
+        The 3x3 rotation matrix
+    """
     mat = np.eye(3) 
     if angle is None or np.isclose(angle, 0.0):
         return mat
@@ -35,22 +48,91 @@ def rotmat(axis, angle):
 
 
 def vec(x, y=0.0, z=0.0):
+    """Return a 1x3 column vector."""
     return np.matrix((x, y, z)).T
 
 
 def norm_vec(vec):
+    """Return a normalized column vector."""
     return vec / norm(vec)
 
 
 class NXRefine(object):
+    """Crystallographic parameters and methods for single crystal diffraction.
+
+    The parameters are loaded from a NeXus file containing data collected on a
+    fast area detector by rotating a single crystal in a monochromatic x-ray 
+    beam. Each entry in the NeXus file corresponds to a complete 360° rotation,
+    and includes a group with the pixel and frame indices of all the Bragg 
+    peaks identified by the experimental workflow. These peaks are used to 
+    refine an orientation matrix that depends on the goniometer angles and
+    detector orientation defined with respect to the incident beam using a 
+    scheme defined by Branton Campbell to transform from the experimental 
+    frame of coordinates to the crystal's reciprocal lattice. 
+
+
+    lattice and orientation matrix for a rotation scan defined within the
+    entry of a NeXus file used in single crystal diffuse scattering, along
+    with functions that are used to refine the orientation matrix and prepare
+    coordinate transformations from instrumental coordinates to reciprocal
+    lattice coordinates, using the CCTW software package 
+    (https://sourceforge.net/projects/cctw/).
+
+    Parameters
+    ----------
+    node : NXobject
+        NeXus object within the NXentry group containing the experimental
+        data and parameters.
+
+    Attributes
+    ----------
+    a, b, c : `float`
+        Lattice parameters defining the crystallographic unit cell in Å.
+    alpha, beta, gamma : `float`
+        Unit cell angles in degrees.
+    wavelength : `float`
+        Wavelength of the incident x-ray beam in Å.
+    distance : `float`
+        Distance from the sample to the detector in mm.
+    yaw, pitch, roll : `float`
+        Yaw, pitch and roll of the area detector in degrees.
+    twotheta : `float`
+        Angle of rotation of the detector with respect to the incident beam
+        in degrees. This is normally set to 0.
+    gonpitch, omega, chi : `float`
+        Goniometer pitch, omega, and chi angles of the sample goniometer
+        in degrees.
+    phi : array_like
+        Phi angles of each measured frame.
+    phi_step : `float`
+        Step size of phi angle rotations in degrees.
+    xc, yc : `float`
+        Location of the incident beam on the detector in pixel coordinates.
+    xd, yd : `float`
+        Translation of the detector along the x and y directions in mm.
+    frame_time : `float`
+        Exposure time of each frame in seconds.
+    space_group : `str`
+        Crystallographic space group.
+    laue_group : `str`
+        Crystallographic Laue group.
+    symmetry : `str`
+        Crystallographic symmetry or crystal-class system.
+    centring : `str`
+        Lattice centring of the crystallographic space group.
+    """    
 
     symmetries = ['cubic', 'tetragonal', 'orthorhombic', 'hexagonal', 
                   'monoclinic', 'triclinic']
+    """Valid crystal symmetris or families."""
     laue_groups = ['-1', '2/m', 'mmm', '4/m', '4/mmm', '-3', '-3m', 
                    '6/m', '6/mmm', 'm-3', 'm-3m']
+    """Valid Laue groups."""
     centrings = ['P', 'A', 'B', 'C', 'I', 'F', 'R']
+    """Valid lattice centrings."""
     space_groups = {'P': 'P1', 'A': 'Amm2', 'B': 'P1', 'C': 'C121', 
                     'I': 'I222', 'F': 'F222', 'R': 'R3'}
+    """Space groups with minimal systematic absences for each centring."""
 
     def __init__(self, node=None):
         if node is not None:
@@ -132,19 +214,52 @@ class NXRefine(object):
         return "NXRefine('" + self.name + "')"
 
     def read_parameter(self, path, default=None, attr=None):
+        """Read the experimental parameter stored at the specfied path.
+
+        If the `attr` keyword argument is present, the value of the 
+        specified attribute of the object is returned instead.
+
+        Parameters
+        ----------
+        path : `str`
+            Path to the parameter relative to the entry group.
+        default : `float`, optional
+            Default value of the parameter if the path does not exist, 
+            by default None.
+        attr : `str`, optional
+            Name of attribute, by default None.
+
+        Returns
+        -------
+        `float`
+            Value of the parameter or attribute.
+        
+        Notes
+        -----
+        The sample groups of each entry are linked to the sample group
+        stored in `root[entry]`, so sample parameters are all read from
+        `root[entry/sample]`.
+        """
         try:
             if path.startswith('sample'):
                 entry = self.entry.nxroot['entry']
             else:
                 entry = self.entry
             if attr:
-                return self.entry[path].attrs[attr]
+                return entry[path].attrs[attr]
             else:
                 return entry[path].nxvalue
         except NeXusError:
             return default
 
     def read_parameters(self, entry=None):
+        """Read all the experimental parameters stored in the NeXus file.
+
+        Parameters
+        ----------
+        entry : NXentry, optional
+            Group to be read, if different from `self.entry`, by default None
+        """
         if entry:
             self.entry = entry
         with self.entry.nxfile:
@@ -225,6 +340,20 @@ class NXRefine(object):
             self.Ql = self.read_parameter('transform/Ql')
 
     def write_parameter(self, path, value, attr=None):
+        """Write a value to the NeXus object defined by its path.
+
+        If the `attr` keyword argument is present, the value of the 
+        specified attribute of the object is returned instead.
+
+        Parameters
+        ----------
+        path : `str`
+            Path to the parameter relative to the entry group.
+        value : `float`
+            Value of the parameter.
+        attr : `str`, optional
+            Name of attribute, by default None
+        """
         if path.startswith('sample'):
             entry = self.entry.nxroot['entry']
         else:
@@ -238,6 +367,16 @@ class NXRefine(object):
                 entry[path] = value
 
     def write_parameters(self, entry=None, sample=False):
+        """Write the stored experimental parameters to the NeXus file.
+
+        Parameters
+        ----------
+        entry : NXentry, optional
+            Group to write to, if different from `self.entry`, by default None.
+        sample : bool, optional
+            True if only the sample parameters are to be written, 
+            by default False.
+        """
         if entry:
             self.entry = entry
         with self.entry.nxfile:
@@ -295,6 +434,18 @@ class NXRefine(object):
                 self.rotation_angle = self.phi + (self.phi_step * self.z)
 
     def copy_parameters(self, other, sample=False, instrument=False):
+        """Copy the experimental parameters from another entry.
+
+        Parameters
+        ----------
+        other : NXRefine
+            NXRefine instance containing the other parameters.
+        sample : bool, optional
+            True if the sample parameters are to be copied, by default False.
+        instrument : bool, optional
+            True if the instrument parameters are to be copied, 
+            by default False.
+        """
         with other.entry.nxfile:
             if sample:
                 if 'sample' not in other.entry.nxroot['entry']:
@@ -351,6 +502,13 @@ class NXRefine(object):
                                           np.array(self.Umat))        
 
     def link_sample(self, other):
+        """Link the sample group of this entry to another entry.
+
+        Parameters
+        ----------
+        other : NXRefine
+            NXRefine instance defined by the other entry.
+        """
         with other.entry.nxfile:
             if 'sample' in self.entry:
                 if 'sample' in other.entry:
@@ -358,6 +516,13 @@ class NXRefine(object):
                 other.entry.makelink(self.entry['sample'])
 
     def read_settings(self, settings_file):
+        """Read the experimental parameters stored in a CCTW settings file.
+
+        Parameters
+        ----------
+        settings_file : `str`
+            File name of the settings file.
+        """
         import configparser, itertools
         cfg = configparser.ConfigParser()
         filename = settings_file
@@ -392,6 +557,13 @@ class NXRefine(object):
         self.h_shape, self.k_shape, self.l_shape = d['outputdata.dimensions']
 
     def write_settings(self, settings_file):
+        """Write experimental parameters to a CCTW settings file.
+
+        Parameters
+        ----------
+        settings_file : `str`
+            File name of the settings file.
+        """
         lines = []
         lines.append('parameters.pixelSize = %s;' % self.pixel_size)
         lines.append('parameters.wavelength = %s;'% self.wavelength)
@@ -438,6 +610,15 @@ class NXRefine(object):
         f.close()
 
     def write_angles(self, polar_angles, azimuthal_angles):
+        """Write the polar and azimuthal angles of the Bragg peaks.
+
+        Parameters
+        ----------
+        polar_angles : array_like
+            Polar angles of the Bragg peaks in degrees.
+        azimuthal_angles : array_like
+            Azimuthal angles of the Bragg peaks in degrees.
+        """
         with self.entry.nxfile:
             if 'sample' not in self.entry:
                 self.entry['sample'] = NXsample()
@@ -456,6 +637,7 @@ class NXRefine(object):
         self.peak = dict(zip(range(len(peaks)),[NXPeak(*p) for p in peaks]))
 
     def initialize_grid(self):
+        """Initialize the parameters that define HKL grid."""        
         if self.Qh is not None and self.Qk is not None and self.Ql is not None:
             self.h_start, self.h_step, self.h_stop = (
                 self.Qh[0], self.Qh[1]-self.Qh[0], self.Qh[-1])
@@ -485,6 +667,7 @@ class NXRefine(object):
         self.define_grid()
 
     def define_grid(self):
+        """Define the HKL grid for CCTW."""        
         self.h_shape = np.int32(np.round((self.h_stop - self.h_start) / 
                                           self.h_step, 2)) + 1
         self.k_shape = np.int32(np.round((self.k_stop - self.k_start) / 
@@ -498,7 +681,17 @@ class NXRefine(object):
         self.grid_shape = [self.h_shape, self.k_shape, self.l_shape]
         self.grid_basis = [[1,0,0],[0,1,0],[0,0,1]]
 
-    def prepare_transform(self, output_link, mask=None):
+    def prepare_transform(self, output_link, mask=False):
+        """Prepare the NXdata group for containing the transformed data.
+
+        Parameters
+        ----------
+        output_link : `str`
+            File name of the external file to contain the transform.
+        mask : bool, optional
+            True if the NXdata group contains a masked transform, 
+            by default None.
+        """
         command = self.cctw_command(mask)
         h = NXfield(np.linspace(self.h_start, self.h_stop, self.h_shape), 
                 name='Qh', scaling_factor=self.astar, long_name='H (r.l.u.)')
@@ -527,6 +720,18 @@ class NXRefine(object):
             self.entry[transform].set_default()
 
     def cctw_command(self, mask=False):
+        """Generate the shell command to run CCTW transform.
+
+        Parameters
+        ----------
+        mask : bool, optional
+            True if the transform contains masked data, by default False.
+
+        Returns
+        -------
+        `str`
+            Command string.
+        """
         entry = self.entry.nxname
         if mask:
             name = entry + '_masked_transform'
@@ -551,6 +756,7 @@ class NXRefine(object):
         return ' '.join(command)
  
     def set_symmetry(self):
+        """Use the crystal symmetry to constrain unit cell parameters."""        
         if self.symmetry == 'cubic':
             self.c = self.b = self.a
             self.alpha = self.beta = self.gamma = 90.0 
@@ -567,6 +773,13 @@ class NXRefine(object):
             self.alpha = self.gamma = 90.0
 
     def guess_symmetry(self):
+        """Guess the crystal symmetry from the unit cell parameters.
+
+        Returns
+        -------
+        `str`
+            Crystal symmetry.
+        """
         if self.lattice_parameters.count(None) > 0:
             return 'monoclinic'
         if np.isclose(self.alpha, 90.0) and np.isclose(self.beta, 90.0):
@@ -588,6 +801,13 @@ class NXRefine(object):
             return 'triclinic'
 
     def set_polar_max(self, polar_max):
+        """Set the maximum polar angle to be used in calculations.
+
+        Parameters
+        ----------
+        polar_max : `float`
+            Maximum polar angle in degrees.
+        """
         try:
             if not isinstance(self.polar_angle, np.ndarray):
                 self.polar_angle, self.azimuthal_angle = \
@@ -605,53 +825,65 @@ class NXRefine(object):
 
     @property
     def lattice_parameters(self):
+        """Lattice parameters with angles in degrees."""
         return self.a, self.b, self.c, self.alpha, self.beta, self.gamma
 
     @property
     def reciprocal_lattice_parameters(self):
+        """Reciprocal lattice parameters."""
         rlp = list(self.unit_cell.reciprocal().parameters())
         rlp[0:3] = [2*np.pi*p for p in rlp[0:3]]
         return rlp 
 
     @property
     def lattice_settings(self):
+        """Lattice parameters with angles in radians."""
         return (self.a, self.b, self.c, 
                 self.alpha*radians, self.beta*radians, self.gamma*radians)
 
     @property
     def unit_cell(self):
+        """CCTBX unit cell."""
         return uctbx.unit_cell(self.lattice_parameters)
 
     @property
     def reciprocal_cell(self):
+        """CCTBX reciprocal unit cell."""
         return self.unit_cell.reciprocal()
 
     @property
     def astar(self):
+        """Reciprocal lattice unit in inverse Å."""
         return self.reciprocal_lattice_parameters[0]
 
     @property
     def bstar(self):
+        """Reciprocal lattice unit in inverse Å."""
         return self.reciprocal_lattice_parameters[1]
 
     @property
     def cstar(self):
+        """Reciprocal lattice unit in inverse Å."""
         return self.reciprocal_lattice_parameters[2]
 
     @property
     def alpha_star(self):
+        """Reciprocal lattice angle in degrees."""
         return self.reciprocal_lattice_parameters[3]
 
     @property
     def beta_star(self):
+        """Reciprocal lattice angle in degrees."""
         return self.reciprocal_lattice_parameters[4]
 
     @property
     def gamma_star(self):
+        """Reciprocal lattice angle in degrees."""
         return self.reciprocal_lattice_parameters[5]
 
     @property
     def sgi(self):
+        """CCTBX space group information."""
         if self.space_group == '':
             sg = self.space_groups[self.centring]
         else:
@@ -668,14 +900,17 @@ class NXRefine(object):
 
     @property
     def sgn(self):
+        """Space group symbol."""
         return self.sgi.type().lookup_symbol()
 
     @property
     def sg(self):
+        """CCTBX space group."""
         return self.sgi.group()
 
     @property
     def miller(self):
+        """Set of allowed Miller indices."""
         d_min = self.wavelength / (2 * np.sin(self.polar_max*radians/2))
         return miller.build_set(crystal_symmetry=crystal.symmetry(
                                     space_group_symbol=self.sgn,
@@ -684,12 +919,18 @@ class NXRefine(object):
 
     @property
     def indices(self):
+        """Set of HKL indices allowed by the space group.
+        
+        Only a single index is returned when there are a number of 
+        symmetry-equivalent indices.
+        """
         _indices = []
         for h in self.miller.indices():
             _indices.append(self.indices_hkl(*h)[0])
         return _indices
 
     def indices_hkl(self, h, k, l):
+        """Return the symmetry-equivalent HKL indices."""
         _symm_equiv = miller.sym_equiv_indices(self.sg, (h, k, l))
         _indices = sorted([i.h() for i in _symm_equiv.indices()], 
                            reverse=True)
@@ -699,13 +940,16 @@ class NXRefine(object):
 
     @property
     def two_thetas(self):
+        """The two-theta angles for all the HKL indices."""
         return list(self.unit_cell.two_theta(self.miller.indices(), 
                                              self.wavelength, deg=True))
 
     def two_theta_hkl(self, h, k, l):
+        """Return the two-theta angle for the specified HKL values."""
         return self.unit_cell.two_theta((h, k, l), self.wavelength, deg=True)
 
     def two_theta_max(self):
+        """Return the maximum two-theta measurable on the detector."""
         ym, xm = self.shape
         max_radius = np.sqrt(max(self.xc**2 + self.yc**2,
                                  (xm-self.xc)**2 + self.yc**2,
@@ -714,6 +958,18 @@ class NXRefine(object):
         return np.arcsin(max_radius * self.pixel_size / self.distance) * degrees
 
     def make_rings(self):
+        """Generate the two-thetas and HKLs for each ring of Bragg peaks.
+
+        Each ring contains the average two-theta value in degrees for all
+        Bragg peaks that are within the polar angle tolerance, and all the
+        symmetry-equivalent HKLs.
+
+        Returns
+        -------
+        `dict` of `lists`
+            Map of ring indices to lists containing their two-theta values
+            and symmetry-equivalent HKLs.
+        """
         _rings = {}
         _r = 0
         _indices = self.indices
@@ -734,14 +990,17 @@ class NXRefine(object):
 
     @property
     def tilts(self):
+        """Detector tilt angles in degrees."""
         return self.yaw, self.pitch, self.roll
 
     @property
     def centers(self):
+        """Position of the incident beam in detector pixel coordinates."""
         return self.xc, self.yc
 
     @property
     def roll(self):
+        """Detector roll angle in degrees."""
         return self._roll
 
     @roll.setter
@@ -757,6 +1016,7 @@ class NXRefine(object):
         
     @property
     def pitch(self):
+        """Detector pitch angle in degrees."""
         return self._pitch
 
     @pitch.setter
@@ -771,6 +1031,7 @@ class NXRefine(object):
         
     @property
     def yaw(self):
+        """Detector yaw angle in degrees."""
         return self._yaw
 
     @yaw.setter
@@ -785,6 +1046,7 @@ class NXRefine(object):
         
     @property
     def chi(self):
+        """Goniometer chi angle in degrees."""
         return self._chi
 
     @chi.setter
@@ -798,6 +1060,7 @@ class NXRefine(object):
         
     @property
     def omega(self):
+        """Goniometer omega angle in degrees."""
         return self._omega
 
     @omega.setter
@@ -811,6 +1074,7 @@ class NXRefine(object):
 
     @property
     def gonpitch(self):
+        """Goniometer pitch angle in degrees."""
         return self._gonpitch
 
     @gonpitch.setter
@@ -824,17 +1088,21 @@ class NXRefine(object):
 
     @property
     def phi_start(self):
+        """Starting phi angle in degrees."""
         return self.phi
 
     @property
     def ds_max(self):
+        """Maximum inverse d-spacing measured at the maximum polar angle."""
         return 2 * np.sin(self.polar_max*radians/2) / self.wavelength
 
     def absent(self, h, k, l):
+        """Return True if the HKL indices are systematically absent."""
         return self.sg.is_sys_absent((int(h), int(k), int(l)))
 
     @property
     def npks(self):
+        """Number of identified Bragg peaks."""
         try:
             return self.xp.size
         except Exception:
@@ -842,8 +1110,7 @@ class NXRefine(object):
 
     @property
     def UBmat(self):
-        """Determine the U matrix using the defined UB matrix and B matrix
-        calculated from the lattice parameters
+        """Return the UB matrix.
         """
         if self.Umat is not None:
             return self.Umat * self.Bmat
@@ -852,9 +1119,7 @@ class NXRefine(object):
 
     @property
     def Bimat(self):
-        """Create a B matrix containing the column basis vectors of the direct 
-        unit cell.
-        """
+        """Return the inverse B matrix defined by the unit cell."""
         a, b, c, alpha, beta, gamma = self.lattice_parameters
         alpha = alpha * radians
         beta = beta * radians
@@ -867,16 +1132,13 @@ class NXRefine(object):
 
     @property
     def Bmat(self):
-        """Create a B matrix containing the column basis vectors of the direct 
-        unit cell.
-        """
+        """Return the B matrix defined by the unit cell."""
         return inv(self.Bimat)
 
     @property
     def Omat(self):
-        """Define the transform that rotates detector axes into lab axes.
+        """Return the matrix that rotates detector axes into lab axes.
 
-        The inverse transforms detector coords into lab coords.
         When all angles are zero,
             +X(det) = -y(lab), +Y(det) = +z(lab), and +Z(det) = -x(lab)
         """
@@ -887,15 +1149,15 @@ class NXRefine(object):
 
     @property
     def Dmat(self):
-        """Define the matrix, whose inverse physically orients the detector.
+        """Return the detector orientatioon matrix.
 
         It also transforms detector coords into lab coords.
-        Operation order:    yaw -> pitch -> roll
+            Operation order:    yaw -> pitch -> roll
         """
         return self._Dmat_cache
 
     def Gmat(self, phi):
-        """Define the matrix that physically orients the goniometer head.
+        """Return the matrix that physically orients the goniometer head.
     
         It performs the inverse transform of lab coords into head coords.
         """
@@ -903,16 +1165,12 @@ class NXRefine(object):
 
     @property
     def Cvec(self):
+        """Return the vector from the sample to detector."""
         return vec(self.xc, self.yc)
 
     @property
     def Dvec(self):
-        """Define the vector from the detector center to the sample position.
-        
-        Svec is the vector from the goniometer center to the sample position, 
-        i.e., t_gs. From this is subtracted the vector from the goniometer 
-        center to the detector center, i.e., t_gd
-        """
+        """Return the vector from the detector to the sample position."""
         return vec(-self.distance)
 
     @property
@@ -933,7 +1191,7 @@ class NXRefine(object):
         return self.Gvecs
 
     def calculate_angles(self, x, y):
-        """Calculate the polar and azimuthal angles of the specified pixels"""
+        """Return the polar and azimuthal angles of the specified pixels."""
         Oimat = inv(self.Omat)
         Mat = self.pixel_size * inv(self.Dmat) * Oimat
         polar_angles = []
@@ -948,19 +1206,41 @@ class NXRefine(object):
                 np.array(azimuthal_angles) * degrees)
 
     def angle_peaks(self, i, j):
-        """Calculate the angle (in degrees) between two peaks"""
+        """Return the angle between two peaks in degrees.
+
+        Parameters
+        ----------
+        i, j : `int`
+            Index of the two peaks.
+
+        Returns
+        -------
+        `float`
+            Angle between the two peaks.
+        """
         g1 = norm_vec(self.Gvec(self.xp[i], self.yp[i], self.zp[i]))
         g2 = norm_vec(self.Gvec(self.xp[j], self.yp[j], self.zp[j]))
         return np.around(np.arccos(float(g1.T*g2)) * degrees, 3)
 
     def angle_hkls(self, h1, h2):
-        """Calculate the angle (in degrees) between two (hkl) tuples"""
+        """Return the angle in degrees between two HKL vectors.
+
+        Parameters
+        ----------
+        h1, h2 : `tuple` of `ints`
+            A tuple of the HKL vector indices.
+
+        Returns
+        -------
+        `float`
+            Angle between two HKL vectors.
+        """
         h1v = norm_vec((vec(*h1).T * self.Bmat)).T
         h2v = norm_vec((vec(*h2).T * self.Bmat)).T
         return np.around(np.arccos(h1v.T*h2v)[0,0] * degrees, 3)
         
     def assign_rings(self):
-        """Assign all the peaks to rings (stored in 'rp')"""
+        """Assign all the identified Bragg peaks to rings."""
         rings = self.make_rings()
         ring_angles = [rings[r][0] for r in rings]
         self.rp = np.zeros((self.npks), dtype=int)
@@ -968,17 +1248,30 @@ class NXRefine(object):
             self.rp[i] = (np.abs(self.polar_angle[i] - ring_angles)).argmin()
 
     def unitarity(self):
+        """Return the unitarity of the refined orientation matrix."""
         if self.Umat is not None:
             return np.matrix(self.Umat) * np.matrix(self.Umat.T)
         else:
             return None
 
     def get_UBmat(self, i, j, hi, hj):
-        """Determine a UBmatrix using the specified peaks.
-        
+        """Return the UBmatrix using the specified peaks.
+
         This is based on the algorithem described by Busing and Levy in 
         Acta Crystallographica 22, 457 (1967). It is an implementation of 
         equations (23) to (27).  
+
+        Parameters
+        ----------
+        i, j : `int`
+            Indices of the two Bragg peaks
+        hi, hj : `tuple` of `ints`
+            HKL indices assigned to the respective Bragg peaks.
+
+        Returns
+        -------
+        np.matrix
+            UB matrix
         """
         h1c = (self.Bmat * vec(*hi)).T
         h2c = (self.Bmat * vec(*hj)).T
@@ -999,7 +1292,18 @@ class NXRefine(object):
         return Tg * np.linalg.inv(Tc)
 
     def get_hkl(self, x, y, z):
-        """Determine hkl for the specified pixel coordinates"""
+        """Return the HKL indices for the specified pixel coordinates.
+
+        Parameters
+        ----------
+        x, y, z : `float`
+            Pixel coordinates
+ 
+        Returns
+        -------
+        list
+            HKL indices
+        """
         if self.Umat is not None:
             v5 = self.Gvec(x, y, z)
 #           v6 = inv(self.Umat) * v5
@@ -1010,21 +1314,32 @@ class NXRefine(object):
             return [0.0, 0.0, 0.0]
 
     def get_hkls(self):
-        """Determine the set of hkls for all the peaks as three columns"""
+        """Return the set of hkls for all the  Bragg peaks as three columns."""
         return zip(*[self.hkl(i) for i in range(self.npks)])
 
     @property
     def hkls(self):
-        """Determine the set of hkls for all the peaks"""
+        """The set of HKLs for all the Bragg peaks."""
         return [self.get_hkl(self.xp[i], self.yp[i], self.zp[i]) 
                 for i in range(self.npks)]
 
     def hkl(self, i):
-        """Return the calculated (hkl) for the specified peak"""
+        """Return the calculated HKL indices for the specified peak."""
         return self.get_hkl(self.xp[i], self.yp[i], self.zp[i])
 
     def get_xyz(self, h, k, l):
+        """Return a list of the pixel/frame indices for a set of HKL indices.
 
+        Parameters
+        ----------
+        h, k, l : `int`
+            HKL indices
+
+        Returns
+        -------
+        `list` of NXPeaks
+            List of NXPeaks containing the pixel/frame coordinates.
+        """
         v7 = vec(h, k, l)
         v6 = self.Bmat * v7
         v5 = self.Umat * v6
@@ -1102,7 +1417,7 @@ class NXRefine(object):
         return peaks                       
 
     def polar(self, i):
-        """Return the polar angle for the specified peak"""
+        """Return the polar angle in degrees for the specified Bragg peak."""
         Oimat = inv(self.Omat)
         Mat = self.pixel_size * inv(self.Dmat) * Oimat
         peak = Oimat * (vec(self.xp[i], self.yp[i]) - self.Cvec)
@@ -1110,6 +1425,7 @@ class NXRefine(object):
         return np.arctan(v / self.distance)
 
     def score(self):
+        """Return the goodness of fit of the calculated peak positions."""
         self.set_idx()
         if self.idx:
             diffs = self.diffs()
@@ -1120,11 +1436,13 @@ class NXRefine(object):
 
     @property
     def idx(self):
+        """List of peaks whose polar angles are less than the maximum."""
         if self._idx is None:
             self._idx = list(np.where(self.polar_angle < self.polar_max)[0])
         return self._idx
         
     def set_idx(self, hkl_tolerance=None):
+        """Define the peaks whose positions are within the HKL tolerance."""
         if hkl_tolerance is None:
             hkl_tolerance = self.hkl_tolerance
         _idx = list(np.where(self.polar_angle < self.polar_max)[0])
@@ -1132,15 +1450,29 @@ class NXRefine(object):
 
     @property
     def weights(self):
+        """Peak weights defined by their intensity."""
         return np.array(self.intensity[self.idx])
 
     def diffs(self):
-        """Return the set of reciproal space differences for all the peaks"""
+        """Return all the deviations from the calculated peak positions."""
         return np.array([self.diff(i) for i in self.idx])
 
     def diff(self, i):
-        """Determine the reciprocal space difference between the calculated 
-        (hkl) and the closest integer (hkl) of the specified peak"""
+        """Return the deviation from the calculated peak position.
+
+        This is defined as the difference between the peak position and the 
+        closest HKL vector in reciprocal Å.
+
+        Parameters
+        ----------
+        i : `int`
+            Peak index
+
+        Returns
+        -------
+        `float`
+            [description]
+        """
         h, k, l = self.hkl(i)
         Q = np.matrix((h, k, l)).T
         Q0 = np.matrix((np.rint(h), np.rint(k), np.rint(l))).T
@@ -1151,18 +1483,28 @@ class NXRefine(object):
         return np.array([self.angle_diff(i) for i in self.idx])
 
     def angle_diff(self, i):
-        """Determine the polar angle difference between the calculated 
-        (hkl) and the closest integer (hkl) of the specified peak"""
+        """Return the deviation from the calculated peak position in degrees.
+
+        Parameters
+        ----------
+        i : `int`
+            Peak index.
+
+        Returns
+        -------
+        `float`
+            Difference in degrees.
+        """
         (h0, k0, l0) = [int(np.rint(x)) for x in self.hkl(i)]
         polar0 = self.unit_cell.two_theta((h0,k0,l0), self.wavelength)
         return np.abs(self.polar(i) - polar0)
 
     def xyz(self, i):
-        """Return the pixel coordinates of the specified peak"""
+        """Return the pixel coordinates of the specified peak."""
         return self.xp[i], self.yp[i], self.zp[i]
 
     def get_peaks(self):
-        """Return tuples containing the peaks and their respective parameters"""
+        """Return tuples containing the peaks and their respective parameters."""
         peaks = np.array([i for i in range(self.npks) 
                           if self.polar_angle[i] < self.polar_max])
         x, y, z = (np.rint(self.xp[peaks]).astype(np.int16), 
@@ -1181,6 +1523,7 @@ class NXRefine(object):
         return list(zip(peaks, x, y, z, polar, azi, intensity, h, k, l, diffs))
 
     def get_ring_list(self):
+        """Return the HKL indices for all the rings."""
         hkls = []
         _rings = self.make_rings()
         for r in _rings:
@@ -1189,6 +1532,13 @@ class NXRefine(object):
         return hkls
 
     def define_parameters(self, **opts):
+        """Return LMFIT parameters defined by the keyword arguments.
+
+        Returns
+        -------
+        lmfit.Parameters
+            The set of parameters to be optimized by LMFIT.
+        """
         from lmfit import Parameters
         self.parameters = Parameters()
         if 'lattice' in opts:
@@ -1199,6 +1549,15 @@ class NXRefine(object):
         return self.parameters
 
     def define_lattice_parameters(self, lattice=True):
+        """Define LMFIT parameters for refining lattice parameters.
+
+        The added parameters depend on the crystal symmetry.
+
+        Parameters
+        ----------
+        lattice : bool, optional
+            True if the lattice parameters ar to be varied, by default True.
+        """
         if self.symmetry == 'cubic':
             self.parameters.add('a', self.a, vary=lattice)
         elif self.symmetry == 'tetragonal' or self.symmetry == 'hexagonal':
@@ -1222,16 +1581,34 @@ class NXRefine(object):
             self.parameters.add('gamma', self.gamma, vary=lattice)
 
     def get_parameters(self, parameters):
+        """Update the NXRefine attributes using the LMFIT Parameters.
+
+        Parameters
+        ----------
+        parameters : lmfit.Parameters
+            The set of parameters optimized by LMFIT.
+        """
         for p in parameters:
             setattr(self, p, parameters[p].value)
         self.set_symmetry()
         
     def restore_parameters(self):
+        """Restore the NXRefine attributes to the values before refinement."""
         for p in self.parameters:
             setattr(self, p, self.parameters[p].init_value)
         self.set_symmetry()
 
     def refine_hkls(self, method='leastsq', **opts):
+        """Refine parameters based on the calculated HKL values.
+
+        The parameters to be refined are defined by the keyword arguments,
+        which are typically set using the Refine Lattice plugin.
+
+        Parameters
+        ----------
+        method : str, optional
+            LMFIT minimizer method, by default 'leastsq'
+        """
         self.set_idx()
         from lmfit import minimize, fit_report
         if self.Umat is None:
@@ -1245,10 +1622,29 @@ class NXRefine(object):
             self.get_parameters(self.result.params)
 
     def hkl_residuals(self, parameters):
+        """Return the residuals of the calculated HKL values.
+
+        Parameters
+        ----------
+        parameters : lmfit.Parameters
+            The set of parameters to be optimized by LMFIT.
+
+        Returns
+        -------
+        array_like
+            An array of differences between calculated and nominal HKL values.
+        """
         self.get_parameters(parameters)
         return self.diffs()
 
     def refine_angles(self, method='nelder', **opts):
+        """Refine parameters based on the calculated polar angles.
+
+        Parameters
+        ----------
+        method : str, optional
+            LMFIT minimizer method, by default 'nelder'
+        """
         self.set_idx()
         from lmfit import minimize, fit_report
         p0 = self.define_parameters(lattice=True, **opts)
@@ -1258,10 +1654,36 @@ class NXRefine(object):
             self.get_parameters(self.result.params)
 
     def angle_residuals(self, parameters):
+        """Return the residuals of the calculated polar angles.
+
+        Parameters
+        ----------
+        parameters : lmfit.Parameters
+            The set of parameters to be optimized by LMFIT.
+
+        Returns
+        -------
+        array_like
+            An array of differences between calculated and nominal polar angles.
+        """
         self.get_parameters(parameters)
         return self.angle_diffs()
 
     def define_orientation_matrix(self):
+        """Return the elements of the orientation matrix as LMFIT parameters.
+
+        Returns
+        -------
+        lmfit.Parameters
+            The set of parameters to be optimized by LMFIT.
+        
+        Notes
+        -----
+        This is usually run after optimizing all the other crystallographic
+        and experimental parameters. This fit will break the unitarity of the
+        orientation matrix, but it is usually minor, and can be checked with 
+        the `unitarity` function.
+        """
         from lmfit import Parameters
         p = Parameters()
         for i in range(3):
@@ -1271,27 +1693,66 @@ class NXRefine(object):
         return p
 
     def get_orientation_matrix(self, p):
+        """Update the orientation matrix using the LMFIT Parameters.
+
+        Parameters
+        ----------
+        parameters : lmfit.Parameters
+            The set of parameters optimized by LMFIT.
+        """
         for i in range(3):
             for j in range(3):
                 self.Umat[i,j] = p['U%d%d' % (i,j)].value
 
-    def refine_orientation_matrix(self, **opts):
+    def refine_orientation_matrix(self, method='leastsq'):
+        """Refine the orientatoin matrix based on the calculated HKL values.
+
+        Parameters
+        ----------
+        method : str, optional
+            LMFIT minimizer method, by default 'leastsq'
+        """
         self.set_idx()
         from lmfit import minimize, fit_report
         p0 = self.define_orientation_matrix()
-        self.result = minimize(self.orient_residuals, p0, **opts)
+        self.result = minimize(self.orient_residuals, p0, method=method)
         self.fit_report = fit_report(self.result)
         if self.result.success:
             self.get_orientation_matrix(self.result.params)
 
     def restore_orientation_matrix(self):
+        """Restore the orientation matrix to the values before refinement."""
         self.Umat = self.init_p
 
     def orient_residuals(self, p):
+        """Return the residuals of the calculated HKL values.
+
+        Parameters
+        ----------
+        parameters : lmfit.Parameters
+            The set of parameters to be optimized by LMFIT.
+
+        Returns
+        -------
+        array_like
+            An array of differences between calculated and nominal HKL values.
+        """
         self.get_orientation_matrix(p)
         return self.diffs()
 
-    def get_polarization(self):
+    def get_polarization(self, beam_polarization=0.99):
+        """Return the synchrotron x-ray polarization across the detector.
+
+        Parameters
+        ----------
+        beam_polarization : `float`, optional
+            [description], by default 0.99
+
+        Returns
+        -------
+        array_like
+            A 2D array of the polarization correction for the detector pixels.
+        """
         if 'polarization' in self.entry['instrument/detector']:
             return self.entry['instrument/detector/polarization'].nxvalue
         elif 'calibration' in self.entry['instrument']:
@@ -1305,13 +1766,36 @@ class NXRefine(object):
                                      rot3=parameters['Rot3'].nxvalue,
                                      pixel1=parameters['PixelSize1'].nxvalue,
                                      pixel2=parameters['PixelSize2'].nxvalue,
-                                     wavelength = parameters['Wavelength'].nxvalue)
-            return ai.polarization(shape=self.shape, factor=0.99)
+                                     wavelength=parameters['Wavelength'].nxvalue)
+            return ai.polarization(shape=self.shape, factor=beam_polarization)
         else:
             return 1
 
 
 class NXPeak(object):
+    """Parameters defining Bragg peaks identified in the data volumes.
+
+    Parameters
+    ----------
+    x, y : `float`
+        Pixel numbers of the optimized peak position
+    z : `float`
+        Frame number of the peak position
+    intensity : `float`, optional
+        Peak intensity, by default None
+    pixel_count : `int`, optional
+        Maximum counts in the peak, by default None
+    H, K, L : `float`, optional
+        HKL indices of the peak, by default None
+    radius : `float`, optional
+        Mask radius, by default None
+    polar_angle : `float`, optional
+        Peak polar angle, by default None
+    azimuthal_angle : `float`, optional
+        Peak azimuthal angle, by default None
+    rotation_angle : `float`, optional
+        Peak rotation angle, by default None
+    """    
 
     def __init__(self, x, y, z, intensity=None, pixel_count=None, 
                  H=None, K=None, L=None, radius=None, 
