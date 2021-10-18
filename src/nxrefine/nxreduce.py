@@ -1884,18 +1884,18 @@ class NXMultiReduce(NXReduce):
 
     def fft_weights(self, shape, alpha=0.5):
         from scipy.signal import tukey
-        x = tukey(shape[0], alpha=alpha)
+        x = tukey(shape[2], alpha=alpha)
         y = tukey(shape[1], alpha=alpha)
-        z = tukey(shape[2], alpha=alpha)
+        z = tukey(shape[0], alpha=alpha)
         return np.einsum('i,j,k->ijk', 1.0/np.where(z>0, z, z[1]/2), 
                                        1.0/np.where(y>0, y, y[1]/2),
                                        1.0/np.where(x>0, x, x[1]/2))
 
     def fft_taper(self, shape, alpha=0.5):
         from scipy.signal import tukey
-        x = tukey(shape[0], alpha=alpha)
+        x = tukey(shape[2], alpha=alpha)
         y = tukey(shape[1], alpha=alpha)
-        z = tukey(shape[2], alpha=alpha)
+        z = tukey(shape[0], alpha=alpha)
         return np.einsum('i,j,k->ijk', z, y, x)
 
     def total_pdf(self):
