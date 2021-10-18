@@ -25,7 +25,7 @@ def rotmat(axis, angle):
     ----------
     axis : {1, 2, 3}
         Index of the rotation axis.
-    angle : `float`
+    angle : float
         Angle of rotation in degrees.
 
     Returns
@@ -87,39 +87,39 @@ class NXRefine(object):
 
     Attributes
     ----------
-    a, b, c : `float`
+    a, b, c : float
         Lattice parameters defining the crystallographic unit cell in Å.
-    alpha, beta, gamma : `float`
+    alpha, beta, gamma : float
         Unit cell angles in degrees.
-    wavelength : `float`
+    wavelength : float
         Wavelength of the incident x-ray beam in Å.
-    distance : `float`
+    distance : float
         Distance from the sample to the detector in mm.
-    yaw, pitch, roll : `float`
+    yaw, pitch, roll : float
         Yaw, pitch and roll of the area detector in degrees.
-    twotheta : `float`
+    twotheta : float
         Angle of rotation of the detector with respect to the incident beam
         in degrees. This is normally set to 0.
-    gonpitch, omega, chi : `float`
+    gonpitch, omega, chi : float
         Goniometer pitch, omega, and chi angles of the sample goniometer
         in degrees.
     phi : array_like
         Phi angles of each measured frame.
-    phi_step : `float`
+    phi_step : float
         Step size of phi angle rotations in degrees.
-    xc, yc : `float`
+    xc, yc : float
         Location of the incident beam on the detector in pixel coordinates.
-    xd, yd : `float`
+    xd, yd : float
         Translation of the detector along the x and y directions in mm.
-    frame_time : `float`
+    frame_time : float
         Exposure time of each frame in seconds.
-    space_group : `str`
+    space_group : str
         Crystallographic space group.
-    laue_group : `str`
+    laue_group : str
         Crystallographic Laue group.
-    symmetry : `str`
+    symmetry : str
         Crystallographic symmetry or crystal-class system.
-    centring : `str`
+    centring : str
         Lattice centring of the crystallographic space group.
     """    
 
@@ -171,7 +171,7 @@ class NXRefine(object):
         self.laue_group = ''
         self.symmetry = 'triclinic'
         self.centring = 'P'
-        self.peak = None
+        self.peaks = None
         self.xp = None
         self.yp = None
         self.zp = None
@@ -217,22 +217,22 @@ class NXRefine(object):
     def read_parameter(self, path, default=None, attr=None):
         """Read the experimental parameter stored at the specfied path.
 
-        If the `attr` keyword argument is present, the value of the 
+        If the attr keyword argument is present, the value of the 
         specified attribute of the object is returned instead.
 
         Parameters
         ----------
-        path : `str`
+        path : str
             Path to the parameter relative to the entry group.
-        default : `float`, optional
+        default : float, optional
             Default value of the parameter if the path does not exist, 
             by default None.
-        attr : `str`, optional
+        attr : str, optional
             Name of attribute, by default None.
 
         Returns
         -------
-        `float`
+        float
             Value of the parameter or attribute.
         
         Notes
@@ -339,6 +339,7 @@ class NXRefine(object):
             self.Qh = self.read_parameter('transform/Qh')
             self.Qk = self.read_parameter('transform/Qk')
             self.Ql = self.read_parameter('transform/Ql')
+            self.initialize_peaks()
 
     def write_parameter(self, path, value, attr=None):
         """Write a value to the NeXus object defined by its path.
@@ -348,11 +349,11 @@ class NXRefine(object):
 
         Parameters
         ----------
-        path : `str`
+        path : str
             Path to the parameter relative to the entry group.
-        value : `float`
+        value : float
             Value of the parameter.
-        attr : `str`, optional
+        attr : str, optional
             Name of attribute, by default None
         """
         if path.startswith('sample'):
@@ -521,7 +522,7 @@ class NXRefine(object):
 
         Parameters
         ----------
-        settings_file : `str`
+        settings_file : str
             File name of the settings file.
         """
         import configparser, itertools
@@ -562,7 +563,7 @@ class NXRefine(object):
 
         Parameters
         ----------
-        settings_file : `str`
+        settings_file : str
             File name of the settings file.
         """
         lines = []
@@ -634,8 +635,8 @@ class NXRefine(object):
             self.write_parameter('peaks/azimuthal_angle', azimuthal_angles)
 
     def initialize_peaks(self):
-        peaks=list(zip(self.xp,  self.yp, self.zp, self.intensity))
-        self.peak = dict(zip(range(len(peaks)),[NXPeak(*p) for p in peaks]))
+        peaks = list(zip(self.xp,  self.yp, self.zp, self.intensity))
+        self.peaks = dict(zip(range(len(peaks)),[NXPeak(*p) for p in peaks]))
 
     def initialize_grid(self):
         """Initialize the parameters that define HKL grid."""        
@@ -687,7 +688,7 @@ class NXRefine(object):
 
         Parameters
         ----------
-        output_link : `str`
+        output_link : str
             File name of the external file to contain the transform.
         mask : bool, optional
             True if the NXdata group contains a masked transform, 
@@ -730,7 +731,7 @@ class NXRefine(object):
 
         Returns
         -------
-        `str`
+        str
             Command string.
         """
         entry = self.entry.nxname
@@ -778,7 +779,7 @@ class NXRefine(object):
 
         Returns
         -------
-        `str`
+        str
             Crystal symmetry.
         """
         if self.lattice_parameters.count(None) > 0:
@@ -806,7 +807,7 @@ class NXRefine(object):
 
         Parameters
         ----------
-        polar_max : `float`
+        polar_max : float
             Maximum polar angle in degrees.
         """
         try:
@@ -967,7 +968,7 @@ class NXRefine(object):
 
         Returns
         -------
-        `dict` of `lists`
+        dict of lists
             Map of ring indices to lists containing their two-theta values
             and symmetry-equivalent HKLs.
         """
@@ -988,6 +989,23 @@ class NXRefine(object):
                     wa += len(hkl)
                 _rings[_r][0] = pa / wa
         return _rings
+
+    def assign_rings(self):
+        """Assign all the identified Bragg peaks to rings."""
+        rings = self.make_rings()
+        ring_angles = [rings[r][0] for r in rings]
+        self.rp = np.zeros((self.npks), dtype=int)
+        for i in range(self.npks):
+            self.rp[i] = (np.abs(self.polar_angle[i] - ring_angles)).argmin()
+
+    def get_ring_list(self):
+        """Return the HKL indices for all the rings."""
+        hkls = []
+        _rings = self.make_rings()
+        for r in _rings:
+            hkls.append([_rings[r][1][i][0] 
+                         for i in range(len(_rings[r][1]))])
+        return hkls
 
     @property
     def tilts(self):
@@ -1111,8 +1129,7 @@ class NXRefine(object):
 
     @property
     def UBmat(self):
-        """Return the UB matrix.
-        """
+        """Return the UB matrix."""
         if self.Umat is not None:
             return self.Umat * self.Bmat
         else:
@@ -1211,12 +1228,12 @@ class NXRefine(object):
 
         Parameters
         ----------
-        i, j : `int`
+        i, j : int
             Index of the two peaks.
 
         Returns
         -------
-        `float`
+        float
             Angle between the two peaks.
         """
         g1 = norm_vec(self.Gvec(self.xp[i], self.yp[i], self.zp[i]))
@@ -1228,26 +1245,18 @@ class NXRefine(object):
 
         Parameters
         ----------
-        h1, h2 : `tuple` of `ints`
+        h1, h2 : tuple of ints
             A tuple of the HKL vector indices.
 
         Returns
         -------
-        `float`
+        float
             Angle between two HKL vectors.
         """
         h1v = norm_vec((vec(*h1).T * self.Bmat)).T
         h2v = norm_vec((vec(*h2).T * self.Bmat)).T
         return np.around(np.arccos(h1v.T*h2v)[0,0] * degrees, 3)
         
-    def assign_rings(self):
-        """Assign all the identified Bragg peaks to rings."""
-        rings = self.make_rings()
-        ring_angles = [rings[r][0] for r in rings]
-        self.rp = np.zeros((self.npks), dtype=int)
-        for i in range(self.npks):
-            self.rp[i] = (np.abs(self.polar_angle[i] - ring_angles)).argmin()
-
     def unitarity(self):
         """Return the unitarity of the refined orientation matrix."""
         if self.Umat is not None:
@@ -1264,9 +1273,9 @@ class NXRefine(object):
 
         Parameters
         ----------
-        i, j : `int`
+        i, j : int
             Indices of the two Bragg peaks
-        hi, hj : `tuple` of `ints`
+        hi, hj : tuple of ints
             HKL indices assigned to the respective Bragg peaks.
 
         Returns
@@ -1297,7 +1306,7 @@ class NXRefine(object):
 
         Parameters
         ----------
-        x, y, z : `float`
+        x, y, z : float
             Pixel coordinates
  
         Returns
@@ -1333,12 +1342,12 @@ class NXRefine(object):
 
         Parameters
         ----------
-        h, k, l : `int`
+        h, k, l : int
             HKL indices
 
         Returns
         -------
-        `list` of NXPeaks
+        list of NXPeaks
             List of NXPeaks containing the pixel/frame coordinates.
         """
         v7 = vec(h, k, l)
@@ -1466,12 +1475,12 @@ class NXRefine(object):
 
         Parameters
         ----------
-        i : `int`
+        i : int
             Peak index
 
         Returns
         -------
-        `float`
+        float
             [description]
         """
         h, k, l = self.hkl(i)
@@ -1488,12 +1497,12 @@ class NXRefine(object):
 
         Parameters
         ----------
-        i : `int`
+        i : int
             Peak index.
 
         Returns
         -------
-        `float`
+        float
             Difference in degrees.
         """
         (h0, k0, l0) = [int(np.rint(x)) for x in self.hkl(i)]
@@ -1522,15 +1531,6 @@ class NXRefine(object):
         else:
             h = k = l = diffs = np.zeros(peaks.shape, dtype=float)
         return list(zip(peaks, x, y, z, polar, azi, intensity, h, k, l, diffs))
-
-    def get_ring_list(self):
-        """Return the HKL indices for all the rings."""
-        hkls = []
-        _rings = self.make_rings()
-        for r in _rings:
-            hkls.append([_rings[r][1][i][0] 
-                         for i in range(len(_rings[r][1]))])
-        return hkls
 
     def define_parameters(self, **opts):
         """Return LMFIT parameters defined by the keyword arguments.
@@ -1746,7 +1746,7 @@ class NXRefine(object):
 
         Parameters
         ----------
-        beam_polarization : `float`, optional
+        beam_polarization : float, optional
             [description], by default 0.99
 
         Returns
@@ -1778,23 +1778,23 @@ class NXPeak(object):
 
     Parameters
     ----------
-    x, y : `float`
+    x, y : float
         Pixel numbers of the optimized peak position
-    z : `float`
+    z : float
         Frame number of the peak position
-    intensity : `float`, optional
+    intensity : float, optional
         Peak intensity, by default None
-    pixel_count : `int`, optional
+    pixel_count : int, optional
         Maximum counts in the peak, by default None
-    H, K, L : `float`, optional
+    H, K, L : float, optional
         HKL indices of the peak, by default None
-    radius : `float`, optional
+    radius : float, optional
         Mask radius, by default None
-    polar_angle : `float`, optional
+    polar_angle : float, optional
         Peak polar angle, by default None
-    azimuthal_angle : `float`, optional
+    azimuthal_angle : float, optional
         Peak azimuthal angle, by default None
-    rotation_angle : `float`, optional
+    rotation_angle : float, optional
         Peak rotation angle, by default None
     """    
 
