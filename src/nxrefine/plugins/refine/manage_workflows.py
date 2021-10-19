@@ -384,34 +384,42 @@ class WorkflowDialog(NXDialog):
         for scan in self.enabled_scans:
             for entry in self.enabled_scans[scan]['entries']:
                 reduce = NXReduce(entry, scan)
-                if self.selected(scan, 'overwrite'):
-                    reduce.overwrite = True
                 if self.selected(scan, 'link'):
                     reduce.link = True
-                    self.queued(scan, 'link')
                 if self.selected(scan, 'max'):
                     reduce.maxcount = True
-                    self.queued(scan, 'max')
                 if self.selected(scan, 'find'):
                     reduce.find = True
-                    self.queued(scan, 'find')
                 if self.selected(scan, 'copy'):
                     reduce.copy = True
-                    self.queued(scan, 'copy')
                 if self.selected(scan, 'refine'):
                     reduce.refine = True
-                    self.queued(scan, 'refine')
                 if self.selected(scan, 'prepare'):
                     reduce.prepare = True
-                    self.queued(scan, 'prepare')
                 if self.selected(scan, 'transform'):
                     reduce.transform = True
-                    self.queued(scan, 'transform')
                 elif self.selected(scan, 'masked_transform'):
                     reduce.transform = True
                     reduce.mask = True
-                    self.queued(scan, 'masked_transform')
+                if self.selected(scan, 'overwrite'):
+                    reduce.overwrite = True
                 reduce.queue()
+            if self.selected(scan, 'link'):
+                self.queued(scan, 'link')
+            if self.selected(scan, 'max'):
+                self.queued(scan, 'max')
+            if self.selected(scan, 'find'):
+                self.queued(scan, 'find')
+            if self.selected(scan, 'copy'):
+                self.queued(scan, 'copy')
+            if self.selected(scan, 'refine'):
+                self.queued(scan, 'refine')
+            if self.selected(scan, 'prepare'):
+                self.queued(scan, 'prepare')
+            if self.selected(scan, 'transform'):
+                self.queued(scan, 'transform')
+            if self.selected(scan, 'masked_transform'):
+                self.queued(scan, 'masked_transform')
             if self.selected(scan, 'combine') or self.selected(scan, 'pdf'):
                 multi_reduce = NXMultiReduce(scan)
                 if self.selected(scan, 'combine'):
