@@ -1428,6 +1428,13 @@ class NXReduce(QtCore.QObject):
             self.record_end('nxmasked_transform')
 
     def complete_xyz_mask(self):
+        with self.mask_root.nxfile:
+            if 'mask' in self.mask_root['entry']:
+                if self.overwrite:
+                    del self.mask_root['entry/mask']
+                else:
+                    self.logger.info('Mask already completed')
+                    return
         peaks = {}
         masks = {}
         reduce = {}
@@ -1470,8 +1477,6 @@ class NXReduce(QtCore.QObject):
                 peaks.extend(self.read_xyz_edges())
             peaks = sorted(peaks, key=operator.attrgetter('z'))
             entry = self.mask_root['entry']
-            if 'mask' in entry:
-                del entry['mask']
             entry['mask'] = NXfield(shape=self.shape, dtype=np.int8, fillvalue=0)
             mask = entry['mask']
             x, y = np.arange(self.shape[2]), np.arange(self.shape[1])
