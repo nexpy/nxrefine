@@ -635,8 +635,12 @@ class NXRefine(object):
             self.write_parameter('peaks/azimuthal_angle', azimuthal_angles)
 
     def initialize_peaks(self):
-        peaks = list(zip(self.xp,  self.yp, self.zp, self.intensity))
-        self.peaks = dict(zip(range(len(peaks)),[NXPeak(*p) for p in peaks]))
+        try:
+            peaks = list(zip(self.xp,  self.yp, self.zp, self.intensity))
+            self.peaks = dict(zip(range(len(peaks)),
+                                  [NXPeak(*p) for p in peaks]))
+        except Exception:
+            self.peaks = None
 
     def initialize_grid(self):
         """Initialize the parameters that define HKL grid."""        
