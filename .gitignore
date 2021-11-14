@@ -47,3 +47,5 @@ Icon?
 # eclipse
 .settings
 
+# Virtual Studio Code
+.vscode
