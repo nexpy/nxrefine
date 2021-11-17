@@ -1,12 +1,13 @@
-import numpy as np
 import os
 import random
+
+import numpy as np
 from cctbx import crystal, miller, sgtbx, uctbx
+from nexusformat.nexus import (NeXusError, NXdata, NXdetector, NXfield,
+                               NXgoniometer, NXinstrument, NXlink,
+                               NXmonochromator, NXsample)
 from numpy.linalg import inv, norm
 from scipy import optimize
-
-from nexusformat.nexus import *
-
 
 degrees = 180.0 / np.pi
 radians = np.pi / 180.0
@@ -525,7 +526,8 @@ class NXRefine(object):
         settings_file : str
             File name of the settings file.
         """
-        import configparser, itertools
+        import configparser
+        import itertools
         cfg = configparser.ConfigParser()
         filename = settings_file
         with open(filename) as fp:
@@ -1401,6 +1403,7 @@ class NXRefine(object):
             except Exception as error:
                 raise NeXusError(str(error))
         import pkg_resources
+
         from julia import Main, Pkg
         Pkg.add("Roots")
         Main.Gmat0 = np.array(self.Gmat(0.0))
@@ -1615,7 +1618,7 @@ class NXRefine(object):
             LMFIT minimizer method, by default 'leastsq'
         """
         self.set_idx()
-        from lmfit import minimize, fit_report
+        from lmfit import fit_report, minimize
         if self.Umat is None:
             raise NeXusError('No orientation matrix defined')
         p0 = self.define_parameters(**opts)
@@ -1651,7 +1654,7 @@ class NXRefine(object):
             LMFIT minimizer method, by default 'nelder'
         """
         self.set_idx()
-        from lmfit import minimize, fit_report
+        from lmfit import fit_report, minimize
         p0 = self.define_parameters(lattice=True, **opts)
         self.result = minimize(self.angle_residuals, p0, method=method)
         self.fit_report = fit_report(self.result)
@@ -1718,7 +1721,7 @@ class NXRefine(object):
             LMFIT minimizer method, by default 'leastsq'
         """
         self.set_idx()
-        from lmfit import minimize, fit_report
+        from lmfit import fit_report, minimize
         p0 = self.define_orientation_matrix()
         self.result = minimize(self.orient_residuals, p0, method=method)
         self.fit_report = fit_report(self.result)

@@ -1,14 +1,15 @@
-import numpy as np
 import operator
-from nexpy.gui.pyqt import QtCore, QtGui, QtWidgets
-from nexpy.gui.datadialogs import (NXWidget, NXDialog, GridParameters, 
-                                   ExportDialog)
+
+import numpy as np
+from nexpy.gui.datadialogs import (ExportDialog, GridParameters, NXDialog,
+                                   NXWidget)
 from nexpy.gui.plotview import NXPlotView, get_plotview, plotview
-from nexpy.gui.utils import report_error
+from nexpy.gui.pyqt import QtCore, QtGui, QtWidgets
+from nexpy.gui.utils import display_message, report_error
 from nexpy.gui.widgets import NXComboBox, NXLabel, NXLineEdit, NXPushButton
-from nexusformat.nexus import *
-from nxrefine.nxrefine import NXRefine, find_nearest
+from nexusformat.nexus import NeXusError, NXdata, NXfield
 from nxrefine.nxreduce import NXReduce
+from nxrefine.nxrefine import NXRefine, find_nearest
 
 
 def show_dialog():
@@ -73,8 +74,9 @@ class RefineLatticeDialog(NXDialog):
                                   ('Restore', self.restore_parameters),
                                   ('Reset', self.reset_parameters))
         
-        self.orientation_button = self.action_buttons(
-            ('Refine Orientation Matrix', self.refine_orientation))
+        self.orientation_buttons = self.action_buttons(
+            ('Refine Orientation Matrix', self.refine_orientation),
+            ('Remove Orientation Matrix', self.remove_orientation))
 
         self.lattice_buttons = self.action_buttons(
                                    ('Plot', self.plot_lattice),
@@ -108,7 +110,7 @@ class RefineLatticeDialog(NXDialog):
         if self.layout.count() == 2:
             self.insert_layout(1, self.parameters.grid_layout)
             self.insert_layout(2, self.refine_buttons)
-            self.insert_layout(3, self.orientation_button)
+            self.insert_layout(3, self.orientation_buttons)
             self.insert_layout(4, self.parameters.report_layout())
             self.insert_layout(5, self.lattice_buttons)
         self.update_parameters()
@@ -472,6 +474,10 @@ class RefineLatticeDialog(NXDialog):
         self.update_parameters()
         self.parameters.status_message.setText(self.parameters.result.message)
         self.update_table()
+
+    def remove_orientation(self):
+        self.refine.Umat = None
+        self.report_score()
 
     def restore_parameters(self):
         self.refine.restore_parameters()
