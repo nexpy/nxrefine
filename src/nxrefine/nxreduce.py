@@ -1,7 +1,8 @@
-import logging, logging.handlers
+import errno
+import logging
+import logging.handlers
 import operator
 import os
-import errno
 import platform
 import shutil
 import subprocess
@@ -11,25 +12,94 @@ import timeit
 from copy import deepcopy
 from datetime import datetime
 
-import numpy as np
 import h5py as h5
+import numpy as np
 from h5py import is_hdf5
-
-from nexusformat.nexus import *
-
-from qtpy import QtCore
 from nexpy.gui.utils import clamp, timestamp
+from nexusformat.nexus import (NeXusError, NXattenuator, NXcollection, NXdata,
+                               NXentry, NXfield, NXinstrument, NXlink, NXLock,
+                               NXmonitor, NXnote, NXprocess, NXreflections,
+                               NXroot, NXsource, nxgetmemory, nxload,
+                               nxsetlock, nxsetmemory)
+from qtpy import QtCore
 
-from .nxdatabase import NXDatabase
-from .nxrefine import NXRefine, NXPeak
-from .nxsymmetry import NXSymmetry
-from .nxserver import NXServer
-from . import blobcorrector, __version__
+from . import __version__, blobcorrector
 from .connectedpixels import blob_moments
-from .labelimage import labelimage, flip1
+from .labelimage import flip1, labelimage
+from .nxdatabase import NXDatabase
+from .nxrefine import NXPeak, NXRefine
+from .nxserver import NXServer
+from .nxsymmetry import NXSymmetry
 
 
 class NXReduce(QtCore.QObject):
+    """Data reduction workflow for single crystal diffuse x-ray scattering.
+
+    All the components of the workflow required to reduce data from single
+    crystals measured with high-energy synchrotron x-rays on a fast-area
+    detector are defined as separate functions. The class is instantiated 
+    by the entry in the experimental NeXus file corresponding to a single
+    360° rotation of the crystal. 
+
+        Parameters
+        ----------
+        entry : NXentry or str, optional
+            Entry containing the rotation scan, by default None
+        directory : str, optional
+            Path to the directory containing the raw data, by default None
+        parent : str, optional
+            File path to the parent NeXus file, by default None
+        entries : list of str, optional
+            List of all the rotation scan entries in the file, by default None
+        data : str, optional
+            Path to the data field in the entry, by default 'data/data'
+        extension : str, optional
+            Extension of the raw data file, by default '.h5'
+        path : str, optional
+            [description], by default '/entry/data/data'
+        threshold : [type], optional
+            [description], by default None
+        first : [type], optional
+            [description], by default None
+        last : [type], optional
+            [description], by default None
+        radius : [type], optional
+            [description], by default None
+        width : [type], optional
+            [description], by default None
+        monitor : [type], optional
+            [description], by default None
+        norm : [type], optional
+            [description], by default None
+        Qh : [type], optional
+            [description], by default None
+        Qk : [type], optional
+            [description], by default None
+        Ql : [type], optional
+            [description], by default None
+        link : bool, optional
+            [description], by default False
+        maxcount : bool, optional
+            [description], by default False
+        find : bool, optional
+            [description], by default False
+        copy : bool, optional
+            [description], by default False
+        refine : bool, optional
+            [description], by default False
+        lattice : bool, optional
+            [description], by default False
+        transform : bool, optional
+            [description], by default False
+        prepare : bool, optional
+            [description], by default False
+        mask : bool, optional
+            [description], by default False
+        overwrite : bool, optional
+            [description], by default False
+        gui : bool, optional
+            [description], by default False
+        """                 
 
     def __init__(self, entry=None, directory=None, parent=None, entries=None,
                  data='data/data', extension='.h5', path='/entry/data/data',
@@ -38,7 +108,7 @@ class NXReduce(QtCore.QObject):
                  link=False, maxcount=False, find=False, copy=False,
                  refine=False, lattice=False, transform=False, prepare=False, mask=False,
                  overwrite=False, gui=False):
-
+ 
         super(NXReduce, self).__init__()
 
         if isinstance(entry, NXentry):
@@ -825,8 +895,6 @@ class NXReduce(QtCore.QObject):
                                      wavelength = parameters['Wavelength'].nxvalue)
             polarization = ai.polarization(shape=self.shape[1:3], factor=0.99)
             counts = self.summed_data.nxvalue / polarization
-            polar_angle, intensity = ai.integrate1d(counts, 
-                polar_angle, intensity = ai.integrate1d(counts, 
             polar_angle, intensity = ai.integrate1d(counts, 
                                                     2048,
                                                     unit='2th_deg',
@@ -2032,8 +2100,9 @@ class NXMultiReduce(NXReduce):
             try:
                 from julia import Julia
                 self.julia = Julia(compiled_modules=False)
-                from julia import Main
                 import pkg_resources
+
+                from julia import Main
                 Main.include(pkg_resources.resource_filename('nxrefine', 
                                             'julia/LaplaceInterpolation.jl'))
             except Exception as error:
