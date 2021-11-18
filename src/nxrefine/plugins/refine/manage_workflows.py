@@ -89,6 +89,7 @@ class WorkflowDialog(NXDialog):
             header[column] = NXLabel(column, width=75, align='center')
             header_grid.addWidget(header[column], row, col+8)
         header_widget.setStyleSheet("border:0; margin:0")
+        header_widget.setFixedHeight(50)
         self.insert_layout(2, header_widget)
 
     def choose_file(self):
@@ -147,7 +148,6 @@ class WorkflowDialog(NXDialog):
         self.grid_widget.set_layout(self.grid, 'stretch')
         self.scroll_area = NXScrollArea(self.grid_widget)
         self.scroll_area.setMinimumSize(1250, 300)
-
         self.insert_layout(3, self.scroll_area)
         self.grid.setSpacing(1)
 
