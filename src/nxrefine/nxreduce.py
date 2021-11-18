@@ -800,34 +800,43 @@ class NXReduce(QtCore.QObject):
                 del self.entry['summed_frames']
             self.entry['summed_frames'] = NXdata(self.summed_frames,
                                                  self.entry['data'].nxaxes[0])
-            try:
-                from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
-                parameters = self.entry['instrument/calibration/refinement/parameters']
-                ai = AzimuthalIntegrator(dist=parameters['Distance'].nxvalue,
-                                         poni1=parameters['Poni1'].nxvalue,
-                                         poni2=parameters['Poni2'].nxvalue,
-                                         rot1=parameters['Rot1'].nxvalue,
-                                         rot2=parameters['Rot2'].nxvalue,
-                                         rot3=parameters['Rot3'].nxvalue,
-                                         pixel1=parameters['PixelSize1'].nxvalue,
-                                         pixel2=parameters['PixelSize2'].nxvalue,
-                                         wavelength = parameters['Wavelength'].nxvalue)
-                polarization = ai.polarization(shape=self.shape[1:3], factor=0.99)
-                counts = self.summed_data.nxvalue / polarization
-                polar_angle, intensity = ai.integrate1d(counts, 
-                                                        2048,
-                                                        unit='2th_deg',
-                                                        mask=self.pixel_mask,
-                                                        correctSolidAngle=True)
+            calculations = self.calculate_radial_sums()
+            if calculations:
+                polar_angle, intensity, polarization = calculations
                 if 'radial_sum' in self.entry:
                     del self.entry['radial_sum']
                 self.entry['radial_sum'] = NXdata(NXfield(intensity, name='radial_sum'),
                                                   NXfield(polar_angle, name='polar_angle'))
                 if 'polarization' not in self.entry['instrument/detector']:
                     self.entry['instrument/detector/polarization'] = polarization
-            except Exception as error:
-                self.logger.info('Unable to create radial sum')
-                self.logger.info(str(error))
+
+    def calculate_radial_sums(self):
+        try:
+            from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
+            parameters = self.entry['instrument/calibration/refinement/parameters']
+            ai = AzimuthalIntegrator(dist=parameters['Distance'].nxvalue,
+                                     poni1=parameters['Poni1'].nxvalue,
+                                     poni2=parameters['Poni2'].nxvalue,
+                                     rot1=parameters['Rot1'].nxvalue,
+                                     rot2=parameters['Rot2'].nxvalue,
+                                     rot3=parameters['Rot3'].nxvalue,
+                                     pixel1=parameters['PixelSize1'].nxvalue,
+                                     pixel2=parameters['PixelSize2'].nxvalue,
+                                     wavelength = parameters['Wavelength'].nxvalue)
+            polarization = ai.polarization(shape=self.shape[1:3], factor=0.99)
+            counts = self.summed_data.nxvalue / polarization
+            polar_angle, intensity = ai.integrate1d(counts, 
+                polar_angle, intensity = ai.integrate1d(counts, 
+            polar_angle, intensity = ai.integrate1d(counts, 
+                                                    2048,
+                                                    unit='2th_deg',
+                                                    mask=self.pixel_mask,
+                                                    correctSolidAngle=True)
+            return polar_angle, intensity, polarization
+        except Exception as error:
+            self.logger.info('Unable to create radial sum')
+            self.logger.info(str(error))
+            return None
 
     def nxfind(self):
         if self.not_complete('nxfind') and self.find:
