@@ -893,7 +893,8 @@ class NXReduce(QtCore.QObject):
                                      pixel1=parameters['PixelSize1'].nxvalue,
                                      pixel2=parameters['PixelSize2'].nxvalue,
                                      wavelength = parameters['Wavelength'].nxvalue)
-            polarization = ai.polarization(shape=self.shape[1:3], factor=0.99)
+            detector_shape = tuple(self.entry['instrument/detector/shape'].nxvalue)
+            polarization = ai.polarization(shape=detector_shape, factor=0.99)
             counts = self.summed_data.nxvalue / polarization
             polar_angle, intensity = ai.integrate1d(counts, 
                                                     2048,
