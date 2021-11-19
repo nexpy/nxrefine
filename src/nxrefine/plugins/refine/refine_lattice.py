@@ -185,7 +185,7 @@ class RefineLatticeDialog(NXDialog):
                    if entry != 'entry' and entry != self.entry.nxname and
                    'nxrefine' not in root[entry]]
         if entries and self.confirm_action(
-            'Copy orientation to other entries? (%s)' % (', '.join(entries))):
+            f'Copy orientation to other entries? ({", ".join(entries)})'):
             om = self.entry['instrument/detector/orientation_matrix']
             for entry in entries:
                 root[entry]['instrument/detector/orientation_matrix'] = om
@@ -549,7 +549,7 @@ class RefineLatticeDialog(NXDialog):
                                         export_button, save_button, 
                                         close_button)
         self.peaks_box.set_layout(orient_layout, self.table_view, close_layout)
-        self.peaks_box.set_title('%s Peak Table' % self.refine.name)
+        self.peaks_box.set_title(f'{self.refine.name} Peak Table')
         self.peaks_box.adjustSize()
         self.peaks_box.show()
         self.plotview = None
@@ -570,8 +570,8 @@ class RefineLatticeDialog(NXDialog):
                                           self.table_model.createIndex(rows-1, 
                                               columns-1))
         self.table_view.resizeColumnsToContents()
-        self.status_text.setText('Score: %.4f' % self.refine.score())
-        self.peaks_box.set_title('%s Peak Table' % self.refine.name)
+        self.status_text.setText('Score: {self.refine.score():.4f}')
+        self.peaks_box.set_title(f'{self.refine.name} Peak Table')
         self.peaks_box.adjustSize()
         self.peaks_box.setVisible(True)
         self.report_score()
@@ -589,7 +589,7 @@ class RefineLatticeDialog(NXDialog):
         if self.plotview is None:
             self.plotview = NXPlotView('Peak Plot')
         self.plotview.plot(data[zslab], log=True)
-        self.plotview.ax.set_title('%s: Peak %s' % (data.nxtitle, i))
+        self.plotview.ax.set_title(f'{data.nxtitle}: Peak {i}')
         self.plotview.ztab.maxbox.setValue(z)
         self.plotview.aspect = 'equal'
         self.plotview.crosshairs(x, y, color='r', linewidth=0.5)
@@ -746,11 +746,11 @@ class NXTableModel(QtCore.QAbstractTableModel):
             if col < 4:
                 return str(value)
             elif col == 6:
-                return "%5.3g" % value
+                return f"{value:5.3g}"
             elif col == 10:
-                return "%.3f" % value
+                return f"{value:.3f}"
             else:
-                return "%.2f" % value
+                return f"{value:.2f}"
         elif role == QtCore.Qt.TextAlignmentRole:
             return int(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         elif role == QtCore.Qt.BackgroundRole:
