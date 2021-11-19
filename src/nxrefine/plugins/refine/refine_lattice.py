@@ -170,6 +170,10 @@ class RefineLatticeDialog(NXDialog):
         self.refine.peak_tolerance = self.get_peak_tolerance()
 
     def write_parameters(self):
+        if ('nxrefine' in self.entry or 
+            'orientation_matrix' in self.entry['instrument/detector']):
+            if not self.confirm_action('Overwrite existing refinement?'):
+                return
         self.transfer_parameters()
         polar_angles, azimuthal_angles = self.refine.calculate_angles(
                                              self.refine.xp, self.refine.yp)
@@ -203,7 +207,7 @@ class RefineLatticeDialog(NXDialog):
             except Exception:
                 pass
         self.update_box = NXDialog(parent=self)
-        self.update_box.setWindowTitle('Update Scaling Factors')
+        self.update_box.set_title('Update Scaling Factors')
         self.update_box.setMinimumWidth(300)
         self.update_box.set_layout(self.paths.grid(header=('', 'Data Groups', 
                                                            '')), 
