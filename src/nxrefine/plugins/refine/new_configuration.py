@@ -1,12 +1,13 @@
 import os
+
 import numpy as np
-
-from pyFAI.detectors import ALL_DETECTORS
-
-from nexusformat.nexus import *
-from nexpy.gui.datadialogs import NXDialog, GridParameters
+from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.utils import report_error
 from nexpy.gui.widgets import NXLabel
+from nexusformat.nexus import (NXdetector, NXentry, NXfield, NXgoniometer,
+                               NXinstrument, NXmonochromator, NXparameters,
+                               NXroot)
+from pyFAI.detectors import ALL_DETECTORS
 
 
 def show_dialog():
