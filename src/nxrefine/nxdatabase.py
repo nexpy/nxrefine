@@ -453,10 +453,10 @@ class NXDatabase(object):
                          and all(x not in filename for x in ('parent', 'mask'))]
         with NXLock(self.database):
             for wrapper_file in wrapper_files:
-                self.sync_file(get_file(wrapper_file))
+                self.sync_file(self.get_file(wrapper_file))
             tracked_files = list(self.session.query(File).all())
             for f in tracked_files:
-                if f.filename not in [get_filename(w) for w in wrapper_files]:
+                if f.filename not in [self.get_filename(w) for w in wrapper_files]:
                     self.session.delete(f)
             self.session.commit()
 
