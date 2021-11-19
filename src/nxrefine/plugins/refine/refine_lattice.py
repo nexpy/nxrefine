@@ -176,7 +176,10 @@ class RefineLatticeDialog(NXDialog):
         self.refine.write_angles(polar_angles, azimuthal_angles)
         self.refine.write_parameters()
         reduce = NXReduce(self.entry)
+        reduce.record_start('nxrefine')
         reduce.record('nxrefine', fit_report='\n'.join(self.fit_report))
+        reduce.logger.info('Orientation refined in NeXpy')
+        reduce.record_end('nxrefine')
         root = self.entry.nxroot
         entries = [entry for entry in root.entries 
                    if entry != 'entry' and entry != self.entry.nxname and
