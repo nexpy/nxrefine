@@ -1,10 +1,9 @@
-from nexpy.gui.pyqt import QtCore, QtWidgets
 import numpy as np
-from nexpy.gui.datadialogs import NXDialog, GridParameters
-from nexpy.gui.utils import report_error, is_file_locked
+from nexpy.gui.datadialogs import GridParameters, NXDialog
+from nexpy.gui.pyqt import QtCore, QtWidgets
+from nexpy.gui.utils import is_file_locked, report_error
 from nexpy.gui.widgets import NXLabel
-from nexusformat.nexus import *
-
+from nexusformat.nexus import NeXusError, NXLock, NXLockException
 from nxrefine.nxreduce import NXReduce
 
 
@@ -109,11 +108,11 @@ class FindDialog(NXDialog):
 
     def check_lock(self, file_name):
         try:
-            with Lock(file_name, timeout=2):
+            with NXLock(file_name, timeout=2):
                 pass
         except NXLockException as error:
             if self.confirm_action('Clear lock?', str(error)):
-                Lock(file_name).release()
+                NXLock(file_name).release()
 
     def get_peaks(self, peaks):
         self.peaks = peaks
@@ -128,11 +127,13 @@ class FindDialog(NXDialog):
 
     def accept(self):
         try:
-            with Lock(self.reduce.wrapper_file):
+            with NXLock(self.reduce.wrapper_file):
                 self.reduce.write_peaks(self.peaks)
         except NXLockException as error:
             if self.confirm_action('Clear lock?', str(error)):
-                Lock(self.reduce.wrapper_file).release()
+                NXLock(self.reduce.wrapper_file).release()
+                with NXLock(self.reduce.wrapper_file):
+                    self.reduce.write_peaks(self.peaks)
         self.stop()
         super(FindDialog, self).accept()
 
