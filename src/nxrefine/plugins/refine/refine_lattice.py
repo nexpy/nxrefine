@@ -414,7 +414,8 @@ class RefineLatticeDialog(NXDialog):
             polar_field.long_name = 'Polar Angle'
             plotview = get_plotview()
             plotview.plot(NXdata(azimuthal_field, polar_field, 
-                          title='Peak Angles'), xmax=self.get_polar_max())
+                          title=f'{self.refine.name} Peak Angles'), 
+                          xmax=self.get_polar_max())
         except NeXusError as error:
             report_error('Plotting Lattice', error)
 
@@ -540,7 +541,7 @@ class RefineLatticeDialog(NXDialog):
         self.table_view.doubleClicked.connect(self.plot_peak)
         self.table_view.setSortingEnabled(True)
         self.table_view.sortByColumn(0, QtCore.Qt.AscendingOrder)
-        self.status_text = NXLabel('Score: %.4f' % self.refine.score())
+        self.status_text = NXLabel(f'Score: {self.refine.score():.4f}')
         self.tolerance_box = NXLineEdit(self.refine.hkl_tolerance, width=80,
                                         slot=self.update_table, align='right')
         self.tolerance_box.setMaxLength(5)
@@ -574,7 +575,7 @@ class RefineLatticeDialog(NXDialog):
                                           self.table_model.createIndex(rows-1, 
                                               columns-1))
         self.table_view.resizeColumnsToContents()
-        self.status_text.setText('Score: {self.refine.score():.4f}')
+        self.status_text.setText(f'Score: {self.refine.score():.4f}')
         self.peaks_box.set_title(f'{self.refine.name} Peak Table')
         self.peaks_box.adjustSize()
         self.peaks_box.setVisible(True)
