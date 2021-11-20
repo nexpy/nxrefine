@@ -46,7 +46,7 @@ class FindDialog(NXDialog):
 
     def choose_entry(self):
         self.reduce = NXReduce(self.entry)
-        if self.reduce.first:
+        if self.reduce.first is not None:
             self.parameters['first'].value = self.reduce.first
         if self.reduce.last:
             self.parameters['last'].value = self.reduce.last
