@@ -118,7 +118,9 @@ class RefineLatticeDialog(NXDialog):
 
     def report_score(self):
         try:
-            self.status_message.setText('Score: %.4f' % self.refine.score())
+            self.status_message.setText(f'Score: {self.refine.score():.4f}')
+            if self.peaks_box in self.mainwindow.dialogs:
+                self.status_text.setText(f'Score: {self.refine.score():.4f}')
         except Exception as error:
             pass
 
@@ -575,7 +577,6 @@ class RefineLatticeDialog(NXDialog):
                                           self.table_model.createIndex(rows-1, 
                                               columns-1))
         self.table_view.resizeColumnsToContents()
-        self.status_text.setText(f'Score: {self.refine.score():.4f}')
         self.peaks_box.set_title(f'{self.refine.name} Peak Table')
         self.peaks_box.adjustSize()
         self.peaks_box.setVisible(True)
