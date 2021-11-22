@@ -2,7 +2,7 @@ import numpy as np
 from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.pyqt import QtCore, QtWidgets
 from nexpy.gui.utils import is_file_locked, report_error
-from nexpy.gui.widgets import NXLabel
+from nexpy.gui.widgets import NXLabel, NXPushButton
 from nexusformat.nexus import NeXusError, NXLock, NXLockException
 from nxrefine.nxreduce import NXReduce
 
@@ -26,15 +26,11 @@ class FindDialog(NXDialog):
         self.parameters.add('threshold', '', 'Threshold')
         self.parameters.add('first', '', 'First Frame')
         self.parameters.add('last', '', 'Last Frame')
-        find_layout = QtWidgets.QHBoxLayout()
-        self.find_button = QtWidgets.QPushButton('Find Peaks')
-        self.find_button.clicked.connect(self.find_peaks)
+        self.find_button = NXPushButton('Find Peaks', self.find_peaks)
         self.peak_count = NXLabel()
         self.peak_count.setVisible(False)
-        find_layout.addStretch()
-        find_layout.addWidget(self.find_button)
-        find_layout.addWidget(self.peak_count)
-        find_layout.addStretch()
+        find_layout = self.make_layout(self.find_button, self.peak_count, 
+                                       align='center')
         self.set_layout(self.entry_layout, 
                         self.parameters.grid(),
                         find_layout,
@@ -61,7 +57,7 @@ class FindDialog(NXDialog):
     @property
     def threshold(self):
         try:
-            _threshold = np.int32(self.parameters['threshold'].value)
+            _threshold = int(self.parameters['threshold'].value)
             if _threshold > 0.0:
                 return _threshold
             else:
@@ -72,7 +68,7 @@ class FindDialog(NXDialog):
     @property
     def first(self):
         try:
-            _first = np.int32(self.parameters['first'].value)
+            _first = int(self.parameters['first'].value)
             if _first >= 0:
                 return _first
             else:
@@ -83,7 +79,7 @@ class FindDialog(NXDialog):
     @property
     def last(self):
         try:
-            _last = np.int32(self.parameters['last'].value)
+            _last = int(self.parameters['last'].value)
             if _last > 0:
                 return _last
             else:
@@ -93,7 +89,11 @@ class FindDialog(NXDialog):
 
     def find_peaks(self):
         if is_file_locked(self.reduce.data_file):
-            return
+            if self.confirm_action('Clear lock?', 
+                                   f'{self.reduce.data_file} is locked'):
+                NXLock(self.reduce.data_file).release()
+            else:
+                return
         self.start_thread()
         self.reduce = NXReduce(self.entry, threshold=self.threshold, 
                                first=self.first, last=self.last,
@@ -106,17 +106,9 @@ class FindDialog(NXDialog):
         self.thread.started.connect(self.reduce.nxfind)
         self.thread.start(QtCore.QThread.LowestPriority)
 
-    def check_lock(self, file_name):
-        try:
-            with NXLock(file_name, timeout=2):
-                pass
-        except NXLockException as error:
-            if self.confirm_action('Clear lock?', str(error)):
-                NXLock(file_name).release()
-
     def get_peaks(self, peaks):
         self.peaks = peaks
-        self.peak_count.setText('%s peaks found' % len(self.peaks))
+        self.peak_count.setText(f'{len(self.peaks)} peaks found')
         self.peak_count.setVisible(True)
 
     def stop(self):
@@ -127,13 +119,11 @@ class FindDialog(NXDialog):
 
     def accept(self):
         try:
-            with NXLock(self.reduce.wrapper_file):
-                self.reduce.write_peaks(self.peaks)
+            self.reduce.write_peaks(self.peaks)
         except NXLockException as error:
             if self.confirm_action('Clear lock?', str(error)):
                 NXLock(self.reduce.wrapper_file).release()
-                with NXLock(self.reduce.wrapper_file):
-                    self.reduce.write_peaks(self.peaks)
+                self.reduce.write_peaks(self.peaks)
         self.stop()
         super(FindDialog, self).accept()
 
