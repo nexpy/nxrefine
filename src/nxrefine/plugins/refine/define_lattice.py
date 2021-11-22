@@ -199,16 +199,13 @@ class LatticeDialog(NXDialog):
         self.refine.centring = self.get_centring()
 
     def write_parameters(self):
-        try:
-            self.get_parameters()
-            self.refine.write_parameters(sample=True)
-        except NeXusError as error:
-            report_error('Defining Lattice', error)
-
+        self.get_parameters()
+        self.refine.write_parameters(sample=True)
+ 
     def accept(self):
         try:
             self.write_parameters()
             super().accept()
         except NeXusError as error:
-            report_error(error)
+            report_error("Defining Lattice", error)
 
