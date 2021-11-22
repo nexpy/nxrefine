@@ -1,15 +1,14 @@
 import operator
 
 import numpy as np
-from nexpy.gui.datadialogs import (ExportDialog, GridParameters, NXDialog,
-                                   NXWidget)
-from nexpy.gui.plotview import NXPlotView, get_plotview, plotview
+from nexpy.gui.datadialogs import ExportDialog, GridParameters, NXDialog
+from nexpy.gui.plotview import NXPlotView, get_plotview
 from nexpy.gui.pyqt import QtCore, QtGui, QtWidgets
 from nexpy.gui.utils import display_message, report_error
-from nexpy.gui.widgets import NXComboBox, NXLabel, NXLineEdit, NXPushButton
+from nexpy.gui.widgets import NXLabel, NXLineEdit, NXPushButton
 from nexusformat.nexus import NeXusError, NXdata, NXfield
 from nxrefine.nxreduce import NXReduce
-from nxrefine.nxrefine import NXRefine, find_nearest
+from nxrefine.nxrefine import NXRefine
 
 
 def show_dialog():
@@ -37,13 +36,15 @@ class RefineLatticeDialog(NXDialog):
                             slot=self.set_lattice_parameters)
         self.parameters.add('c', self.refine.c, 'Unit Cell - c (Ang)', False,
                             slot=self.set_lattice_parameters)
-        self.parameters.add('alpha', self.refine.alpha, 'Unit Cell - alpha (deg)', 
-                            False, slot=self.set_lattice_parameters)
+        self.parameters.add('alpha', self.refine.alpha, 
+                            'Unit Cell - alpha (deg)', False, 
+                            slot=self.set_lattice_parameters)
         self.parameters.add('beta', self.refine.beta, 'Unit Cell - beta (deg)',
                             False, slot=self.set_lattice_parameters)
-        self.parameters.add('gamma', self.refine.gamma, 'Unit Cell - gamma (deg)', 
-                            False, slot=self.set_lattice_parameters)
-        self.parameters.add('wavelength', self.refine.wavelength, 
+        self.parameters.add('gamma', self.refine.gamma, 
+                            'Unit Cell - gamma (deg)', False, 
+                            slot=self.set_lattice_parameters)
+        self.parameters.add('wavelength', self.refine.wavelength,
                             'Wavelength (Ang)', False)
         self.parameters.add('distance', self.refine.distance, 'Distance (mm)', 
                             False)
@@ -56,8 +57,9 @@ class RefineLatticeDialog(NXDialog):
         self.parameters.add('phi_step', self.refine.phi_step, 'Phi Step (deg)')
         self.parameters.add('chi', self.refine.chi, 'Chi (deg)', False)
         self.parameters.add('omega', self.refine.omega, 'Omega (deg)', False)
-        self.parameters.add('twotheta', self.refine.twotheta, 'Two Theta (deg)')
-        self.parameters.add('gonpitch', self.refine.gonpitch, 
+        self.parameters.add(
+            'twotheta', self.refine.twotheta, 'Two Theta (deg)')
+        self.parameters.add('gonpitch', self.refine.gonpitch,
                             'Goniometer Pitch (deg)', False)
         self.parameters.add('polar', self.refine.polar_max, 
                             'Max. Polar Angle (deg)', None, self.set_polar_max)
@@ -172,8 +174,11 @@ class RefineLatticeDialog(NXDialog):
         self.refine.peak_tolerance = self.get_peak_tolerance()
 
     def write_parameters(self):
-        if ('nxrefine' in self.entry or 
-            'orientation_matrix' in self.entry['instrument/detector']):
+        if self.entry.nxfilemode == 'r':
+            display_message("NeXus file opened as readonly")
+            return
+        elif ('nxrefine' in self.entry or 
+              'orientation_matrix' in self.entry['instrument/detector']):
             if not self.confirm_action('Overwrite existing refinement?'):
                 return
         self.transfer_parameters()
@@ -191,7 +196,8 @@ class RefineLatticeDialog(NXDialog):
                    if entry != 'entry' and entry != self.entry.nxname and
                    'nxrefine' not in root[entry]]
         if entries and self.confirm_action(
-            f'Copy orientation to other entries? ({", ".join(entries)})'):
+            f'Copy orientation to other entries? ({", ".join(entries)})',
+                answer='yes'):
             om = self.entry['instrument/detector/orientation_matrix']
             for entry in entries:
                 root[entry]['instrument/detector/orientation_matrix'] = om
@@ -202,7 +208,7 @@ class RefineLatticeDialog(NXDialog):
     def update_scaling(self):
         self.define_data()
         if len(self.paths) == 0:
-            display_message('Refining Lattice', 'No data groups to update')
+            display_message("Refining Lattice", "No data groups to update")
         if self.update_box in self.mainwindow.dialogs:
             try:
                 self.update_box.close()
@@ -423,7 +429,8 @@ class RefineLatticeDialog(NXDialog):
 
     def plot_rings(self):
         plotview = get_plotview()
-        plotview.vlines(self.refine.two_thetas, colors='r', linestyles='dotted')
+        plotview.vlines(self.refine.two_thetas,
+                        colors='r', linestyles='dotted')
         plotview.draw()
     
     @property
@@ -627,9 +634,10 @@ class RefineLatticeDialog(NXDialog):
         self.peak_parameters.add('primary_hkl', 
                             self.ring_list[self.refine.rp[self.primary]],
                             'Primary HKL', slot=self.choose_secondary_grid)
-        self.orient_box.set_layout(self.peak_parameters.grid(header=False, 
+        self.orient_box.set_layout(self.peak_parameters.grid(header=False,
                                                              spacing=5),
-                                   self.action_buttons(('Orient', self.orient)),
+                                   self.action_buttons(('Orient', 
+                                                        self.orient)),
                                    self.orient_box.close_buttons(close=True))
         self.orient_box.set_title('Orient Lattice')
         self.orient_box.show()
@@ -723,6 +731,14 @@ class RefineLatticeDialog(NXDialog):
         except Exception:
             pass
         self.peaks_box = None
+
+    def accept(self):
+        if 'transform' not in self.entry:
+            if self.confirm_action("Set up transforms?", answer="yes"):
+                self.treeview.select_node(self.entry)
+                from . import transform_data
+                transform_data.show_dialog()
+        super().accept()
 
 
 class NXTableModel(QtCore.QAbstractTableModel):
