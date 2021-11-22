@@ -1873,6 +1873,8 @@ class NXMultiReduce(NXReduce):
                 if transform in self.entry:
                     del self.entry[transform]
                 self.entry[transform] = NXdata(data, [Ql,Qk,Qh])
+                self.entry[transform].attrs['angles'] = (
+                    self.root[entry][transform].attrs['angles'])
                 self.entry[transform].set_default(over=True)
         except Exception as error:
             self.logger.info('Unable to initialize transform group')
