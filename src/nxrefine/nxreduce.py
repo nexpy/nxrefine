@@ -661,7 +661,6 @@ class NXReduce(QtCore.QObject):
                 self.record_fail('nxlink')
         elif self.link:
             self.logger.info('Data already linked')
-            self.record_end('nxlink')
 
     def link_data(self):
         if self.field:
@@ -811,7 +810,6 @@ class NXReduce(QtCore.QObject):
                 self.record_end('nxmax')
         elif self.maxcount:
             self.logger.info('Maximum counts already found')
-            self.record_end('nxmax')
 
     def find_maximum(self):
         self.logger.info('Finding maximum counts')
@@ -941,7 +939,6 @@ class NXReduce(QtCore.QObject):
                 self.record_fail('nxfind')
         elif self.find:
             self.logger.info('Peaks already found')
-            self.record_end('nxfind')
 
     def find_peaks(self):
         self.logger.info("Finding peaks")
@@ -1097,7 +1094,6 @@ class NXReduce(QtCore.QObject):
                 self.record_fail('nxcopy')
         else:
             self.logger.info('Parameters already copied')
-            self.record_end('nxcopy')
 
     def copy_parameters(self):
         with self.parent_root.nxfile:
@@ -1131,7 +1127,6 @@ class NXReduce(QtCore.QObject):
                 self.record_fail('nxrefine')
         elif self.refine:
             self.logger.info('HKL values already refined')
-            self.record_end('nxrefine')
 
     def refine_parameters(self, lattice=False):
         with self.root.nxfile:
@@ -1189,7 +1184,6 @@ class NXReduce(QtCore.QObject):
                 self.record_fail('nxtransform')
         elif self.transform:
             self.logger.info('Data already transformed')
-            self.record_end('nxtransform')
 
     def get_transform_grid(self):
         if self.Qh and self.Qk and self.Ql:
@@ -1278,7 +1272,6 @@ class NXReduce(QtCore.QObject):
                              % (self.mask_file, toc-tic))
         elif self.prepare:
             self.logger.info('3D Mask already prepared')
-            self.record_end('nxprepare')
 
     def prepare_mask(self):
         self.logger.info("Calculating peaks to be masked")
@@ -1519,7 +1512,6 @@ class NXReduce(QtCore.QObject):
                 self.logger.info('CCTW command invalid')
         elif self.transform and self.mask:
             self.logger.info('Masked data already transformed')
-            self.record_end('nxmasked_transform')
 
     def complete_xyz_mask(self):
         with self.mask_root.nxfile:
