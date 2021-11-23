@@ -362,7 +362,7 @@ class OrientationDialog(NXDialog):
         try:
             self.refine.write_parameters()
         except NeXusError as error:
-            report_error('Defining Orientation', error)
+            report_error("Defining Orientation", error)
 
 
 class NXTableModel(QtCore.QAbstractTableModel):

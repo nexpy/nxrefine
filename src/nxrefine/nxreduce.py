@@ -673,16 +673,19 @@ class NXReduce(QtCore.QObject):
                     frame_time = 0.1
                 if 'data' not in self.entry:
                     self.entry['data'] = NXdata()
-                    self.entry['data/x_pixel'] = np.arange(self.shape[2], dtype=np.int32)
-                    self.entry['data/y_pixel'] = np.arange(self.shape[1], dtype=np.int32)
+                    self.entry['data/x_pixel'] = np.arange(
+                        self.shape[2], dtype=np.int32)
+                    self.entry['data/y_pixel'] = np.arange(
+                        self.shape[1], dtype=np.int32)
                     self.entry['data/frame_number'] = frames
                     self.entry['data/frame_time'] = frame_time * frames
                     self.entry['data/frame_time'].attrs['units'] = 's'
-                    data_file = os.path.relpath(self.data_file, 
-                                                os.path.dirname(self.wrapper_file))
+                    data_file = os.path.relpath(
+                        self.data_file, os.path.dirname(self.wrapper_file))
                     self.entry['data/data'] = NXlink(self.path, data_file)
                     self.entry['data'].nxsignal = self.entry['data/data']
-                    self.logger.info('Data group created and linked to external data')
+                    self.logger.info(
+                        'Data group created and linked to external data')
                 else:
                     if self.entry['data/frame_number'].shape != self.shape[0]:
                         del self.entry['data/frame_number']
@@ -697,11 +700,13 @@ class NXReduce(QtCore.QObject):
                                              self.entry['data/y_pixel'],
                                              self.entry['data/x_pixel']]
                 with self.field.nxfile as f:
-                    time_path = 'entry/instrument/NDAttributes/NDArrayTimeStamp'
+                    time_path = (
+                        'entry/instrument/NDAttributes/NDArrayTimeStamp')
                     if time_path in f:
                         start = datetime.fromtimestamp(f[time_path][0])
                         #In EPICS, the epoch started in 1990, not 1970
-                        start_time = start.replace(year=start.year+20).isoformat()
+                        start_time = start.replace(
+                            year=start.year+20).isoformat()
                         self.entry['start_time'] = start_time
                         self.entry['data/frame_time'].attrs['start'] = start_time
         else:
@@ -714,9 +719,11 @@ class NXReduce(QtCore.QObject):
             logs = NXcollection()
         else:
             if not os.path.exists(head_file):
-                self.logger.info("'%s_head.txt' does not exist" % self.entry_name)
+                self.logger.info(
+                    f"'{self.entry_name}_head.txt' does not exist")
             if not os.path.exists(meta_file):
-                self.logger.info("'%s_meta.txt' does not exist" % self.entry_name)
+                self.logger.info(
+                    f"'{self.entry_name}_meta.txt' does not exist")
             return None
         with open(head_file) as f:
             lines = f.readlines()
@@ -752,7 +759,8 @@ class NXReduce(QtCore.QObject):
                 self.entry['monitor1'] = NXmonitor(NXfield(data, name='MCS1'),
                                                    frame_number)
                 if 'data/frame_time' in self.entry:
-                    self.entry['monitor1/frame_time'] = self.entry['data/frame_time']
+                    self.entry['monitor1/frame_time'] = (
+                        self.entry['data/frame_time'])
             if 'MCS2' in logs:
                 if 'monitor2' in self.entry:
                     del self.entry['monitor2']
@@ -763,23 +771,27 @@ class NXReduce(QtCore.QObject):
                 self.entry['monitor2'] = NXmonitor(NXfield(data, name='MCS2'),
                                                    frame_number)
                 if 'data/frame_time' in self.entry:
-                    self.entry['monitor2/frame_time'] = self.entry['data/frame_time']
+                    self.entry['monitor2/frame_time'] = (
+                        self.entry['data/frame_time'])
             if 'source' not in self.entry['instrument']:
                 self.entry['instrument/source'] = NXsource()
             self.entry['instrument/source/name'] = 'Advanced Photon Source'
             self.entry['instrument/source/type'] = 'Synchrotron X-ray Source'
             self.entry['instrument/source/probe'] = 'x-ray'
             if 'Storage_Ring_Current' in logs:
-                self.entry['instrument/source/current'] = logs['Storage_Ring_Current']
+                self.entry['instrument/source/current'] = (
+                    logs['Storage_Ring_Current'])
             if 'SCU_Current' in logs:
-                self.entry['instrument/source/undulator_current'] = logs['SCU_Current']
+                self.entry['instrument/source/undulator_current'] = (
+                    logs['SCU_Current'])
             if 'UndulatorA_gap' in logs:
-                self.entry['instrument/source/undulator_gap'] = logs['UndulatorA_gap']
+                self.entry['instrument/source/undulator_gap'] = (
+                    logs['UndulatorA_gap'])
             if 'Calculated_filter_transmission' in logs:
                 if 'attenuator' not in self.entry['instrument']:
                     self.entry['instrument/attenuator'] = NXattenuator()
                 self.entry['instrument/attenuator/attenuator_transmission'] = (
-                                                logs['Calculated_filter_transmission'])
+                    logs['Calculated_filter_transmission'])
 
     def nxmax(self):
         if self.not_complete('nxmax') and self.maxcount:
@@ -854,7 +866,7 @@ class NXReduce(QtCore.QObject):
         self.summed_data = NXfield(vsum, name='summed_data')
         self.summed_frames = NXfield(fsum, name='summed_frames')
         toc = self.stop_progress()
-        self.logger.info('Maximum counts: %s (%g seconds)' % (maximum, toc-tic))
+        self.logger.info(f'Maximum counts: {maximum} ({(toc-tic):g} seconds)')
         return maximum
 
     def write_maximum(self, maximum):
@@ -875,8 +887,9 @@ class NXReduce(QtCore.QObject):
                 polar_angle, intensity, polarization = calculations
                 if 'radial_sum' in self.entry:
                     del self.entry['radial_sum']
-                self.entry['radial_sum'] = NXdata(NXfield(intensity, name='radial_sum'),
-                                                  NXfield(polar_angle, name='polar_angle'))
+                self.entry['radial_sum'] = NXdata(
+                    NXfield(intensity, name='radial_sum'),
+                    NXfield(polar_angle, name='polar_angle'))
                 if 'polarization' not in self.entry['instrument/detector']:
                     self.entry['instrument/detector/polarization'] = polarization
 
@@ -1046,15 +1059,16 @@ class NXReduce(QtCore.QObject):
     def write_peaks(self, peaks):
         group = NXreflections()
         shape = (len(peaks),)
-        group['npixels'] = NXfield([peak.np for peak in peaks], dtype=np.float32)
+        group['npixels'] = NXfield([peak.np for peak in peaks], dtype=float)
         group['intensity'] = NXfield([peak.intensity for peak in peaks],
-                                        dtype=np.float32)
-        group['x'] = NXfield([peak.x for peak in peaks], dtype=np.float32)
-        group['y'] = NXfield([peak.y for peak in peaks], dtype=np.float32)
-        group['z'] = NXfield([peak.z for peak in peaks], dtype=np.float32)
-        group['sigx'] = NXfield([peak.sigx for peak in peaks], dtype=np.float32)
-        group['sigy'] = NXfield([peak.sigy for peak in peaks], dtype=np.float32)
-        group['covxy'] = NXfield([peak.covxy for peak in peaks], dtype=np.float32)
+                                     dtype=float)
+        group['x'] = NXfield([peak.x for peak in peaks], dtype=float)
+        group['y'] = NXfield([peak.y for peak in peaks], dtype=float)
+        group['z'] = NXfield([peak.z for peak in peaks], dtype=float)
+        group['sigx'] = NXfield([peak.sigx for peak in peaks], dtype=float)
+        group['sigy'] = NXfield([peak.sigy for peak in peaks], dtype=float)
+        group['covxy'] = NXfield([peak.covxy for peak in peaks], 
+                                 dtype=float)
         group.attrs['first'] = self.first
         group.attrs['last'] = self.last
         group.attrs['threshold'] = self.threshold
@@ -1091,7 +1105,8 @@ class NXReduce(QtCore.QObject):
             input_ref = NXRefine(input[self.entry_name])
             with self.root.nxfile:
                 output_ref = NXRefine(self.entry)
-                input_ref.copy_parameters(output_ref, sample=True, instrument=True)
+                input_ref.copy_parameters(output_ref, sample=True, 
+                                          instrument=True)
         self.logger.info("Parameters copied from '%s'" %
                          os.path.basename(os.path.realpath(self.parent)))
 
@@ -1142,7 +1157,8 @@ class NXReduce(QtCore.QObject):
     def nxtransform(self):
         if self.not_complete('nxtransform') and self.transform:
             if not self.complete('nxrefine'):
-                self.logger.info('Cannot transform until the orientation is complete')
+                self.logger.info(
+                    'Cannot transform until the orientation is complete')
                 return
             self.record_start('nxtransform')
             cctw_command = self.prepare_transform()
@@ -1869,7 +1885,8 @@ class NXMultiReduce(NXReduce):
                               self.root[entry][transform]['Qk'],
                               self.root[entry][transform]['Ql'])
                 data = NXlink('/entry/data/v',
-                              file=os.path.join(self.scan, transform+'.nxs'), name='data')
+                              file=os.path.join(self.scan, transform+'.nxs'), 
+                              name='data')
                 if transform in self.entry:
                     del self.entry[transform]
                 self.entry[transform] = NXdata(data, [Ql,Qk,Qh])
@@ -1881,7 +1898,7 @@ class NXMultiReduce(NXReduce):
             self.logger.info(str(error))
             return None
         input = ' '.join([os.path.join(self.directory,
-                                       '%s_%s.nxs\#/entry/data' % (entry, transform))
+                                       f'{entry}_{transform}.nxs\#/entry/data')
                           for entry in self.entries])
         output = os.path.join(self.directory, transform+'.nxs\#/entry/data/v')
         return 'cctw merge %s -o %s' % (input, output)

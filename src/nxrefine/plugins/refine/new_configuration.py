@@ -32,11 +32,14 @@ class ConfigurationDialog(NXDialog):
         self.setup_scan()
         self.setup_instrument()
 
-        self.set_layout(self.directorybox('Choose Experiment Directory', default=False),
+        self.set_layout(self.directorybox('Choose Experiment Directory', 
+                                          default=False),
                         self.configuration.grid(header=False),
-                        self.analysis.grid(header=False, title='Analysis Settings'),
+                        self.analysis.grid(header=False, 
+                                           title='Analysis Settings'),
                         self.scan.grid(header=False, title='Scan Settings'),
-                        self.instrument.grid(header=False, title='Detector Settings'))
+                        self.instrument.grid(header=False, 
+                                             title='Detector Settings'))
         self.set_title('New Configuration')
 
     def setup_groups(self):
@@ -87,11 +90,13 @@ class ConfigurationDialog(NXDialog):
 
     def setup_scan(self):
         entry = self.configuration_file['entry']
-        entry['instrument/goniometer/chi'] = NXfield(-90.0, dtype=np.float32)
+        entry['instrument/goniometer/chi'] = NXfield(-90.0, dtype=float)
         entry['instrument/goniometer/chi'].attrs['units'] = 'degree'
-        entry['instrument/goniometer/phi'] = NXfield(-5.0, dtype=np.float32)
-        entry['instrument/goniometer/phi'].attrs['step'] = NXfield(0.1, dtype=np.float32)
-        entry['instrument/goniometer/phi'].attrs['end'] = NXfield(360.0, dtype=np.float32)
+        entry['instrument/goniometer/phi'] = NXfield(-5.0, dtype=float)
+        entry['instrument/goniometer/phi'].attrs['step'] = NXfield(0.1, 
+                                                                   dtype=float)
+        entry['instrument/goniometer/phi'].attrs['end'] = NXfield(360.0, 
+                                                                  dtype=float)
         entry['instrument/goniometer/phi'].attrs['units'] = 'degree'
         entry['instrument/detector/frame_time'] = 0.1
         self.scan = GridParameters()
@@ -103,7 +108,7 @@ class ConfigurationDialog(NXDialog):
 
     def setup_instrument(self):
         entry = self.configuration_file['entry']
-        entry['instrument/detector/distance'] = NXfield(100.0, dtype=np.float32)
+        entry['instrument/detector/distance'] = NXfield(100.0, dtype=float)
         entry['instrument/detector/distance'].attrs['units'] = 'mm'
         self.instrument = GridParameters()
         self.instrument.add('distance', entry['instrument/detector/distance'], 
@@ -127,7 +132,8 @@ class ConfigurationDialog(NXDialog):
 
     def get_detector(self):
         for detector in ALL_DETECTORS:
-            if ALL_DETECTORS[detector]().name == self.instrument['detector'].value:
+            if (ALL_DETECTORS[detector]().name 
+                == self.instrument['detector'].value):
                 return ALL_DETECTORS[detector]()
 
     @property
@@ -142,9 +148,11 @@ class ConfigurationDialog(NXDialog):
             return 1
  
     def set_entries(self):
-        self.entry_box = self.select_box([str(i) for i in range(1,self.positions+1)], 
+        self.entry_box = self.select_box([str(i) for i in 
+                                          range(1,self.positions+1)], 
                                          slot=self.choose_position)
-        self.entry_layout = self.make_layout(self.labels('Position', header=True), 
+        self.entry_layout = self.make_layout(self.labels('Position', 
+                                                         header=True), 
                                              self.entry_box)
         self.add_layout(self.entry_layout)
         for position in range(1,self.positions+1):

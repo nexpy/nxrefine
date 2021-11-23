@@ -27,16 +27,17 @@ NXDatabase assumes that no identical tasks (i.e., same task, entry, and wrapper
 file) will be queued or running at the same time
 """
 
-import os
 import datetime
-from sqlalchemy import create_engine, inspect, Column, Integer, String, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
-from sqlalchemy.dialects import mysql
-from sqlalchemy.exc import IntegrityError
+import os
 
-from nexusformat.nexus import nxload, NeXusError
-from .nxlock import NXLock, NXLockException
+from nexusformat.nexus import NeXusError, nxload
+from sqlalchemy import (Column, ForeignKey, Integer, String, create_engine,
+                        inspect)
+from sqlalchemy.dialects import mysql
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship, sessionmaker
+
+from .nxlock import NXLock
 
 Base = declarative_base();
 # Records files that have: not been processed, queued on the NXserver
@@ -515,4 +516,3 @@ def is_parent(wrapper_file, sample_dir):
         return wrapper_file == os.path.realpath(parent_file)
     else:
         return False
-
