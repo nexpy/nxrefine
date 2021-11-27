@@ -369,7 +369,7 @@ class NXReduce(QtCore.QObject):
 
     def make_parent(self):
         if self.is_parent():
-            self.logger.info("'%s' already set as parent" % self.wrapper_file)
+            self.logger.info(f"'{self.wrapper_file}' already set as parent")
             return
         elif os.path.exists(self.parent_file):
             if self.overwrite:
@@ -377,9 +377,13 @@ class NXReduce(QtCore.QObject):
             else:
                 raise NeXusError("'%s' already set as parent"
                                  % os.path.realpath(self.parent_file))
+        self.record_start('nxcopy')
         os.symlink(os.path.basename(self.wrapper_file), self.parent_file)
+        self.record('nxcopy', parent=self.wrapper_file)
+        self.record_end('nxcopy')
         self._parent = None
-        self.logger.info("'%s' set as parent" % os.path.realpath(self.parent_file))
+        self.logger.info(
+            f"'{os.path.realpath(self.parent_file)}' set as parent")
 
     @property
     def first(self):
