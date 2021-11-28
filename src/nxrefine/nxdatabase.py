@@ -27,16 +27,17 @@ NXDatabase assumes that no identical tasks (i.e., same task, entry, and wrapper
 file) will be queued or running at the same time
 """
 
-import os
 import datetime
-from sqlalchemy import create_engine, inspect, Column, Integer, String, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
-from sqlalchemy.dialects import mysql
-from sqlalchemy.exc import IntegrityError
+import os
 
-from nexusformat.nexus import nxload, NeXusError
-from .nxlock import NXLock, NXLockException
+from nexusformat.nexus import NeXusError, nxload
+from sqlalchemy import (Column, ForeignKey, Integer, String, create_engine,
+                        inspect)
+from sqlalchemy.dialects import mysql
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship, sessionmaker
+
+from .nxlock import NXLock
 
 Base = declarative_base();
 # Records files that have: not been processed, queued on the NXserver
@@ -61,6 +62,7 @@ class File(Base):
     nxcombine = Column(Integer, default=NOT_STARTED)
     nxmasked_combine = Column(Integer, default=NOT_STARTED)
     nxpdf = Column(Integer, default=NOT_STARTED)
+    nxmasked_pdf = Column(Integer, default=NOT_STARTED)
 
     def __repr__(self):
         not_started = [k for k,v in vars(self).items() if v == NOT_STARTED]
@@ -109,7 +111,7 @@ class NXDatabase(object):
 
     task_names = ('data', 'nxlink', 'nxmax', 'nxfind', 'nxcopy', 'nxrefine', 
                   'nxprepare', 'nxtransform', 'nxmasked_transform', 
-                  'nxcombine', 'nxmasked_combine', 'nxpdf')
+                  'nxcombine', 'nxmasked_combine', 'nxpdf', 'nxmasked_pdf')
     NOT_STARTED, QUEUED, IN_PROGRESS, DONE, FAILED = 0,1,2,3,-1
 
     def __init__(self, db_file, echo=False):
@@ -225,6 +227,8 @@ class NXDatabase(object):
                         tasks['nxmasked_combine'] += 1
                     if 'nxpdf' in root['entry']:
                         tasks['nxpdf'] += 1
+                    if 'nxmasked_pdf' in root['entry']:
+                        tasks['nxmasked_pdf'] += 1
             for task, val in tasks.items():
                 if val == 0:
                     setattr(f, task, NOT_STARTED)
@@ -396,7 +400,8 @@ class NXDatabase(object):
         if task == 'nxcopy' and is_parent(f.filename, sample_dir):
             setattr(f, task, DONE)
         else:
-            if task == 'nxcombine' or task == 'nxmasked_combine':
+            if (task == 'nxcombine' or task == 'nxmasked_combine' or
+                task == 'nxpdf' or task == 'nxmasked_pdf'):
                 entries = ['entry']
             else:
                 entries = f.get_entries()
@@ -449,10 +454,10 @@ class NXDatabase(object):
                          and all(x not in filename for x in ('parent', 'mask'))]
         with NXLock(self.database):
             for wrapper_file in wrapper_files:
-                self.sync_file(get_file(wrapper_file))
+                self.sync_file(self.get_file(wrapper_file))
             tracked_files = list(self.session.query(File).all())
             for f in tracked_files:
-                if f.filename not in [get_filename(w) for w in wrapper_files]:
+                if f.filename not in [self.get_filename(w) for w in wrapper_files]:
                     self.session.delete(f)
             self.session.commit()
 
@@ -511,4 +516,3 @@ def is_parent(wrapper_file, sample_dir):
         return wrapper_file == os.path.realpath(parent_file)
     else:
         return False
-

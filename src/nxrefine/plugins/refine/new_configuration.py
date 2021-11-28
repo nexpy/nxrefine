@@ -1,12 +1,13 @@
 import os
+
 import numpy as np
-
-from pyFAI.detectors import ALL_DETECTORS
-
-from nexusformat.nexus import *
-from nexpy.gui.datadialogs import NXDialog, GridParameters
+from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.utils import report_error
 from nexpy.gui.widgets import NXLabel
+from nexusformat.nexus import (NXdetector, NXentry, NXfield, NXgoniometer,
+                               NXinstrument, NXmonochromator, NXparameters,
+                               NXroot)
+from pyFAI.detectors import ALL_DETECTORS
 
 
 def show_dialog():
@@ -31,11 +32,14 @@ class ConfigurationDialog(NXDialog):
         self.setup_scan()
         self.setup_instrument()
 
-        self.set_layout(self.directorybox('Choose Experiment Directory', default=False),
+        self.set_layout(self.directorybox('Choose Experiment Directory', 
+                                          default=False),
                         self.configuration.grid(header=False),
-                        self.analysis.grid(header=False, title='Analysis Settings'),
+                        self.analysis.grid(header=False, 
+                                           title='Analysis Settings'),
                         self.scan.grid(header=False, title='Scan Settings'),
-                        self.instrument.grid(header=False, title='Detector Settings'))
+                        self.instrument.grid(header=False, 
+                                             title='Detector Settings'))
         self.set_title('New Configuration')
 
     def setup_groups(self):
@@ -59,15 +63,16 @@ class ConfigurationDialog(NXDialog):
                                'Configuration Filename')
         self.configuration.add('wavelength', 
                                entry['instrument/monochromator/wavelength'], 
-                               'Wavelength (Ang)')
+                               'Wavelength (Å)')
 
     def setup_analysis(self):
         entry = self.configuration_file['entry']        
-        entry['nxreduce/threshold'] = NXfield(50000.0, dtype=np.float32)
+        entry['nxreduce/threshold'] = NXfield(50000.0, dtype=float)
         entry['nxreduce/monitor'] = NXfield('monitor2')
-        entry['nxreduce/norm'] = NXfield(30000.0, dtype=np.float32)
-        entry['nxreduce/first_frame'] = NXfield(0, dtype=np.int32)
-        entry['nxreduce/last_frame'] = NXfield(3650, dtype=np.int32)
+        entry['nxreduce/norm'] = NXfield(30000.0, dtype=float)
+        entry['nxreduce/first_frame'] = NXfield(0, dtype=int)
+        entry['nxreduce/last_frame'] = NXfield(3650, dtype=int)
+        entry['nxreduce/radius'] = NXfield(0.2, dtype=float)
         self.analysis = GridParameters()
         self.analysis.add('threshold', entry['nxreduce/threshold'], 
                           'Peak Threshold')
@@ -80,14 +85,18 @@ class ConfigurationDialog(NXDialog):
         self.analysis['monitor'].value = 'monitor2'
         self.analysis.add('norm', entry['nxreduce/norm'], 
                           'Normalization Value')
+        self.analysis.add('radius', entry['nxreduce/radius'], 
+                          'Punch Radius (Å)')
 
     def setup_scan(self):
         entry = self.configuration_file['entry']
-        entry['instrument/goniometer/chi'] = NXfield(-90.0, dtype=np.float32)
+        entry['instrument/goniometer/chi'] = NXfield(-90.0, dtype=float)
         entry['instrument/goniometer/chi'].attrs['units'] = 'degree'
-        entry['instrument/goniometer/phi'] = NXfield(-5.0, dtype=np.float32)
-        entry['instrument/goniometer/phi'].attrs['step'] = NXfield(0.1, dtype=np.float32)
-        entry['instrument/goniometer/phi'].attrs['end'] = NXfield(360.0, dtype=np.float32)
+        entry['instrument/goniometer/phi'] = NXfield(-5.0, dtype=float)
+        entry['instrument/goniometer/phi'].attrs['step'] = NXfield(0.1, 
+                                                                   dtype=float)
+        entry['instrument/goniometer/phi'].attrs['end'] = NXfield(360.0, 
+                                                                  dtype=float)
         entry['instrument/goniometer/phi'].attrs['units'] = 'degree'
         entry['instrument/detector/frame_time'] = 0.1
         self.scan = GridParameters()
@@ -99,7 +108,7 @@ class ConfigurationDialog(NXDialog):
 
     def setup_instrument(self):
         entry = self.configuration_file['entry']
-        entry['instrument/detector/distance'] = NXfield(100.0, dtype=np.float32)
+        entry['instrument/detector/distance'] = NXfield(100.0, dtype=float)
         entry['instrument/detector/distance'].attrs['units'] = 'mm'
         self.instrument = GridParameters()
         self.instrument.add('distance', entry['instrument/detector/distance'], 
@@ -123,7 +132,8 @@ class ConfigurationDialog(NXDialog):
 
     def get_detector(self):
         for detector in ALL_DETECTORS:
-            if ALL_DETECTORS[detector]().name == self.instrument['detector'].value:
+            if (ALL_DETECTORS[detector]().name 
+                == self.instrument['detector'].value):
                 return ALL_DETECTORS[detector]()
 
     @property
@@ -138,9 +148,11 @@ class ConfigurationDialog(NXDialog):
             return 1
  
     def set_entries(self):
-        self.entry_box = self.select_box([str(i) for i in range(1,self.positions+1)], 
+        self.entry_box = self.select_box([str(i) for i in 
+                                          range(1,self.positions+1)], 
                                          slot=self.choose_position)
-        self.entry_layout = self.make_layout(self.labels('Position', header=True), 
+        self.entry_layout = self.make_layout(self.labels('Position', 
+                                                         header=True), 
                                              self.entry_box)
         self.add_layout(self.entry_layout)
         for position in range(1,self.positions+1):
@@ -163,6 +175,7 @@ class ConfigurationDialog(NXDialog):
         entry['nxreduce/last_frame'] = self.analysis['last'].value
         entry['nxreduce/monitor'] = self.analysis['monitor'].value
         entry['nxreduce/norm'] = self.analysis['norm'].value
+        entry['nxreduce/radius'] = self.analysis['radius'].value
         entry['instrument/monochromator/wavelength'] = self.configuration['wavelength'].value
         entry['instrument/monochromator/energy'] = 12.398419739640717 /  self.configuration['wavelength'].value
         detector = self.get_detector()

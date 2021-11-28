@@ -40,6 +40,8 @@ class WorkflowDialog(NXDialog):
 
     def choose_directory(self):
         super(WorkflowDialog, self).choose_directory()
+        if self.scroll_area is None:
+            self.add_grid_headers()
         self.sample_directory = self.get_directory()
         self.sample = os.path.basename(os.path.dirname(self.sample_directory))
         self.label = os.path.join(os.path.basename(self.sample_directory))
@@ -61,6 +63,34 @@ class WorkflowDialog(NXDialog):
         self.db = NXDatabase(db_file)
         self.server = NXServer()
         self.update()
+
+    def add_grid_headers(self):
+        header_grid = QtWidgets.QGridLayout()
+        header_widget = NXWidget()
+        header_widget.set_layout(header_grid, 'stretch')
+
+        header_grid.setSpacing(1)
+        row = 0
+        columns = ['Scan', 'data', 'link', 'max', 'find', 'copy', 'refine', 
+                   'prepare', 'transform', 'masked_transform', 'combine', 
+                   'masked_combine', 'pdf', 'masked_pdf', 'overwrite', 'sync']
+        header = {}
+        for col, column in enumerate(columns):
+            header[column] = NXLabel(column, bold=True, width=75, align='center')
+            if column == 'transform' or column == 'combine' or column == 'pdf':
+                header_grid.addWidget(header[column], row, col, 1, 2,
+                                      QtCore.Qt.AlignHCenter)
+            elif 'masked' not in column:
+                header_grid.addWidget(header[column], row, col)
+                header[column].setAlignment(QtCore.Qt.AlignHCenter)
+        row = 1
+        columns = 3 * ['regular', 'masked']
+        for col, column in enumerate(columns):
+            header[column] = NXLabel(column, width=75, align='center')
+            header_grid.addWidget(header[column], row, col+8)
+        header_widget.setStyleSheet("border:0; margin:0")
+        header_widget.setFixedHeight(50)
+        self.insert_layout(2, header_widget)
 
     def choose_file(self):
         super(WorkflowDialog, self).choose_file()
@@ -118,35 +148,16 @@ class WorkflowDialog(NXDialog):
         self.grid_widget.set_layout(self.grid, 'stretch')
         self.scroll_area = NXScrollArea(self.grid_widget)
         self.scroll_area.setMinimumSize(1250, 300)
-
-        self.insert_layout(2, self.scroll_area)
+        self.insert_layout(3, self.scroll_area)
         self.grid.setSpacing(1)
-        row = 0
-        columns = ['Scan', 'data', 'link', 'max', 'find', 'copy', 'refine', 
-                   'prepare', 'transform', 'masked_transform', 'combine', 
-                   'masked_combine', 'pdf', 'overwrite', 'reduce', 'sync']
-        header = {}
-        for col, column in enumerate(columns):
-            header[column] = NXLabel(column, bold=True, width=75)
-            if column == 'transform' or column == 'combine':
-                self.grid.addWidget(header[column], row, col, 1, 2,
-                                    QtCore.Qt.AlignHCenter)
-            elif 'masked' not in column:
-                self.grid.addWidget(header[column], row, col)
-                header[column].setAlignment(QtCore.Qt.AlignHCenter)
-        row = 1
-        columns = ['regular', 'masked', 'regular', 'masked']
-        for col, column in enumerate(columns):
-            header[column] = NXLabel(column, width=75, align='center')
-            self.grid.addWidget(header[column], row, col+8)
 
         self.scans = {}
         self.scans_backup = {}
 
+        row = 0
         # Create (unchecked) checkboxes
         for wrapper_file, scan in wrapper_files.items():
             scan_label = os.path.basename(scan)
-            row += 1
             status = {}
             status['scan'] = NXLabel(scan_label)
             if self.parent_file == wrapper_file:
@@ -164,8 +175,8 @@ class WorkflowDialog(NXDialog):
             status['combine'] = self.new_checkbox()
             status['masked_combine'] = self.new_checkbox()
             status['pdf'] = self.new_checkbox()
+            status['masked_pdf'] = self.new_checkbox()
             status['overwrite'] = self.new_checkbox(self.select_scans)
-            status['reduce'] = self.new_checkbox(self.select_scans)
             status['sync'] = self.new_checkbox()
             self.grid.addWidget(status['scan'], row, 0, QtCore.Qt.AlignCenter)
             self.grid.addWidget(status['data'], row, 1, QtCore.Qt.AlignCenter)
@@ -180,11 +191,11 @@ class WorkflowDialog(NXDialog):
             self.grid.addWidget(status['combine'], row, 10, QtCore.Qt.AlignCenter)
             self.grid.addWidget(status['masked_combine'], row, 11, QtCore.Qt.AlignCenter)
             self.grid.addWidget(status['pdf'], row, 12, QtCore.Qt.AlignCenter)
-            self.grid.addWidget(status['overwrite'], row, 13, QtCore.Qt.AlignCenter)
-            self.grid.addWidget(status['reduce'], row, 14, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['masked_pdf'], row, 13, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['overwrite'], row, 14, QtCore.Qt.AlignCenter)
             self.grid.addWidget(status['sync'], row, 15, QtCore.Qt.AlignCenter)
             self.scans[scan] = status
-        row += 1
+            row += 1
         self.grid.addWidget(NXLabel('All'), row, 0, QtCore.Qt.AlignCenter)
         all_boxes = {}
         all_boxes['link'] = self.new_checkbox(lambda:self.select_status('link'))
@@ -198,8 +209,8 @@ class WorkflowDialog(NXDialog):
         all_boxes['combine'] = self.new_checkbox(lambda:self.select_status('combine'))
         all_boxes['masked_combine'] = self.new_checkbox(lambda:self.select_status('masked_combine'))
         all_boxes['pdf'] = self.new_checkbox(lambda:self.select_status('pdf'))
+        all_boxes['masked_pdf'] = self.new_checkbox(lambda:self.select_status('masked_pdf'))
         all_boxes['overwrite'] = self.new_checkbox(self.select_all)
-        all_boxes['reduce'] = self.new_checkbox(self.select_all)
         all_boxes['sync'] = self.new_checkbox(self.select_all)
         self.grid.addWidget(all_boxes['link'], row, 2, QtCore.Qt.AlignCenter)
         self.grid.addWidget(all_boxes['max'], row, 3, QtCore.Qt.AlignCenter)
@@ -212,8 +223,8 @@ class WorkflowDialog(NXDialog):
         self.grid.addWidget(all_boxes['combine'], row, 10, QtCore.Qt.AlignCenter)
         self.grid.addWidget(all_boxes['masked_combine'], row, 11, QtCore.Qt.AlignCenter)
         self.grid.addWidget(all_boxes['pdf'], row, 12, QtCore.Qt.AlignCenter)
-        self.grid.addWidget(all_boxes['overwrite'], row, 13, QtCore.Qt.AlignCenter)
-        self.grid.addWidget(all_boxes['reduce'], row, 14, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['masked_pdf'], row, 13, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['overwrite'], row, 14, QtCore.Qt.AlignCenter)
         self.grid.addWidget(all_boxes['sync'], row, 15, QtCore.Qt.AlignCenter)
         self.all_scans = all_boxes
         self.start_progress((0, len(wrapper_files)))
@@ -248,7 +259,9 @@ class WorkflowDialog(NXDialog):
                     checkbox.setEnabled(True)
                     checkbox.setStyleSheet("color: red")
             if status['data'].checkState() == QtCore.Qt.Unchecked:
-                self.disable_status(status)
+                for program in ['link', 'max', 'find', 'copy', 'refine', 
+                                'prepare', 'transform', 'masked_transform']:
+                    status[program].setEnabled(False)
             self.update_progress(i)
 
         self.stop_progress()
@@ -278,10 +291,6 @@ class WorkflowDialog(NXDialog):
             checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
             checkbox.setEnabled(True)
 
-    def disable_status(self, status):
-        for program in self.programs:
-            status[program].setEnabled(False)
-
     def backup_scans(self):
         for scan in self.scans:
             self.scans_backup[scan] = []
@@ -293,8 +302,9 @@ class WorkflowDialog(NXDialog):
 
     @property
     def programs(self):
-        return ['link', 'max', 'find', 'copy', 'refine', 'prepare', 'transform', 
-                'masked_transform', 'combine', 'masked_combine', 'pdf']
+        return ['link', 'max', 'find', 'copy', 'refine', 'prepare', 
+                'transform', 'masked_transform', 'combine', 'masked_combine', 
+                'pdf', 'masked_pdf']
 
     @property
     def enabled_scans(self):
@@ -302,9 +312,6 @@ class WorkflowDialog(NXDialog):
 
     def overwrite_selected(self, scan):
         return self.scans[scan]['overwrite'].isChecked()
-
-    def reduce_selected(self, scan):
-        return self.scans[scan]['reduce'].isChecked()
 
     def sync_selected(self, scan):
         return self.scans[scan]['sync'].isChecked()
@@ -321,18 +328,13 @@ class WorkflowDialog(NXDialog):
                 self.scans[scan][status].setEnabled(True)
         else:
             self.restore_scan(scan)
-        if self.reduce_selected(scan):
+        if self.overwrite_selected(scan):
             for status in self.programs:
                 if self.scans[scan][status].isEnabled():
-                    self.scans[scan][status].setChecked(True)
+                    self.scans[scan][status].setChecked(
+                        self.all_scans[status].isChecked())
         else:
-            if self.overwrite_selected(scan):
-                for status in self.programs:
-                    if self.scans[scan][status].isEnabled():
-                        self.scans[scan][status].setChecked(
-                            self.all_scans[status].isChecked())
-            else:
-                self.restore_scan(scan)
+            self.restore_scan(scan)
 
     def select_scans(self):
         for scan in self.enabled_scans:
@@ -340,17 +342,12 @@ class WorkflowDialog(NXDialog):
 
     def select_all(self):
         for scan in self.enabled_scans:
-            for status in ['overwrite', 'reduce']:
-                self.scans[scan][status].blockSignals(True)
-            for status in ['overwrite', 'reduce']:
-                self.scans[scan][status].setCheckState(
-                    self.all_scans[status].checkState())
-            for status in ['overwrite', 'reduce']:
-                self.scans[scan][status].blockSignals(False)
+            self.scans[scan]['overwrite'].blockSignals(True)
+            self.scans[scan]['overwrite'].setCheckState(
+                self.all_scans['overwrite'].checkState())
+            self.scans[scan]['overwrite'].blockSignals(False)
         for scan in self.scans:
             self.scans[scan]['sync'].setCheckState(self.all_scans['sync'].checkState())
-        for status in self.programs:
-            self.all_scans[status].setChecked(self.all_scans['reduce'].isChecked())
         for scan in self.enabled_scans:
             self.select_programs(scan)
 
@@ -362,18 +359,14 @@ class WorkflowDialog(NXDialog):
 
     def deselect_all(self):
         for scan in self.enabled_scans:
-            for status in ['overwrite', 'reduce']:
-                self.scans[scan][status].blockSignals(True)
-            for status in ['overwrite', 'reduce']:
-                self.scans[scan][status].setCheckState(False)
-            for status in ['overwrite', 'reduce']:
-                self.scans[scan][status].blockSignals(False)
+            self.scans[scan]['overwrite'].blockSignals(True)
+            self.scans[scan]['overwrite'].setCheckState(False)
+            self.scans[scan]['overwrite'].blockSignals(False)
         for scan in self.scans:
             self.scans[scan]['sync'].setCheckState(False)
-        for status in ['overwrite', 'reduce']:
-            self.all_scans[status].blockSignals(True)
-            self.all_scans[status].setChecked(False)
-            self.all_scans[status].blockSignals(False)
+        self.all_scans['overwrite'].blockSignals(True)
+        self.all_scans['overwrite'].setChecked(False)
+        self.all_scans['overwrite'].blockSignals(False)
         self.backup_scans()
 
     def selected(self, scan, command):
@@ -427,19 +420,29 @@ class WorkflowDialog(NXDialog):
                 self.queued(scan, 'transform')
             if self.selected(scan, 'masked_transform'):
                 self.queued(scan, 'masked_transform')
-            if self.selected(scan, 'combine'):
-                reduce = NXMultiReduce(scan)
+            if self.selected(scan, 'combine') or self.selected(scan, 'pdf'):
+                multi_reduce = NXMultiReduce(scan)
+                if self.selected(scan, 'combine'):
+                    multi_reduce.combine = True
+                    self.queued(scan, 'combine')
+                if self.selected(scan, 'pdf'):
+                    multi_reduce.pdf = True
+                    self.queued(scan, 'pdf')
                 if self.selected(scan, 'overwrite'):
-                    reduce.overwrite = True
-                reduce.queue()
-                self.queued(scan, 'combine')
-            elif self.selected(scan, 'masked_combine'):
-                reduce = NXMultiReduce(scan, mask=True)
+                    multi_reduce.overwrite = True
+                multi_reduce.queue()
+            if self.selected(scan, 'masked_combine') or self.selected(scan, 'masked_pdf'):
+                multi_reduce = NXMultiReduce(scan)
+                multi_reduce.mask = True
+                if self.selected(scan, 'masked_combine'):
+                    multi_reduce.combine = True
+                    self.queued(scan, 'masked_combine')
+                if self.selected(scan, 'masked_pdf'):
+                    multi_reduce.pdf = True
+                    self.queued(scan, 'masked_pdf')
                 if self.selected(scan, 'overwrite'):
-                    reduce.overwrite = True
-                reduce.queue()
-                self.queued(scan, 'masked_combine')
-            self.scans[scan]
+                    multi_reduce.overwrite = True
+                multi_reduce.queue()
         self.deselect_all()
 
     def view_logs(self):
@@ -534,7 +537,8 @@ class WorkflowDialog(NXDialog):
         with open(os.path.join(self.task_directory, 'nxlogger.log')) as f:
             lines = f.readlines()
         text = [line.replace(prefix, '').replace(alternate_prefix, '') 
-                for line in lines if scan in line if entry in line]
+                for line in lines if scan in line 
+                if (entry in line or 'entry' in line)]
         if text:
             self.output_box.setPlainText(''.join(text))
             self.output_box.verticalScrollBar().setValue(
@@ -579,9 +583,9 @@ class WorkflowDialog(NXDialog):
             self.output_box.setPlainText('No Entries')
 
     def procview(self):
-        patterns = ['nxreduce', 'nxcombine', 'nxsum']
+        patterns = ['nxreduce', 'nxcombine', 'nxpdf', 'nxsum']
         if self.server.server_type == 'multicore':
-            command = "ps -aux | grep -e {}".format(" -e ".join(patterns))
+            command = "ps -auxww | grep -e {}".format(" -e ".join(patterns))
         else:
             command = "pdsh -w {} 'ps -f' | grep -e {}".format(
                 ",".join(self.server.cpus), " -e ".join(patterns))
@@ -589,6 +593,7 @@ class WorkflowDialog(NXDialog):
                                                       stderr=subprocess.PIPE)
         if process.returncode == 0:
             lines = [l for l in sorted(process.stdout.decode().split('\n')) if l]
+            lines = [l[l.index('nx'):] for l in lines if 'grep' not in l]
             self.output_box.setPlainText('\n'.join(lines))
         else:
             self.output_box.setPlainText(process.stderr.decode())

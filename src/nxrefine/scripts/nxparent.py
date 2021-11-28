@@ -22,12 +22,10 @@ def main():
                         help='peak threshold - defaults to maximum counts/10')
     parser.add_argument('-f', '--first', type=int, help='first frame')
     parser.add_argument('-l', '--last', type=int, help='last frame')
-    parser.add_argument('-r', '--radius', type=int, default=200, 
-                        help='radius of mask around each peak (in pixels)')
-    parser.add_argument('-w', '--width', type=int, default=3, 
-                        help='width of masked region (in frames)')
     parser.add_argument('-n', '--norm', default=50000, 
                         help='normalization to monitor1')
+    parser.add_argument('-r', '--radius', type=int, default=0.2, 
+                        help='radius of punched holes in Å-1')
     parser.add_argument('-s', '--start', action='store_true',
                         help='start data reduction')
     parser.add_argument('-o', '--overwrite', action='store_true', 

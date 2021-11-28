@@ -1,11 +1,6 @@
-import os
-import numpy as np
-
-from nexusformat.nexus import *
-from nexpy.gui.pyqt import QtCore, QtWidgets
-from nexpy.gui.datadialogs import NXDialog, GridParameters
-from nexpy.gui.utils import report_error, natural_sort
-
+from nexpy.gui.datadialogs import GridParameters, NXDialog
+from nexpy.gui.utils import report_error
+from nexusformat.nexus import NeXusError, NXparameters
 from nxrefine.nxreduce import NXReduce
 
 
@@ -20,7 +15,7 @@ def show_dialog():
 class ParametersDialog(NXDialog):
 
     def __init__(self, parent=None):
-        super(ParametersDialog, self).__init__(parent)
+        super().__init__(parent)
 
         self.select_root(self.choose_root)
 
@@ -32,6 +27,7 @@ class ParametersDialog(NXDialog):
                             'Normalization Monitor')
         self.parameters['monitor'].value = 'monitor2'
         self.parameters.add('norm', 30000.0, 'Normalization Value')
+        self.parameters.add('radius', 0.2, 'Punch Radius (Å)')
 
         self.set_layout(self.root_layout,
                         self.close_buttons(save=True))
@@ -47,11 +43,18 @@ class ParametersDialog(NXDialog):
     def read_parameters(self):
         if 'nxreduce' in self.root['entry']:
             reduce = self.root['entry/nxreduce']
-            self.parameters['threshold'].value = reduce['threshold']
-            self.parameters['first'].value = reduce['first_frame']
-            self.parameters['last'].value = reduce['last_frame']
-            self.parameters['monitor'].value = reduce['monitor']
-            self.parameters['norm'].value = reduce['norm']
+            if 'threshold' in reduce:
+                self.parameters['threshold'].value = reduce['threshold']
+            if 'first_frame' in reduce:
+                self.parameters['first'].value = reduce['first_frame']
+            if 'last_frame' in reduce:
+                self.parameters['last'].value = reduce['last_frame']
+            if 'monitor' in reduce:
+                self.parameters['monitor'].value = reduce['monitor']
+            if 'norm' in reduce:
+                self.parameters['norm'].value = reduce['norm']
+            if 'radius' in reduce:
+                self.parameters['radius'].value = reduce['radius']
         else:
             try:
                 reduce = NXReduce(self.entries[0])
@@ -65,6 +68,8 @@ class ParametersDialog(NXDialog):
                     self.parameters['monitor'].value = reduce.monitor
                 if reduce.norm:
                     self.parameters['norm'].value = reduce.norm
+                if reduce.radius:
+                    self.parameters['radius'].value = reduce.radius
             except Exception:
                 pass
 
@@ -76,6 +81,7 @@ class ParametersDialog(NXDialog):
         self.root['entry/nxreduce/last_frame'] = self.last
         self.root['entry/nxreduce/monitor'] = self.monitor
         self.root['entry/nxreduce/norm'] = self.norm
+        self.root['entry/nxreduce/radius'] = self.radius
 #        self.remove_parameters()
 
     def remove_parameters(self):
@@ -110,6 +116,13 @@ class ParametersDialog(NXDialog):
     def norm(self):
         return float(self.parameters['norm'].value)
 
+    @property
+    def radius(self):
+        return float(self.parameters['radius'].value)
+
     def accept(self):
-        self.write_parameters()
-        super(ParametersDialog, self).accept()
+        try:
+            self.write_parameters()
+            super().accept()
+        except NeXusError as error:
+            report_error(error)

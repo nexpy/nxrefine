@@ -1,18 +1,16 @@
 import os
 
-import numpy as np
 try:
-    from cctbx import sgtbx
     import iotbx.cif as cif
+    from cctbx import sgtbx
 except ImportError:
     sgtbx = None
 
-from nexpy.gui.datadialogs import NXDialog, GridParameters
-from nexpy.gui.plotview import get_plotview, plotview
+from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.pyqt import getOpenFileName
 from nexpy.gui.utils import report_error
 from nexpy.gui.widgets import NXCheckBox, NXPushButton
-from nexusformat.nexus import *
+from nexusformat.nexus import NeXusError
 from nxrefine.nxrefine import NXRefine
 
 
@@ -27,7 +25,7 @@ def show_dialog():
 class LatticeDialog(NXDialog):
 
     def __init__(self, parent=None):
-        super(LatticeDialog, self).__init__(parent)
+        super().__init__(parent)
 
         self.select_root(self.choose_entry)
 
@@ -201,13 +199,13 @@ class LatticeDialog(NXDialog):
         self.refine.centring = self.get_centring()
 
     def write_parameters(self):
-        try:
-            self.get_parameters()
-            self.refine.write_parameters(sample=True)
-        except NeXusError as error:
-            report_error('Defining Lattice', error)
-
+        self.get_parameters()
+        self.refine.write_parameters(sample=True)
+ 
     def accept(self):
-        self.write_parameters()
-        super(LatticeDialog, self).accept()
+        try:
+            self.write_parameters()
+            super().accept()
+        except NeXusError as error:
+            report_error("Defining Lattice", error)
 

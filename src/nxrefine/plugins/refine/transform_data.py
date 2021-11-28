@@ -133,12 +133,13 @@ class TransformDialog(NXDialog):
     def accept(self):
         try:
             if 'transform' in self.entry and not self.overwrite:
-                self.display_message('Preparing Transform',
-                    'Transform group already exists in %s' % self.entry.nxname)
+                self.display_message("Preparing Transform",
+                    f"Transform group already exists in {self.entry.nxname}")
                 return
             if self.mask and 'masked_transform' in self.entry and not self.overwrite:
-                self.display_message('Preparing Transform',
-                    'Masked transform group already exists in %s' % self.entry.nxname)
+                self.display_message("Preparing Transform",
+                    "Masked transform group already exists in "
+                    f"{self.entry.nxname}")
                 return
             output_file = self.get_output_file()
             settings_file = self.get_settings_file()
@@ -153,12 +154,12 @@ class TransformDialog(NXDialog):
                 for entry in [e for e in root 
                               if e != 'entry' and e != self.entry.nxname]:
                     if 'transform' in root[entry] and not self.overwrite:
-                        self.display_message('Preparing Transform',
-                            'Transform group already exists in %s' % entry)
+                        self.display_message("Preparing Transform",
+                            "Transform group already exists in %s" % entry)
                         return
                     if self.mask and 'masked_transform' in root[entry] and not self.overwrite:
-                        self.display_message('Preparing Transform',
-                            'Masked transform group already exists in %s' % entry)
+                        self.display_message("Preparing Transform",
+                            "Masked transform group already exists in %s" % entry)
                         return
                     self.refine = NXRefine(root[entry])
                     output_file = self.get_output_file(entry=root[entry])
