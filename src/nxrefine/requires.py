@@ -11,9 +11,7 @@
 #-----------------------------------------------------------------------------
 
 pkg_requirements = [
-    'nexpy>=0.13.0',
-    'qtpy',
-    'lmfit',
+    'nexpy',
     'pyfai',
     'sqlalchemy',
     'psutil'
