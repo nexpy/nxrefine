@@ -899,17 +899,18 @@ class NXReduce(QtCore.QObject):
         try:
             from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
             parameters = self.entry['instrument/calibration/refinement/parameters']
-            ai = AzimuthalIntegrator(dist=parameters['Distance'].nxvalue,
-                                     poni1=parameters['Poni1'].nxvalue,
-                                     poni2=parameters['Poni2'].nxvalue,
-                                     rot1=parameters['Rot1'].nxvalue,
-                                     rot2=parameters['Rot2'].nxvalue,
-                                     rot3=parameters['Rot3'].nxvalue,
-                                     pixel1=parameters['PixelSize1'].nxvalue,
-                                     pixel2=parameters['PixelSize2'].nxvalue,
-                                     wavelength = parameters['Wavelength'].nxvalue)
-            # detector_shape = tuple(self.entry['instrument/detector/shape'].nxvalue)
-            polarization = ai.polarization(shape=(1679, 1475), factor=0.99)
+            ai = AzimuthalIntegrator(
+                dist=parameters['Distance'].nxvalue,
+                detector=parameters['Detector'].nxvalue,
+                poni1=parameters['Poni1'].nxvalue,
+                poni2=parameters['Poni2'].nxvalue,
+                rot1=parameters['Rot1'].nxvalue,
+                rot2=parameters['Rot2'].nxvalue,
+                rot3=parameters['Rot3'].nxvalue,
+                pixel1=parameters['PixelSize1'].nxvalue,
+                pixel2=parameters['PixelSize2'].nxvalue,
+                wavelength=parameters['Wavelength'].nxvalue)
+            polarization = ai.polarization(factor=0.99)
             counts = self.summed_data.nxvalue / polarization
             polar_angle, intensity = ai.integrate1d(counts, 
                                                     2048,
