@@ -1,9 +1,16 @@
-from __future__ import unicode_literals
+# -----------------------------------------------------------------------------
+# Copyright (c) 2015-2021, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
+
 import os
 
-from nexusformat.nexus import NeXusError
-from nexpy.gui.datadialogs import NXDialog, GridParameters
+from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.utils import report_error
+from nexusformat.nexus import NeXusError
 
 
 def show_dialog():
@@ -17,14 +24,14 @@ def show_dialog():
 class SampleDialog(NXDialog):
 
     def __init__(self, parent=None):
-        super(SampleDialog, self).__init__(parent)
+        super().__init__(parent)
 
         self.sample = GridParameters()
         self.sample.add('sample', 'sample', 'Sample Name')
         self.sample.add('label', 'label', 'Sample Label')
 
         self.set_layout(self.directorybox('Choose Experiment Directory',
-                                          default=False), 
+                                          default=False),
                         self.sample.grid(header=False),
                         self.close_buttons(save=True))
 
@@ -33,9 +40,9 @@ class SampleDialog(NXDialog):
     def accept(self):
         home_directory = self.get_directory()
         self.mainwindow.default_directory = home_directory
-        sample_directory = os.path.join(home_directory, 
+        sample_directory = os.path.join(home_directory,
                                         self.sample['sample'].value,
                                         self.sample['label'].value)
         if not os.path.exists(sample_directory):
             os.makedirs(sample_directory)
-        super(SampleDialog, self).accept()
+        super().accept()

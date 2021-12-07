@@ -1,7 +1,16 @@
-from nexpy.gui.pyqt import QtGui, QtWidgets
+# -----------------------------------------------------------------------------
+# Copyright (c) 2015-2021, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
+
 import os
+
 import numpy as np
 from nexpy.gui.datadialogs import NXDialog
+from nexpy.gui.pyqt import QtGui, QtWidgets
 from nexpy.gui.utils import report_error
 from nexpy.gui.widgets import NXLabel, NXLineEdit
 from nexusformat.nexus import NeXusError
@@ -14,13 +23,13 @@ def show_dialog():
         dialog.show()
     except NeXusError as error:
         report_error("Preparing Data Transform", error)
-        
+
 
 class TransformDialog(NXDialog):
 
     def __init__(self, parent=None):
-        super(TransformDialog, self).__init__(parent)
-        
+        super().__init__(parent)
+
         self.select_entry(self.initialize_grid)
         self.refine = NXRefine()
 
@@ -58,10 +67,11 @@ class TransformDialog(NXDialog):
         grid.addWidget(self.start_l_box, 3, 1)
         grid.addWidget(self.step_l_box, 3, 2)
         grid.addWidget(self.stop_l_box, 3, 3)
-        self.set_layout(self.entry_layout, grid, 
-            self.checkboxes(('copy', 'Copy to all entries', True),
-                            ('mask', 'Create masked transform group', True),
-                            ('overwrite', 'Overwrite existing transforms', False)),
+        self.set_layout(
+            self.entry_layout, grid, self.checkboxes(
+                ('copy', 'Copy to all entries', True),
+                ('mask', 'Create masked transform group', True),
+                ('overwrite', 'Overwrite existing transforms', False)),
             self.close_buttons(save=True))
         self.setWindowTitle('Transforming Data')
         try:
@@ -71,16 +81,19 @@ class TransformDialog(NXDialog):
 
     def get_output_file(self, mask=False, entry=None):
         if entry is None:
-            entry = self.entry            
+            entry = self.entry
         if mask:
-            return os.path.splitext(entry.data.nxsignal.nxfilename)[0]+'_masked_transform.nxs'
+            return os.path.splitext(
+                entry.data.nxsignal.nxfilename)[0] + '_masked_transform.nxs'
         else:
-            return os.path.splitext(entry.data.nxsignal.nxfilename)[0]+'_transform.nxs'
+            return os.path.splitext(
+                entry.data.nxsignal.nxfilename)[0] + '_transform.nxs'
 
     def get_settings_file(self, entry=None):
         if entry is None:
-            entry = self.entry            
-        return os.path.splitext(entry.data.nxsignal.nxfilename)[0]+'_transform.pars'
+            entry = self.entry
+        return os.path.splitext(
+            entry.data.nxsignal.nxfilename)[0] + '_transform.pars'
 
     def get_h_grid(self):
         return (np.float32(self.start_h_box.text()),
@@ -100,22 +113,25 @@ class TransformDialog(NXDialog):
     def initialize_grid(self):
         self.refine = NXRefine(self.entry)
         self.refine.initialize_grid()
-        self.start_h_box.setText('%g' % self.refine.h_start)
-        self.step_h_box.setText('%g' % self.refine.h_step)
-        self.stop_h_box.setText('%g' % self.refine.h_stop)
-        self.start_k_box.setText('%g' % self.refine.k_start)
-        self.step_k_box.setText('%g' % self.refine.k_step)
-        self.stop_k_box.setText('%g' % self.refine.k_stop)
-        self.start_l_box.setText('%g' % self.refine.l_start)
-        self.step_l_box.setText('%g' % self.refine.l_step)
-        self.stop_l_box.setText('%g' % self.refine.l_stop)
+        self.start_h_box.setText(f'{self.refine.h_start:g}')
+        self.step_h_box.setText(f'{self.refine.h_step:g}')
+        self.stop_h_box.setText(f'{self.refine.h_stop:g}')
+        self.start_k_box.setText(f'{self.refine.k_start:g}')
+        self.step_k_box.setText(f'{self.refine.k_step:g}')
+        self.stop_k_box.setText(f'{self.refine.k_stop:g}')
+        self.start_l_box.setText(f'{self.refine.l_start:g}')
+        self.step_l_box.setText(f'{self.refine.l_step:g}')
+        self.stop_l_box.setText(f'{self.refine.l_stop:g}')
 
     def write_parameters(self, output_file, settings_file):
         self.refine.output_file = output_file
         self.refine.settings_file = settings_file
-        self.refine.h_start, self.refine.h_step, self.refine.h_stop = self.get_h_grid()
-        self.refine.k_start, self.refine.k_step, self.refine.k_stop = self.get_k_grid()
-        self.refine.l_start, self.refine.l_step, self.refine.l_stop = self.get_l_grid()
+        self.refine.h_start, self.refine.h_step, self.refine.h_stop = (
+            self.get_h_grid())
+        self.refine.k_start, self.refine.k_step, self.refine.k_stop = (
+            self.get_k_grid())
+        self.refine.l_start, self.refine.l_step, self.refine.l_stop = (
+            self.get_l_grid())
         self.refine.define_grid()
 
     @property
@@ -133,11 +149,14 @@ class TransformDialog(NXDialog):
     def accept(self):
         try:
             if 'transform' in self.entry and not self.overwrite:
-                self.display_message("Preparing Transform",
+                self.display_message(
+                    "Preparing Transform",
                     f"Transform group already exists in {self.entry.nxname}")
                 return
-            if self.mask and 'masked_transform' in self.entry and not self.overwrite:
-                self.display_message("Preparing Transform",
+            if (self.mask and 'masked_transform' in self.entry
+                    and not self.overwrite):
+                self.display_message(
+                    "Preparing Transform",
                     "Masked transform group already exists in "
                     f"{self.entry.nxname}")
                 return
@@ -151,15 +170,19 @@ class TransformDialog(NXDialog):
             self.refine.write_settings(settings_file)
             if self.copy:
                 root = self.entry.nxroot
-                for entry in [e for e in root 
+                for entry in [e for e in root
                               if e != 'entry' and e != self.entry.nxname]:
                     if 'transform' in root[entry] and not self.overwrite:
-                        self.display_message("Preparing Transform",
-                            "Transform group already exists in %s" % entry)
+                        self.display_message(
+                            "Preparing Transform",
+                            f"Transform group already exists in {entry}")
                         return
-                    if self.mask and 'masked_transform' in root[entry] and not self.overwrite:
-                        self.display_message("Preparing Transform",
-                            "Masked transform group already exists in %s" % entry)
+                    if (self.mask and 'masked_transform' in root[entry]
+                            and not self.overwrite):
+                        self.display_message(
+                            "Preparing Transform",
+                            f"Masked transform group already exists in {entry}"
+                            )
                         return
                     self.refine = NXRefine(root[entry])
                     output_file = self.get_output_file(entry=root[entry])
@@ -167,12 +190,12 @@ class TransformDialog(NXDialog):
                     self.write_parameters(output_file, settings_file)
                     self.refine.prepare_transform(output_file)
                     if self.mask:
-                        masked_output_file = self.get_output_file(mask=True, 
-                                                                  entry=root[entry])
-                        self.refine.prepare_transform(masked_output_file, mask=True)
+                        masked_output_file = self.get_output_file(
+                            mask=True, entry=root[entry])
+                        self.refine.prepare_transform(
+                            masked_output_file, mask=True)
                     self.refine.write_settings(settings_file)
-                    
-            super(TransformDialog, self).accept()
+
+            super().accept()
         except NeXusError as error:
             report_error("Preparing Data Transform", error)
-

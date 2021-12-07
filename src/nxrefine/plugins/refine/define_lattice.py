@@ -1,11 +1,15 @@
+# -----------------------------------------------------------------------------
+# Copyright (c) 2015-2021, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
+
 import os
 
-try:
-    import iotbx.cif as cif
-    from cctbx import sgtbx
-except ImportError:
-    sgtbx = None
-
+import iotbx.cif as cif
+from cctbx import sgtbx
 from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.pyqt import getOpenFileName
 from nexpy.gui.utils import report_error
@@ -32,9 +36,9 @@ class LatticeDialog(NXDialog):
         self.refine = NXRefine()
 
         self.parameters = GridParameters()
-        self.parameters.add('space_group', self.refine.space_group, 
+        self.parameters.add('space_group', self.refine.space_group,
                             'Space Group', slot=self.set_groups)
-        self.parameters.add('laue_group', self.refine.laue_groups, 
+        self.parameters.add('laue_group', self.refine.laue_groups,
                             'Laue Group')
         self.parameters.add('symmetry', self.refine.symmetries, 'Symmetry',
                             slot=self.set_lattice_parameters)
@@ -45,11 +49,14 @@ class LatticeDialog(NXDialog):
                             slot=self.set_lattice_parameters)
         self.parameters.add('c', self.refine.c, 'Unit Cell - c (Ang)',
                             slot=self.set_lattice_parameters)
-        self.parameters.add('alpha', self.refine.alpha, 'Unit Cell - alpha (deg)', 
+        self.parameters.add('alpha', self.refine.alpha,
+                            'Unit Cell - alpha (deg)',
                             slot=self.set_lattice_parameters)
-        self.parameters.add('beta', self.refine.beta, 'Unit Cell - beta (deg)',
+        self.parameters.add('beta', self.refine.beta,
+                            'Unit Cell - beta (deg)',
                             slot=self.set_lattice_parameters)
-        self.parameters.add('gamma', self.refine.gamma, 'Unit Cell - gamma (deg)', 
+        self.parameters.add('gamma', self.refine.gamma,
+                            'Unit Cell - gamma (deg)',
                             slot=self.set_lattice_parameters)
         self.parameters['laue_group'].value = self.refine.laue_group
         self.parameters['symmetry'].value = self.refine.symmetry
@@ -64,8 +71,8 @@ class LatticeDialog(NXDialog):
         if self.layout.count() == 2:
             self.insert_layout(1, self.parameters.grid(header=False))
             if sgtbx:
-                self.insert_layout(2, self.make_layout(self.import_button, 
-                                                       self.import_checkbox, 
+                self.insert_layout(2, self.make_layout(self.import_button,
+                                                       self.import_checkbox,
                                                        align='center'))
         self.update_parameters()
 
@@ -77,11 +84,13 @@ class LatticeDialog(NXDialog):
                 s = cif_info[c]
                 if '_cell_length_a' in s:
                     break
+
             def value(text):
                 if '(' in text:
                     return float(text[:text.index('(')])
                 else:
                     return float(text)
+
             if self.import_checkbox.isChecked():
                 self.refine.a = value(s['_cell_length_a'])
                 self.refine.b = value(s['_cell_length_b'])
@@ -96,11 +105,14 @@ class LatticeDialog(NXDialog):
             elif '_space_group_name_H-M_alt' in s:
                 sgi = sgtbx.space_group_info(s['_space_group_name_H-M_alt'])
             elif '_symmetry_space_group_name_H-M' in s:
-                sgi = sgtbx.space_group_info(s['_symmetry_space_group_name_H-M'])
+                sgi = sgtbx.space_group_info(
+                    s['_symmetry_space_group_name_H-M'])
             elif '_space_group_name_Hall' in s:
-                sgi = sgtbx.space_group_info('hall: '+s['_space_group_name_Hall'])
+                sgi = sgtbx.space_group_info(
+                    'hall: '+s['_space_group_name_Hall'])
             elif '_symmetry_space_group_name_Hall' in s:
-                sgi = sgtbx.space_group_info('hall: '+s['_symmetry_space_group_name_Hall'])
+                sgi = sgtbx.space_group_info(
+                    'hall: '+s['_symmetry_space_group_name_Hall'])
             else:
                 sgi = None
             if sgi:
@@ -108,7 +120,7 @@ class LatticeDialog(NXDialog):
                 self.refine.symmetry = sgi.group().crystal_system().lower()
                 self.refine.laue_group = sgi.group().laue_group_type()
                 self.refine.centring = self.refine.space_group[0]
-            self.update_parameters()    
+            self.update_parameters()
 
     def update_parameters(self):
         self.parameters['space_group'].value = self.refine.space_group
@@ -123,7 +135,7 @@ class LatticeDialog(NXDialog):
         self.parameters['gamma'].value = self.refine.gamma
 
     def set_groups(self):
-        if sgtbx and self.space_group:
+        if self.space_group:
             try:
                 if isinstance(self.space_group, float):
                     sgi = sgtbx.space_group_info(int(self.space_group))
@@ -144,7 +156,7 @@ class LatticeDialog(NXDialog):
     @property
     def space_group(self):
         return self.parameters['space_group'].value
-        
+
     @property
     def laue_group(self):
         return self.parameters['laue_group'].value
@@ -190,7 +202,7 @@ class LatticeDialog(NXDialog):
             self.parameters['gamma'].value = 90.0
 
     def get_parameters(self):
-        (self.refine.a, self.refine.b, self.refine.c, 
+        (self.refine.a, self.refine.b, self.refine.c,
          self.refine.alpha, self.refine.beta, self.refine.gamma) = (
             self.get_lattice_parameters())
         self.refine.space_group = self.space_group
@@ -201,11 +213,10 @@ class LatticeDialog(NXDialog):
     def write_parameters(self):
         self.get_parameters()
         self.refine.write_parameters(sample=True)
- 
+
     def accept(self):
         try:
             self.write_parameters()
             super().accept()
         except NeXusError as error:
             report_error("Defining Lattice", error)
-

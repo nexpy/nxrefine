@@ -1,9 +1,18 @@
-from __future__ import unicode_literals
+# -----------------------------------------------------------------------------
+# Copyright (c) 2015-2021, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
+
 import os
+
 import numpy as np
-from nexusformat.nexus import *
-from nexpy.gui.datadialogs import NXDialog, GridParameters
+from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.utils import report_error
+from nexusformat.nexus import (NeXusError, NXdata, NXgoniometer, NXlink,
+                               NXroot, NXsample, nxload)
 
 
 def show_dialog():
@@ -17,7 +26,7 @@ def show_dialog():
 class ScanDialog(NXDialog):
 
     def __init__(self, parent=None):
-        super(ScanDialog, self).__init__(parent)
+        super().__init__(parent)
 
         self.config_file = None
         self.positions = 1
@@ -32,12 +41,12 @@ class ScanDialog(NXDialog):
             self.sample_box)
         self.configuration_box = self.select_configuration()
         self.configuration_layout = self.make_layout(
-            self.action_buttons(('Choose Experiment Configuration', 
+            self.action_buttons(('Choose Experiment Configuration',
                                  self.choose_configuration)),
             self.configuration_box)
         self.scan_box = self.select_box(['1'], slot=self.choose_position)
-        self.scan_layout = self.make_layout(self.labels('Position', header=True), 
-                                            self.scan_box)
+        self.scan_layout = self.make_layout(
+            self.labels('Position', header=True), self.scan_box)
         self.set_layout(self.directory_box,
                         self.close_buttons(close=True))
 
@@ -63,7 +72,7 @@ class ScanDialog(NXDialog):
             return 1
 
     def choose_directory(self):
-        super(ScanDialog, self).choose_directory()
+        super().choose_directory()
         self.mainwindow.default_directory = self.get_directory()
         self.setup_directory()
         self.insert_layout(1, self.sample_layout)
@@ -81,39 +90,44 @@ class ScanDialog(NXDialog):
 
     def select_sample(self):
         return self.select_box(self.get_samples())
-        
+
     def get_samples(self):
         home_directory = self.get_directory()
-        if (os.path.exists(home_directory) and 
-            'configurations' in os.listdir(home_directory)):
+        if (os.path.exists(home_directory) and
+                'configurations' in os.listdir(home_directory)):
             sample_directories = [f for f in os.listdir(home_directory)
                                   if (not f.startswith('.') and
                                       os.path.isdir(
-                                        os.path.join(home_directory, f)))]
+                                      os.path.join(home_directory, f)))]
         else:
             return []
         samples = []
         for sample_directory in sample_directories:
-            label_directories = [f for f in 
-                os.listdir(os.path.join(home_directory, sample_directory))
-                if os.path.isdir(os.path.join(home_directory, sample_directory, f))]
+            label_directories = [
+                f
+                for f in os.listdir(
+                    os.path.join(home_directory, sample_directory))
+                if os.path.isdir(
+                    os.path.join(home_directory, sample_directory, f))]
             for label_directory in label_directories:
                 samples.append(os.path.join(sample_directory, label_directory))
         return [sample.strip() for sample in samples]
-                        
+
     def choose_sample(self):
         self.insert_layout(2, self.configuration_layout)
-                
+
     def select_configuration(self):
         return self.select_box(self.get_configurations())
 
     def get_configurations(self):
         home_directory = self.get_directory()
-        if (os.path.exists(home_directory) and 
-            'configurations' in os.listdir(home_directory)):
-            return sorted([f for f in 
-                    os.listdir(os.path.join(home_directory, 'configurations'))
-                    if f.endswith('.nxs')])
+        if (os.path.exists(home_directory) and
+                'configurations' in os.listdir(home_directory)):
+            return sorted(
+                [f
+                 for f in os.listdir(
+                     os.path.join(home_directory, 'configurations'))
+                 if f.endswith('.nxs')])
         else:
             return []
 
@@ -135,8 +149,8 @@ class ScanDialog(NXDialog):
         self.insert_layout(4, self.scan_layout)
         for p in range(1, self.positions+1):
             self.insert_layout(p+4, self.entries[p].grid_layout)
-        self.insert_layout(self.positions+5, 
-                           self.action_buttons(('Make Scan File', 
+        self.insert_layout(self.positions+5,
+                           self.action_buttons(('Make Scan File',
                                                 self.make_scan)))
 
     def setup_scans(self):
@@ -147,7 +161,7 @@ class ScanDialog(NXDialog):
         self.scan.add('phi_end', 360.0, 'Phi End (deg)')
         self.scan.add('phi_step', 0.1, 'Phi Step (deg)')
         self.scan.add('frame_rate', 10, 'Frame Rate (Hz)')
-        
+
         for position in range(1, self.positions+1):
             self.setup_position(position)
 
@@ -157,8 +171,10 @@ class ScanDialog(NXDialog):
         self.entries[position].add('omega', 0.0, 'Omega (deg)')
         self.entries[position].add('x', 0.0, 'Translation - x (mm)')
         self.entries[position].add('y', 0.0, 'Translation - y (mm)')
-        self.entries[position].add('linkfile', 'f%d.h5' % position, 'Detector Filename')
-        self.entries[position].add('linkpath', '/entry/data/data', 'Detector Data Path')
+        self.entries[position].add('linkfile', 'f%d.h5' %
+                                   position, 'Detector Filename')
+        self.entries[position].add(
+            'linkpath', '/entry/data/data', 'Detector Data Path')
         self.entries[position].grid(header=False)
         if position != 1:
             self.entries[position].hide_grid()
@@ -178,13 +194,17 @@ class ScanDialog(NXDialog):
         for position in range(1, self.positions+1):
             entry = self.scan_file['f%d' % position]
             if 'instrument/goniometer/chi' in entry:
-                self.entries[position]['chi'].value = entry['instrument/goniometer/chi']
+                self.entries[position]['chi'].value = (
+                    entry['instrument/goniometer/chi'])
             if 'instrument/goniometer/omega' in entry:
-                self.entries[position]['omega'].value = entry['instrument/goniometer/omega']
+                self.entries[position]['omega'].value = (
+                    entry['instrument/goniometer/omega'])
             if 'instrument/detector/translation_x' in entry:
-                self.entries[position]['x'].value = entry['instrument/detector/translation_x']
+                self.entries[position]['x'].value = (
+                    entry['instrument/detector/translation_x'])
             if 'instrument/detector/translation_y' in entry:
-                self.entries[position]['y'].value = entry['instrument/detector/translation_y']
+                self.entries[position]['y'].value = (
+                    entry['instrument/detector/translation_y'])
 
     def get_parameters(self):
         entry = self.scan_file['entry']
@@ -218,9 +238,10 @@ class ScanDialog(NXDialog):
             if frame_rate > 0.0:
                 entry['instrument/detector/frame_time'] = 1.0 / frame_rate
             linkpath = self.entries[position]['linkpath'].value
-            linkfile = os.path.join(scan, self.entries[position]['linkfile'].value)
+            linkfile = os.path.join(
+                scan, self.entries[position]['linkfile'].value)
             entry['data'] = NXdata()
-            entry['data'].nxsignal = NXlink(linkpath, linkfile) 
+            entry['data'].nxsignal = NXlink(linkpath, linkfile)
             entry['data/x_pixel'] = np.arange(x_size, dtype=np.int32)
             entry['data/y_pixel'] = np.arange(y_size, dtype=np.int32)
             entry['data/frame_number'] = np.arange(
@@ -234,9 +255,10 @@ class ScanDialog(NXDialog):
         self.mainwindow.default_directory = home_directory
         sample_directory = os.path.join(home_directory, self.sample)
         label_directory = os.path.join(home_directory, self.sample, self.label)
-        scan_directory = os.path.join(label_directory, str(self.scan['scan'].value))
+        scan_directory = os.path.join(
+            label_directory, str(self.scan['scan'].value))
         scan_name = self.sample+'_'+self.scan['scan'].value
-        try: 
+        try:
             os.makedirs(scan_directory)
         except Exception:
             pass

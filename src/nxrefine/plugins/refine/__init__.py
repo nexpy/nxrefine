@@ -1,4 +1,10 @@
-from __future__ import absolute_import
+# -----------------------------------------------------------------------------
+# Copyright (c) 2013-2021, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
 
 from . import new_experiment, new_configuration, choose_parameters
 from . import calibrate_powder, create_mask
@@ -8,6 +14,7 @@ from . import calculate_angles, copy_parameters
 from . import define_lattice, refine_lattice
 from . import transform_data
 from . import manage_servers, manage_workflows
+
 
 def plugin_menu():
     menu = 'Refine'

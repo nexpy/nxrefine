@@ -1,3 +1,11 @@
+# -----------------------------------------------------------------------------
+# Copyright (c) 2015-2021, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
+
 from nexpy.gui.datadialogs import NXDialog
 from nexpy.gui.utils import report_error
 from nexusformat.nexus import NeXusError
@@ -15,7 +23,7 @@ def show_dialog():
 class CopyDialog(NXDialog):
 
     def __init__(self, parent=None):
-        super(CopyDialog, self).__init__(parent)
+        super().__init__(parent)
 
         self.select_root(self.choose_root, text='Select Output File')
         self.set_layout(self.root_layout,
@@ -49,4 +57,4 @@ class CopyDialog(NXDialog):
                 reduce.nxcopy()
         else:
             raise NeXusError("Much check 'overwrite' to save parameters")
-        super(CopyDialog, self).accept()
+        super().accept()

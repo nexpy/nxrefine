@@ -1,6 +1,13 @@
-import numpy as np
+# -----------------------------------------------------------------------------
+# Copyright (c) 2015-2021, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
+
 from nexpy.gui.datadialogs import GridParameters, NXDialog
-from nexpy.gui.pyqt import QtCore, QtWidgets
+from nexpy.gui.pyqt import QtCore
 from nexpy.gui.utils import is_file_locked, report_error
 from nexpy.gui.widgets import NXLabel, NXPushButton
 from nexusformat.nexus import NeXusError, NXLock, NXLockException
@@ -18,7 +25,7 @@ def show_dialog():
 class FindDialog(NXDialog):
 
     def __init__(self, parent=None):
-        super(FindDialog, self).__init__(parent)
+        super().__init__(parent)
 
         self.select_entry(self.choose_entry)
 
@@ -29,9 +36,9 @@ class FindDialog(NXDialog):
         self.find_button = NXPushButton('Find Peaks', self.find_peaks)
         self.peak_count = NXLabel()
         self.peak_count.setVisible(False)
-        find_layout = self.make_layout(self.find_button, self.peak_count, 
+        find_layout = self.make_layout(self.find_button, self.peak_count,
                                        align='center')
-        self.set_layout(self.entry_layout, 
+        self.set_layout(self.entry_layout,
                         self.parameters.grid(),
                         find_layout,
                         self.progress_layout(save=True))
@@ -89,13 +96,13 @@ class FindDialog(NXDialog):
 
     def find_peaks(self):
         if is_file_locked(self.reduce.data_file):
-            if self.confirm_action('Clear lock?', 
+            if self.confirm_action('Clear lock?',
                                    f'{self.reduce.data_file} is locked'):
                 NXLock(self.reduce.data_file).release()
             else:
                 return
         self.start_thread()
-        self.reduce = NXReduce(self.entry, threshold=self.threshold, 
+        self.reduce = NXReduce(self.entry, threshold=self.threshold,
                                first=self.first, last=self.last,
                                find=True, overwrite=True, gui=True)
         self.reduce.moveToThread(self.thread)
@@ -120,13 +127,10 @@ class FindDialog(NXDialog):
     def accept(self):
         try:
             self.reduce.write_peaks(self.peaks)
-        except NXLockException as error:
-            if self.confirm_action('Clear lock?', str(error)):
-                NXLock(self.reduce.wrapper_file).release()
-                self.reduce.write_peaks(self.peaks)
-        self.stop()
-        super(FindDialog, self).accept()
+            super().accept()
+        except Exception as error:
+            report_error("Finding Maximum", str(error))
 
     def reject(self):
         self.stop()
-        super(FindDialog, self).reject()
+        super().reject()

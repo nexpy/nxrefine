@@ -1,11 +1,15 @@
-import numpy as np
-from pyFAI.calibrant import Calibrant, ALL_CALIBRANTS
+# -----------------------------------------------------------------------------
+# Copyright (c) 2015-2021, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
 
-from nexpy.gui.datadialogs import NXDialog, GridParameters
+from nexpy.gui.datadialogs import NXDialog
 from nexpy.gui.plotview import NXPlotView, plotviews
-from nexpy.gui.utils import report_error, confirm_action, load_image
-from nexusformat.nexus import *
-from nxrefine.nxrefine import NXRefine
+from nexpy.gui.utils import confirm_action, load_image, report_error
+from nexusformat.nexus import NeXusError
 
 
 def show_dialog():
@@ -19,7 +23,7 @@ def show_dialog():
 class LoadDialog(NXDialog):
 
     def __init__(self, parent=None):
-        super(LoadDialog, self).__init__(parent)
+        super().__init__(parent)
 
         self.plotview = None
         self.data = None
@@ -38,9 +42,9 @@ class LoadDialog(NXDialog):
             else:
                 self.plotview = NXPlotView('Powder Calibration')
         self.plotview.plot(self.data, log=True)
-        self.plotview.aspect='equal'
-        self.plotview.ytab.flipped = True         
-        
+        self.plotview.aspect = 'equal'
+        self.plotview.ytab.flipped = True
+
     def accept(self):
         if self.data is None:
             self.reject()
@@ -53,11 +57,13 @@ class LoadDialog(NXDialog):
                     self.reject()
                     return
             self.entry['instrument/calibration'] = self.data
-            super(LoadDialog, self).accept()
-        if 'Powder Calibration' in plotviews and self.plotview == plotviews['Powder Calibration']:
+            super().accept()
+        if 'Powder Calibration' in plotviews and self.plotview == plotviews[
+                'Powder Calibration']:
             self.plotview.close_view()
 
     def reject(self):
-        super(LoadDialog, self).reject()
-        if 'Powder Calibration' in plotviews and self.plotview == plotviews['Powder Calibration']:
+        super().reject()
+        if 'Powder Calibration' in plotviews and self.plotview == plotviews[
+                'Powder Calibration']:
             self.plotview.close_view()

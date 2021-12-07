@@ -1,4 +1,11 @@
-import numpy as np
+# -----------------------------------------------------------------------------
+# Copyright (c) 2015-2021, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
+
 from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.plotview import get_plotview
 from nexpy.gui.utils import report_error
@@ -17,14 +24,13 @@ def show_dialog():
 class CalculateDialog(NXDialog):
 
     def __init__(self, parent=None):
-        super(CalculateDialog, self).__init__(parent)
-        
+        super().__init__(parent)
         self.select_entry(self.choose_entry)
 
         self.refine = NXRefine()
 
         self.parameters = GridParameters()
-        self.parameters.add('wavelength', self.refine.wavelength, 
+        self.parameters.add('wavelength', self.refine.wavelength,
                             'Wavelength (Ang)')
         self.parameters.add('distance', self.refine.distance,
                             'Detector Distance (mm)')
@@ -44,7 +50,7 @@ class CalculateDialog(NXDialog):
                 self.insert_layout(2, self.action_buttons)
             self.update_parameters()
         else:
-            self.display_message("Calculating Angles", 
+            self.display_message("Calculating Angles",
                                  "No peaks have been found in this entry")
 
     def update_parameters(self):
@@ -91,7 +97,7 @@ class CalculateDialog(NXDialog):
             polar_field = NXfield(polar_angles, name='polar_angle')
             polar_field.long_name = 'Polar Angle'
             plotview = get_plotview()
-            plotview.plot(NXdata(azimuthal_field, polar_field, 
+            plotview.plot(NXdata(azimuthal_field, polar_field,
                                  title='Peak Angles'))
         except NeXusError as error:
             report_error("Plotting Lattice", error)
@@ -100,7 +106,7 @@ class CalculateDialog(NXDialog):
         try:
             self.get_parameters()
             polar_angles, azimuthal_angles = self.refine.calculate_angles(
-                                                 self.refine.xp, self.refine.yp)
+                self.refine.xp, self.refine.yp)
             self.refine.write_angles(polar_angles, azimuthal_angles)
             self.refine.write_parameters()
         except NeXusError as error:

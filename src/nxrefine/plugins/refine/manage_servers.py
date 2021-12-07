@@ -1,10 +1,17 @@
-import os
+# -----------------------------------------------------------------------------
+# Copyright (c) 2015-2021, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
+
 import subprocess
 
-from nexusformat.nexus import *
 from nexpy.gui.datadialogs import NXDialog
 from nexpy.gui.utils import report_error
 from nexpy.gui.widgets import NXPlainTextEdit
+from nexusformat.nexus import NeXusError
 from nxrefine.nxserver import NXServer
 
 
@@ -20,10 +27,10 @@ class ServerDialog(NXDialog):
 
     def __init__(self, parent=None):
 
-        super(ServerDialog, self).__init__(parent)
+        super().__init__(parent)
 
         self.server = NXServer()
-        self.server_actions = self.action_buttons(('server', 
+        self.server_actions = self.action_buttons(('server',
                                                    self.toggle_server))
         if self.server.is_running():
             self.server_status = self.label('Server is running')
@@ -31,7 +38,7 @@ class ServerDialog(NXDialog):
         else:
             self.server_status = self.label('Server is not running')
             self.pushbutton['server'].setText('Start Server')
-        self.server_layout = self.make_layout(self.server_status, 
+        self.server_layout = self.make_layout(self.server_status,
                                               self.server_actions)
         if self.server.server_type == 'multinode':
             self.node_editor = NXPlainTextEdit()
@@ -74,4 +81,4 @@ class ServerDialog(NXDialog):
     def accept(self):
         if self.server.server_type == 'multinode':
             self.read_nodes()
-        super(ServerDialog, self).accept()
+        super().accept()

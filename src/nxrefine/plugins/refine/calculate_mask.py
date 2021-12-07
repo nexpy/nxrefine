@@ -1,9 +1,15 @@
-from nexpy.gui.pyqt import QtCore, QtWidgets
-import numpy as np
-from nexpy.gui.datadialogs import NXDialog, GridParameters
-from nexpy.gui.utils import report_error, is_file_locked
-from nexusformat.nexus import *
+# -----------------------------------------------------------------------------
+# Copyright (c) 2015-2021, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
 
+from nexpy.gui.datadialogs import GridParameters, NXDialog
+from nexpy.gui.pyqt import QtCore, QtWidgets
+from nexpy.gui.utils import is_file_locked, report_error
+from nexusformat.nexus import NeXusError
 from nxrefine.nxreduce import NXReduce
 
 
@@ -18,16 +24,17 @@ def show_dialog():
 class Mask3DDialog(NXDialog):
 
     def __init__(self, parent=None):
-        super(Mask3DDialog, self).__init__(parent)
+        super().__init__(parent)
 
         self.select_entry(self.choose_entry)
 
         self.parameters = GridParameters()
         self.parameters.add('radius', 200, 'Radius')
         self.parameters.add('width', 3, 'Frame Width')
-        self.set_layout(self.entry_layout, 
+        self.set_layout(self.entry_layout,
                         self.parameters.grid(),
-                        self.action_buttons(('Calculate 3D Mask', self.calculate_mask)),
+                        self.action_buttons(('Calculate 3D Mask',
+                                             self.calculate_mask)),
                         self.progress_layout(save=True))
         self.progress_bar.setVisible(False)
         self.progress_bar.setValue(0)
@@ -49,8 +56,9 @@ class Mask3DDialog(NXDialog):
         if is_file_locked(self.reduce.wrapper_file):
             return
         self.thread = QtCore.QThread()
-        self.reduce = NXReduce(self.entry, radius=self.radius, width=self.width,
-                               mask=True, overwrite=True, gui=True)
+        self.reduce = NXReduce(self.entry, radius=self.radius,
+                               width=self.width, mask=True, overwrite=True,
+                               gui=True)
         self.reduce.moveToThread(self.thread)
         self.reduce.start.connect(self.start_progress)
         self.reduce.update.connect(self.update_progress)
@@ -74,9 +82,9 @@ class Mask3DDialog(NXDialog):
         self.reduce.write_peaks(self.peaks)
         if self.thread:
             self.stop()
-        super(Mask3DDialog, self).accept()
+        super().accept()
 
     def reject(self):
         if self.thread:
             self.stop()
-        super(Mask3DDialog, self).reject()
+        super().reject()

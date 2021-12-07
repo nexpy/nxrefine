@@ -1,22 +1,26 @@
-import glob
+# -----------------------------------------------------------------------------
+# Copyright (c) 2015-2021, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
+
 import os
 import re
-import sys
 import time
-import timeit
 from datetime import datetime
 
-from nexpy.gui.pyqt import QtCore, QtWidgets, getOpenFileName
 import numpy as np
-
 from nexpy.gui.importdialog import BaseImportDialog
+from nexpy.gui.pyqt import QtCore, QtWidgets, getOpenFileName
 from nexpy.gui.utils import report_error
 from nexpy.gui.widgets import NXLabel, NXLineEdit
-from nexusformat.nexus import *
+from nexusformat.nexus import (NeXusError, NXcollection, NXdata, NXentry,
+                               NXfield, NXnote, NXroot)
 
-
-prefix_pattern = re.compile('^([^.]+)(?:(?<!\d)|(?=_))')
-index_pattern = re.compile('^(.*?)([0-9]*)[.](.*)$')
+prefix_pattern = re.compile(r'^([^.]+)(?:(?<!\d)|(?=_))')
+index_pattern = re.compile(r'^(.*?)([0-9]*)[.](.*)$')
 
 maximum = 0.0
 
@@ -28,21 +32,23 @@ def show_dialog():
     except NeXusError as error:
         report_error("Stacking Images", error)
 
+
 def isotime(time_stamp):
     return datetime.fromtimestamp(time_stamp).isoformat()
 
+
 def epoch(iso_time):
-    d = datetime.strptime(iso_time,'%Y-%m-%dT%H:%M:%S.%f')
+    d = datetime.strptime(iso_time, '%Y-%m-%dT%H:%M:%S.%f')
     return time.mktime(d.timetuple()) + (d.microsecond / 1e6)
 
 
 class StackDialog(BaseImportDialog):
     """Dialog to import an image stack (TIFF or CBF)"""
- 
+
     def __init__(self, parent=None):
 
-        super(StackDialog, self).__init__(parent)
-        
+        super().__init__(parent)
+
         status_layout = QtWidgets.QHBoxLayout()
         self.progress_bar = QtWidgets.QProgressBar()
         status_layout.addWidget(self.progress_bar)
@@ -50,7 +56,7 @@ class StackDialog(BaseImportDialog):
         status_layout.addStretch()
         status_layout.addWidget(self.close_buttons(save=True))
 
-        self.set_layout(self.directorybox(), 
+        self.set_layout(self.directorybox(),
                         self.make_filter_box(),
                         self.make_range_box(),
                         self.make_output_box(),
@@ -58,7 +64,7 @@ class StackDialog(BaseImportDialog):
 
         self.setLayout(self.layout)
         self.set_title('Stack Images')
-  
+
         self.suffix = ''
 
     def make_filter_box(self):
@@ -85,8 +91,10 @@ class StackDialog(BaseImportDialog):
         self.extension_combo.setSizeAdjustPolicy(
             QtWidgets.QComboBox.AdjustToContents)
         self.extension_combo.activated.connect(self.choose_extension)
-        layout.addWidget(self.prefix_combo, 1, 1, alignment=QtCore.Qt.AlignHCenter)
-        layout.addWidget(self.extension_combo, 1, 3, alignment=QtCore.Qt.AlignHCenter)
+        layout.addWidget(self.prefix_combo, 1, 1,
+                         alignment=QtCore.Qt.AlignHCenter)
+        layout.addWidget(self.extension_combo, 1, 3,
+                         alignment=QtCore.Qt.AlignHCenter)
 
         filter_box.setLayout(layout)
         filter_box.setVisible(False)
@@ -108,7 +116,7 @@ class StackDialog(BaseImportDialog):
         layout.addStretch()
         layout.addWidget(rangemaxlabel)
         layout.addWidget(self.rangemax)
- 
+
         range_box.setLayout(layout)
         range_box.setVisible(False)
         return range_box
@@ -119,8 +127,8 @@ class StackDialog(BaseImportDialog):
         """
         output_box = QtWidgets.QWidget()
         layout = QtWidgets.QHBoxLayout()
-       
-        file_button =  QtWidgets.QPushButton("Choose Output File")
+
+        file_button = QtWidgets.QPushButton("Choose Output File")
         file_button.clicked.connect(self.choose_output_file)
         self.output_file = NXLineEdit(parent=self)
         self.output_file.setMinimumWidth(300)
@@ -130,9 +138,9 @@ class StackDialog(BaseImportDialog):
         output_box.setLayout(layout)
         output_box.setVisible(False)
         return output_box
- 
+
     def choose_directory(self):
-        super(StackDialog, self).choose_directory()
+        super().choose_directory()
         files = self.get_filesindirectory()
         self.get_extensions()
         self.get_prefixes()
@@ -141,19 +149,19 @@ class StackDialog(BaseImportDialog):
 
     def choose_output_file(self):
         """
-        Opens a file dialog and sets the settings file text box to the chosen path.
+        Open a file dialog and set the settings file to the chosen path.
         """
         dirname = self.get_default_directory(self.get_output_file())
-        filename = getOpenFileName(self, 'Choose Output File', dirname, 
+        filename = getOpenFileName(self, 'Choose Output File', dirname,
                                    self.nexus_filter)
-        if os.path.exists(dirname):    # avoids problems if <Cancel> was selected
+        if os.path.exists(dirname):  # avoids problems if <Cancel> was selected
             self.output_file.setText(filename)
             self.set_default_directory(dirname)
 
     def get_prefixes(self):
-        files = [f for f in self.get_filesindirectory() 
-                     if f.endswith(self.get_extension())]
-        self.prefix_combo.clear()        
+        files = [f for f in self.get_filesindirectory()
+                 if f.endswith(self.get_extension())]
+        self.prefix_combo.clear()
         prefixes = []
         for file in files:
             prefix = prefix_pattern.match(file)
@@ -164,7 +172,8 @@ class StackDialog(BaseImportDialog):
                 self.prefix_combo.addItem(prefix)
         if self.get_prefix() not in prefixes:
             self.set_prefix(prefixes[0])
-        self.prefix_combo.setCurrentIndex(self.prefix_combo.findText(self.get_prefix()))
+        self.prefix_combo.setCurrentIndex(
+            self.prefix_combo.findText(self.get_prefix()))
         try:
             files = [f for f in files if f.startswith(self.get_prefix())]
             min, max = self.get_index(files[0]), self.get_index(files[-1])
@@ -178,20 +187,21 @@ class StackDialog(BaseImportDialog):
 
     def get_prefix(self):
         return self.prefix_box.text().strip()
- 
+
     def choose_prefix(self):
         self.set_prefix(self.prefix_combo.currentText())
-     
+
     def set_prefix(self, text):
         self.prefix_box.setText(text)
         if self.prefix_combo.findText(text) >= 0:
             self.prefix_combo.setCurrentIndex(self.prefix_combo.findText(text))
-        self.output_file.setText(os.path.join(self.get_directory(), text+'.nxs'))
+        self.output_file.setText(os.path.join(
+            self.get_directory(), text+'.nxs'))
         self.get_prefixes()
- 
+
     def get_extensions(self):
         files = self.get_filesindirectory()
-        extensions =  set([os.path.splitext(f)[-1] for f in files])
+        extensions = set([os.path.splitext(f)[-1] for f in files])
         self.extension_combo.clear()
         for extension in extensions:
             self.extension_combo.addItem(extension)
@@ -202,7 +212,8 @@ class StackDialog(BaseImportDialog):
                 self.set_extension('.tiff')
             elif '.cbf' in extensions:
                 self.set_extension('.cbf')
-        self.extension_combo.setCurrentIndex(self.extension_combo.findText(self.get_extension()))
+        self.extension_combo.setCurrentIndex(
+            self.extension_combo.findText(self.get_extension()))
         return extensions
 
     def get_extension(self):
@@ -213,13 +224,14 @@ class StackDialog(BaseImportDialog):
 
     def choose_extension(self):
         self.set_extension(self.extension_combo.currentText())
-     
+
     def set_extension(self, text):
         if not text.startswith('.'):
             text = '.'+text
         self.extension_box.setText(text)
         if self.extension_combo.findText(text) >= 0:
-            self.extension_combo.setCurrentIndex(self.extension_combo.findText(text))
+            self.extension_combo.setCurrentIndex(
+                self.extension_combo.findText(text))
         self.get_prefixes()
 
     def get_image_type(self):
@@ -229,15 +241,15 @@ class StackDialog(BaseImportDialog):
             return 'TIFF'
 
     def get_index(self, file):
-        return int(re.match('^(.*?)([0-9]*)%s[.](.*)$' % self.suffix, 
-                               file).groups()[1])
+        return int(re.match(f'^(.*?)([0-9]*){self.suffix}[.](.*)$',
+                            file).groups()[1])
 
     def get_indices(self):
         try:
             min, max = (int(self.rangemin.text().strip()),
                         int(self.rangemax.text().strip()))
             return min, max
-        except:
+        except Exception:
             return None
 
     def set_indices(self, min, max):
@@ -249,24 +261,26 @@ class StackDialog(BaseImportDialog):
 
     def get_files(self):
         prefix = self.get_prefix()
-        filenames = self.get_filesindirectory(prefix, 
+        filenames = self.get_filesindirectory(prefix,
                                               self.get_extension())
         if self.get_indices():
             min, max = self.get_indices()
-            return [file for file in filenames if self.get_index(file) >= min and 
-                                                  self.get_index(file) <= max]
+            return [file for file in filenames
+                    if self.get_index(file) >= min
+                    and self.get_index(file) <= max]
         else:
             return filenames
 
     def set_range(self):
-        files = self.get_filesindirectory(self.get_prefix(), self.get_extension())
+        files = self.get_filesindirectory(
+            self.get_prefix(), self.get_extension())
         try:
             min, max = self.get_index(files[0]), self.get_index(files[-1])
             if min > max:
                 raise ValueError
             self.set_indices(min, max)
             self.range_box.setVisible(True)
-        except:
+        except Exception:
             self.set_indices('', '')
             self.range_box.setVisible(False)
 
@@ -280,8 +294,12 @@ class StackDialog(BaseImportDialog):
 
     def read_images(self, filenames):
         v0 = self.read_image(filenames[0]).data
-        v = np.zeros([len(filenames), v0.shape[0], v0.shape[1]], dtype=np.int32)
-        for i,filename in enumerate(filenames):
+        v = np.zeros(
+            [len(filenames),
+             v0.shape[0],
+             v0.shape[1]],
+            dtype=np.int32)
+        for i, filename in enumerate(filenames):
             v[i] = self.read_image(filename).data
         global maximum
         if v.max() > maximum:
@@ -294,8 +312,8 @@ class StackDialog(BaseImportDialog):
         v0 = im.data
         x = NXfield(range(v0.shape[1]), dtype=np.uint16, name='x')
         y = NXfield(range(v0.shape[0]), dtype=np.uint16, name='y')
-        z = NXfield(range(1,len(filenames)+1), dtype=np.uint16, name='z')
-        v = NXfield(shape=(len(filenames),v0.shape[0],v0.shape[1]),
+        z = NXfield(range(1, len(filenames)+1), dtype=np.uint16, name='z')
+        v = NXfield(shape=(len(filenames), v0.shape[0], v0.shape[1]),
                     dtype=v0.dtype, name='v')
         v[0] = v0
         if v._memfile:
@@ -307,11 +325,11 @@ class StackDialog(BaseImportDialog):
         for i in range(0, len(filenames)):
             try:
                 files = []
-                for j in range(i,i+chunk_size):
+                for j in range(i, i+chunk_size):
                     files.append(filenames[j])
                     self.progress_bar.setValue(j)
                 self.update_progress()
-                v[i:i+chunk_size,:,:] = self.read_images(files)
+                v[i:i+chunk_size, :, :] = self.read_images(files)
             except IndexError as error:
                 pass
         global maximum
@@ -331,9 +349,12 @@ class StackDialog(BaseImportDialog):
             header[key] = value
 
         if note:
-            entry = NXentry(NXdata(v,(z,y,x), CBF_header=note, header=header))
+            entry = NXentry(
+                NXdata(
+                    v, (z, y, x),
+                    CBF_header=note, header=header))
         else:
-            entry = NXentry(NXdata(v,(z,y,x), header=header))
+            entry = NXentry(NXdata(v, (z, y, x), header=header))
 
         return NXroot(entry)
 
@@ -341,10 +362,12 @@ class StackDialog(BaseImportDialog):
         try:
             output_file = self.get_output_file()
             try:
-                workspace = self.treeview.tree.get_name(os.path.basename(output_file))
+                workspace = self.treeview.tree.get_name(
+                    os.path.basename(output_file))
             except Exception:
                 workspace = self.treeview.tree.get_new_name()
-            self.treeview.tree[workspace] = self.user_ns[workspace] = self.get_data()
-            super(StackDialog, self).accept()
+            self.treeview.tree[workspace] = self.user_ns[workspace] = (
+                self.get_data())
+            super().accept()
         except NeXusError as error:
             report_error("Stacking Images", error)

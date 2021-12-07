@@ -1,3 +1,11 @@
+# -----------------------------------------------------------------------------
+# Copyright (c) 2015-2021, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
+
 from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.utils import report_error
 from nexusformat.nexus import NeXusError, NXparameters
@@ -23,7 +31,7 @@ class ParametersDialog(NXDialog):
         self.parameters.add('threshold', 50000.0, 'Peak Threshold')
         self.parameters.add('first', 0, 'First Frame')
         self.parameters.add('last', 3650, 'Last Frame')
-        self.parameters.add('monitor', ['monitor1', 'monitor2'], 
+        self.parameters.add('monitor', ['monitor1', 'monitor2'],
                             'Normalization Monitor')
         self.parameters['monitor'].value = 'monitor2'
         self.parameters.add('norm', 30000.0, 'Normalization Value')
@@ -34,7 +42,7 @@ class ParametersDialog(NXDialog):
         self.set_title('Choose Parameters')
 
     def choose_root(self):
-        self.entries = [self.root[entry] 
+        self.entries = [self.root[entry]
                         for entry in self.root if entry != 'entry']
         if self.layout.count() == 2:
             self.layout.insertLayout(1, self.parameters.grid(header=False))

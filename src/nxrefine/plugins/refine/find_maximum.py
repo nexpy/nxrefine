@@ -1,9 +1,17 @@
-from nexpy.gui.pyqt import QtCore, QtWidgets 
+# -----------------------------------------------------------------------------
+# Copyright (c) 2015-2021, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
+
 import numpy as np
-from nexpy.gui.datadialogs import NXDialog, GridParameters
-from nexpy.gui.utils import report_error, is_file_locked
+from nexpy.gui.datadialogs import GridParameters, NXDialog
+from nexpy.gui.pyqt import QtCore
+from nexpy.gui.utils import is_file_locked, report_error
 from nexpy.gui.widgets import NXLabel
-from nexusformat.nexus import NeXusError, NXfield, NXLock, NXLockException
+from nexusformat.nexus import NeXusError, NXLock, NXLockException
 from nxrefine.nxreduce import NXReduce
 
 
@@ -13,12 +21,12 @@ def show_dialog():
         dialog.show()
     except NeXusError as error:
         report_error("Finding Maximum", error)
-        
+
 
 class MaximumDialog(NXDialog):
 
     def __init__(self, parent=None):
-        super(MaximumDialog, self).__init__(parent)
+        super().__init__(parent)
 
         self.select_entry(self.choose_entry)
 
@@ -29,7 +37,8 @@ class MaximumDialog(NXDialog):
         self.output = NXLabel('Maximum Value:')
         self.set_layout(self.entry_layout, self.output,
                         self.parameters.grid(),
-                        self.action_buttons(('Find Maximum', self.find_maximum)),
+                        self.action_buttons(('Find Maximum',
+                                             self.find_maximum)),
                         self.progress_layout(save=True))
         self.progress_bar.setVisible(False)
         self.progress_bar.setValue(0)
@@ -72,7 +81,7 @@ class MaximumDialog(NXDialog):
 
     @maximum.setter
     def maximum(self, value):
-        self.output.setText('Maximum Value: %s' % value)
+        self.output.setText(f'Maximum Value: {value}')
 
     def find_maximum(self):
         if is_file_locked(self.reduce.data_file):
@@ -89,14 +98,6 @@ class MaximumDialog(NXDialog):
         self.thread.finished.connect(self.stop)
         self.thread.start(QtCore.QThread.LowestPriority)
 
-    def check_lock(self, file_name):
-        try:
-            with NXLock(file_name, timeout=2):
-                pass
-        except NXLockException as error:
-            if self.confirm_action('Clear lock?', str(error)):
-                Lock(file_name).release()
-
     def get_maximum(self, maximum):
         self.maximum = maximum
 
@@ -108,14 +109,12 @@ class MaximumDialog(NXDialog):
 
     def accept(self):
         try:
-            with NXLock(self.reduce.wrapper_file):
-                self.reduce.write_maximum(self.maximum)
-        except NXLockException as error:
-            if self.confirm_action('Clear lock?', str(error)):
-                Lock(self.reduce.wrapper_file).release()
-        self.stop()
-        super(MaximumDialog, self).accept()
+            self.reduce.write_maximum(self.maximum)
+            self.stop()
+            super().accept()
+        except Exception as error:
+            report_error("Finding Maximum", str(error))
 
     def reject(self):
         self.stop()
-        super(MaximumDialog, self).reject()
+        super().reject()

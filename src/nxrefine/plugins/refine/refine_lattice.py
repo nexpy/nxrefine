@@ -1,3 +1,11 @@
+# -----------------------------------------------------------------------------
+# Copyright (c) 2015-2021, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
+
 import operator
 
 import numpy as np
@@ -22,13 +30,13 @@ def show_dialog():
 class RefineLatticeDialog(NXDialog):
 
     def __init__(self, parent=None):
-        super(RefineLatticeDialog, self).__init__(parent)
+        super().__init__(parent)
 
         self.select_entry(self.choose_entry)
 
-        self.refine  = NXRefine()
+        self.refine = NXRefine()
         self.parameters = GridParameters()
-        self.parameters.add('symmetry', self.refine.symmetries, 'Symmetry', 
+        self.parameters.add('symmetry', self.refine.symmetries, 'Symmetry',
                             None, self.set_lattice_parameters)
         self.parameters.add('a', self.refine.a, 'Unit Cell - a (Ang)', False,
                             slot=self.set_lattice_parameters)
@@ -36,17 +44,17 @@ class RefineLatticeDialog(NXDialog):
                             slot=self.set_lattice_parameters)
         self.parameters.add('c', self.refine.c, 'Unit Cell - c (Ang)', False,
                             slot=self.set_lattice_parameters)
-        self.parameters.add('alpha', self.refine.alpha, 
-                            'Unit Cell - alpha (deg)', False, 
+        self.parameters.add('alpha', self.refine.alpha,
+                            'Unit Cell - alpha (deg)', False,
                             slot=self.set_lattice_parameters)
         self.parameters.add('beta', self.refine.beta, 'Unit Cell - beta (deg)',
                             False, slot=self.set_lattice_parameters)
-        self.parameters.add('gamma', self.refine.gamma, 
-                            'Unit Cell - gamma (deg)', False, 
+        self.parameters.add('gamma', self.refine.gamma,
+                            'Unit Cell - gamma (deg)', False,
                             slot=self.set_lattice_parameters)
         self.parameters.add('wavelength', self.refine.wavelength,
                             'Wavelength (Ang)', False)
-        self.parameters.add('distance', self.refine.distance, 'Distance (mm)', 
+        self.parameters.add('distance', self.refine.distance, 'Distance (mm)',
                             False)
         self.parameters.add('yaw', self.refine.yaw, 'Yaw (deg)', False)
         self.parameters.add('pitch', self.refine.pitch, 'Pitch (deg)', False)
@@ -61,36 +69,36 @@ class RefineLatticeDialog(NXDialog):
             'twotheta', self.refine.twotheta, 'Two Theta (deg)')
         self.parameters.add('gonpitch', self.refine.gonpitch,
                             'Goniometer Pitch (deg)', False)
-        self.parameters.add('polar', self.refine.polar_max, 
+        self.parameters.add('polar', self.refine.polar_max,
                             'Max. Polar Angle (deg)', None, self.set_polar_max)
-        self.parameters.add('polar_tolerance', self.refine.polar_tolerance, 
+        self.parameters.add('polar_tolerance', self.refine.polar_tolerance,
                             'Polar Angle Tolerance')
-        self.parameters.add('peak_tolerance', self.refine.peak_tolerance, 
+        self.parameters.add('peak_tolerance', self.refine.peak_tolerance,
                             'Peak Angle Tolerance')
         self.parameters.grid()
         self.set_symmetry()
 
         self.refine_buttons = self.action_buttons(
-                                  ('Refine Angles', self.refine_angles),
-                                  ('Refine HKLs', self.refine_hkls),
-                                  ('Restore', self.restore_parameters),
-                                  ('Reset', self.reset_parameters))
-        
+            ('Refine Angles', self.refine_angles),
+            ('Refine HKLs', self.refine_hkls),
+            ('Restore', self.restore_parameters),
+            ('Reset', self.reset_parameters))
+
         self.orientation_buttons = self.action_buttons(
             ('Refine Orientation Matrix', self.refine_orientation),
             ('Remove Orientation Matrix', self.remove_orientation))
 
         self.lattice_buttons = self.action_buttons(
-                                   ('Plot', self.plot_lattice),
-                                   ('List', self.list_peaks),
-                                   ('Update', self.update_scaling),
-                                   ('Save', self.write_parameters))
+            ('Plot', self.plot_lattice),
+            ('List', self.list_peaks),
+            ('Update', self.update_scaling),
+            ('Save', self.write_parameters))
 
         self.set_layout(self.entry_layout, self.close_layout())
 
         self.parameters.grid_layout.setVerticalSpacing(1)
         self.layout.setSpacing(2)
-                                
+
         self.set_title('Refining Lattice')
 
         self.peaks_box = None
@@ -98,7 +106,7 @@ class RefineLatticeDialog(NXDialog):
         self.orient_box = None
         self.update_box = None
         self.fit_report = []
-        
+
     def choose_entry(self):
         try:
             refine = NXRefine(self.entry)
@@ -160,7 +168,7 @@ class RefineLatticeDialog(NXDialog):
     def transfer_parameters(self):
         self.refine.a, self.refine.b, self.refine.c, \
             self.refine.alpha, self.refine.beta, self.refine.gamma = \
-                self.get_lattice_parameters()
+            self.get_lattice_parameters()
         self.refine.set_symmetry()
         self.refine.wavelength = self.get_wavelength()
         self.refine.distance = self.get_distance()
@@ -177,13 +185,13 @@ class RefineLatticeDialog(NXDialog):
         if self.entry.nxfilemode == 'r':
             display_message("NeXus file opened as readonly")
             return
-        elif ('nxrefine' in self.entry or 
+        elif ('nxrefine' in self.entry or
               'orientation_matrix' in self.entry['instrument/detector']):
             if not self.confirm_action('Overwrite existing refinement?'):
                 return
         self.transfer_parameters()
         polar_angles, azimuthal_angles = self.refine.calculate_angles(
-                                             self.refine.xp, self.refine.yp)
+            self.refine.xp, self.refine.yp)
         self.refine.write_angles(polar_angles, azimuthal_angles)
         self.refine.write_parameters()
         reduce = NXReduce(self.entry)
@@ -192,7 +200,7 @@ class RefineLatticeDialog(NXDialog):
         reduce.logger.info('Orientation refined in NeXpy')
         reduce.record_end('nxrefine')
         root = self.entry.nxroot
-        entries = [entry for entry in root.entries 
+        entries = [entry for entry in root.entries
                    if entry != 'entry' and entry != self.entry.nxname and
                    'nxrefine' not in root[entry]]
         if entries and self.confirm_action(
@@ -217,8 +225,8 @@ class RefineLatticeDialog(NXDialog):
         self.update_box = NXDialog(parent=self)
         self.update_box.set_title('Update Scaling Factors')
         self.update_box.setMinimumWidth(300)
-        self.update_box.set_layout(self.paths.grid(header=('', 'Data Groups', 
-                                                           '')), 
+        self.update_box.set_layout(self.paths.grid(header=('', 'Data Groups',
+                                                           '')),
                                    self.update_box.close_layout())
         self.update_box.close_box.accepted.connect(self.update_data)
         self.update_box.show()
@@ -227,13 +235,13 @@ class RefineLatticeDialog(NXDialog):
 
         def is_valid(data):
             try:
-                valid_axes = [['Ql', 'Qk', 'Qh'], ['l', 'k', 'h'], 
+                valid_axes = [['Ql', 'Qk', 'Qh'], ['l', 'k', 'h'],
                               ['z', 'y', 'x']]
                 axis_names = [axis.nxname for axis in data.nxaxes]
                 return axis_names in valid_axes
             except Exception:
                 return False
-        
+
         root = self.entry.nxroot
         self.paths = GridParameters()
         i = 0
@@ -244,7 +252,7 @@ class RefineLatticeDialog(NXDialog):
 
     def update_data(self):
         try:
-            for path in [self.paths[p].value for p in self.paths 
+            for path in [self.paths[p].value for p in self.paths
                          if self.paths[p].vary]:
                 data = self.entry.nxroot[path]
                 if [axis.nxname for axis in data.nxaxes] == ['z', 'y', 'x']:
@@ -375,7 +383,7 @@ class RefineLatticeDialog(NXDialog):
         return self.parameters['xc'].value, self.parameters['yc'].value
 
     def get_phi(self):
-        return (self.parameters['phi'].value, 
+        return (self.parameters['phi'].value,
                 self.parameters['phi_step'].value)
 
     def get_angles(self):
@@ -410,7 +418,7 @@ class RefineLatticeDialog(NXDialog):
 
     def plot_peaks(self):
         try:
-            x, y = (self.refine.xp[self.refine.idx], 
+            x, y = (self.refine.xp[self.refine.idx],
                     self.refine.yp[self.refine.idx])
             polar_angles, azimuthal_angles = self.refine.calculate_angles(x, y)
             if polar_angles[0] > polar_angles[-1]:
@@ -421,8 +429,8 @@ class RefineLatticeDialog(NXDialog):
             polar_field = NXfield(polar_angles, name='polar_angle')
             polar_field.long_name = 'Polar Angle'
             plotview = get_plotview()
-            plotview.plot(NXdata(azimuthal_field, polar_field, 
-                          title=f'{self.refine.name} Peak Angles'), 
+            plotview.plot(NXdata(azimuthal_field, polar_field,
+                          title=f'{self.refine.name} Peak Angles'),
                           xmax=self.get_polar_max())
         except NeXusError as error:
             report_error('Plotting Lattice', error)
@@ -432,7 +440,7 @@ class RefineLatticeDialog(NXDialog):
         plotview.vlines(self.refine.two_thetas,
                         colors='r', linestyles='dotted')
         plotview.draw()
-    
+
     @property
     def refined(self):
         refined = {}
@@ -536,10 +544,10 @@ class RefineLatticeDialog(NXDialog):
                                         align='right')
         orient_button = NXPushButton('Orient', self.choose_peaks)
         orient_layout = self.make_layout(NXLabel('Primary'), self.primary_box,
-                                         NXLabel('Secondary'), 
+                                         NXLabel('Secondary'),
                                          self.secondary_box, 'stretch',
                                          orient_button, align='right')
- 
+
         self.table_view = QtWidgets.QTableView()
         self.table_model = NXTableModel(self, peak_list, header)
         self.table_view.setModel(self.table_model)
@@ -558,9 +566,9 @@ class RefineLatticeDialog(NXDialog):
         save_button = NXPushButton('Save', self.save_orientation)
         close_button = NXPushButton('Close', self.close_peaks_box)
         close_layout = self.make_layout(self.status_text, 'stretch',
-                                        NXLabel('Threshold'), 
+                                        NXLabel('Threshold'),
                                         self.tolerance_box, 'stretch',
-                                        export_button, save_button, 
+                                        export_button, save_button,
                                         close_button)
         self.peaks_box.set_layout(orient_layout, self.table_view, close_layout)
         self.peaks_box.set_title(f'{self.refine.name} Peak Table')
@@ -580,9 +588,9 @@ class RefineLatticeDialog(NXDialog):
         self.refine.assign_rings()
         self.ring_list = self.refine.get_ring_list()
         rows, columns = len(self.table_model.peak_list), 11
-        self.table_model.dataChanged.emit(self.table_model.createIndex(0, 0),
-                                          self.table_model.createIndex(rows-1, 
-                                              columns-1))
+        self.table_model.dataChanged.emit(
+            self.table_model.createIndex(0, 0),
+            self.table_model.createIndex(rows - 1, columns - 1))
         self.table_view.resizeColumnsToContents()
         self.peaks_box.set_title(f'{self.refine.name} Peak Table')
         self.peaks_box.adjustSize()
@@ -592,13 +600,13 @@ class RefineLatticeDialog(NXDialog):
     def plot_peak(self):
         row = self.table_view.currentIndex().row()
         data = self.entry.data
-        i, x, y, z = [self.table_view.model().peak_list[row][i] 
+        i, x, y, z = [self.table_view.model().peak_list[row][i]
                       for i in range(4)]
         signal = data.nxsignal
-        xmin, xmax = max(0,x-200), min(x+200,signal.shape[2])
-        ymin, ymax = max(0,y-200), min(y+200,signal.shape[1])
-        zmin, zmax = max(0,z-20), min(z+20,signal.shape[0])
-        zslab=np.s_[zmin:zmax,ymin:ymax,xmin:xmax]
+        xmin, xmax = max(0, x-200), min(x+200, signal.shape[2])
+        ymin, ymax = max(0, y-200), min(y+200, signal.shape[1])
+        zmin, zmax = max(0, z-20), min(z+20, signal.shape[0])
+        zslab = np.s_[zmin:zmax, ymin:ymax, xmin:xmax]
         if self.plotview is None:
             self.plotview = NXPlotView('Peak Plot')
         self.plotview.plot(data[zslab], log=True)
@@ -627,16 +635,16 @@ class RefineLatticeDialog(NXDialog):
                                  readonly=True)
         self.peak_parameters.add('secondary', self.secondary, 'Secondary',
                                  readonly=True)
-        self.peak_parameters.add('angle', 
-                                 self.refine.angle_peaks(self.primary, 
+        self.peak_parameters.add('angle',
+                                 self.refine.angle_peaks(self.primary,
                                                          self.secondary),
                                  'Angle (deg)', readonly=True)
-        self.peak_parameters.add('primary_hkl', 
-                            self.ring_list[self.refine.rp[self.primary]],
-                            'Primary HKL', slot=self.choose_secondary_grid)
+        self.peak_parameters.add(
+            'primary_hkl', self.ring_list[self.refine.rp[self.primary]],
+            'Primary HKL', slot=self.choose_secondary_grid)
         self.orient_box.set_layout(self.peak_parameters.grid(header=False,
                                                              spacing=5),
-                                   self.action_buttons(('Orient', 
+                                   self.action_buttons(('Orient',
                                                         self.orient)),
                                    self.orient_box.close_buttons(close=True))
         self.orient_box.set_title('Orient Lattice')
@@ -661,7 +669,7 @@ class RefineLatticeDialog(NXDialog):
                     hkl_angle = self.refine.angle_hkls(phkl, hkl)
                     diff = abs(ps_angle - hkl_angle)
                     if diff < self.get_peak_tolerance():
-                        self.hkl_parameters[i].add(str(hkl), hkl_angle, 
+                        self.hkl_parameters[i].add(str(hkl), hkl_angle,
                                                    str(hkl), vary=False,
                                                    readonly=True)
                         if diff < min_diff:
@@ -669,13 +677,13 @@ class RefineLatticeDialog(NXDialog):
                             min_p = i
                             min_hkl = str(hkl)
             self.orient_box.insert_layout(i+1, self.hkl_parameters[i].grid(
-                                    header=['HKL', 'Angle (deg)', 'Select'],
-                                    spacing=5))
+                header=['HKL', 'Angle (deg)', 'Select'],
+                spacing=5))
         if min_hkl is None:
             raise NeXusError("No matching peaks found")
         self.peak_parameters['primary_hkl'].box.setCurrentIndex(min_p)
-        self.hkl_parameters[min_p][min_hkl].vary=True
-        self.choose_secondary_grid() 
+        self.hkl_parameters[min_p][min_hkl].vary = True
+        self.choose_secondary_grid()
 
     def choose_secondary_grid(self):
         box = self.peak_parameters['primary_hkl'].box
@@ -691,20 +699,20 @@ class RefineLatticeDialog(NXDialog):
     def secondary_hkl(self):
         for hkls in self.hkl_parameters:
             for hkl in hkls:
-                if hkls[hkl].vary == True:
+                if hkls[hkl].vary is True:
                     return eval(hkls[hkl].name)
 
     def orient(self):
         self.refine.primary = self.primary
         self.refine.secondary = self.secondary
-        self.refine.Umat =  self.refine.get_UBmat(self.primary, 
-                                                  self.secondary,
-                                                  self.primary_hkl,
-                                                  self.secondary_hkl)
+        self.refine.Umat = self.refine.get_UBmat(self.primary,
+                                                 self.secondary,
+                                                 self.primary_hkl,
+                                                 self.secondary_hkl)
         self.update_table()
 
     def export_peaks(self):
-        peaks = list(zip(*[p for p in self.table_model.peak_list 
+        peaks = list(zip(*[p for p in self.table_model.peak_list
                            if p[-1] < self.get_hkl_tolerance()]))
         idx = NXfield(peaks[0], name='index')
         x = NXfield(peaks[1], name='x')
@@ -713,7 +721,7 @@ class RefineLatticeDialog(NXDialog):
         pol = NXfield(peaks[4], name='polar_angle', units='degree')
         azi = NXfield(peaks[5], name='azimuthal_angle', units='degree')
         polarization = self.refine.get_polarization()
-        intensity = NXfield(peaks[6]/polarization[y,x], name='intensity')
+        intensity = NXfield(peaks[6]/polarization[y, x], name='intensity')
         H = NXfield(peaks[7], name='H', units='rlu')
         K = NXfield(peaks[8], name='K', units='rlu')
         L = NXfield(peaks[9], name='L', units='rlu')
@@ -744,7 +752,7 @@ class RefineLatticeDialog(NXDialog):
 class NXTableModel(QtCore.QAbstractTableModel):
 
     def __init__(self, parent, peak_list, header, *args):
-        super(NXTableModel, self).__init__(parent, *args)
+        super().__init__(parent, *args)
         self.peak_list = peak_list
         self.header = header
         self.parent = parent
@@ -757,11 +765,13 @@ class NXTableModel(QtCore.QAbstractTableModel):
 
     def data(self, index, role):
         if not index.isValid():
-             return None
+            return None
         elif role == QtCore.Qt.ToolTipRole:
             row, col = index.row(), index.column()
             peak = self.peak_list[row][0]
-            return str(self.parent.ring_list[self.parent.refine.rp[peak]])[1:-1]
+            return str(
+                self.parent.ring_list[self.parent.refine.rp[peak]])[
+                1: -1]
         elif role == QtCore.Qt.DisplayRole:
             row, col = index.row(), index.column()
             value = self.peak_list[row][col]
@@ -779,17 +789,17 @@ class NXTableModel(QtCore.QAbstractTableModel):
             row, col = index.row(), index.column()
             peak = self.peak_list[row][0]
             if peak == self.parent.refine.primary or \
-                 peak == self.parent.refine.secondary:
+                    peak == self.parent.refine.secondary:
                 return QtGui.QColor(QtCore.Qt.lightGray)
             elif self.peak_list[row][10] > self.parent.refine.hkl_tolerance:
                 return QtGui.QColor(QtCore.Qt.red)
             else:
-                return None            
+                return None
         return None
 
     def headerData(self, col, orientation, role):
-        if (orientation == QtCore.Qt.Horizontal and 
-            role == QtCore.Qt.DisplayRole):
+        if (orientation == QtCore.Qt.Horizontal and
+                role == QtCore.Qt.DisplayRole):
             return self.header[col]
         return None
 
