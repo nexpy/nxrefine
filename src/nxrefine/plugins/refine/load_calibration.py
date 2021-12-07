@@ -58,12 +58,12 @@ class LoadDialog(NXDialog):
                     return
             self.entry['instrument/calibration'] = self.data
             super().accept()
-        if 'Powder Calibration' in plotviews and self.plotview == plotviews[
-                'Powder Calibration']:
+        if ('Powder Calibration' in plotviews and
+                self.plotview == plotviews['Powder Calibration']):
             self.plotview.close_view()
 
     def reject(self):
         super().reject()
-        if 'Powder Calibration' in plotviews and self.plotview == plotviews[
-                'Powder Calibration']:
+        if ('Powder Calibration' in plotviews and
+                self.plotview == plotviews['Powder Calibration']):
             self.plotview.close_view()

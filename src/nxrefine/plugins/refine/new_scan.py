@@ -140,7 +140,7 @@ class ScanDialog(NXDialog):
             self.positions = len(self.config_file.entries) - 1
             self.scan_box.clear()
             for position in range(1, self.positions+1):
-                self.scan_box.addItem('%d' % position)
+                self.scan_box.addItem(f'{position}')
             self.scan_box.setCurrentIndex(0)
             self.copy_configuration()
         self.setup_scans()

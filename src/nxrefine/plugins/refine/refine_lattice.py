@@ -770,8 +770,7 @@ class NXTableModel(QtCore.QAbstractTableModel):
             row, col = index.row(), index.column()
             peak = self.peak_list[row][0]
             return str(
-                self.parent.ring_list[self.parent.refine.rp[peak]])[
-                1: -1]
+                self.parent.ring_list[self.parent.refine.rp[peak]])[1: -1]
         elif role == QtCore.Qt.DisplayRole:
             row, col = index.row(), index.column()
             value = self.peak_list[row][col]
@@ -788,8 +787,8 @@ class NXTableModel(QtCore.QAbstractTableModel):
         elif role == QtCore.Qt.BackgroundRole:
             row, col = index.row(), index.column()
             peak = self.peak_list[row][0]
-            if peak == self.parent.refine.primary or \
-                    peak == self.parent.refine.secondary:
+            if (peak == self.parent.refine.primary or
+                    peak == self.parent.refine.secondary):
                 return QtGui.QColor(QtCore.Qt.lightGray)
             elif self.peak_list[row][10] > self.parent.refine.hkl_tolerance:
                 return QtGui.QColor(QtCore.Qt.red)
