@@ -1,22 +1,24 @@
 #!/usr/bin/env python
-#-----------------------------------------------------------------------------
-# Copyright (c) 2018, NeXpy Development Team.
+# -----------------------------------------------------------------------------
+# Copyright (c) 2018-2021, NeXpy Development Team.
 #
 # Distributed under the terms of the Modified BSD License.
 #
 # The full license is in the file COPYING, distributed with this software.
-#-----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
 import argparse
-from nxrefine.nxreduce import NXReduce, NXMultiReduce
+
+from nxrefine.nxreduce import NXMultiReduce, NXReduce
 
 
 def main():
 
     parser = argparse.ArgumentParser(
         description="Perform data reduction on entries")
-    parser.add_argument('-d', '--directory', required=True, 
+    parser.add_argument('-d', '--directory', required=True,
                         help='scan directory')
-    parser.add_argument('-e', '--entries', nargs='+', 
+    parser.add_argument('-e', '--entries', nargs='+',
                         help='names of entries to be processed')
     parser.add_argument('-l', '--link', action='store_true',
                         help='link wrapper file to raw data')
@@ -38,7 +40,7 @@ def main():
                         help='combine CCTW transforms')
     parser.add_argument('-P', '--pdf', action='store_true',
                         help='perform PDF transforms')
-    parser.add_argument('-o', '--overwrite', action='store_true', 
+    parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing maximum')
     parser.add_argument('-q', '--queue', action='store_true',
                         help='add to server task queue')
@@ -54,7 +56,7 @@ def main():
         reduce = NXReduce(entry, args.directory, link=args.link,
                           maxcount=args.max, find=args.find, copy=args.copy,
                           refine=args.refine, prepare=args.prepare,
-                          transform=args.transform, mask=args.mask, 
+                          transform=args.transform, mask=args.mask,
                           overwrite=args.overwrite)
         if args.queue:
             reduce.queue()
@@ -70,6 +72,5 @@ def main():
             reduce.nxreduce()
 
 
-
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

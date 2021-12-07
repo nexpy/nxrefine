@@ -1,12 +1,14 @@
 #!/usr/bin/env python
-#-----------------------------------------------------------------------------
-# Copyright (c) 2018, NeXpy Development Team.
+# -----------------------------------------------------------------------------
+# Copyright (c) 2018-2021, NeXpy Development Team.
 #
 # Distributed under the terms of the Modified BSD License.
 #
 # The full license is in the file COPYING, distributed with this software.
-#-----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
 import argparse
+
 from nxrefine.nxreduce import NXReduce
 
 
@@ -14,21 +16,21 @@ def main():
 
     parser = argparse.ArgumentParser(
         description="Set scan file as parent by creating a symbolic link")
-    parser.add_argument('-d', '--directory', required=True, 
+    parser.add_argument('-d', '--directory', required=True,
                         help='scan directory')
-    parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'], 
-        nargs='+', help='names of entries to be searched')
+    parser.add_argument('-e', '--entries', default=['f1', 'f2', 'f3'],
+                        nargs='+', help='names of entries to be searched')
     parser.add_argument('-t', '--threshold', type=float,
                         help='peak threshold - defaults to maximum counts/10')
     parser.add_argument('-f', '--first', type=int, help='first frame')
     parser.add_argument('-l', '--last', type=int, help='last frame')
-    parser.add_argument('-n', '--norm', default=50000, 
+    parser.add_argument('-n', '--norm', default=50000,
                         help='normalization to monitor1')
-    parser.add_argument('-r', '--radius', type=int, default=0.2, 
+    parser.add_argument('-r', '--radius', type=int, default=0.2,
                         help='radius of punched holes in Å-1')
     parser.add_argument('-s', '--start', action='store_true',
                         help='start data reduction')
-    parser.add_argument('-o', '--overwrite', action='store_true', 
+    parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing parent')
 
     args = parser.parse_args()
@@ -37,17 +39,16 @@ def main():
     reduce.make_parent()
     if args.start:
         for entry in args.entries:
-            reduce = NXReduce(entry, args.directory, 
-                              link=True, maxcount=True, find=True, mask=True,
-                              threshold=args.threshold, 
-                              first=args.first, last=args.last,
-                              radius=args.radius, width=args.width, norm=args.norm,
-                              overwrite=args.overwrite)
+            reduce = NXReduce(
+                entry, args.directory, link=True, maxcount=True, find=True,
+                mask=True, threshold=args.threshold, first=args.first,
+                last=args.last, radius=args.radius, width=args.width,
+                norm=args.norm, overwrite=args.overwrite)
             reduce.nxlink()
             reduce.nxmax()
             reduce.nxfind()
             reduce.nxmask()
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

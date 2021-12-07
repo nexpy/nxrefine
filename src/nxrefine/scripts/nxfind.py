@@ -1,4 +1,14 @@
+#!/usr/bin/env python
+# -----------------------------------------------------------------------------
+# Copyright (c) 2013-2021, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
+
 import argparse
+
 from nxrefine.nxreduce import NXMultiReduce, NXReduce
 
 
@@ -8,7 +18,7 @@ def main():
         description="Find peaks within the NeXus data")
     parser.add_argument('-d', '--directory', required=True,
                         help='scan directory')
-    parser.add_argument('-e', '--entries', nargs='+', 
+    parser.add_argument('-e', '--entries', nargs='+',
                         help='names of entries to be searched')
     parser.add_argument('-t', '--threshold', type=float,
                         help='peak threshold - defaults to maximum counts/10')
@@ -39,5 +49,5 @@ def main():
             reduce.nxfind()
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

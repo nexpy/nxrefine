@@ -1,11 +1,15 @@
+# -----------------------------------------------------------------------------
+# Copyright (c) 2021, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
+
 import argparse
 import os
-import subprocess
-import sys
 
-import numpy as np
-from nexusformat.nexus import *
-from nxrefine.nxreduce import NXReduce, NXMultiReduce
+from nxrefine.nxreduce import NXMultiReduce, NXReduce
 from nxrefine.nxrefine import NXRefine
 
 
@@ -13,11 +17,11 @@ def main():
 
     parser = argparse.ArgumentParser(
         description="Restore orientation from CCTW parameter file")
-    parser.add_argument('-d', '--directory', required=True, 
+    parser.add_argument('-d', '--directory', required=True,
                         help='scan directory')
-    parser.add_argument('-e', '--entries', nargs='+', 
+    parser.add_argument('-e', '--entries', nargs='+',
                         help='names of entries to be processed')
-    
+
     args = parser.parse_args()
 
     if args.entries:
@@ -34,7 +38,7 @@ def main():
             if os.path.exists(reduce.transform_file):
                 refine.prepare_transform(reduce.transform_file)
             if os.path.exists(reduce.masked_transform_file):
-                refine.prepare_transform(reduce.masked_transform_file, 
+                refine.prepare_transform(reduce.masked_transform_file,
                                          mask=True)
         reduce = NXMultiReduce(args.directory)
         if os.path.exists(reduce.transform_file):
@@ -44,5 +48,5 @@ def main():
             reduce.prepare_combine()
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

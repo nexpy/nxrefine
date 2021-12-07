@@ -1,4 +1,14 @@
+#!/usr/bin/env python
+# -----------------------------------------------------------------------------
+# Copyright (c) 2013-2021, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
+
 import argparse
+
 from nxrefine.nxreduce import NXMultiReduce, NXReduce
 
 
@@ -9,7 +19,7 @@ def main():
                         help='directory containing summed files')
     parser.add_argument('-c', '--create', action='store_true',
                         help='create the sum file and directory')
-    parser.add_argument('-e', '--entries', nargs='+', 
+    parser.add_argument('-e', '--entries', nargs='+',
                         help='names of entries to be summed')
     parser.add_argument('-s', '--scans', nargs='+', required=True,
                         help='list of scan directories to be summed')
@@ -29,6 +39,5 @@ def main():
             reduce.nxsum(args.scans, update=args.update)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()
-

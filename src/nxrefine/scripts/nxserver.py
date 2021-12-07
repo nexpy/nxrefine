@@ -1,7 +1,17 @@
+#!/usr/bin/env python
+# -----------------------------------------------------------------------------
+# Copyright (c) 2018-2021, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
+
 import argparse
 import os
-import sys
+
 from nxrefine.nxserver import NXServer
+
 
 def main():
 
@@ -9,13 +19,15 @@ def main():
         description="Launch server for data reduction workflow")
     parser.add_argument('-d', '--directory', nargs='?', const='.',
                         help='Start the server in this directory')
-    parser.add_argument('-t', '--type', help='Server type: multicore|multinode')
-    parser.add_argument('-n', '--nodes', default=[], nargs='+', 
+    parser.add_argument('-t', '--type',
+                        help='Server type: multicore|multinode')
+    parser.add_argument('-n', '--nodes', default=[], nargs='+',
                         help='Add nodes')
     parser.add_argument('-c', '--cores', help='Number of cores')
-    parser.add_argument('-r', '--remove', default=[], nargs='+', 
+    parser.add_argument('-r', '--remove', default=[], nargs='+',
                         help='Remove nodes')
-    parser.add_argument('command', action='store', nargs='?',
+    parser.add_argument(
+        'command', action='store', nargs='?',
         help='valid commands are: status|start|stop|list|clear|kill')
 
     args = parser.parse_args()
@@ -55,5 +67,5 @@ def main():
             print("Server is not running")
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()
