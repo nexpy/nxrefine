@@ -21,7 +21,6 @@ blobs in images.
 
 from __future__ import absolute_import
 from . import blobcorrector, connectedpixels
-# Names of property columns in array
 from .connectedpixels import s_1, s_I, s_I2,\
     s_fI, s_ffI, s_sI, s_ssI, s_sfI, s_oI, s_ooI, s_foI, s_soI, \
     bb_mn_f, bb_mn_s, bb_mx_f, bb_mx_s, bb_mn_o, bb_mx_o, \
@@ -36,30 +35,42 @@ import sys
 import numpy as np
 
 
-# These should match the definitions in 
-# /sware/exp/saxs/doc/SaxsKeywords.pdf
-def flip1(x, y): 
+def flip1(x, y):
     """ fast, slow to dety, detz"""
-    return  x,  y
-def flip2(x, y): 
+    return x,  y
+
+
+def flip2(x, y):
     """ fast, slow to dety, detz"""
-    return -x,  y   
-def flip3(x, y): 
+    return -x,  y
+
+
+def flip3(x, y):
     """ fast, slow to dety, detz"""
-    return  x, -y
-def flip4(x, y): 
+    return x, -y
+
+
+def flip4(x, y):
     """ fast, slow to dety, detz"""
     return -x, -y
-def flip5(x, y): 
+
+
+def flip5(x, y):
     """ fast, slow to dety, detz"""
-    return  y,  x
-def flip6(x, y): 
+    return y,  x
+
+
+def flip6(x, y):
     """ fast, slow to dety, detz"""
-    return  y, -x
-def flip7(x, y): 
+    return y, -x
+
+
+def flip7(x, y):
     """ fast, slow to dety, detz"""
     return -y,  x
-def flip8(x, y): 
+
+
+def flip8(x, y):
     """ fast, slow to dety, detz"""
     return -y, -x
 
@@ -71,27 +82,27 @@ class labelimage:
 
     def __init__(self,
                  shape,
-                 spatial = blobcorrector.perfect(),
-                 flipper = flip2):
+                 spatial=blobcorrector.perfect(),
+                 flipper=flip2):
         """
         Shape - image dimensions
         spatial - correction of of peak positions
         """
         self.shape = shape  # Array shape
         self.corrector = spatial  # applies spatial distortion
-        self.fs2yz = flipper # generates y/z
+        self.fs2yz = flipper  # generates y/z
 
         self.onfirst = 1    # Flag for first image in series
         self.onlast = 0     # Flag for last image in series
-        self.blim = np.zeros(shape, np.int32)  # 'current' blob image 
-        self.npk = 0        #  Number of peaks on current
-        self.res = None     #  properties of current
-        
-        self.threshold = None # cache for writing files
+        self.blim = np.zeros(shape, np.int32)  # 'current' blob image
+        self.npk = 0  # Number of peaks on current
+        self.res = None  # properties of current
 
-        self.lastbl = np.zeros(shape, np.int32)# 'previous' blob image
+        self.threshold = None  # cache for writing files
+
+        self.lastbl = np.zeros(shape, np.int32)  # 'previous' blob image
         self.lastres = None
-        self.lastnp = "FIRST" # Flags initial state
+        self.lastnp = "FIRST"  # Flags initial state
 
         self.verbose = 0    # For debugging
 
@@ -103,13 +114,13 @@ class labelimage:
         # threshold = float - pixels above this number are put into objects
         """
         self.threshold = threshold
-        self.npk = connectedpixels.connectedpixels(data, 
-                                                  self.blim, 
-                                                  threshold,
-                                                  self.verbose)
+        self.npk = connectedpixels.connectedpixels(data,
+                                                   self.blim,
+                                                   threshold,
+                                                   self.verbose)
         if self.npk > 0:
-            self.res = connectedpixels.blobproperties(data, 
-                                                      self.blim, 
+            self.res = connectedpixels.blobproperties(data,
+                                                      self.blim,
                                                       self.npk,
                                                       omega=omega)
         else:
@@ -126,10 +137,10 @@ class labelimage:
             self.lastbl, self.blim = self.blim, self.lastbl
             self.lastnp = self.npk
             self.lastres = self.res
-            return            
+            return
         if self.npk > 0 and self.lastnp > 0:
             # Thanks to Stine West for finding a bug here
-            # 
+            #
             self.npk = connectedpixels.bloboverlaps(self.lastbl,
                                                     self.lastnp,
                                                     self.lastres,
@@ -156,14 +167,14 @@ class labelimage:
         which fabian is reading.
         This is called before mergelast, so we write self.npk/self.res
         """
-        
+
         ret = connectedpixels.blob_moments(self.res)
 
         for i in self.res[:self.npk]:
             if i[s_1] < 0.1:
                 raise Exception("Empty peak on current frame")
             i[s_cen], i[f_cen] = self.corrector.correct(i[s_raw], i[f_raw])
-            
+
     def finalise(self):
         """
         Write out the last frame
@@ -171,6 +182,3 @@ class labelimage:
         self.onlast = 1
         if self.lastres is not None:
             ret = connectedpixels.blob_moments(self.lastres)
-
-
-

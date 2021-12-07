@@ -1,12 +1,19 @@
+# -----------------------------------------------------------------------------
+# Copyright (c) 2013-2021, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
+
 """Generic linux daemon base class for python 3.x."""
 
-import sys
 import os
 import platform
+import sys
+
 import psutil
-import time
-import signal
-import logging
+
 
 class NXDaemon:
     """A generic daemon class.
@@ -28,7 +35,7 @@ class NXDaemon:
         except OSError as err:
             print.write('fork #1 failed: {0}\n'.format(err))
             sys.exit(1)
-    
+
         # decouple from parent environment
         os.chdir('/')
         os.setsid()
@@ -88,7 +95,7 @@ class NXDaemon:
             return "{0} running in process {1}".format(self.pid_name, pid)
         else:
             return self.pid_name + " not running"
-    
+
     def start(self):
         """Start the daemon."""
 
@@ -108,7 +115,7 @@ class NXDaemon:
     def stop(self):
         """Stop the daemon."""
         pid, node = self.get_process()
-        
+
         if node and node != self.pid_node:
             return
 

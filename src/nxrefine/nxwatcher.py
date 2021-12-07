@@ -1,11 +1,20 @@
+# -----------------------------------------------------------------------------
+# Copyright (c) 2013-2021, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
+
 import os
 import time
-from watchdog.observers import Observer
+
 from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
 
 from .daemon import NXDaemon
-from .nxserver import NXServer
 from .nxreduce import NXReduce
+from .nxserver import NXServer
 
 
 class NXWatcher(NXDaemon):
@@ -30,11 +39,11 @@ class NXWatcher(NXDaemon):
                                   self.log_file)
         self.observer.schedule(event_handler, self.directory, recursive=True)
         self.observer.start()
-        self.log('watcher: Watching %s' % self.directory)
+        self.log(f'watcher: Watching {self.directory}')
         try:
             while True:
                 time.sleep(10)
-        except:
+        except Exception:
             self.observer.stop()
         self.observer.join()
 
@@ -67,7 +76,7 @@ class NXHandler(FileSystemEventHandler):
     @staticmethod
     def on_any_event(event):
         file_name = event.src_path
-        self.log('watcher: Monitoring %s' % file_name)
+        self.log(f'watcher: Monitoring {file_name}')
         if event.is_directory:
             return None
         elif event.event_type == 'created':
@@ -80,7 +89,7 @@ class NXHandler(FileSystemEventHandler):
                     directory = os.path.dirname(file_name)
                     if entry in self.entries:
                         if file_name.endswith('.h5'):
-                            self.log('watcher: Queuing %s' % file_name)
+                            self.log(f'watcher: Queuing {file_name}')
                             reduce = NXReduce(entry, directory,
                                               link=True, maxcount=True)
                             if reduce.parent:
@@ -91,11 +100,13 @@ class NXHandler(FileSystemEventHandler):
                             reduce.queue()
                             del self.watch_files[file_name]
                         elif '_transform' in file_name:
-                            self.log('Queuing %s' % file_name)
-                            if (True not in 
-                                [NXReduce(e, directory).not_complete('nxtransform')
+                            self.log(f'Queuing {file_name}')
+                            if (True not in
+                                [NXReduce(e, directory).not_complete(
+                                    'nxtransform')
                                  for e in self.entries]):
-                                self.server.add_task('nxcombine -d %s' % directory)
+                                self.server.add_task(
+                                    f'nxcombine -d {directory}')
                 else:
                     self.watch_files[file_name] = time.time()
 

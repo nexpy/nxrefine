@@ -1,30 +1,41 @@
-"""Simple sqlite-based logging for NXrefine. 
+# -----------------------------------------------------------------------------
+# Copyright (c) 2013-2021, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
 
-The database file is located by default at GUP-xxx/tasks/nxdatabase.db. It 
-contains two tables:
+"""Simple sqlite-based logging for NXrefine.
+
+The database file is located by default at GUP-xxx/tasks/nxdatabase.db.
+It contains two tables:
     1. Files: Meant for quickly checking the completion status of scans.
-        For each task, records if it is not started, queued but not yet running,
-        in progress (started for at least one entry), or done (finished for all
-        entries).
-    2. Tasks: Detailed information about all tasks. Records queue time (when
-        it was placed in the NXserver's fifo, or null if it was run from the
-        command line), start time, end time, the task's PID, the wrapper file
-        and entry it is working on, and its status.
+        For each task, records if it is not started, queued but not yet
+        running, in progress (started for at least one entry), or done
+        (finished for all entries).
+    2. Tasks: Detailed information about all tasks. Records queue time
+        (when it was placed in the NXserver's fifo, or null if it was
+        run from the command line), start time, end time, the task's
+        PID, the wrapper file and entry it is working on, and its
+        status.
 
 Example
 -------
-Before any other calls, use init() to establish a connection to the database
+Before any other calls, use init() to establish a connection to the
+database
 
     >>> from nxrefine.nxdatabase import NXDatabase
     >>> nxdb = NXDatabase('relative/path/to/database/file')
 
-Use sync_db() to scan the sample directory and update the database to match
-the contents of the wrapper files. This only needs to be run if there are
-changes to the files outside of NXrefine code (eg manually deleting an entry
-or adding a new .nxs files). Other changes are tracked automatically.
+Use sync_db() to scan the sample directory and update the database to
+match the contents of the wrapper files. This only needs to be run if
+there are changes to the files outside of NXrefine code (eg manually
+deleting an entry or adding a new .nxs files). Other changes are tracked
+automatically.
 
-NXDatabase assumes that no identical tasks (i.e., same task, entry, and wrapper 
-file) will be queued or running at the same time
+NXDatabase assumes that no identical tasks (i.e., same task, entry, and
+wrapper file) will be queued or running at the same time
 """
 
 import datetime
@@ -39,11 +50,12 @@ from sqlalchemy.orm import relationship, sessionmaker
 
 from .nxlock import NXLock
 
-Base = declarative_base();
+Base = declarative_base()
 # Records files that have: not been processed, queued on the NXserver
-    # but not started, started processing, finished processing
-_prog = {'not started':0, 'queued':1, 'in progress':2, 'done':3}
-NOT_STARTED, QUEUED, IN_PROGRESS, DONE, FAILED = 0,1,2,3,-1
+# but not started, started processing, finished processing
+_prog = {'not started': 0, 'queued': 1, 'in progress': 2, 'done': 3}
+NOT_STARTED, QUEUED, IN_PROGRESS, DONE, FAILED = 0, 1, 2, 3, -1
+
 
 class File(Base):
     __tablename__ = 'files'
@@ -65,13 +77,13 @@ class File(Base):
     nxmasked_pdf = Column(Integer, default=NOT_STARTED)
 
     def __repr__(self):
-        not_started = [k for k,v in vars(self).items() if v == NOT_STARTED]
-        queued = [k for k,v in vars(self).items() if v == QUEUED]
-        in_progress = [k for k,v in vars(self).items() if v == IN_PROGRESS]
-        done = [k for k,v in vars(self).items() if v == DONE]
+        not_started = [k for k, v in vars(self).items() if v == NOT_STARTED]
+        queued = [k for k, v in vars(self).items() if v == QUEUED]
+        in_progress = [k for k, v in vars(self).items() if v == IN_PROGRESS]
+        done = [k for k, v in vars(self).items() if v == DONE]
 
         return "File path='{}',\n\tnot started={}\n\tqueued={}\n\t" \
-                "in_progress={}\n\tdone={}".format(
+            "in_progress={}\n\tdone={}".format(
                 self.filename, not_started, queued, in_progress, done)
 
     def get_entries(self):
@@ -97,26 +109,29 @@ class Task(Base):
     start_time = Column(mysql.TIMESTAMP(fsp=6))
     end_time = Column(mysql.TIMESTAMP(fsp=6))
     pid = Column(Integer)
-    filename = Column(String(255), ForeignKey('files.filename'), nullable=False)
+    filename = Column(String(255), ForeignKey('files.filename'),
+                      nullable=False)
 
     file = relationship('File', back_populates='tasks')
 
     def __repr__(self):
-        return "<Task {} on {}, entry {}, pid={}>".format(self.name,
-                self.filename, self.entry, self.pid)
+        return "<Task {} on {}, entry {}, pid={}>".format(
+            self.name, self.filename, self.entry, self.pid)
+
 
 File.tasks = relationship('Task', back_populates='file', order_by=Task.id)
 
+
 class NXDatabase(object):
 
-    task_names = ('data', 'nxlink', 'nxmax', 'nxfind', 'nxcopy', 'nxrefine', 
-                  'nxprepare', 'nxtransform', 'nxmasked_transform', 
+    task_names = ('data', 'nxlink', 'nxmax', 'nxfind', 'nxcopy', 'nxrefine',
+                  'nxprepare', 'nxtransform', 'nxmasked_transform',
                   'nxcombine', 'nxmasked_combine', 'nxpdf', 'nxmasked_pdf')
-    NOT_STARTED, QUEUED, IN_PROGRESS, DONE, FAILED = 0,1,2,3,-1
+    NOT_STARTED, QUEUED, IN_PROGRESS, DONE, FAILED = 0, 1, 2, 3, -1
 
     def __init__(self, db_file, echo=False):
         """Connect to the database, creating tables if necessary.
-        
+
         Parameters
         ----------
         db_file : str
@@ -144,12 +159,12 @@ class NXDatabase(object):
 
     def get_file(self, filename):
         """Return the File object (and associated tasks) matching filename.
-        
+
         Parameters
         ----------
         filename : str
             Path of wrapper file relative to GUP directory.
-        
+
         Returns
         -------
         File
@@ -161,9 +176,9 @@ class NXDatabase(object):
         if f is None:
             filename = os.path.realpath(filename)
             if not os.path.exists(filename):
-                raise NeXusError("'%s' does not exist" % filename)
-            self.session.add(File(filename = self.get_filename(filename)))
-            self.session.commit()       
+                raise NeXusError(f"'{filename}' does not exist")
+            self.session.add(File(filename=self.get_filename(filename)))
+            self.session.commit()
             f = self.sync_file(filename)
         else:
             if f.entries is None or f.entries == '':
@@ -174,8 +189,8 @@ class NXDatabase(object):
 
     def query(self, filename):
         return self.session.query(File) \
-                .filter(File.filename == self.get_filename(filename)) \
-                .one_or_none()
+            .filter(File.filename == self.get_filename(filename)) \
+            .one_or_none()
 
     def sync_file(self, filename):
         """Synchronize the NeXus file contents to the database.
@@ -199,7 +214,7 @@ class NXDatabase(object):
                 scan_files = []
             root = nxload(filename)
             entries = [e for e in root.entries if e != 'entry']
-            tasks = { t: 0 for t in self.task_names }
+            tasks = {t: 0 for t in self.task_names}
             for e in entries:
                 nxentry = root[e]
                 if e in root and 'data' in nxentry and 'instrument' in nxentry:
@@ -272,7 +287,7 @@ class NXDatabase(object):
 
     def queue_task(self, filename, task, entry, queue_time=None):
         """Update a file to 'queued' status and create a matching task.
-        
+
         Parameters
         ----------
         filename : str
@@ -299,7 +314,7 @@ class NXDatabase(object):
 
     def start_task(self, filename, task, entry, start_time=None):
         """Record that a task has begun execution.
-        
+
         Parameters
         ----------
         filename : str
@@ -311,12 +326,12 @@ class NXDatabase(object):
         """
         with NXLock(self.database):
             f = self.get_file(filename)
-            #Find the desired task, and create a new one if it doesn't exist
+            # Find the desired task, and create a new one if it doesn't exist
             for t in reversed(f.tasks):
                 if t.name == task and t.entry == entry:
                     break
             else:
-                # This task was started from command line, not queued on the server
+                # This task was started from command line
                 t = Task(name=task, entry=entry)
                 f.tasks.append(t)
             t.status = IN_PROGRESS
@@ -329,8 +344,8 @@ class NXDatabase(object):
 
     def end_task(self, filename, task, entry, end_time=None):
         """Record that a task finished execution.
-        
-        Update the task's database entry, and set the matching column in 
+
+        Update the task's database entry, and set the matching column in
         files to DONE if it's the last task to finish
 
         Parameters
@@ -349,7 +364,7 @@ class NXDatabase(object):
                 if t.name == task and t.entry == entry:
                     break
             else:
-                # This task was started from command line, not queued on the server
+                # This task was started from command line
                 t = Task(name=task, entry=entry)
                 f.tasks.append(t)
             t.status = DONE
@@ -361,7 +376,7 @@ class NXDatabase(object):
 
     def fail_task(self, filename, task, entry):
         """Record that a task failed during execution.
-        
+
         Parameters
         ----------
         filename : str
@@ -377,23 +392,23 @@ class NXDatabase(object):
                 if t.name == task and t.entry == entry:
                     break
             else:
-                #No task recorded
+                # No task recorded
                 return
             t.status = FAILED
             t.queue_time = None
             t.start_time = None
             t.end_time = None
             self.update_status(f, task)
-    
+
     def update_status(self, f, task):
-        """Update the File object using the status of the specified task.
-        
+        """Update the File object with the status of the specified task.
+
         Parameters
         ----------
         f : File
             File table being updated
         task : str
-            Task being updated.        
+            Task being updated.
         """
         sample_dir = os.path.dirname(f.filename)
         status = {}
@@ -401,7 +416,7 @@ class NXDatabase(object):
             setattr(f, task, DONE)
         else:
             if (task == 'nxcombine' or task == 'nxmasked_combine' or
-                task == 'nxpdf' or task == 'nxmasked_pdf'):
+                    task == 'nxpdf' or task == 'nxmasked_pdf'):
                 entries = ['entry']
             else:
                 entries = f.get_entries()
@@ -423,15 +438,15 @@ class NXDatabase(object):
             elif DONE in status.values():
                 setattr(f, task, IN_PROGRESS)
             else:
-                setattr(f, task, NOT_STARTED)    
+                setattr(f, task, NOT_STARTED)
         self.session.commit()
 
     def update_file(self, filename):
         """Update the File object for the specified file.
-        
+
         This is just a wrapper for 'sync_file' that includes database file
         locking.
-        
+
         Parameters
         ----------
         filename : str
@@ -442,22 +457,25 @@ class NXDatabase(object):
 
     def sync_db(self, sample_dir):
         """ Populate the database based on local files.
-        
+
         Parameters
         ----------
         sample_dir : str
             Directory containing the NeXus wrapper files.
         """
         # Get a list of all the .nxs wrapper files
-        wrapper_files = [os.path.join(sample_dir, filename) for filename in
-                         os.listdir(sample_dir) if filename.endswith('.nxs')
-                         and all(x not in filename for x in ('parent', 'mask'))]
+        wrapper_files = [
+            os.path.join(sample_dir, filename)
+            for filename in os.listdir(sample_dir)
+            if filename.endswith('.nxs') and
+            all(x not in filename for x in ('parent', 'mask'))]
         with NXLock(self.database):
             for wrapper_file in wrapper_files:
                 self.sync_file(self.get_file(wrapper_file))
             tracked_files = list(self.session.query(File).all())
             for f in tracked_files:
-                if f.filename not in [self.get_filename(w) for w in wrapper_files]:
+                if f.filename not in [
+                        self.get_filename(w) for w in wrapper_files]:
                     self.session.delete(f)
             self.session.commit()
 
@@ -469,23 +487,28 @@ class NXDatabase(object):
             if task not in tasks:
                 self.add_column(task)
         if 'entries' not in tasks:
-            self.add_column('entries', data_type=String)            
+            self.add_column('entries', data_type=String)
 
-    def add_column(self, column_name, table_name = 'files', 
+    def add_column(self, column_name, table_name='files',
                    data_type=Integer, default=None):
         """Add a missing column to the database."""
         ret = False
         if default is not None:
             try:
-                ddl = ("ALTER TABLE '{table_name}' ADD COLUMN '{column_name}' '{data_type}' DEFAULT {default}")
-            except:
-                ddl = ("ALTER TABLE '{table_name}' ADD COLUMN '{column_name}' '{data_type}' DEFAULT '{default}'")
+                ddl = ("ALTER TABLE '{table_name}' "
+                       "ADD COLUMN '{column_name}' '{data_type}' "
+                       "DEFAULT {default}")
+            except Exception:
+                ddl = ("ALTER TABLE '{table_name}' "
+                       "ADD COLUMN '{column_name}' '{data_type}' "
+                       "DEFAULT '{default}'")
         else:
-            ddl = ("ALTER TABLE '{table_name}' ADD column '{column_name}' '{data_type}'")
+            ddl = ("ALTER TABLE '{table_name}' "
+                   "ADD column '{column_name}' '{data_type}'")
 
-        sql_command = ddl.format(table_name=table_name, column_name=column_name, 
-                                 data_type=data_type.__name__,
-                                 default=default)
+        sql_command = ddl.format(
+            table_name=table_name, column_name=column_name,
+            data_type=data_type.__name__, default=default)
         try:
             import sqlite3
             connection = sqlite3.connect(self.database)
@@ -499,6 +522,7 @@ class NXDatabase(object):
             ret = False
         return ret
 
+
 def get_directory(filename):
     """Return the directory path containing the raw data."""
     base_name = os.path.basename(os.path.splitext(filename)[0])
@@ -507,9 +531,10 @@ def get_directory(filename):
     scan_label = base_name.replace(sample+'_', '')
     return os.path.join(sample_dir, scan_label)
 
+
 def is_parent(wrapper_file, sample_dir):
     """True if the wrapper file is set as the parent."""
-    parent_file = os.path.join(sample_dir,    
+    parent_file = os.path.join(sample_dir,
                                os.path.basename(os.path.dirname(sample_dir) +
                                                 '_parent.nxs'))
     if os.path.exists(parent_file):

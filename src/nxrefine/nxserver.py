@@ -1,49 +1,59 @@
+# -----------------------------------------------------------------------------
+# Copyright (c) 2013-2021, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
+
 import os
-import psutil
 import subprocess
 import time
 from configparser import ConfigParser
 from datetime import datetime
-from multiprocessing import Process, Queue, JoinableQueue
+from multiprocessing import JoinableQueue, Process, Queue
 
+import psutil
 from nexusformat.nexus import NeXusError
+
 from .daemon import NXDaemon
 
 
 class NXWorker(Process):
     """Class for processing tasks on a specific cpu."""
+
     def __init__(self, cpu, task_queue, result_queue, server_log):
         Process.__init__(self)
         self.cpu = cpu
         self.task_queue = task_queue
         self.result_queue = result_queue
         self.server_log = server_log
-        self.cpu_log = os.path.join(os.path.dirname(self.server_log), 
+        self.cpu_log = os.path.join(os.path.dirname(self.server_log),
                                     self.cpu + '.log')
-  
+
     def __repr__(self):
-        return "NXWorker(cpu={})".format(self.cpu)
+        return f"NXWorker(cpu={self.cpu})"
 
     def run(self):
-        self.log("Starting worker on {} (pid={})".format(self.cpu, os.getpid()))
+        self.log(f"Starting worker on {self.cpu} (pid={os.getpid()})")
         while True:
             time.sleep(5)
             next_task = self.task_queue.get()
             if next_task is None:
-                self.log('%s: Exiting' % self.cpu)
+                self.log(f'{self.cpu}: Exiting')
                 self.task_queue.task_done()
                 break
             else:
-                self.log("%s: Executing '%s'" % (self.cpu, next_task.command))
+                self.log(f"{self.cpu}: Executing '{next_task.command}'")
                 next_task.execute(self.cpu, self.cpu_log)
             self.task_queue.task_done()
-            self.log("%s: Finished '%s'" % (self.cpu, next_task.command))
+            self.log(f"{self.cpu}: Finished '{next_task.command}'")
             self.result_queue.put(next_task.command)
         return
 
     def terminate(self):
-        self.log("Stopping worker on {} (pid={})".format(self.cpu, os.getpid()))
-        Process.terminate(self)    
+        self.log(f"Stopping worker on {self.cpu} (pid={os.getpid()})")
+        Process.terminate(self)
 
     def log(self, message):
         with open(self.server_log, 'a') as f:
@@ -53,6 +63,7 @@ class NXWorker(Process):
 
 class NXTask(object):
     """Class for submitting tasks to different cpus."""
+
     def __init__(self, command, server_type):
         self.command = command
         self.server_type = server_type
@@ -62,14 +73,14 @@ class NXTask(object):
         if self.server_type == 'multicore':
             return self.command
         else:
-            return "pdsh -w %s '%s'" % (cpu, self.command)
+            return f"pdsh -w {cpu} '{self.command}'"
 
     def execute(self, cpu, log_file):
         with open(log_file, 'a') as f:
-            f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' + 
+            f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' +
                     self.command + '\n')
-        process = subprocess.run(self.executable_command(cpu), 
-                                 shell=True, 
+        process = subprocess.run(self.executable_command(cpu),
+                                 shell=True,
                                  stdout=subprocess.PIPE,
                                  stderr=subprocess.STDOUT)
         with open(log_file, 'a') as f:
@@ -92,12 +103,12 @@ class NXServer(NXDaemon):
         super(NXServer, self).__init__(self.pid_name, self.pid_file)
 
     def __repr__(self):
-        return "NXServer(directory='{}', type='{}')".format(self.directory,
-                                                            self.server_type)
+        return (f"NXServer(directory='{self.directory}', "
+                "type='{self.server_type}')")
 
     def initialize(self, directory, server_type, nodes):
         self.home_settings = ConfigParser()
-        home_directory = os.path.join(os.path.abspath(os.path.expanduser('~')), 
+        home_directory = os.path.join(os.path.abspath(os.path.expanduser('~')),
                                       '.nxserver')
         if not os.path.exists(home_directory):
             os.mkdir(home_directory)
@@ -141,7 +152,7 @@ class NXServer(NXDaemon):
                 if cpu_count > psutil.cpu_count():
                     cpu_count = psutil.cpu_count()
             else:
-                cpu_count = psutil.cpu_count()          
+                cpu_count = psutil.cpu_count()
             self.cpus = ['cpu'+str(cpu) for cpu in range(1, cpu_count+1)]
         with open(self.server_file, 'w') as f:
             self.server_settings.write(f)
@@ -180,7 +191,7 @@ class NXServer(NXDaemon):
         self.server_settings.set('setup', 'cores', str(cpu_count))
         with open(self.server_file, 'w') as f:
             self.server_settings.write(f)
-        self.cpus = ['cpu'+str(cpu) for cpu in range(1, cpu_count+1)]        
+        self.cpus = ['cpu'+str(cpu) for cpu in range(1, cpu_count+1)]
 
     def log(self, message):
         with open(self.log_file, 'a') as f:
@@ -194,7 +205,7 @@ class NXServer(NXDaemon):
         Create a worker for each cpu, read commands from task_list, submit
             an NXTask for each command to a JoinableQueue
         """
-        self.log('Starting server (pid={})'.format(os.getpid()))
+        self.log(f'Starting server (pid={os.getpid()})')
         self.tasks = JoinableQueue()
         self.results = Queue()
         self.workers = [NXWorker(cpu, self.tasks, self.results, self.log_file)
@@ -234,11 +245,11 @@ class NXServer(NXDaemon):
     def clear(self):
         if os.path.exists(self.task_list):
             os.remove(self.task_list)
-        os.mkfifo(self.task_list)        
+        os.mkfifo(self.task_list)
 
     def kill(self):
         """Kill the server process.
-        
+
         This provides a backup mechanism for terminating the server if adding
         'stop' to the task list does not work.
         """

@@ -1,9 +1,16 @@
+# -----------------------------------------------------------------------------
+# Copyright (c) 2013-2021, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
+
 import logging
 import logging.handlers
 import os
 import pickle
 import struct
-import sys
 from socketserver import StreamRequestHandler, ThreadingTCPServer
 
 from .daemon import NXDaemon
@@ -76,7 +83,7 @@ class NXLogger(ThreadingTCPServer, NXDaemon):
         self.log_file = os.path.join(self.task_directory, 'nxlogger.log')
         self.pid_file = os.path.join(self.task_directory, 'nxlogger.pid')
         NXDaemon.__init__(self, self.pid_name, self.pid_file)
-        
+
         self.host = host
         self.port = port
         self.handler = handler
@@ -97,7 +104,7 @@ class NXLogger(ThreadingTCPServer, NXDaemon):
             if rd:
                 self.handle_request()
             abort = self.abort
-    
+
     def stop(self):
         self.abort = 1
         NXDaemon.stop(self)

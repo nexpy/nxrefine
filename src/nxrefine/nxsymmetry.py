@@ -1,5 +1,14 @@
+# -----------------------------------------------------------------------------
+# Copyright (c) 2013-2021, NeXpy Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
+
 import numpy as np
-from nexusformat.nexus import *
+from nexusformat.nexus import NXdata, NXfield
+
 
 class NXSymmetry(object):
 
@@ -33,7 +42,7 @@ class NXSymmetry(object):
         self._signal = np.nan_to_num(signal)
         if weights is None:
             self._wts = np.zeros(self._signal.shape, dtype=self._signal.dtype)
-            self._wts[np.where(self._signal>0)] = 1
+            self._wts[np.where(self._signal > 0)] = 1
         else:
             self._wts = np.nan_to_num(weights, nan=1.0)
 
@@ -46,7 +55,7 @@ class NXSymmetry(object):
     def monoclinic(self, data):
         """Laue group: 2/m"""
         outarr = data
-        outarr += np.rot90(outarr, 2, (0,2))
+        outarr += np.rot90(outarr, 2, (0, 2))
         outarr += np.flip(outarr, 0)
         return outarr
 
@@ -61,32 +70,33 @@ class NXSymmetry(object):
     def tetragonal1(self, data):
         """Laue group: 4/m"""
         outarr = data
-        outarr += np.rot90(outarr, 1, (1,2))
-        outarr += np.rot90(outarr, 2, (1,2))
+        outarr += np.rot90(outarr, 1, (1, 2))
+        outarr += np.rot90(outarr, 2, (1, 2))
         outarr += np.flip(outarr, 0)
         return outarr
 
     def tetragonal2(self, data):
         """Laue group: 4/mmm"""
         outarr = data
-        outarr += np.rot90(outarr, 1, (1,2))
-        outarr += np.rot90(outarr, 2, (1,2))
-        outarr += np.rot90(outarr, 2, (0,1))
+        outarr += np.rot90(outarr, 1, (1, 2))
+        outarr += np.rot90(outarr, 2, (1, 2))
+        outarr += np.rot90(outarr, 2, (0, 1))
         outarr += np.flip(outarr, 0)
         return outarr
 
     def hexagonal(self, data):
         """Laue group: 6/m, 6/mmm (modeled as 2/m along the c-axis)"""
         outarr = data
-        outarr += np.rot90(outarr, 2, (1,2))
+        outarr += np.rot90(outarr, 2, (1, 2))
         outarr += np.flip(outarr, 0)
         return outarr
 
     def cubic(self, data):
         """Laue group: m-3 or m-3m"""
         outarr = data
-        outarr += np.transpose(outarr,axes=(1,2,0))+np.transpose(outarr,axes=(2,0,1))
-        outarr += np.transpose(outarr,axes=(0,2,1))
+        outarr += np.transpose(outarr, axes=(1, 2, 0)
+                               )+np.transpose(outarr, axes=(2, 0, 1))
+        outarr += np.transpose(outarr, axes=(0, 2, 1))
         outarr += np.flip(outarr, 0)
         outarr += np.flip(outarr, 1)
         outarr += np.flip(outarr, 2)
@@ -96,10 +106,9 @@ class NXSymmetry(object):
         signal = np.nan_to_num(self._function(self._signal))
         weights = np.nan_to_num(self._function(self._wts))
         with np.errstate(divide='ignore'):
-            result = np.where(weights>0, signal/weights, 0.0)
+            result = np.where(weights > 0, signal/weights, 0.0)
         if self._data:
-            return NXdata(NXfield(result, name=self._data.nxsignal.nxname), 
+            return NXdata(NXfield(result, name=self._data.nxsignal.nxname),
                           self._data.nxaxes)
         else:
             return result
-
