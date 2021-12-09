@@ -628,17 +628,17 @@ class NXRefine(object):
         lines.append(f'parameters.gridOrigin = {self.grid_origin};')
         lines.append(f'parameters.gridBasis = {self.grid_basis};')
         lines.append(f'parameters.gridDim = {self.grid_step};')
-        lines.append('parameters.gridOffset =  [0,0,0];')
-        lines.append('parameters.extraFlip =  false;')
-        lines.append('inputData.chunkSize =  [32,32,32];')
+        lines.append('parameters.gridOffset = [0,0,0];')
+        lines.append('parameters.extraFlip = false;')
+        lines.append('inputData.chunkSize = [32,32,32];')
         lines.append(f'outputData.dimensions = {list(self.grid_shape)};')
-        lines.append('outputData.chunkSize =  [32,32,32];')
+        lines.append('outputData.chunkSize = [32,32,32];')
         lines.append('outputData.compression = %s;' % 0)
         lines.append('outputData.hdfChunkSize = [32,32,32];')
         lines.append('transformer.transformOptions =  0;')
         lines.append('transformer.oversampleX = 1;')
-        lines.append('transformer.oversampleY =  1;')
-        lines.append('transformer.oversampleZ =  4;')
+        lines.append('transformer.oversampleY = 1;')
+        lines.append('transformer.oversampleZ = 4;')
         f = open(settings_file, 'w')
         f.write('\n'.join(lines))
         f.close()
@@ -784,14 +784,14 @@ class NXRefine(object):
         command = [f'cctw transform --script {parfile}']
         if 'pixel_mask' in self.entry['instrument/detector']:
             command.append(
-                f'--mask {filename}\#/{entry}/instrument/detector/pixel_mask')
+                fr'--mask {filename}\#/{entry}/instrument/detector/pixel_mask')
         if mask and 'data_mask' in self.entry['data']:
             command.append(f'--mask3d {filename}\\#/{entry}/data/data_mask')
         if 'monitor_weight' in self.entry['data']:
             command.append(
-                f'--weights {filename}\#/{entry}/data/monitor_weight')
-        command.append(f'{filename}\#/{entry}/data/data')
-        command.append(f'--output {dir}/{name}.nxs\#/entry/data')
+                fr'--weights {filename}\#/{entry}/data/monitor_weight')
+        command.append(fr'{filename}\#/{entry}/data/data')
+        command.append(fr'--output {dir}/{name}.nxs\#/entry/data')
         command.append('--normalization 0')
         return ' '.join(command)
 
