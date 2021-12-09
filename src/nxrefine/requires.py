@@ -10,6 +10,7 @@
 
 pkg_requirements = [
     'nexpy',
+    'cctbx-base',
     'pyfai',
     'sqlalchemy',
     'psutil'
