@@ -77,11 +77,7 @@ input and output grids. It has to be separately installed.
 
 User Support
 ============
-Consult the [NeXpy documentation](http://nexpy.github.io/nexpy) for details 
-of both the Python command-line API and how to use the NeXpy GUI. If you have 
-any general questions concerning the use of NeXpy, please address 
-them to the 
-[NeXus Mailing List](http://download.nexusformat.org/doc/html/mailinglist.html). 
-If you discover any bugs, please submit a 
-[Github issue](https://github.com/nexpy/nexpy/issues), preferably with relevant 
+If you are interested in using this package, please contact Ray Osborn 
+(ROsborn@anl.gov). Please report any bugs as a 
+[Github issue](https://github.com/axmas/nxrefine/issues), with relevant 
 tracebacks.
