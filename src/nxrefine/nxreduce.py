@@ -1932,7 +1932,7 @@ class NXMultiReduce(NXReduce):
             return None
         input = ' '.join([os.path.join(
                             self.directory,
-                            f'{entry}_{transform}.nxs\#/entry/data')
+                            fr'{entry}_{transform}.nxs\#/entry/data')
                           for entry in self.entries])
         output = os.path.join(self.directory,
                               transform+r'.nxs\#/entry/data/v')
@@ -1976,9 +1976,7 @@ class NXMultiReduce(NXReduce):
             transform = 'masked_transform'
         else:
             transform = 'transform'
-        signal = self.entry[transform].nxsignal
-        total_size = np.prod(
-            signal.shape) * np.dtype(signal.dtype).itemsize / 1e6
+        total_size = self.entry[transform].nxsignal.nbytes / 1e6
         if total_size > nxgetmemory():
             nxsetmemory(total_size + 1000)
 
