@@ -49,3 +49,6 @@ Icon?
 
 # Virtual Studio Code
 .vscode
+
+# setuptools_scm
+src/nexusformat/_version.py

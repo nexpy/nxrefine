@@ -46,15 +46,8 @@ The source code can be downloaded from the AXMAS Git repository:
 To install in the standard Python location:
 
 ```
-    $ python setup.py install
+    $ pip install .
 ```
-
-To install in an alternate location:
-
-```
-    $ python setup.py install --prefix=/path/to/installation/dir
-```
-
 Prerequisites
 =============
 Python Packages
