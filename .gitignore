@@ -51,4 +51,4 @@ Icon?
 .vscode
 
 # setuptools_scm
-src/nexusformat/_version.py
+src/nxrefine/_version.py
