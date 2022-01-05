@@ -12,6 +12,7 @@ from datetime import datetime
 import h5py as h5
 import numpy as np
 from h5py import is_hdf5
+from ImageD11 import blob_moments, flip1, labelimage
 from nexpy.gui.utils import clamp
 from nexusformat.nexus import (NeXusError, NXattenuator, NXcollection, NXdata,
                                NXentry, NXfield, NXinstrument, NXlink, NXLock,
@@ -20,9 +21,7 @@ from nexusformat.nexus import (NeXusError, NXattenuator, NXcollection, NXdata,
                                nxsetlock, nxsetmemory)
 from qtpy import QtCore
 
-from . import __version__, blobcorrector
-from .connectedpixels import blob_moments
-from .labelimage import flip1, labelimage
+from . import __version__
 from .nxdatabase import NXDatabase
 from .nxrefine import NXPeak, NXRefine
 from .nxserver import NXServer
