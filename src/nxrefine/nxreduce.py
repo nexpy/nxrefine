@@ -12,7 +12,7 @@ from datetime import datetime
 import h5py as h5
 import numpy as np
 from h5py import is_hdf5
-from ImageD11 import blob_moments, flip1, labelimage
+from ImageD11 import cImageD11, labelimage
 from nexpy.gui.utils import clamp
 from nexusformat.nexus import (NeXusError, NXattenuator, NXcollection, NXdata,
                                NXentry, NXfield, NXinstrument, NXlink, NXLock,
@@ -968,7 +968,7 @@ class NXReduce(QtCore.QObject):
 
             tic = self.start_progress(z_min, z_max)
 
-            lio = labelimage(self.shape[-2:], flipper=flip1)
+            lio = labelimage(self.shape[-2:], flipper=labelimage.flip1)
             allpeaks = []
             if len(self.shape) == 2:
                 res = None
@@ -990,7 +990,7 @@ class NXReduce(QtCore.QObject):
                                     omega = np.float32(i+j)
                                     lio.peaksearch(v[j], self.threshold, omega)
                                     if lio.res is not None:
-                                        blob_moments(lio.res)
+                                        cImageD11.blob_moments(lio.res)
                                         for k in range(lio.res.shape[0]):
                                             res = lio.res[k]
                                             peak = NXBlob(
