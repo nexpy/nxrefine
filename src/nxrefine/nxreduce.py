@@ -12,7 +12,7 @@ from datetime import datetime
 import h5py as h5
 import numpy as np
 from h5py import is_hdf5
-from ImageD11 import cImageD11, labelimage
+from ImageD11.labelimage import labelimage, flip1
 from nexpy.gui.utils import clamp
 from nexusformat.nexus import (NeXusError, NXattenuator, NXcollection, NXdata,
                                NXentry, NXfield, NXinstrument, NXlink, NXLock,
@@ -968,8 +968,21 @@ class NXReduce(QtCore.QObject):
 
             tic = self.start_progress(z_min, z_max)
 
-            lio = labelimage(self.shape[-2:], flipper=labelimage.flip1)
-            allpeaks = []
+            self.allpeaks = []
+
+            def save_blobs(lio, peaks):
+                for p in peaks:
+                    peak = NXBlob(p[0], p[22], p[23], p[24], p[25], p[27],
+                                  p[26], p[29], self.threshold,
+                                  pixel_tolerance, frame_tolerance)
+                    if peak.isvalid(self.pixel_mask):
+                        self.allpeaks.append(peak)
+                    lio.spot3d_id += 1
+                if lio.onfirst > 0:
+                    lio.onfirst = 0
+
+            labelimage.outputpeaks = save_blobs
+            lio = labelimage(self.shape[-2:], flipper=flip1)
             if len(self.shape) == 2:
                 res = None
             else:
@@ -989,79 +1002,13 @@ class NXReduce(QtCore.QObject):
                                 if i+j >= z_min and i+j <= z_max:
                                     omega = np.float32(i+j)
                                     lio.peaksearch(v[j], self.threshold, omega)
-                                    if lio.res is not None:
-                                        cImageD11.blob_moments(lio.res)
-                                        for k in range(lio.res.shape[0]):
-                                            res = lio.res[k]
-                                            peak = NXBlob(
-                                                res[0],
-                                                res[22],
-                                                res[23],
-                                                res[24],
-                                                omega, res[27],
-                                                res[26],
-                                                res[29],
-                                                self.threshold,
-                                                pixel_tolerance,
-                                                frame_tolerance)
-                                            if peak.isvalid(self.pixel_mask):
-                                                allpeaks.append(peak)
-                    except IndexError as error:
+                                    lio.mergelast()
+                    except IndexError:
                         pass
+                lio.finalise()
 
-        if not allpeaks:
-            toc = self.stop_progress()
-            self.logger.info(f'No peaks found ({toc - tic:g} seconds)')
-            return None
+        peaks = sorted(self.allpeaks)
 
-        allpeaks = sorted(allpeaks)
-
-        self.start_progress(z_min, z_max)
-
-        merged_peaks = []
-        for z in range(z_min, z_max+1):
-            if self.stopped:
-                return None
-            self.update_progress(z)
-            frame = [peak for peak in allpeaks if peak.z == z]
-            if not merged_peaks:
-                merged_peaks.extend(frame)
-            else:
-                for peak1 in frame:
-                    combined = False
-                    for peak2 in last_frame:
-                        if peak1 == peak2:
-                            for idx in range(len(merged_peaks)):
-                                if peak1 == merged_peaks[idx]:
-                                    break
-                            peak1.combine(merged_peaks[idx])
-                            merged_peaks[idx] = peak1
-                            combined = True
-                            break
-                    if not combined:
-                        reversed_peaks = [p for p in reversed(merged_peaks)
-                                          if p.z >= peak1.z - frame_tolerance]
-                        for peak2 in reversed_peaks:
-                            if peak1 == peak2:
-                                for idx in range(len(merged_peaks)):
-                                    if peak1 == merged_peaks[idx]:
-                                        break
-                                peak1.combine(merged_peaks[idx])
-                                merged_peaks[idx] = peak1
-                                combined = True
-                                break
-                        if not combined:
-                            merged_peaks.append(peak1)
-
-            if frame:
-                last_frame = frame
-
-        merged_peaks = sorted(merged_peaks)
-        for peak in merged_peaks:
-            peak.merge()
-
-        merged_peaks = sorted(merged_peaks)
-        peaks = merged_peaks
         toc = self.stop_progress()
         self.logger.info(f'{len(peaks)} peaks found ({toc - tic:g} seconds)')
         return peaks
@@ -2363,13 +2310,8 @@ class NXBlob(object):
         self.frame_tolerance = frame_tolerance
         self.combined = False
 
-    def __str__(self):
-        return "NXBlob x=%f y=%f z=%f np=%i avg=%f" % (
-            self.x, self.y, self.z, self.np, self.average)
-
     def __repr__(self):
-        return "NXBlob x=%f y=%f z=%f np=%i avg=%f" % (
-            self.x, self.y, self.z, self.np, self.average)
+        return f"NXBlob(x={self.x} y={self.y} z={self.z})"
 
     def __lt__(self, other):
         return self.z < other.z
