@@ -968,7 +968,8 @@ class NXReduce(QtCore.QObject):
 
             tic = self.start_progress(z_min, z_max)
 
-            lio = labelimage(self.shape[-2:], flipper=labelimage.flip1)
+            lio = labelimage.labelimage(self.shape[-2:], 
+                                        flipper=labelimage.flip1)
             allpeaks = []
             if len(self.shape) == 2:
                 res = None
