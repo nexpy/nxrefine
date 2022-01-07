@@ -968,46 +968,30 @@ class NXReduce(QtCore.QObject):
 
             tic = self.start_progress(z_min, z_max)
 
-            self.allpeaks = []
+            self.peaks = []
 
             def save_blobs(lio, peaks):
                 for p in peaks:
-                    peak = NXBlob(p[0], p[22], p[23], p[24], p[25], p[27],
-                                  p[26], p[29], self.threshold,
-                                  pixel_tolerance, frame_tolerance)
+                    peak = NXBlob(p)
                     if peak.isvalid(self.pixel_mask):
-                        self.allpeaks.append(peak)
-                    lio.spot3d_id += 1
+                        self.peaks.append(peak)
                 if lio.onfirst > 0:
                     lio.onfirst = 0
 
             labelimage.outputpeaks = save_blobs
-            lio = labelimage(self.shape[-2:], flipper=flip1)
-            if len(self.shape) == 2:
-                res = None
-            else:
-                chunk_size = self.field.chunks[0]
-                pixel_tolerance = 50
-                frame_tolerance = 10
-                nframes = z_max
-                data = self.field.nxfile[self.path]
-                for i in range(0, nframes, chunk_size):
-                    if self.stopped:
-                        return None
-                    try:
-                        if i + chunk_size > z_min and i < z_max:
-                            self.update_progress(i)
-                            v = data[i:i+chunk_size, :, :]
-                            for j in range(chunk_size):
-                                if i+j >= z_min and i+j <= z_max:
-                                    omega = np.float32(i+j)
-                                    lio.peaksearch(v[j], self.threshold, omega)
-                                    lio.mergelast()
-                    except IndexError:
-                        pass
-                lio.finalise()
+            lio = labelimage(self.shape[-2:], flipper=flip1, 
+                             fileout=os.devnull)
+            nframes = z_max
+            data = self.field.nxfile[self.path]
+            for i in range(0, nframes):
+                if self.stopped:
+                    return None
+                self.update_progress(i)
+                lio.peaksearch(data[i], self.threshold, i)
+                lio.mergelast()
+            lio.finalise()
 
-        peaks = sorted(self.allpeaks)
+        peaks = sorted(self.peaks, key=operator.attrgetter('z'))
 
         toc = self.stop_progress()
         self.logger.info(f'{len(peaks)} peaks found ({toc - tic:g} seconds)')
@@ -1015,7 +999,6 @@ class NXReduce(QtCore.QObject):
 
     def write_peaks(self, peaks):
         group = NXreflections()
-        shape = (len(peaks),)
         group['npixels'] = NXfield([peak.np for peak in peaks], dtype=float)
         group['intensity'] = NXfield([peak.intensity for peak in peaks],
                                      dtype=float)
@@ -1024,8 +1007,10 @@ class NXReduce(QtCore.QObject):
         group['z'] = NXfield([peak.z for peak in peaks], dtype=float)
         group['sigx'] = NXfield([peak.sigx for peak in peaks], dtype=float)
         group['sigy'] = NXfield([peak.sigy for peak in peaks], dtype=float)
-        group['covxy'] = NXfield([peak.covxy for peak in peaks],
-                                 dtype=float)
+        group['sigz'] = NXfield([peak.sigz for peak in peaks], dtype=float)
+        group['covxy'] = NXfield([peak.covxy for peak in peaks], dtype=float)
+        group['covyz'] = NXfield([peak.covyz for peak in peaks], dtype=float)
+        group['covzx'] = NXfield([peak.covzx for peak in peaks], dtype=float)
         group.attrs['first'] = self.first
         group.attrs['last'] = self.last
         group.attrs['threshold'] = self.threshold
@@ -2293,76 +2278,30 @@ class NXMultiReduce(NXReduce):
 
 class NXBlob(object):
 
-    def __init__(self, np, average, x, y, z, sigx, sigy, covxy, threshold,
-                 pixel_tolerance, frame_tolerance):
-        self.np = np
-        self.average = average
-        self.intensity = np * average
-        self.x = x
-        self.y = y
-        self.z = z
-        self.sigx = sigx
-        self.sigy = sigy
-        self.covxy = covxy
-        self.threshold = threshold
-        self.peaks = [self]
-        self.pixel_tolerance = pixel_tolerance**2
-        self.frame_tolerance = frame_tolerance
-        self.combined = False
+    def __init__(self, peak):
+        self.np = peak[0]
+        self.average = peak[22]
+        self.intensity = self.np * self.average
+        self.x = peak[23]
+        self.y = peak[24]
+        self.z = peak[25]
+        self.sigx = peak[27]
+        self.sigy = peak[26]
+        self.sigz = peak[28]
+        self.covxy = peak[29]
+        self.covyz = peak[30]
+        self.covzx = peak[31]
 
     def __repr__(self):
         return f"NXBlob(x={self.x} y={self.y} z={self.z})"
-
-    def __lt__(self, other):
-        return self.z < other.z
-
-    def __eq__(self, other):
-        if abs(self.z - other.z) <= self.frame_tolerance:
-            if ((self.x - other.x)**2 + (self.y - other.y)**2
-                    <= self.pixel_tolerance):
-                return True
-            else:
-                return False
-        else:
-            return False
-
-    def __ne__(self, other):
-        if abs(self.z - other.z) > self.frame_tolerance:
-            if ((self.x - other.x)**2 + (self.y - other.y)**2
-                    > self.pixel_tolerance):
-                return True
-            else:
-                return False
-        else:
-            return False
-
-    def combine(self, other):
-        self.peaks.extend(other.peaks)
-        self.combined = True
-        other.combined = False
-
-    def merge(self):
-        np = sum([p.np for p in self.peaks])
-        intensity = sum([p.intensity for p in self.peaks])
-        self.x = sum([p.x * p.intensity for p in self.peaks]) / intensity
-        self.y = sum([p.y * p.intensity for p in self.peaks]) / intensity
-        self.z = sum([p.z * p.intensity for p in self.peaks]) / intensity
-        self.sigx = sum([p.sigx * p.intensity for p in self.peaks]) / intensity
-        self.sigy = sum([p.sigy * p.intensity for p in self.peaks]) / intensity
-        self.covxy = sum(
-            [p.covxy * p.intensity for p in self.peaks]) / intensity
-        self.np = np
-        self.intensity = intensity
-        self.average = self.intensity / self.np
 
     def isvalid(self, mask):
         if mask is not None:
             clip = mask[int(self.y), int(self.x)]
             if clip:
                 return False
-        if np.isclose(
-                self.average, 0.0) or np.isnan(
-                self.average) or self.np < 5:
+        if (np.isclose(self.average, 0.0) or np.isnan(self.average)
+                or self.np < 10):
             return False
         else:
             return True
