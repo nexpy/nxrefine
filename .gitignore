@@ -52,3 +52,7 @@ Icon?
 
 # setuptools_scm
 src/nxrefine/_version.py
+
+# Sphinx
+doctrees/
+.buildinfo
