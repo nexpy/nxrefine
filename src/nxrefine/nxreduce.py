@@ -2293,7 +2293,7 @@ class NXBlob(object):
         self.covzx = peak[31]
 
     def __repr__(self):
-        return f"NXBlob(x={self.x} y={self.y} z={self.z})"
+        return f"NXBlob(x={self.x:.2f} y={self.y:.2f} z={self.z:.2f})"
 
     def isvalid(self, mask):
         if mask is not None:
