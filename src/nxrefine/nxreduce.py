@@ -52,59 +52,59 @@ class NXReduce(QtCore.QObject):
         extension : str, optional
             Extension of the raw data file, by default '.h5'
         path : str, optional
-            [description], by default '/entry/data/data'
-        threshold : [type], optional
-            [description], by default None
-        first : [type], optional
-            [description], by default None
-        last : [type], optional
-            [description], by default None
-        radius : [type], optional
-            [description], by default None
-        width : [type], optional
-            [description], by default None
-        monitor : [type], optional
-            [description], by default None
-        norm : [type], optional
-            [description], by default None
-        Qh : [type], optional
-            [description], by default None
-        Qk : [type], optional
-            [description], by default None
-        Ql : [type], optional
-            [description], by default None
+            Path to the raw data, by default '/entry/data/data'
+        threshold : float, optional
+            Threshold used to in Bragg peak searches, by default None
+        first : int, optional
+            First frame included in the data reduction, by default None
+        last : int, optional
+            Last frame included in the data reduction, by default None
+        radius : float, optional
+            Radius used in punching holes in inverse Angstroms, by default None
+        monitor : str, optional
+            Name of monitor used in normalizations, by default None
+        norm : float, optional
+            Value used to normalize monitor counts, by default None
+        Qh : tuple of floats, optional
+            Minimum, step size, and maximum value of Qh array, by default None
+        Qk : tuple of floats, optional
+            Minimum, step size, and maximum value of Qk array, by default None
+        Ql : tuple of floats, optional
+            Minimum, step size, and maximum value of Ql array, by default None
         link : bool, optional
-            [description], by default False
+            Link metadata, by default False
         maxcount : bool, optional
-            [description], by default False
+            Determine maximum counts, by default False
         find : bool, optional
-            [description], by default False
+            Find Bragg peaks, by default False
         copy : bool, optional
-            [description], by default False
+            Copy refinement and transform parameters, by default False
         refine : bool, optional
-            [description], by default False
+            Refine lattice parameters and orientation matrix, by default False
         lattice : bool, optional
-            [description], by default False
+            Refine the lattice parameters, by default False
         transform : bool, optional
-            [description], by default False
+            Transform the data into Q, by default False
         prepare : bool, optional
-            [description], by default False
+            Prepare the 3D data mask, by default False
         mask : bool, optional
-            [description], by default False
+            Use mask in performing transforms, by default False
         overwrite : bool, optional
-            [description], by default False
+            Overwrite previous analyses, by default False
+        monitor_progress : bool, optional
+            Monitor progress at the command line, by default False
         gui : bool, optional
-            [description], by default False
+            Use PyQt signals to monitor progress, by default False
         """
 
     def __init__(
             self, entry=None, directory=None, parent=None, entries=None,
             data='data/data', extension='.h5', path='/entry/data/data',
-            threshold=None, first=None, last=None, radius=None, width=None,
+            threshold=None, first=None, last=None, radius=None,
             monitor=None, norm=None, Qh=None, Qk=None, Ql=None, link=False,
             maxcount=False, find=False, copy=False, refine=False,
             lattice=False, transform=False, prepare=False, mask=False,
-            overwrite=False, gui=False):
+            overwrite=False, monitor_progress=False, gui=False):
 
         super(NXReduce, self).__init__()
 
@@ -197,6 +197,7 @@ class NXReduce(QtCore.QObject):
         self.prepare = prepare
         self.mask = mask
         self.overwrite = overwrite
+        self.monitor_progress = monitor_progress
         self.gui = gui
 
         self._stopped = False
@@ -582,7 +583,7 @@ class NXReduce(QtCore.QObject):
             self._step = (stop - start) / 100
             self._value = int(start)
             self.start.emit((0, 100))
-        else:
+        elif self.monitor_progress:
             print('Frame', end='')
         self.stopped = False
         return timeit.default_timer()
@@ -593,11 +594,11 @@ class NXReduce(QtCore.QObject):
             if _value > self._value:
                 self.update.emit(_value)
                 self._value = _value
-        elif (i - self._start) % 500 == 0:
+        elif (i - self._start) % 100 == 0:
             print(f'\rFrame {i}', end='')
 
     def stop_progress(self):
-        if not self.gui:
+        if self.monitor_progress:
             print('')
         self.stopped = True
         return timeit.default_timer()
@@ -979,7 +980,7 @@ class NXReduce(QtCore.QObject):
                     lio.onfirst = 0
 
             labelimage.outputpeaks = save_blobs
-            lio = labelimage(self.shape[-2:], flipper=flip1, 
+            lio = labelimage(self.shape[-2:], flipper=flip1,
                              fileout=os.devnull)
             nframes = z_max
             data = self.field.nxfile[self.path]
