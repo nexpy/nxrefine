@@ -52,3 +52,6 @@ Icon?
 
 # setuptools_scm
 src/nxrefine/_version.py
+
+# unused NXRefine scripts
+_unused_scripts
