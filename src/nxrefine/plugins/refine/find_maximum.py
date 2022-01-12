@@ -110,6 +110,9 @@ class MaximumDialog(NXDialog):
     def accept(self):
         try:
             self.reduce.write_maximum(self.maximum)
+            self.reduce.record('nxmax', maximum=self.maximum,
+                               first_frame=self.first, last_frame=self.last)
+            self.reduce.record_end('nxmax')
             self.stop()
             super().accept()
         except Exception as error:

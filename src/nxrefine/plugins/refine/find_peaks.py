@@ -127,9 +127,13 @@ class FindDialog(NXDialog):
     def accept(self):
         try:
             self.reduce.write_peaks(self.peaks)
+            self.reduce.record('nxfind', threshold=self.threshold,
+                               first_frame=self.first, last_frame=self.last,
+                               peak_number=len(self.peaks))
+            self.reduce.record_end('nxfind')
             super().accept()
         except Exception as error:
-            report_error("Finding Maximum", str(error))
+            report_error("Finding Peaks", str(error))
 
     def reject(self):
         self.stop()
