@@ -1214,7 +1214,7 @@ class NXRefine(object):
     def Dmat(self):
         """Return the detector orientatioon matrix.
 
-        It also transforms detector coords into lab coords.
+        It also transforms detector coords into lab coordinates.
             Operation order:    yaw -> pitch -> roll
         """
         return self._Dmat_cache
