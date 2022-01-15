@@ -33,6 +33,7 @@ class FindDialog(NXDialog):
         self.parameters.add('threshold', '', 'Threshold')
         self.parameters.add('first', '', 'First Frame')
         self.parameters.add('last', '', 'Last Frame')
+        self.parameters.add('min-pixels', '10', 'Minimum Pixels in Peak')
         self.find_button = NXPushButton('Find Peaks', self.find_peaks)
         self.peak_count = NXLabel()
         self.peak_count.setVisible(False)
@@ -94,6 +95,17 @@ class FindDialog(NXDialog):
         except Exception as error:
             return None
 
+    @property
+    def min_pixels(self):
+        try:
+            _min_pixels = int(self.parameters['min-pixels'].value)
+            if _min_pixels > 0:
+                return _min_pixels
+            else:
+                return None
+        except Exception:
+            return None
+
     def find_peaks(self):
         if is_file_locked(self.reduce.data_file):
             if self.confirm_action('Clear lock?',
@@ -104,6 +116,7 @@ class FindDialog(NXDialog):
         self.start_thread()
         self.reduce = NXReduce(self.entry, threshold=self.threshold,
                                first=self.first, last=self.last,
+                               min_pixels=self.min_pixels,
                                find=True, overwrite=True, gui=True)
         self.reduce.moveToThread(self.thread)
         self.reduce.start.connect(self.start_progress)
@@ -129,6 +142,7 @@ class FindDialog(NXDialog):
             self.reduce.write_peaks(self.peaks)
             self.reduce.record('nxfind', threshold=self.threshold,
                                first_frame=self.first, last_frame=self.last,
+                               min_pixels=self.min_pixels,
                                peak_number=len(self.peaks))
             self.reduce.record_end('nxfind')
             super().accept()

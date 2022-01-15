@@ -55,6 +55,9 @@ class NXReduce(QtCore.QObject):
             Path to the raw data, by default '/entry/data/data'
         threshold : float, optional
             Threshold used to in Bragg peak searches, by default None
+        min_pixels : int, optional
+            Minimum number of pixels required in Bragg peak searches, by
+            default 10
         first : int, optional
             First frame included in the data reduction, by default None
         last : int, optional
@@ -100,7 +103,7 @@ class NXReduce(QtCore.QObject):
     def __init__(
             self, entry=None, directory=None, parent=None, entries=None,
             data='data/data', extension='.h5', path='/entry/data/data',
-            threshold=None, first=None, last=None, radius=None,
+            threshold=None, min_pixels=10, first=None, last=None, radius=None,
             monitor=None, norm=None, Qh=None, Qk=None, Ql=None, link=False,
             maxcount=False, find=False, copy=False, refine=False,
             lattice=False, transform=False, prepare=False, mask=False,
@@ -176,6 +179,7 @@ class NXReduce(QtCore.QObject):
         self.path = path
 
         self._threshold = threshold
+        self.min_pixels = min_pixels
         self._maximum = None
         self.summed_data = None
         self._first = first
@@ -969,13 +973,13 @@ class NXReduce(QtCore.QObject):
 
             tic = self.start_progress(z_min, z_max)
 
-            self.peaks = []
+            self.blobs = []
 
-            def save_blobs(lio, peaks):
-                for p in peaks:
-                    peak = NXBlob(p)
-                    if peak.isvalid(self.pixel_mask):
-                        self.peaks.append(peak)
+            def save_blobs(lio, blobs):
+                for b in blobs:
+                    blob = NXBlob(b)
+                    if blob.isvalid(self.pixel_mask, self.min_pixels):
+                        self.blobs.append(blob)
                 if lio.onfirst > 0:
                     lio.onfirst = 0
 
@@ -992,7 +996,7 @@ class NXReduce(QtCore.QObject):
                 lio.mergelast()
             lio.finalise()
 
-        peaks = sorted(self.peaks, key=operator.attrgetter('z'))
+        peaks = sorted(self.blobs, key=operator.attrgetter('z'))
 
         toc = self.stop_progress()
         self.logger.info(f'{len(peaks)} peaks found ({toc - tic:g} seconds)')
@@ -2296,13 +2300,13 @@ class NXBlob(object):
     def __repr__(self):
         return f"NXBlob(x={self.x:.2f} y={self.y:.2f} z={self.z:.2f})"
 
-    def isvalid(self, mask):
+    def isvalid(self, mask, min_pixels=10):
         if mask is not None:
             clip = mask[int(self.y), int(self.x)]
             if clip:
                 return False
         if (np.isclose(self.average, 0.0) or np.isnan(self.average)
-                or self.np < 10):
+                or self.np < min_pixels):
             return False
         else:
             return True

@@ -24,6 +24,7 @@ def main():
                         help='peak threshold - defaults to maximum counts/10')
     parser.add_argument('-f', '--first', type=int, help='first frame')
     parser.add_argument('-l', '--last', type=int, help='last frame')
+    parser.add_argument('-P', '--pixels', type=int, help='minimum pixels in a peak')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing peaks')
     parser.add_argument('-p', '--parent', default=None,
@@ -43,7 +44,8 @@ def main():
     for entry in entries:
         reduce = NXReduce(entry, args.directory, find=True,
                           threshold=args.threshold,
-                          first=args.first, last=args.last,
+                          first=args.first, last=args.last, 
+                          min_pixels=args.pixels,
                           overwrite=args.overwrite,
                           monitor_progress=args.monitor)
         if args.queue:
