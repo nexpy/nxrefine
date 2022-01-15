@@ -59,8 +59,7 @@ class FindDialog(NXDialog):
                 self.parameters['last'].value = len(self.entry.data.nxaxes[0])
             except Exception:
                 pass
-        if self.reduce.threshold:
-            self.parameters['threshold'].value = self.reduce.threshold
+        self.parameters['threshold'].value = self.reduce.threshold
 
     @property
     def threshold(self):

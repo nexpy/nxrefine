@@ -456,7 +456,9 @@ class NXReduce(QtCore.QObject):
     @property
     def threshold(self):
         _threshold = self._threshold
-        if _threshold is None:
+        if self._threshold is not None:
+            return self._threshold
+        else:
             if 'nxreduce' in self.root['entry']:
                 _threshold = self.root['entry/nxreduce/threshold']
             elif ('peaks' in self.entry and
@@ -470,15 +472,16 @@ class NXReduce(QtCore.QObject):
                 elif ('peaks' in entry and
                       'threshold' in entry['peaks'].attrs):
                     _threshold = entry['peaks'].attrs['threshold']
+        _default = 50000.0
         if _threshold is None:
-            if self.maximum is not None:
-                _threshold = self.maximum / 10
-        try:
-            self._threshold = float(_threshold)
-            if self._threshold <= 0.0:
-                self._threshold = None
-        except Exception:
-            self._threshold = None
+            self._threshold = _default
+        else:
+            try:
+                self._threshold = float(_threshold)
+                if self._threshold <= 0.0:
+                    self._threshold = _default
+            except Exception:
+                self._threshold = _default
         return self._threshold
 
     @threshold.setter
@@ -955,14 +958,6 @@ class NXReduce(QtCore.QObject):
 
     def find_peaks(self):
         self.logger.info("Finding peaks")
-        with self.root.nxfile:
-            self._threshold, self._maximum = self.threshold, self.maximum
-
-        if self.threshold is None:
-            if self.maximum is None:
-                self.maxcount = True
-                self.nxmax()
-            self.threshold = self.maximum / 10
 
         with self.field.nxfile:
             if self.first is None:
