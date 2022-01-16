@@ -633,15 +633,14 @@ class NXRefine(object):
         lines.append('inputData.chunkSize = [32,32,32];')
         lines.append(f'outputData.dimensions = {list(self.grid_shape)};')
         lines.append('outputData.chunkSize = [32,32,32];')
-        lines.append('outputData.compression = %s;' % 0)
+        lines.append('outputData.compression = 0;')
         lines.append('outputData.hdfChunkSize = [32,32,32];')
         lines.append('transformer.transformOptions =  0;')
         lines.append('transformer.oversampleX = 1;')
         lines.append('transformer.oversampleY = 1;')
         lines.append('transformer.oversampleZ = 4;')
-        f = open(settings_file, 'w')
-        f.write('\n'.join(lines))
-        f.close()
+        with open(settings_file, 'w') as f:
+            f.write('\n'.join(lines))
 
     def write_angles(self, polar_angles, azimuthal_angles):
         """Write the polar and azimuthal angles of the Bragg peaks.
