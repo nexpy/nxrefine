@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -----------------------------------------------------------------------------
-# Copyright (c) 2013-2021, NeXpy Development Team.
+# Copyright (c) 2013-2022, AXMAS Development Team.
 #
 # Distributed under the terms of the Modified BSD License.
 #
@@ -24,7 +24,7 @@ def main():
                         help='peak threshold - defaults to 50000')
     parser.add_argument('-f', '--first', type=int, help='first frame')
     parser.add_argument('-l', '--last', type=int, help='last frame')
-    parser.add_argument('-P', '--pixels', type=int, 
+    parser.add_argument('-P', '--pixels', type=int,
                         help='minimum pixels in a peak')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing peaks')
@@ -45,7 +45,7 @@ def main():
     for entry in entries:
         reduce = NXReduce(entry, args.directory, find=True,
                           threshold=args.threshold,
-                          first=args.first, last=args.last, 
+                          first=args.first, last=args.last,
                           min_pixels=args.pixels,
                           overwrite=args.overwrite,
                           monitor_progress=args.monitor)
