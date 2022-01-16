@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2015-2021, NeXpy Development Team.
+# Copyright (c) 2015-2022, AXMAS Development Team.
 #
 # Distributed under the terms of the Modified BSD License.
 #
@@ -16,13 +16,13 @@ from nxrefine.nxreduce import NXReduce
 
 def show_dialog():
     try:
-        dialog = FindDialog()
+        dialog = PrepareDialog()
         dialog.show()
     except NeXusError as error:
-        report_error("Finding Peaks", error)
+        report_error("Prepareing Peaks", error)
 
 
-class FindDialog(NXDialog):
+class PrepareDialog(NXDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -30,82 +30,70 @@ class FindDialog(NXDialog):
         self.select_entry(self.choose_entry)
 
         self.parameters = GridParameters()
-        self.parameters.add('threshold', '', 'Threshold')
-        self.parameters.add('first', '', 'First Frame')
-        self.parameters.add('last', '', 'Last Frame')
-        self.parameters.add('min-pixels', '10', 'Minimum Pixels in Peak')
-        self.find_button = NXPushButton('Find Peaks', self.find_peaks)
-        self.peak_count = NXLabel()
-        self.peak_count.setVisible(False)
-        find_layout = self.make_layout(self.find_button, self.peak_count,
-                                       align='center')
+        self.parameters.add('threshold1', '2', 'Threshold 1')
+        self.parameters.add('horizontal1', '11', 'Horizontal Size 1')
+        self.parameters.add('threshold2', '0.8', 'Threshold 2')
+        self.parameters.add('horizontal2', '51', 'Horizontal Size 2')
+        self.prepare_button = NXPushButton('Prepare Masks', self.prepare_mask)
+        prepare_layout = self.make_layout(self.prepare_button, self.peak_count,
+                                          align='center')
         self.set_layout(self.entry_layout,
                         self.parameters.grid(),
-                        find_layout,
+                        prepare_layout,
                         self.progress_layout(save=True))
         self.progress_bar.setVisible(False)
         self.progress_bar.setValue(0)
-        self.set_title('Find Peaks')
+        self.set_title('Prepare Masks')
         self.reduce = None
 
     def choose_entry(self):
         self.reduce = NXReduce(self.entry)
-        if self.reduce.first is not None:
-            self.parameters['first'].value = self.reduce.first
-        if self.reduce.last:
-            self.parameters['last'].value = self.reduce.last
-        else:
-            try:
-                self.parameters['last'].value = len(self.entry.data.nxaxes[0])
-            except Exception:
-                pass
-        self.parameters['threshold'].value = self.reduce.threshold
 
     @property
-    def threshold(self):
+    def threshold1(self):
         try:
-            _threshold = int(self.parameters['threshold'].value)
-            if _threshold > 0.0:
-                return _threshold
+            _threshold1 = int(self.parameters['threshold1'].value)
+            if _threshold1 > 0.0:
+                return _threshold1
             else:
                 return None
         except Exception:
             return None
 
     @property
-    def first(self):
+    def horizontal1(self):
         try:
-            _first = int(self.parameters['first'].value)
-            if _first >= 0:
-                return _first
-            else:
-                return None
-        except Exception as error:
-            return None
-
-    @property
-    def last(self):
-        try:
-            _last = int(self.parameters['last'].value)
-            if _last > 0:
-                return _last
-            else:
-                return None
-        except Exception as error:
-            return None
-
-    @property
-    def min_pixels(self):
-        try:
-            _min_pixels = int(self.parameters['min-pixels'].value)
-            if _min_pixels > 0:
-                return _min_pixels
+            _horizontal1 = int(self.parameters['horizontal1'].value)
+            if _horizontal1 > 0.0:
+                return _horizontal1
             else:
                 return None
         except Exception:
             return None
 
-    def find_peaks(self):
+    @property
+    def threshold2(self):
+        try:
+            _threshold2 = int(self.parameters['threshold2'].value)
+            if _threshold2 > 0.0:
+                return _threshold2
+            else:
+                return None
+        except Exception:
+            return None
+
+    @property
+    def horizontal2(self):
+        try:
+            _horizontal2 = int(self.parameters['horizontal2'].value)
+            if _horizontal2 > 0.0:
+                return _horizontal2
+            else:
+                return None
+        except Exception:
+            return None
+
+    def prepare_mask(self):
         if is_file_locked(self.reduce.data_file):
             if self.confirm_action('Clear lock?',
                                    f'{self.reduce.data_file} is locked'):
@@ -113,22 +101,18 @@ class FindDialog(NXDialog):
             else:
                 return
         self.start_thread()
-        self.reduce = NXReduce(self.entry, threshold=self.threshold,
-                               first=self.first, last=self.last,
-                               min_pixels=self.min_pixels,
-                               find=True, overwrite=True, gui=True)
+        self.reduce = NXReduce(self.entry, prepare=True, overwrite=True,
+                               gui=True)
+        self.reduce.mask_parameters['threshold_1'] = self.threshold1
+        self.reduce.mask_parameters['horizontal_size_1'] = self.horizontal1
+        self.reduce.mask_parameters['threshold_2'] = self.threshold2
+        self.reduce.mask_parameters['horizontal_size_2'] = self.horizontal2
         self.reduce.moveToThread(self.thread)
         self.reduce.start.connect(self.start_progress)
         self.reduce.update.connect(self.update_progress)
-        self.reduce.result.connect(self.get_peaks)
         self.reduce.stop.connect(self.stop)
-        self.thread.started.connect(self.reduce.nxfind)
+        self.thread.started.connect(self.reduce.nxprepare)
         self.thread.start(QtCore.QThread.LowestPriority)
-
-    def get_peaks(self, peaks):
-        self.peaks = peaks
-        self.peak_count.setText(f'{len(self.peaks)} peaks found')
-        self.peak_count.setVisible(True)
 
     def stop(self):
         self.stop_progress()
@@ -139,14 +123,14 @@ class FindDialog(NXDialog):
     def accept(self):
         try:
             self.reduce.write_peaks(self.peaks)
-            self.reduce.record('nxfind', threshold=self.threshold,
+            self.reduce.record('nxprepare', threshold=self.threshold,
                                first_frame=self.first, last_frame=self.last,
                                min_pixels=self.min_pixels,
                                peak_number=len(self.peaks))
-            self.reduce.record_end('nxfind')
+            self.reduce.record_end('nxprepare')
             super().accept()
         except Exception as error:
-            report_error("Finding Peaks", str(error))
+            report_error("Preparing Masks", str(error))
 
     def reject(self):
         self.stop()

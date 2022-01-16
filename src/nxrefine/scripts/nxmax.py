@@ -24,6 +24,8 @@ def main():
     parser.add_argument('-l', '--last', type=int, help='last frame')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing maximum')
+    parser.add_argument('-m', '--monitor', action='store_true',
+                        help='monitor progress in the command line')
     parser.add_argument('-q', '--queue', action='store_true',
                         help='add to server task queue')
 
@@ -37,7 +39,8 @@ def main():
     for entry in entries:
         reduce = NXReduce(entry, args.directory, maxcount=True,
                           first=args.first, last=args.last,
-                          overwrite=args.overwrite)
+                          overwrite=args.overwrite,
+                          monitor_progress=args.monitor)
         if args.queue:
             reduce.queue()
         else:

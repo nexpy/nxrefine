@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2013-2021, NeXpy Development Team.
+# Copyright (c) 2013-2022, AXMAS Development Team.
 #
 # Distributed under the terms of the Modified BSD License.
 #
@@ -12,7 +12,7 @@ from . import new_sample, new_scan, make_scans, sum_scans
 from . import find_maximum, find_peaks, calculate_mask
 from . import calculate_angles, copy_parameters
 from . import define_lattice, refine_lattice
-from . import transform_data
+from . import prepare_masks, transform_data
 from . import manage_servers, manage_workflows
 
 
@@ -35,6 +35,7 @@ def plugin_menu():
     actions.append(('Calculate Angles', calculate_angles.show_dialog))
     actions.append(('Define Lattice', define_lattice.show_dialog))
     actions.append(('Refine Lattice', refine_lattice.show_dialog))
+    actions.append(('Prepare Masks', prepare_masks.show_dialog))
     actions.append(('Transform Data', transform_data.show_dialog))
     actions.append(('Manage Workflows', manage_workflows.show_dialog))
     actions.append(('Manage Servers', manage_servers.show_dialog))
