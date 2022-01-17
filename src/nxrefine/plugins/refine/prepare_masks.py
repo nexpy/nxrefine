@@ -9,8 +9,8 @@
 from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.pyqt import QtCore
 from nexpy.gui.utils import is_file_locked, report_error
-from nexpy.gui.widgets import NXLabel, NXPushButton
-from nexusformat.nexus import NeXusError, NXLock, NXLockException
+from nexpy.gui.widgets import NXPushButton
+from nexusformat.nexus import NeXusError, NXLock
 from nxrefine.nxreduce import NXReduce
 
 
@@ -35,12 +35,11 @@ class PrepareDialog(NXDialog):
         self.parameters.add('threshold2', '0.8', 'Threshold 2')
         self.parameters.add('horizontal2', '51', 'Horizontal Size 2')
         self.prepare_button = NXPushButton('Prepare Masks', self.prepare_mask)
-        prepare_layout = self.make_layout(self.prepare_button, self.peak_count,
-                                          align='center')
+        prepare_layout = self.make_layout(self.prepare_button, align='center')
         self.set_layout(self.entry_layout,
                         self.parameters.grid(),
                         prepare_layout,
-                        self.progress_layout(save=True))
+                        self.progress_layout())
         self.progress_bar.setVisible(False)
         self.progress_bar.setValue(0)
         self.set_title('Prepare Masks')
@@ -121,16 +120,8 @@ class PrepareDialog(NXDialog):
         self.stop_thread()
 
     def accept(self):
-        try:
-            self.reduce.write_peaks(self.peaks)
-            self.reduce.record('nxprepare', threshold=self.threshold,
-                               first_frame=self.first, last_frame=self.last,
-                               min_pixels=self.min_pixels,
-                               peak_number=len(self.peaks))
-            self.reduce.record_end('nxprepare')
-            super().accept()
-        except Exception as error:
-            report_error("Preparing Masks", str(error))
+        self.stop()
+        super().accept()
 
     def reject(self):
         self.stop()
