@@ -30,6 +30,8 @@ def main():
                         help='size of larger convolution')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing mask')
+    parser.add_argument('-m', '--monitor', action='store_true',
+                        help='monitor progress in the command line')
     parser.add_argument('-q', '--queue', action='store_true',
                         help='add to server task queue')
 
@@ -42,7 +44,8 @@ def main():
 
     for entry in entries:
         reduce = NXReduce(entry, args.directory, prepare=True,
-                          overwrite=args.overwrite)
+                          overwrite=args.overwrite,
+                          monitor_progress=args.monitor)
         reduce.mask_parameters['threshold_1'] = args.t1
         reduce.mask_parameters['horizontal_size_1'] = args.h1
         reduce.mask_parameters['threshold_2'] = args.t2
