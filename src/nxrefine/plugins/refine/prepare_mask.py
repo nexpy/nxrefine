@@ -9,7 +9,7 @@
 from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.pyqt import QtCore
 from nexpy.gui.utils import is_file_locked, report_error
-from nexpy.gui.widgets import NXPushButton
+from nexpy.gui.widgets import NXLabel, NXPushButton
 from nexusformat.nexus import NeXusError, NXLock
 from nxrefine.nxreduce import NXReduce
 
@@ -34,18 +34,25 @@ class PrepareDialog(NXDialog):
         self.parameters.add('horizontal1', '11', 'Horizontal Size 1')
         self.parameters.add('threshold2', '0.8', 'Threshold 2')
         self.parameters.add('horizontal2', '51', 'Horizontal Size 2')
+        self.parameters.grid()
         self.prepare_button = NXPushButton('Prepare Masks', self.prepare_mask)
-        prepare_layout = self.make_layout(self.prepare_button, align='center')
+        self.mask_status = NXLabel()
+        self.mask_status.setVisible(False)
+        self.prepare_layout = self.make_layout(self.prepare_button,
+                                               self.mask_status,
+                                               align='center')
         self.set_layout(self.entry_layout,
-                        self.parameters.grid(),
-                        prepare_layout,
-                        self.progress_layout())
+                        self.progress_layout(save=True))
         self.progress_bar.setVisible(False)
         self.progress_bar.setValue(0)
         self.set_title('Prepare Masks')
         self.reduce = None
+        self.mask = None
 
     def choose_entry(self):
+        if self.layout.count() == 2:
+            self.insert_layout(1, self.parameters.grid_layout)
+            self.insert_layout(2, self.prepare_layout)
         self.reduce = NXReduce(self.entry)
 
     @property
@@ -109,9 +116,15 @@ class PrepareDialog(NXDialog):
         self.reduce.moveToThread(self.thread)
         self.reduce.start.connect(self.start_progress)
         self.reduce.update.connect(self.update_progress)
+        self.reduce.result.connect(self.get_mask)
         self.reduce.stop.connect(self.stop)
         self.thread.started.connect(self.reduce.nxprepare)
         self.thread.start(QtCore.QThread.LowestPriority)
+
+    def get_mask(self, mask):
+        self.mask = mask
+        self.mask_status.setText("Mask complete")
+        self.mask_status.setVisible(True)
 
     def stop(self):
         self.stop_progress()
@@ -120,8 +133,21 @@ class PrepareDialog(NXDialog):
         self.stop_thread()
 
     def accept(self):
-        self.stop()
-        super().accept()
+        if self.mask is None:
+            report_error("Preparing Mask", "No mask has been created")
+            return
+        try:
+            self.reduce.write_mask(self.mask)
+            self.record('nxprepare', masked_file=self.mask_file,
+                        threshold1=self.threshold1,
+                        horizontal1=self.horizontal1,
+                        threshold2=self.threshold2,
+                        horizontal2=self.horizontal2,
+                        process='nxprepare_mask')
+            self.record_end('nxprepare')
+            super().accept()
+        except Exception as error:
+            report_error("Preparing Mask", str(error))
 
     def reject(self):
         self.stop()
