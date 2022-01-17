@@ -1220,6 +1220,10 @@ class NXReduce(QtCore.QObject):
             self.logger.info('Preparing 3D mask')
             self.prepare_mask()
             self.record('nxprepare', masked_file=self.mask_file,
+                        threshold1=self.mask_parameters['threshold_1'],
+                        horizontal1=self.mask_parameters['horizontal_size_1'],
+                        threshold2=self.mask_parameters['threshold_2'],
+                        horizontal2=self.mask_parameters['horizontal_size_2'],
                         process='nxprepare_mask')
             self.record_end('nxprepare')
         elif self.prepare:
@@ -1253,16 +1257,14 @@ class NXReduce(QtCore.QObject):
                     horiz_size_2=self.mask_parameters['horizontal_size_2'])
                 mask[z:zmax] = mask_array
 
+        toc = self.stop_progress()
+        self.logger.info("3D Mask stored in "
+                         f"'{self.mask_file}' ({toc-tic:g} seconds)")
+
         with self.root.nxfile:
             if 'data_mask' in self.data:
                 del self.data['data_mask']
             self.data['data_mask'] = NXlink('entry/mask', self.mask_file)
-
-            toc = timeit.default_timer()
-
-        toc = self.stop_progress()
-        self.logger.info("3D Mask stored in "
-                         f"'{self.mask_file}' ({toc-tic:g} seconds)")
 
     def nxmasked_transform(self):
         if (self.not_complete('nxmasked_transform') and
