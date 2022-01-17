@@ -1242,12 +1242,15 @@ class NXReduce(QtCore.QObject):
 
             nframes = self.shape[0]
             tic = self.start_progress(0, nframes)
-            for z in range(0, nframes, 50):
+            z = np.linspace(0, nframes, int(nframes / 50), dtype=int)
+            z[0] += 1
+            z[-1] += -1
+            for i in range(z.shape[0]-1):
                 if self.stopped:
                     return None
                 self.update_progress(z)
-                zmin = max(0, z-1)
-                zmax = min(z+50, nframes) + 1
+                zmin = z[i] - 1
+                zmax = z[i+1] + 1
                 slab = self.field[zmin:zmax, :, :].nxvalue
                 mask_array = mask_volume(
                     slab, self.pixel_mask,
@@ -1255,7 +1258,7 @@ class NXReduce(QtCore.QObject):
                     horiz_size_1=self.mask_parameters['horizontal_size_1'],
                     threshold_2=self.mask_parameters['threshold_2'],
                     horiz_size_2=self.mask_parameters['horizontal_size_2'])
-                mask[z:zmax] = mask_array
+                mask[z[i]:z[i+1]] = mask_array
 
         toc = self.stop_progress()
         self.logger.info("3D Mask stored in "
