@@ -610,7 +610,7 @@ class NXReduce(QtCore.QObject):
             if _value > self._value:
                 self.update.emit(_value)
                 self._value = _value
-        elif self.monitor_progress and (i - self._start) % 100 == 0:
+        elif self.monitor_progress:
             print(f'\rFrame {i}', end='')
 
     def stop_progress(self):
@@ -1212,62 +1212,76 @@ class NXReduce(QtCore.QObject):
 
     def nxprepare(self):
         if self.not_complete('nxprepare_mask') and self.prepare:
-            if not self.complete('nxrefine'):
-                self.logger.info(
-                    'Cannot prepare mask until the orientation is complete')
-                return
             self.record_start('nxprepare')
             self.logger.info('Preparing 3D mask')
-            self.prepare_mask()
-            self.record('nxprepare', masked_file=self.mask_file,
-                        threshold1=self.mask_parameters['threshold_1'],
-                        horizontal1=self.mask_parameters['horizontal_size_1'],
-                        threshold2=self.mask_parameters['threshold_2'],
-                        horizontal2=self.mask_parameters['horizontal_size_2'],
-                        process='nxprepare_mask')
-            self.record_end('nxprepare')
+            mask = self.prepare_mask()
+            if self.gui:
+                if mask:
+                    self.result.emit(mask)
+                self.stop.emit()
+            elif mask:
+                self.write_mask(mask)
+                self.record(
+                    'nxprepare', masked_file=self.mask_file,
+                    threshold1=self.mask_parameters['threshold_1'],
+                    horizontal1=self.mask_parameters['horizontal_size_1'],
+                    threshold2=self.mask_parameters['threshold_2'],
+                    horizontal2=self.mask_parameters['horizontal_size_2'],
+                    process='nxprepare_mask')
+                self.record_end('nxprepare')
+            else:
+                self.record_fail('nxprepare')
         elif self.prepare:
             self.logger.info('3D Mask already prepared')
 
     def prepare_mask(self):
+        """Prepare 3D mask"""
         with self.mask_root.nxfile:
-            if 'mask' in self.mask_root['entry']:
-                if self.overwrite:
-                    del self.mask_root['entry/mask']
-                else:
-                    self.logger.info('Mask already completed')
-                    return
-            mask = self.mask_root['entry/mask'] = NXfield(
-                shape=self.shape, dtype=np.int8, fillvalue=0)
+            if 'mask' in self.mask_root['entry'] and not self.overwrite:
+                self.logger.info('Mask already completed')
+                return
 
-            nframes = self.shape[0]
-            tic = self.start_progress(0, nframes)
-            z = np.linspace(0, nframes, int(nframes / 50), dtype=int)
-            z[0] += 1
-            z[-1] += -1
-            for i in range(z.shape[0]-1):
-                if self.stopped:
-                    return None
-                self.update_progress(z)
-                zmin = z[i] - 1
-                zmax = z[i+1] + 1
-                slab = self.field[zmin:zmax, :, :].nxvalue
-                mask_array = mask_volume(
-                    slab, self.pixel_mask,
-                    threshold_1=self.mask_parameters['threshold_1'],
-                    horiz_size_1=self.mask_parameters['horizontal_size_1'],
-                    threshold_2=self.mask_parameters['threshold_2'],
-                    horiz_size_2=self.mask_parameters['horizontal_size_2'])
-                mask[z[i]:z[i+1]] = mask_array
+        mask = NXfield(shape=self.shape, dtype=np.int8, fillvalue=0)
+
+        nframes = self.shape[0]
+        tic = self.start_progress(0, nframes)
+        z = np.linspace(0, nframes, int(nframes / 50), dtype=int)
+        z[0] += 1
+        z[-1] += -1
+        for i in range(z.shape[0]-1):
+            if self.stopped:
+                return None
+            self.update_progress(z[i])
+            zmin = z[i] - 1
+            zmax = z[i+1] + 1
+            slab = self.field[zmin:zmax, :, :].nxvalue
+            mask_array = mask_volume(
+                slab, self.pixel_mask,
+                threshold_1=self.mask_parameters['threshold_1'],
+                horiz_size_1=self.mask_parameters['horizontal_size_1'],
+                threshold_2=self.mask_parameters['threshold_2'],
+                horiz_size_2=self.mask_parameters['horizontal_size_2'])
+            mask[z[i]:z[i+1]] = mask_array
 
         toc = self.stop_progress()
-        self.logger.info("3D Mask stored in "
-                         f"'{self.mask_file}' ({toc-tic:g} seconds)")
+
+        self.logger.info(f"3D Mask prepared in ({toc-tic:g} seconds)")
+
+        return mask
+
+    def write_mask(self, mask):
+        """Write mask to file."""
+        with self.mask_root.nxfile:
+            if 'mask' in self.mask_root['entry']:
+                del self.mask_root['entry/mask']
+            self.mask_root['entry/mask'] = mask
 
         with self.root.nxfile:
             if 'data_mask' in self.data:
                 del self.data['data_mask']
             self.data['data_mask'] = NXlink('entry/mask', self.mask_file)
+
+        self.logger.info(f"3D Mask written to '{self.mask_file}'")
 
     def nxmasked_transform(self):
         if (self.not_complete('nxmasked_transform') and
