@@ -34,14 +34,13 @@ class FindDialog(NXDialog):
         self.parameters.add('first', '', 'First Frame')
         self.parameters.add('last', '', 'Last Frame')
         self.parameters.add('min-pixels', '10', 'Minimum Pixels in Peak')
+        self.parameters.grid()
         self.find_button = NXPushButton('Find Peaks', self.find_peaks)
         self.peak_count = NXLabel()
         self.peak_count.setVisible(False)
-        find_layout = self.make_layout(self.find_button, self.peak_count,
-                                       align='center')
+        self.find_layout = self.make_layout(self.find_button, self.peak_count,
+                                            align='center')
         self.set_layout(self.entry_layout,
-                        self.parameters.grid(),
-                        find_layout,
                         self.progress_layout(save=True))
         self.progress_bar.setVisible(False)
         self.progress_bar.setValue(0)
@@ -49,6 +48,9 @@ class FindDialog(NXDialog):
         self.reduce = None
 
     def choose_entry(self):
+        if self.layout.count() == 2:
+            self.insert_layout(1, self.parameters.grid_layout)
+            self.insert_layout(2, self.find_layout)
         self.reduce = NXReduce(self.entry)
         if self.reduce.first is not None:
             self.parameters['first'].value = self.reduce.first
