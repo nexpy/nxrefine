@@ -29,19 +29,21 @@ def fill_gaps(mask, mask_gaps):
     def consecutive(arr):
         return np.split(arr, np.where(np.diff(arr) != 1)[0]+1)
 
-    filled = mask.astype(float)
+    mask = mask.astype(float)
     for i in range(2):
         gaps = consecutive(np.where(mask_gaps.sum(i) == mask_gaps.shape[i])[0])
         for gap in gaps:
             if i == 0:
-                filled[:, :, gap[0]:gap[-1]+1] = np.tile(np.maximum(
-                    filled[:, :, gap[0]-1], filled[:, :, gap[-1]+1]),
-                    (len(gap), 1)).T
+                mask[:, :, gap[0]:gap[-1]+1] = np.tile(np.expand_dims(
+                    np.maximum(mask[:, :, gap[0]-1],
+                               mask[:, :, gap[-1]+1]), 2),
+                    (1, 1, len(gap)))
             else:
-                filled[:, gap[0]:gap[-1]+1, :] = np.tile(np.maximum(
-                    filled[:, gap[0]-1, :], filled[:, gap[-1]+1, :]),
-                    (len(gap), 1))
-    return filled
+                mask[:, gap[0]:gap[-1]+1, :] = np.tile(np.expand_dims(
+                    np.maximum(mask[:, gap[0]-1, :],
+                               mask[:, gap[-1]+1, :]), 1),
+                    (1, len(gap), 1))
+    return mask
 
 
 def local_sum(X, K):
