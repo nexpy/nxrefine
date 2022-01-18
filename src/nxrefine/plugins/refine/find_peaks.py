@@ -192,7 +192,9 @@ class FindDialog(NXDialog):
         ymin, ymax = max(0, y-200), min(y+200, signal.shape[1])
         zmin, zmax = max(0, z-20), min(z+20, signal.shape[0])
         zslab = np.s_[zmin:zmax, ymin:ymax, xmin:xmax]
-        if self.plotview is None:
+        if 'Peak Plot' in self.plotviews:
+            self.plotview = self.plotviews['Peak Plot']
+        else:
             self.plotview = NXPlotView('Peak Plot')
         self.plotview.plot(data[zslab], log=True)
         self.plotview.ax.set_title(f'{data.nxtitle}: Peak {i}')
