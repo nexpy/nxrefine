@@ -5,13 +5,17 @@
 #
 # The full license is in the file COPYING, distributed with this software.
 # -----------------------------------------------------------------------------
+import operator
 
+import numpy as np
 from nexpy.gui.datadialogs import GridParameters, NXDialog
-from nexpy.gui.pyqt import QtCore
+from nexpy.gui.plotview import NXPlotView
+from nexpy.gui.pyqt import QtCore, QtWidgets
 from nexpy.gui.utils import is_file_locked, report_error
 from nexpy.gui.widgets import NXLabel, NXPushButton
-from nexusformat.nexus import NeXusError, NXLock, NXLockException
+from nexusformat.nexus import NeXusError, NXLock
 from nxrefine.nxreduce import NXReduce
+from nxrefine.nxrefine import NXRefine
 
 
 def show_dialog():
@@ -30,35 +34,41 @@ class FindDialog(NXDialog):
         self.select_entry(self.choose_entry)
 
         self.parameters = GridParameters()
-        self.parameters.add('threshold', '', 'Threshold')
-        self.parameters.add('first', '', 'First Frame')
-        self.parameters.add('last', '', 'Last Frame')
+        self.parameters.add('threshold', '50000', 'Threshold')
+        self.parameters.add('first', '0', 'First Frame')
+        self.parameters.add('last', '3650', 'Last Frame')
         self.parameters.add('min-pixels', '10', 'Minimum Pixels in Peak')
         self.parameters.grid()
         self.find_button = NXPushButton('Find Peaks', self.find_peaks)
         self.peak_count = NXLabel()
         self.peak_count.setVisible(False)
-        self.find_layout = self.make_layout(self.find_button, self.peak_count,
-                                            align='center')
+        self.find_layout = self.make_layout(
+            self.action_buttons(('Find Peaks', self.find_peaks),
+                                ('List Peaks', self.list_peaks)),
+            self.peak_count, align='center')
         self.set_layout(self.entry_layout,
                         self.progress_layout(save=True))
         self.progress_bar.setVisible(False)
         self.progress_bar.setValue(0)
         self.set_title('Find Peaks')
         self.reduce = None
+        self.refine = None
+        self.peaks_box = None
 
     def choose_entry(self):
         if self.layout.count() == 2:
             self.insert_layout(1, self.parameters.grid_layout)
             self.insert_layout(2, self.find_layout)
         self.reduce = NXReduce(self.entry)
+        self.refine = NXRefine(self.entry)
+        self.refine.polar_max = self.refine.two_theta_max()
         if self.reduce.first is not None:
             self.parameters['first'].value = self.reduce.first
         if self.reduce.last:
             self.parameters['last'].value = self.reduce.last
         else:
             try:
-                self.parameters['last'].value = len(self.entry.data.nxaxes[0])
+                self.parameters['last'].value = self.reduce.shape[0]
             except Exception:
                 pass
         self.parameters['threshold'].value = self.reduce.threshold
@@ -66,46 +76,30 @@ class FindDialog(NXDialog):
     @property
     def threshold(self):
         try:
-            _threshold = int(self.parameters['threshold'].value)
-            if _threshold > 0.0:
-                return _threshold
-            else:
-                return None
-        except Exception:
-            return None
+            return int(self.parameters['threshold'].value)
+        except Exception as error:
+            report_error("Finding Peaks", str(error))
 
     @property
     def first(self):
         try:
-            _first = int(self.parameters['first'].value)
-            if _first >= 0:
-                return _first
-            else:
-                return None
+            return int(self.parameters['first'].value)
         except Exception as error:
-            return None
+            report_error("Finding Peaks", str(error))
 
     @property
     def last(self):
         try:
-            _last = int(self.parameters['last'].value)
-            if _last > 0:
-                return _last
-            else:
-                return None
+            return int(self.parameters['last'].value)
         except Exception as error:
-            return None
+            report_error("Finding Peaks", str(error))
 
     @property
     def min_pixels(self):
         try:
-            _min_pixels = int(self.parameters['min-pixels'].value)
-            if _min_pixels > 0:
-                return _min_pixels
-            else:
-                return None
-        except Exception:
-            return None
+            return int(self.parameters['min-pixels'].value)
+        except Exception as error:
+            report_error("Finding Peaks", str(error))
 
     def find_peaks(self):
         if is_file_locked(self.reduce.data_file):
@@ -131,12 +125,87 @@ class FindDialog(NXDialog):
         self.peaks = peaks
         self.peak_count.setText(f'{len(self.peaks)} peaks found')
         self.peak_count.setVisible(True)
+        self.refine.xp = np.array([peak.x for peak in peaks])
+        self.refine.yp = np.array([peak.y for peak in peaks])
+        self.refine.zp = np.array([peak.z for peak in peaks])
+        self.refine.intensity = np.array([peak.intensity for peak in peaks])
+        self.refine.polar_angle, self.refine.azimuthal_angle = (
+            self.refine.calculate_angles(self.refine.xp, self.refine.yp))
+        self.update_table()
 
     def stop(self):
         self.stop_progress()
         if self.thread and self.thread.isRunning():
             self.reduce.stopped = True
         self.stop_thread()
+
+    def list_peaks(self):
+        if self.peaks_box in self.mainwindow.dialogs:
+            self.update_table()
+            return
+        self.peaks_box = NXDialog(self)
+        self.peaks_box.setMinimumWidth(600)
+        self.peaks_box.setMinimumHeight(600)
+        header = ['i', 'x', 'y', 'z', 'Polar', 'Azi', 'Intensity',
+                  'H', 'K', 'L', 'Diff']
+        peak_list = self.refine.get_peaks()
+        self.table_view = QtWidgets.QTableView()
+        self.table_model = NXTableModel(self, peak_list, header)
+        self.table_view.setModel(self.table_model)
+        self.table_view.resizeColumnsToContents()
+        self.table_view.horizontalHeader().stretchLastSection()
+        self.table_view.setSelectionBehavior(
+            QtWidgets.QAbstractItemView.SelectRows)
+        self.table_view.doubleClicked.connect(self.plot_peak)
+        self.table_view.setSortingEnabled(True)
+        self.table_view.sortByColumn(0, QtCore.Qt.AscendingOrder)
+        self.peaks_box.set_layout(self.table_view,
+                                  self.close_buttons(close=True))
+        self.peaks_box.set_title(f'{self.refine.name} Peak Table')
+        self.peaks_box.adjustSize()
+        self.peaks_box.show()
+        self.plotview = None
+
+    def update_table(self):
+        if self.peaks_box not in self.mainwindow.dialogs:
+            return
+        elif self.table_model is None:
+            self.close_peaks_box()
+            self.list_peaks()
+        self.table_model.peak_list = self.refine.get_peaks()
+        rows, columns = len(self.table_model.peak_list), 11
+        self.table_model.dataChanged.emit(
+            self.table_model.createIndex(0, 0),
+            self.table_model.createIndex(rows - 1, columns - 1))
+        self.table_view.resizeColumnsToContents()
+        self.peaks_box.set_title(f'{self.refine.name} Peak Table')
+        self.peaks_box.adjustSize()
+        self.peaks_box.setVisible(True)
+
+    def plot_peak(self):
+        row = self.table_view.currentIndex().row()
+        data = self.entry.data
+        i, x, y, z = [self.table_view.model().peak_list[row][i]
+                      for i in range(4)]
+        signal = data.nxsignal
+        xmin, xmax = max(0, x-200), min(x+200, signal.shape[2])
+        ymin, ymax = max(0, y-200), min(y+200, signal.shape[1])
+        zmin, zmax = max(0, z-20), min(z+20, signal.shape[0])
+        zslab = np.s_[zmin:zmax, ymin:ymax, xmin:xmax]
+        if self.plotview is None:
+            self.plotview = NXPlotView('Peak Plot')
+        self.plotview.plot(data[zslab], log=True)
+        self.plotview.ax.set_title(f'{data.nxtitle}: Peak {i}')
+        self.plotview.ztab.maxbox.setValue(z)
+        self.plotview.aspect = 'equal'
+        self.plotview.crosshairs(x, y, color='r', linewidth=0.5)
+
+    def close_peaks_box(self):
+        try:
+            self.peaks_box.close()
+        except Exception:
+            pass
+        self.peaks_box = None
 
     def accept(self):
         try:
@@ -153,3 +222,50 @@ class FindDialog(NXDialog):
     def reject(self):
         self.stop()
         super().reject()
+
+
+class NXTableModel(QtCore.QAbstractTableModel):
+
+    def __init__(self, parent, peak_list, header, *args):
+        super().__init__(parent, *args)
+        self.peak_list = peak_list
+        self.header = header
+        self.parent = parent
+
+    def rowCount(self, parent):
+        return len(self.peak_list)
+
+    def columnCount(self, parent):
+        return len(self.peak_list[0])
+
+    def data(self, index, role):
+        if not index.isValid():
+            return None
+        elif role == QtCore.Qt.DisplayRole:
+            row, col = index.row(), index.column()
+            value = self.peak_list[row][col]
+            if col < 4:
+                return str(value)
+            elif col == 6:
+                return f"{value:5.3g}"
+            elif col == 10:
+                return f"{value:.3f}"
+            else:
+                return f"{value:.2f}"
+        elif role == QtCore.Qt.TextAlignmentRole:
+            return int(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        return None
+
+    def headerData(self, col, orientation, role):
+        if (orientation == QtCore.Qt.Horizontal and
+                role == QtCore.Qt.DisplayRole):
+            return self.header[col]
+        return None
+
+    def sort(self, col, order):
+        """sort table by given column number col"""
+        self.layoutAboutToBeChanged.emit()
+        self.peak_list = sorted(self.peak_list, key=operator.itemgetter(col))
+        if order == QtCore.Qt.DescendingOrder:
+            self.peak_list.reverse()
+        self.layoutChanged.emit()
