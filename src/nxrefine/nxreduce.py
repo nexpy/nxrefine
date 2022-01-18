@@ -1287,12 +1287,6 @@ class NXReduce(QtCore.QObject):
         if (self.not_complete('nxmasked_transform') and
                 self.transform and self.mask):
             self.record_start('nxmasked_transform')
-            if not self.all_complete('nxprepare_mask'):
-                self.logger.info(
-                    'Cannot perform masked transform until the 3D mask ' +
-                    'is prepared for all entries')
-                self.record_fail('nxmasked_transform')
-                return
             cctw_command = self.prepare_transform(mask=True)
             if cctw_command:
                 self.logger.info('Masked transform launched')
