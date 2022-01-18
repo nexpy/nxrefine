@@ -35,7 +35,7 @@ class PrepareDialog(NXDialog):
         self.parameters.add('threshold2', '0.8', 'Threshold 2')
         self.parameters.add('horizontal2', '51', 'Horizontal Size 2')
         self.parameters.grid()
-        self.prepare_button = NXPushButton('Prepare Masks', self.prepare_mask)
+        self.prepare_button = NXPushButton('Prepare Mask', self.prepare_mask)
         self.mask_status = NXLabel()
         self.mask_status.setVisible(False)
         self.prepare_layout = self.make_layout(self.prepare_button,
@@ -45,7 +45,7 @@ class PrepareDialog(NXDialog):
                         self.progress_layout(save=True))
         self.progress_bar.setVisible(False)
         self.progress_bar.setValue(0)
-        self.set_title('Prepare Masks')
+        self.set_title('Prepare 3D Mask')
         self.reduce = None
         self.mask = None
 
@@ -58,46 +58,30 @@ class PrepareDialog(NXDialog):
     @property
     def threshold1(self):
         try:
-            _threshold1 = int(self.parameters['threshold1'].value)
-            if _threshold1 > 0.0:
-                return _threshold1
-            else:
-                return None
-        except Exception:
-            return None
+            return float(self.parameters['threshold1'].value)
+        except Exception as error:
+            report_error("Preparing Mask", str(error))
 
     @property
     def horizontal1(self):
         try:
-            _horizontal1 = int(self.parameters['horizontal1'].value)
-            if _horizontal1 > 0.0:
-                return _horizontal1
-            else:
-                return None
-        except Exception:
-            return None
+            return int(self.parameters['horizontal1'].value)
+        except Exception as error:
+            report_error("Preparing Mask", str(error))
 
     @property
     def threshold2(self):
         try:
-            _threshold2 = int(self.parameters['threshold2'].value)
-            if _threshold2 > 0.0:
-                return _threshold2
-            else:
-                return None
-        except Exception:
-            return None
+            return float(self.parameters['threshold2'].value)
+        except Exception as error:
+            report_error("Preparing Mask", str(error))
 
     @property
     def horizontal2(self):
         try:
-            _horizontal2 = int(self.parameters['horizontal2'].value)
-            if _horizontal2 > 0.0:
-                return _horizontal2
-            else:
-                return None
-        except Exception:
-            return None
+            return int(self.parameters['horizontal2'].value)
+        except Exception as error:
+            report_error("Preparing Mask", str(error))
 
     def prepare_mask(self):
         if is_file_locked(self.reduce.data_file):
