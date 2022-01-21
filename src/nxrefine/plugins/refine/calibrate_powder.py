@@ -57,18 +57,6 @@ class CalibrateDialog(NXDialog):
         self.parameters.add('search_size', 10, 'Search Size (pixels)')
         self.rings_box = self.select_box([f'Ring{i}' for i in range(1, 21)])
         self.set_layout(self.select_entry(self.choose_entry),
-                        self.filebox('Choose Powder Calibration File'),
-                        self.parameters.grid(header=False),
-                        self.action_buttons(
-                            ('Select Points', self.select),
-                            ('Autogenerate Rings', self.auto),
-                            ('Clear Points', self.clear_points)),
-                        self.make_layout(self.rings_box),
-                        self.action_buttons(
-                            ('Calibrate', self.calibrate),
-                            ('Plot Cake', self.plot_cake),
-                            ('Restore', self.restore_parameters),
-                            ('Save', self.save_parameters)),
                         self.progress_layout(close=True))
         self.set_title('Calibrating Powder')
 
@@ -81,6 +69,20 @@ class CalibrateDialog(NXDialog):
             self.plot_data()
 
     def choose_entry(self):
+        if self.layout.count() == 2:
+            self.insert_layout(
+                1, self.filebox('Choose Powder Calibration File'))
+            self.insert_layout(2, self.parameters.grid(header=False))
+            self.insert_layout(
+                3, self.action_buttons(('Select Points', self.select),
+                                       ('Autogenerate Rings', self.auto),
+                                       ('Clear Points', self.clear_points)))
+            self.insert_layout(4, self.make_layout(self.rings_box))
+            self.insert_layout(
+                5, self.action_buttons(('Calibrate', self.calibrate),
+                                       ('Plot Cake', self.plot_cake),
+                                       ('Restore', self.restore_parameters),
+                                       ('Save', self.save_parameters)))
         self.parameters['wavelength'].value = (
             self.entry['instrument/monochromator/wavelength'])
         detector = self.entry['instrument/detector']
