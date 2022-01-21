@@ -20,13 +20,13 @@ def main():
                         help='scan directory')
     parser.add_argument('-e', '--entries', nargs='+',
                         help='names of entries to be processed')
-    parser.add_argument('--t1', type=int, default=2,
+    parser.add_argument('--t1', default=2,
                         help='threshold for smaller convolution')
-    parser.add_argument('--h1', type=int, default=11,
+    parser.add_argument('--h1', default=11,
                         help='size of smaller convolution')
-    parser.add_argument('--t2', type=int, default=0.8,
+    parser.add_argument('--t2', default=0.8,
                         help='threshold for larger convolution')
-    parser.add_argument('--h2', type=int, default=51,
+    parser.add_argument('--h2', default=51,
                         help='size of larger convolution')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing mask')
