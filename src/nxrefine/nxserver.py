@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2013-2021, NeXpy Development Team.
+# Copyright (c) 2013-2022, NeXpy Development Team.
 #
 # Distributed under the terms of the Modified BSD License.
 #
@@ -16,7 +16,7 @@ from multiprocessing import JoinableQueue, Process, Queue
 import psutil
 from nexusformat.nexus import NeXusError
 
-from .daemon import NXDaemon
+from .nxdaemon import NXDaemon
 
 
 class NXWorker(Process):

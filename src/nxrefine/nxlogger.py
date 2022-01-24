@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2013-2021, NeXpy Development Team.
+# Copyright (c) 2013-2022, NeXpy Development Team.
 #
 # Distributed under the terms of the Modified BSD License.
 #
@@ -13,7 +13,7 @@ import pickle
 import struct
 from socketserver import StreamRequestHandler, ThreadingTCPServer
 
-from .daemon import NXDaemon
+from .nxdaemon import NXDaemon
 
 
 class LogRecordStreamHandler(StreamRequestHandler):
