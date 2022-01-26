@@ -17,6 +17,7 @@ import psutil
 from nexusformat.nexus import NeXusError
 
 from .nxdaemon import NXDaemon
+from .nxsettings import NXSettings
 
 
 class NXWorker(Process):
@@ -107,32 +108,8 @@ class NXServer(NXDaemon):
                 "type='{self.server_type}')")
 
     def initialize(self, directory, server_type, nodes):
-        self.home_settings = ConfigParser()
-        home_directory = os.path.join(os.path.abspath(os.path.expanduser('~')),
-                                      '.nxserver')
-        if not os.path.exists(home_directory):
-            os.mkdir(home_directory)
-        self.home_file = os.path.join(home_directory, 'settings.ini')
-        self.home_settings.read(self.home_file)
-        if 'setup' not in self.home_settings.sections():
-            self.home_settings.add_section('setup')
-        if directory:
-            self.home_settings.set('setup', 'directory', directory)
-            with open(self.home_file, 'w') as f:
-                self.home_settings.write(f)
-        elif self.home_settings.has_option('setup', 'directory'):
-            directory = self.home_settings.get('setup', 'directory')
-        else:
-            raise NeXusError('Server directory not specified')
-        self.directory = os.path.join(directory, 'nxserver')
-        if not os.path.exists(self.directory):
-            os.mkdir(self.directory)
-
-        self.server_settings = ConfigParser(allow_no_value=True)
-        self.server_file = os.path.join(self.directory, 'settings.ini')
-        self.server_settings.read(self.server_file)
-        if 'setup' not in self.server_settings.sections():
-            self.server_settings.add_section('setup')
+        self.server_settings = NXSettings(directory=directory)
+        self.directory = self.server_settings.directory
         if server_type:
             self.server_type = server_type
             self.server_settings.set('setup', 'type', server_type)
@@ -154,8 +131,7 @@ class NXServer(NXDaemon):
             else:
                 cpu_count = psutil.cpu_count()
             self.cpus = ['cpu'+str(cpu) for cpu in range(1, cpu_count+1)]
-        with open(self.server_file, 'w') as f:
-            self.server_settings.write(f)
+        self.server_settings.save()
 
     def read_nodes(self):
         """Read available nodes"""
@@ -170,16 +146,14 @@ class NXServer(NXDaemon):
         current_nodes = self.read_nodes()
         for node in [cpu for cpu in nodes if cpu not in current_nodes]:
             self.server_settings.set('nodes', node)
-        with open(self.server_file, 'w') as f:
-            self.server_settings.write(f)
+        self.server_settings.save()
         self.cpus = self.read_nodes()
 
     def remove_nodes(self, nodes):
         """Remove specified nodes"""
         for node in nodes:
             self.server_settings.remove_option('nodes', node)
-        with open(self.server_file, 'w') as f:
-            self.server_settings.write(f)
+        self.server_settings.save()
         self.cpus = self.read_nodes()
 
     def set_cores(self, cpu_count):
@@ -189,8 +163,7 @@ class NXServer(NXDaemon):
         except ValueError:
             raise NeXusError('Number of cores must be a valid integer')
         self.server_settings.set('setup', 'cores', str(cpu_count))
-        with open(self.server_file, 'w') as f:
-            self.server_settings.write(f)
+        self.server_settings.save()
         self.cpus = ['cpu'+str(cpu) for cpu in range(1, cpu_count+1)]
 
     def log(self, message):

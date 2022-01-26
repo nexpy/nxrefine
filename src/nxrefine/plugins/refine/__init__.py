@@ -6,8 +6,8 @@
 # The full license is in the file COPYING, distributed with this software.
 # -----------------------------------------------------------------------------
 
-from . import new_experiment, new_configuration, choose_parameters
-from . import calibrate_powder, create_mask
+from . import new_settings, new_experiment, new_configuration
+from . import choose_parameters, calibrate_powder, create_mask
 from . import new_sample, new_scan, make_scans, sum_scans
 from . import find_maximum, find_peaks, prepare_mask
 from . import calculate_angles, copy_parameters
@@ -19,6 +19,7 @@ from . import manage_servers, manage_workflows
 def plugin_menu():
     menu = 'Refine'
     actions = []
+    actions.append(('New Settings', new_settings.show_dialog))
     actions.append(('New Experiment', new_experiment.show_dialog))
     actions.append(('New Configuration', new_configuration.show_dialog))
     actions.append(('Choose Parameters', choose_parameters.show_dialog))
