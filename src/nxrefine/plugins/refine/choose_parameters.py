@@ -10,6 +10,7 @@ from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.utils import report_error
 from nexusformat.nexus import NeXusError, NXparameters
 from nxrefine.nxreduce import NXReduce
+from nxrefine.nxsettings import NXSettings
 
 
 def show_dialog():
@@ -27,15 +28,17 @@ class ParametersDialog(NXDialog):
 
         self.select_root(self.choose_root)
 
+        default = NXSettings().settings['nxreduce']
         self.parameters = GridParameters()
-        self.parameters.add('threshold', 50000.0, 'Peak Threshold')
-        self.parameters.add('first', 0, 'First Frame')
-        self.parameters.add('last', 3650, 'Last Frame')
+        self.parameters.add('threshold', default['threshold'],
+                            'Peak Threshold')
+        self.parameters.add('first', default['first'], 'First Frame')
+        self.parameters.add('last', default['last'], 'Last Frame')
         self.parameters.add('monitor', ['monitor1', 'monitor2'],
                             'Normalization Monitor')
-        self.parameters['monitor'].value = 'monitor2'
-        self.parameters.add('norm', 30000.0, 'Normalization Value')
-        self.parameters.add('radius', 0.2, 'Punch Radius (Å)')
+        self.parameters['monitor'].value = default['monitor']
+        self.parameters.add('norm', default['norm'], 'Normalization Value')
+        self.parameters.add('radius', default['radius'], 'Punch Radius (Å)')
 
         self.set_layout(self.root_layout,
                         self.close_buttons(save=True))

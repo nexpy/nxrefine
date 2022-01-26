@@ -20,8 +20,7 @@ def main():
                         help='scan directory')
     parser.add_argument('-e', '--entries', nargs='+',
                         help='names of entries to be searched')
-    parser.add_argument('-t', '--threshold', type=float,
-                        help='peak threshold - defaults to 50000')
+    parser.add_argument('-t', '--threshold', type=float, help='peak threshold')
     parser.add_argument('-f', '--first', type=int, help='first frame')
     parser.add_argument('-l', '--last', type=int, help='last frame')
     parser.add_argument('-P', '--pixels', type=int,

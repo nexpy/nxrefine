@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2015-2021, NeXpy Development Team.
+# Copyright (c) 2015-2022, NeXpy Development Team.
 #
 # Distributed under the terms of the Modified BSD License.
 #
@@ -13,6 +13,7 @@ from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.utils import report_error
 from nexusformat.nexus import (NeXusError, NXdata, NXgoniometer, NXlink,
                                NXroot, NXsample, nxload)
+from nxrefine.nxsettings import NXSettings
 
 
 def show_dialog():
@@ -31,6 +32,8 @@ class ScanDialog(NXDialog):
         self.config_file = None
         self.positions = 1
         self.entries = {}
+
+        self.settings = NXSettings()
 
         self.directory_box = self.directorybox('Choose Experiment Directory',
                                                self.choose_directory,
@@ -154,25 +157,27 @@ class ScanDialog(NXDialog):
                                                 self.make_scan)))
 
     def setup_scans(self):
+        default = self.settings['nxrefine']
         self.scan = GridParameters()
         self.scan.add('scan', 'scan', 'Scan Label')
         self.scan.add('temperature', 300.0, 'Temperature (K)')
-        self.scan.add('phi_start', -5.0, 'Phi Start (deg)')
-        self.scan.add('phi_end', 360.0, 'Phi End (deg)')
-        self.scan.add('phi_step', 0.1, 'Phi Step (deg)')
-        self.scan.add('frame_rate', 10, 'Frame Rate (Hz)')
+        self.scan.add('phi_start', default['phi'], 'Phi Start (deg)')
+        self.scan.add('phi_end', default['phi_end'], 'Phi End (deg)')
+        self.scan.add('phi_step', default['phi_step'], 'Phi Step (deg)')
+        self.scan.add('frame_rate', default['frame_rate'], 'Frame Rate (Hz)')
 
         for position in range(1, self.positions+1):
             self.setup_position(position)
 
     def setup_position(self, position):
+        default = self.settings['nxrefine']
         self.entries[position] = GridParameters()
-        self.entries[position].add('chi', -90.0, 'Chi (deg)')
-        self.entries[position].add('omega', 0.0, 'Omega (deg)')
-        self.entries[position].add('x', 0.0, 'Translation - x (mm)')
-        self.entries[position].add('y', 0.0, 'Translation - y (mm)')
-        self.entries[position].add('linkfile', 'f%d.h5' %
-                                   position, 'Detector Filename')
+        self.entries[position].add('chi', default['chi'], 'Chi (deg)')
+        self.entries[position].add('omega', default['omega'], 'Omega (deg)')
+        self.entries[position].add('x', default['x'], 'Translation - x (mm)')
+        self.entries[position].add('y', default['y'], 'Translation - y (mm)')
+        self.entries[position].add('linkfile', f'f{position:d}.h5',
+                                   'Detector Filename')
         self.entries[position].add(
             'linkpath', '/entry/data/data', 'Detector Data Path')
         self.entries[position].grid(header=False)
@@ -192,7 +197,7 @@ class ScanDialog(NXDialog):
 
     def read_parameters(self):
         for position in range(1, self.positions+1):
-            entry = self.scan_file['f%d' % position]
+            entry = self.scan_file[f'f{position:d}']
             if 'instrument/goniometer/chi' in entry:
                 self.entries[position]['chi'].value = (
                     entry['instrument/goniometer/chi'])
@@ -217,7 +222,7 @@ class ScanDialog(NXDialog):
         y_size, x_size = entry['instrument/detector/shape'].nxvalue
         scan = self.scan['scan'].value
         for position in range(1, self.positions+1):
-            entry = self.scan_file['f%d' % position]
+            entry = self.scan_file[f'f{position:d}']
             entry.makelink(self.scan_file['entry/sample'])
             phi_start = self.scan['phi_start'].value
             phi_end = self.scan['phi_end'].value

@@ -16,6 +16,7 @@ from nexpy.gui.widgets import NXLabel, NXPushButton
 from nexusformat.nexus import NeXusError, NXLock
 from nxrefine.nxreduce import NXReduce
 from nxrefine.nxrefine import NXRefine
+from nxrefine.nxsettings import NXSettings
 
 
 def show_dialog():
@@ -33,11 +34,13 @@ class FindDialog(NXDialog):
 
         self.select_entry(self.choose_entry)
 
+        default = NXSettings().settings['nxreduce']
         self.parameters = GridParameters()
-        self.parameters.add('threshold', '50000', 'Threshold')
-        self.parameters.add('first', '0', 'First Frame')
-        self.parameters.add('last', '3650', 'Last Frame')
-        self.parameters.add('min-pixels', '10', 'Minimum Pixels in Peak')
+        self.parameters.add('threshold', default['threshold'], 'Threshold')
+        self.parameters.add('first', default['first'], 'First Frame')
+        self.parameters.add('last', default['last'], 'Last Frame')
+        self.parameters.add('min_pixels', default['min_pixels'],
+                            'Minimum Pixels in Peak')
         self.parameters.grid()
         self.find_button = NXPushButton('Find Peaks', self.find_peaks)
         self.peak_count = NXLabel()
@@ -97,7 +100,7 @@ class FindDialog(NXDialog):
     @property
     def min_pixels(self):
         try:
-            return int(self.parameters['min-pixels'].value)
+            return int(self.parameters['min_pixels'].value)
         except Exception as error:
             report_error("Finding Peaks", str(error))
 
