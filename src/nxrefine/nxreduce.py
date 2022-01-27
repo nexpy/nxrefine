@@ -22,9 +22,9 @@ from h5py import is_hdf5
 from ImageD11.labelimage import flip1, labelimage
 from nexusformat.nexus import (NeXusError, NXattenuator, NXcollection, NXdata,
                                NXentry, NXfield, NXinstrument, NXlink, NXLock,
-                               NXmonitor, NXnote, NXprocess, NXreflections,
-                               NXroot, NXsource, nxgetmemory, nxload,
-                               nxsetlock, nxsetmemory)
+                               NXmonitor, NXnote, NXparameters, NXprocess,
+                               NXreflections, NXroot, NXsource, nxgetmemory,
+                               nxload, nxsetlock, nxsetmemory)
 from qtpy import QtCore
 
 from . import __version__
@@ -83,12 +83,12 @@ class NXReduce(QtCore.QObject):
             Minimum, step size, and maximum value of Ql array, by default None
         link : bool, optional
             Link metadata, by default False
+        copy : bool, optional
+            Copy refinement and transform parameters, by default False
         maxcount : bool, optional
             Determine maximum counts, by default False
         find : bool, optional
             Find Bragg peaks, by default False
-        copy : bool, optional
-            Copy refinement and transform parameters, by default False
         refine : bool, optional
             Refine lattice parameters and orientation matrix, by default False
         lattice : bool, optional
@@ -107,12 +107,15 @@ class NXReduce(QtCore.QObject):
             Use PyQt signals to monitor progress, by default False
         """
 
+    mask_parameters = {'threshold_1': 2, 'horizontal_size_1': 11,
+                       'threshold_2': 0.8, 'horizontal_size_2': 51}
+
     def __init__(
             self, entry=None, directory=None, parent=None, entries=None,
             data='data/data', extension='.h5', path='/entry/data/data',
             threshold=None, min_pixels=10, first=None, last=None, radius=None,
             monitor=None, norm=None, Qh=None, Qk=None, Ql=None, link=False,
-            maxcount=False, find=False, copy=False, refine=False,
+            copy=False, maxcount=False, find=False, refine=False,
             lattice=False, transform=False, prepare=False, mask=False,
             overwrite=False, monitor_progress=False, gui=False):
 
@@ -201,9 +204,9 @@ class NXReduce(QtCore.QObject):
         self.Ql = Ql
 
         self.link = link
+        self.copy = copy
         self.maxcount = maxcount
         self.find = find
-        self.copy = copy
         self.refine = refine
         self.lattice = lattice
         self.transform = transform
@@ -814,6 +817,41 @@ class NXReduce(QtCore.QObject):
                 self.entry['instrument/attenuator/attenuator_transmission'] = (
                     logs['Calculated_filter_transmission'])
 
+    def nxcopy(self):
+        if not self.copy:
+            return
+        elif self.is_parent():
+            self.logger.info('Set as parent; no parameters copied')
+        elif self.not_complete('nxcopy'):
+            self.record_start('nxcopy')
+            if self.parent:
+                self.copy_parameters()
+                self.record('nxcopy', parent=self.parent)
+                self.record_end('nxcopy')
+            else:
+                self.logger.info('No parent defined or accessible')
+                self.record_fail('nxcopy')
+        else:
+            self.logger.info('Parameters already copied')
+
+    def copy_parameters(self):
+        with self.parent_root.nxfile:
+            parent = self.parent_root
+            parent_refine = NXRefine(parent[self.entry_name])
+            parent_reduce = NXReduce(parent[self.entry_name])
+            with self.root.nxfile:
+                refine = NXRefine(self.entry)
+                parent_refine.copy_parameters(refine, sample=True,
+                                              instrument=True)
+                self.write_parameters(
+                    threshold=parent_reduce.threshold,
+                    first=parent_reduce.first, last=parent_reduce.last,
+                    monitor=parent_reduce.monitor, norm=parent_reduce.norm,
+                    radius=parent_reduce.radius)
+        self.logger.info(
+            "Parameters copied from "
+            f"'{os.path.basename(os.path.realpath(self.parent))}'")
+
     def nxmax(self):
         if self.not_complete('nxmax') and self.maxcount:
             if not self.data_exists():
@@ -1031,35 +1069,7 @@ class NXReduce(QtCore.QObject):
             polar_angles, azimuthal_angles = refine.calculate_angles(refine.xp,
                                                                      refine.yp)
             refine.write_angles(polar_angles, azimuthal_angles)
-
-    def nxcopy(self):
-        if not self.copy:
-            return
-        elif self.is_parent():
-            self.logger.info('Set as parent; no parameters copied')
-        elif self.not_complete('nxcopy'):
-            self.record_start('nxcopy')
-            if self.parent:
-                self.copy_parameters()
-                self.record('nxcopy', parent=self.parent)
-                self.record_end('nxcopy')
-            else:
-                self.logger.info('No parent defined')
-                self.record_fail('nxcopy')
-        else:
-            self.logger.info('Parameters already copied')
-
-    def copy_parameters(self):
-        with self.parent_root.nxfile:
-            input = self.parent_root
-            input_ref = NXRefine(input[self.entry_name])
-            with self.root.nxfile:
-                output_ref = NXRefine(self.entry)
-                input_ref.copy_parameters(output_ref, sample=True,
-                                          instrument=True)
-        self.logger.info(
-            "Parameters copied from "
-            f"'{os.path.basename(os.path.realpath(self.parent))}'")
+        self.clear_parameters(['threshold', 'first', 'last'])
 
     def nxrefine(self):
         if self.not_complete('nxrefine') and self.refine:
@@ -1402,10 +1412,10 @@ class NXReduce(QtCore.QObject):
 
     def nxreduce(self):
         self.nxlink()
+        self.nxcopy()
         self.nxmax()
         self.nxfind()
-        self.nxcopy()
-        if self.complete('nxfind') and self.complete('nxcopy'):
+        if self.complete('nxcopy') and self.complete('nxfind'):
             self.nxrefine()
         if self.complete('nxrefine'):
             self.nxprepare()
@@ -1437,12 +1447,12 @@ class NXReduce(QtCore.QObject):
             command = 'nxreduce '
             if self.link:
                 switches.append('-l')
+            if self.copy:
+                switches.append('-c')
             if self.maxcount:
                 switches.append('-m')
             if self.find:
                 switches.append('-f')
-            if self.copy:
-                switches.append('-c')
             if self.refine:
                 switches.append('-r')
             if self.prepare:
@@ -1466,14 +1476,14 @@ class NXReduce(QtCore.QObject):
             if self.link:
                 self.db.queue_task(self.wrapper_file,
                                    'nxlink', self.entry_name)
+            if self.copy:
+                self.db.queue_task(self.wrapper_file,
+                                   'nxcopy', self.entry_name)
             if self.maxcount:
                 self.db.queue_task(self.wrapper_file, 'nxmax', self.entry_name)
             if self.find:
                 self.db.queue_task(self.wrapper_file,
                                    'nxfind', self.entry_name)
-            if self.copy:
-                self.db.queue_task(self.wrapper_file,
-                                   'nxcopy', self.entry_name)
             if self.refine:
                 self.db.queue_task(self.wrapper_file,
                                    'nxrefine', self.entry_name)
@@ -1484,12 +1494,9 @@ class NXReduce(QtCore.QObject):
                 if self.mask:
                     self.db.queue_task(self.wrapper_file, 'nxmasked_transform',
                                        self.entry_name)
-                    self.db.queue_task(self.wrapper_file, 'nxmasked_combine',
-                                       'entry')
                 else:
                     self.db.queue_task(self.wrapper_file, 'nxtransform',
                                        self.entry_name)
-                    self.db.queue_task(self.wrapper_file, 'nxcombine', 'entry')
 
 
 class NXMultiReduce(NXReduce):

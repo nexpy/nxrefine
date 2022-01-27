@@ -77,13 +77,12 @@ class WorkflowDialog(NXDialog):
         self.update()
 
     def add_grid_headers(self):
-        header_grid = QtWidgets.QGridLayout()
-        header_widget = NXWidget()
-        header_widget.set_layout(header_grid, 'stretch')
+        self.header_grid = QtWidgets.QGridLayout()
+        self.header_widget = NXWidget()
+        self.header_widget.set_layout(self.header_grid)
 
-        header_grid.setSpacing(1)
         row = 0
-        columns = ['Scan', 'data', 'link', 'max', 'find', 'copy', 'refine',
+        columns = ['Scan', 'data', 'link', 'copy', 'max', 'find', 'refine',
                    'prepare', 'transform', 'masked_transform', 'combine',
                    'masked_combine', 'pdf', 'masked_pdf', 'overwrite', 'sync']
         header = {}
@@ -91,19 +90,19 @@ class WorkflowDialog(NXDialog):
             header[column] = NXLabel(
                 column, bold=True, width=75, align='center')
             if column == 'transform' or column == 'combine' or column == 'pdf':
-                header_grid.addWidget(header[column], row, col, 1, 2,
-                                      QtCore.Qt.AlignHCenter)
+                self.header_grid.addWidget(header[column], row, col, 1, 2,
+                                           QtCore.Qt.AlignHCenter)
             elif 'masked' not in column:
-                header_grid.addWidget(header[column], row, col)
+                self.header_grid.addWidget(header[column], row, col)
                 header[column].setAlignment(QtCore.Qt.AlignHCenter)
         row = 1
         columns = 3 * ['regular', 'masked']
         for col, column in enumerate(columns):
             header[column] = NXLabel(column, width=75, align='center')
-            header_grid.addWidget(header[column], row, col+8)
-        header_widget.setStyleSheet("border:0; margin:0")
-        header_widget.setFixedHeight(50)
-        self.insert_layout(2, header_widget)
+            self.header_grid.addWidget(header[column], row, col+8)
+        self.header_grid.setSpacing(0)
+        self.header_widget.setFixedHeight(60)
+        self.insert_layout(2, self.header_widget)
 
     def choose_file(self):
         super().choose_file()
@@ -178,9 +177,9 @@ class WorkflowDialog(NXDialog):
             status['entries'] = []
             status['data'] = self.new_checkbox()
             status['link'] = self.new_checkbox()
+            status['copy'] = self.new_checkbox()
             status['max'] = self.new_checkbox()
             status['find'] = self.new_checkbox()
-            status['copy'] = self.new_checkbox()
             status['refine'] = self.new_checkbox()
             status['prepare'] = self.new_checkbox()
             status['transform'] = self.new_checkbox()
@@ -194,9 +193,9 @@ class WorkflowDialog(NXDialog):
             self.grid.addWidget(status['scan'], row, 0, QtCore.Qt.AlignCenter)
             self.grid.addWidget(status['data'], row, 1, QtCore.Qt.AlignCenter)
             self.grid.addWidget(status['link'], row, 2, QtCore.Qt.AlignCenter)
-            self.grid.addWidget(status['max'], row, 3, QtCore.Qt.AlignCenter)
-            self.grid.addWidget(status['find'], row, 4, QtCore.Qt.AlignCenter)
-            self.grid.addWidget(status['copy'], row, 5, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['copy'], row, 3, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['max'], row, 4, QtCore.Qt.AlignCenter)
+            self.grid.addWidget(status['find'], row, 5, QtCore.Qt.AlignCenter)
             self.grid.addWidget(
                 status['refine'],
                 row, 6, QtCore.Qt.AlignCenter)
@@ -229,11 +228,12 @@ class WorkflowDialog(NXDialog):
         all_boxes = {}
         all_boxes['link'] = self.new_checkbox(
             lambda: self.select_status('link'))
-        all_boxes['max'] = self.new_checkbox(lambda: self.select_status('max'))
-        all_boxes['find'] = self.new_checkbox(
-            lambda: self.select_status('find'))
         all_boxes['copy'] = self.new_checkbox(
             lambda: self.select_status('copy'))
+        all_boxes['max'] = self.new_checkbox(
+            lambda: self.select_status('max'))
+        all_boxes['find'] = self.new_checkbox(
+            lambda: self.select_status('find'))
         all_boxes['refine'] = self.new_checkbox(
             lambda: self.select_status('refine'))
         all_boxes['prepare'] = self.new_checkbox(
@@ -252,32 +252,25 @@ class WorkflowDialog(NXDialog):
         all_boxes['overwrite'] = self.new_checkbox(self.select_all)
         all_boxes['sync'] = self.new_checkbox(self.select_all)
         self.grid.addWidget(all_boxes['link'], row, 2, QtCore.Qt.AlignCenter)
-        self.grid.addWidget(all_boxes['max'], row, 3, QtCore.Qt.AlignCenter)
-        self.grid.addWidget(all_boxes['find'], row, 4, QtCore.Qt.AlignCenter)
-        self.grid.addWidget(all_boxes['copy'], row, 5, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['copy'], row, 3, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['max'], row, 4, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['find'], row, 5, QtCore.Qt.AlignCenter)
         self.grid.addWidget(all_boxes['refine'], row, 6, QtCore.Qt.AlignCenter)
-        self.grid.addWidget(
-            all_boxes['prepare'],
-            row, 7, QtCore.Qt.AlignCenter)
-        self.grid.addWidget(
-            all_boxes['transform'],
-            row, 8, QtCore.Qt.AlignCenter)
-        self.grid.addWidget(
-            all_boxes['masked_transform'],
-            row, 9, QtCore.Qt.AlignCenter)
-        self.grid.addWidget(
-            all_boxes['combine'],
-            row, 10, QtCore.Qt.AlignCenter)
-        self.grid.addWidget(
-            all_boxes['masked_combine'],
-            row, 11, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['prepare'], row, 7,
+                            QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['transform'], row, 8,
+                            QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['masked_transform'], row, 9,
+                            QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['combine'], row, 10,
+                            QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['masked_combine'], row, 11,
+                            QtCore.Qt.AlignCenter)
         self.grid.addWidget(all_boxes['pdf'], row, 12, QtCore.Qt.AlignCenter)
-        self.grid.addWidget(
-            all_boxes['masked_pdf'],
-            row, 13, QtCore.Qt.AlignCenter)
-        self.grid.addWidget(
-            all_boxes['overwrite'],
-            row, 14, QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['masked_pdf'], row, 13,
+                            QtCore.Qt.AlignCenter)
+        self.grid.addWidget(all_boxes['overwrite'], row, 14,
+                            QtCore.Qt.AlignCenter)
         self.grid.addWidget(all_boxes['sync'], row, 15, QtCore.Qt.AlignCenter)
         self.all_scans = all_boxes
         self.start_progress((0, len(wrapper_files)))
@@ -312,8 +305,8 @@ class WorkflowDialog(NXDialog):
                     checkbox.setEnabled(True)
                     checkbox.setStyleSheet("color: red")
             if status['data'].checkState() == QtCore.Qt.Unchecked:
-                for program in ['link', 'max', 'find', 'copy', 'refine',
-                                'prepare', 'transform', 'masked_transform']:
+                for program in ['link', 'max', 'find', 'prepare', 'transform',
+                                'masked_transform']:
                     status[program].setEnabled(False)
             self.update_progress(i)
 
@@ -355,7 +348,7 @@ class WorkflowDialog(NXDialog):
 
     @property
     def programs(self):
-        return ['link', 'max', 'find', 'copy', 'refine', 'prepare',
+        return ['link', 'copy', 'max', 'find', 'refine', 'prepare',
                 'transform', 'masked_transform', 'combine', 'masked_combine',
                 'pdf', 'masked_pdf']
 
@@ -440,12 +433,12 @@ class WorkflowDialog(NXDialog):
                 reduce = NXReduce(entry, scan)
                 if self.selected(scan, 'link'):
                     reduce.link = True
+                if self.selected(scan, 'copy'):
+                    reduce.copy = True
                 if self.selected(scan, 'max'):
                     reduce.maxcount = True
                 if self.selected(scan, 'find'):
                     reduce.find = True
-                if self.selected(scan, 'copy'):
-                    reduce.copy = True
                 if self.selected(scan, 'refine'):
                     reduce.refine = True
                 if self.selected(scan, 'prepare'):
@@ -460,12 +453,12 @@ class WorkflowDialog(NXDialog):
                 reduce.queue()
             if self.selected(scan, 'link'):
                 self.queued(scan, 'link')
+            if self.selected(scan, 'copy'):
+                self.queued(scan, 'copy')
             if self.selected(scan, 'max'):
                 self.queued(scan, 'max')
             if self.selected(scan, 'find'):
                 self.queued(scan, 'find')
-            if self.selected(scan, 'copy'):
-                self.queued(scan, 'copy')
             if self.selected(scan, 'refine'):
                 self.queued(scan, 'refine')
             if self.selected(scan, 'prepare'):
