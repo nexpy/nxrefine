@@ -32,6 +32,7 @@ from .mask_functions import mask_volume
 from .nxdatabase import NXDatabase
 from .nxrefine import NXRefine
 from .nxserver import NXServer
+from .nxsettings import NXSettings
 from .nxsymmetry import NXSymmetry
 
 
@@ -154,14 +155,14 @@ class NXReduce(QtCore.QObject):
             self.wrapper_file = os.path.join(self.root_directory,
                                              self.sample, self.label,
                                              f'{self.sample}_{self.scan}.nxs')
-            self.entry_name = entry
+            if entry is None:
+                self.entry_name = 'entry'
+            else:
+                self.entry_name = entry
             self._root = None
         self.base_directory = os.path.dirname(self.wrapper_file)
-        if parent is None:
-            self.parent_file = os.path.join(self.base_directory,
-                                            self.sample+'_parent.nxs')
-        else:
-            self.parent_file = os.path.realpath(parent)
+        self.parent_file = os.path.join(self.base_directory,
+                                        self.sample+'_parent.nxs')
 
         self.mask_file = os.path.join(self.directory,
                                       self.entry_name+'_mask.nxs')
@@ -197,8 +198,8 @@ class NXReduce(QtCore.QObject):
         self._monitor = monitor
         self._norm = norm
         self._radius = radius
-        self.mask_parameters = {'threshold_1': 2, 'horizontal_size_1': 11,
-                                'threshold_2': 0.8, 'horizontal_size_2': 51}
+        self.write_parameters(threshold=threshold, first=first, last=last,
+                              monitor=monitor, norm=norm, radius=radius)
         self.Qh = Qh
         self.Qk = Qk
         self.Ql = Ql
@@ -218,6 +219,7 @@ class NXReduce(QtCore.QObject):
 
         self._stopped = False
 
+        self._default = None
         self._server = None
         self._db = None
         self._logger = None
@@ -265,6 +267,15 @@ class NXReduce(QtCore.QObject):
                 streamHandler = logging.StreamHandler()
                 self._logger.addHandler(streamHandler)
         return self._logger
+
+    @property
+    def default(self):
+        if self._default is None:
+            try:
+                self._default = NXSettings().settings['nxreduce']
+            except Exception as error:
+                self.logger.info(str(error))
+        return self._default
 
     @property
     def server(self):
@@ -316,6 +327,9 @@ class NXReduce(QtCore.QObject):
     def data(self):
         if 'data' in self.entry:
             return self.entry['data']
+        elif (self.entry_name == 'entry'
+              and 'data' in self.root[self.entries[0]]):
+            return self.root[self.entries[0]]['data']
         else:
             return None
 
@@ -371,7 +385,8 @@ class NXReduce(QtCore.QObject):
     @property
     def parent(self):
         if self._parent is None:
-            if not self.is_parent() and os.path.exists(self.parent_file):
+            if (not self.is_parent()
+                    and os.path.exists(os.path.realpath(self.parent_file))):
                 self._parent = os.path.realpath(self.parent_file)
         return self._parent
 
@@ -400,62 +415,67 @@ class NXReduce(QtCore.QObject):
         self.logger.info(
             f"'{os.path.realpath(self.parent_file)}' set as parent")
 
+    def get_parameter(self, name, field_name=None):
+        parameter = self.default[name]
+        if field_name is None:
+            field_name = name
+        if ('nxreduce' in self.root['entry']
+                and field_name in self.root['entry/nxreduce']):
+            parameter = self.root['entry/nxreduce'][field_name]
+        elif self.parent:
+            if ('nxreduce' in self.parent_root['entry']
+                    and field_name in self.parent_root['entry/nxreduce']):
+                parameter = self.parent_root['entry/nxreduce'][field_name]
+        return parameter
+
+    def write_parameters(self, threshold=None, first=None, last=None,
+                         monitor=None, norm=None, radius=None):
+        if not (threshold or first or last or monitor or norm or radius):
+            return
+        with self.root.nxfile:
+            if 'nxreduce' not in self.root['entry']:
+                self.root['entry/nxreduce'] = NXparameters()
+            if threshold is not None:
+                self.root['entry/nxreduce/threshold'] = threshold
+            if first is not None:
+                self.root['entry/nxreduce/first_frame'] = first
+            if last is not None:
+                self.root['entry/nxreduce/last_frame'] = last
+            if monitor is not None:
+                self.root['entry/nxreduce/monitor'] = monitor
+            if norm is not None:
+                self.root['entry/nxreduce/norm'] = norm
+            if radius is not None:
+                self.root['entry/nxreduce/radius'] = radius
+
+    def clear_parameters(self, parameters):
+        """Remove legacy records of parameters."""
+        parameters.append('width')
+        for p in parameters:
+            if 'peaks' in self.entry and p in self.entry['peaks'].attrs:
+                del self.entry['peaks'].attrs[p]
+
     @property
     def first(self):
-        _first = self._first
-        if _first is None:
-            if 'nxreduce' in self.root['entry']:
-                _first = self.root['entry/nxreduce/first_frame']
-            elif ('peaks' in self.entry and
-                  'first' in self.entry['peaks'].attrs):
-                _first = self.entry['peaks'].attrs['first']
-            elif 'data' in self.entry and 'first' in self.entry['data'].attrs:
-                _first = self.entry['data'].attrs['first']
-            elif self.parent:
-                root = self.parent_root
-                entry = root[self.entry_name]
-                if 'nxreduce' in root['entry']:
-                    _first = root['entry/nxreduce/first_frame']
-                elif 'peaks' in entry and 'first' in entry['peaks'].attrs:
-                    _first = entry['peaks'].attrs['first']
-                elif 'first' in entry['data'].attrs:
-                    _first = entry['data'].attrs['first']
-        try:
-            self._first = int(_first)
-        except Exception as error:
-            self._first = None
+        if self._first is None:
+            self._first = int(self.get_parameter('first', 'first_frame'))
         return self._first
 
     @first.setter
     def first(self, value):
         try:
-            self._first = np.int(value)
+            self._first = int(value)
         except ValueError:
             pass
 
     @property
     def last(self):
-        _last = self._last
-        if _last is None:
-            if 'nxreduce' in self.root['entry']:
-                _last = self.root['entry/nxreduce/last_frame']
-            elif 'peaks' in self.entry and 'last' in self.entry['peaks'].attrs:
-                _last = self.entry['peaks'].attrs['last']
-            elif 'data' in self.entry and 'last' in self.entry['data'].attrs:
-                _last = self.entry['data'].attrs['last']
-            elif self.parent:
-                root = self.parent_root
-                entry = root[self.entry_name]
-                if 'nxreduce' in root['entry']:
-                    _last = root['entry/nxreduce/last_frame']
-                elif 'peaks' in entry and 'last' in entry['peaks'].attrs:
-                    _last = entry['peaks'].attrs['last']
-                elif 'last' in root[self.entry_name]['data'].attrs:
-                    _last = entry['data'].attrs['last']
-        try:
-            self._last = int(_last)
-        except Exception as error:
-            self._last = None
+        if self._last is None:
+            try:
+                self.default['last'] = self.shape[0]
+            except Exception:
+                pass
+            self._last = int(self.get_parameter('last', 'last_frame'))
         return self._last
 
     @last.setter
@@ -467,33 +487,9 @@ class NXReduce(QtCore.QObject):
 
     @property
     def threshold(self):
-        _threshold = self._threshold
-        if self._threshold is not None:
-            return self._threshold
-        else:
-            if 'nxreduce' in self.root['entry']:
-                _threshold = self.root['entry/nxreduce/threshold']
-            elif ('peaks' in self.entry and
-                  'threshold' in self.entry['peaks'].attrs):
-                _threshold = self.entry['peaks'].attrs['threshold']
-            elif self.parent:
-                root = self.parent_root
-                entry = root[self.entry_name]
-                if 'nxreduce' in root['entry']:
-                    _threshold = root['entry/nxreduce/threshold']
-                elif ('peaks' in entry and
-                      'threshold' in entry['peaks'].attrs):
-                    _threshold = entry['peaks'].attrs['threshold']
-        _default = 50000.0
-        if _threshold is None:
-            self._threshold = _default
-        else:
-            try:
-                self._threshold = float(_threshold)
-                if self._threshold <= 0.0:
-                    self._threshold = _default
-            except Exception:
-                self._threshold = _default
+        if self._threshold is None:
+            self._threshold = float(
+                self.get_parameter('threshold'))
         return self._threshold
 
     @threshold.setter
@@ -501,50 +497,19 @@ class NXReduce(QtCore.QObject):
         self._threshold = value
 
     @property
-    def radius(self):
-        _radius = self._radius
-        if _radius is None:
-            if ('nxreduce' in self.root['entry'] and
-                    'radius' in self.root['entry/nxreduce']):
-                _radius = self.root['entry/nxreduce/radius']
-            elif self.parent:
-                root = self.parent_root
-                if ('nxreduce' in root['entry'] and
-                        'radius' in root['entry/nxreduce']):
-                    _radius = root['entry/nxreduce/radius']
-        if _radius is None:
-            _radius = 0.2
-        try:
-            self._radius = float(_radius)
-        except Exception:
-            self._radius = 0.2
-        return self._radius
+    def monitor(self):
+        if self._monitor is None:
+            self._monitor = self.get_parameter('monitor')
+        return self._monitor
 
-    @radius.setter
-    def radius(self, value):
-        self._radius = value
+    @monitor.setter
+    def monitor(self, value):
+        self._monitor = value
 
     @property
     def norm(self):
-        _norm = self._norm
-        if _norm is None:
-            if 'nxreduce' in self.root['entry']:
-                _norm = self.root['entry/nxreduce/norm']
-            elif 'peaks' in self.entry and 'norm' in self.entry['peaks'].attrs:
-                _norm = self.entry['peaks'].attrs['norm']
-            elif self.parent:
-                root = self.parent_root
-                entry = root[self.entry_name]
-                if 'nxreduce' in root['entry']:
-                    _norm = root['entry/nxreduce/norm']
-                elif 'peaks' in entry and 'norm' in entry['peaks'].attrs:
-                    _norm = entry['peaks'].attrs['norm']
-        try:
-            self._norm = float(_norm)
-            if self._norm <= 0:
-                self._norm = None
-        except Exception:
-            self._norm = None
+        if self._norm is None:
+            self._norm = float(self.get_parameter('norm'))
         return self._norm
 
     @norm.setter
@@ -552,25 +517,14 @@ class NXReduce(QtCore.QObject):
         self._norm = value
 
     @property
-    def monitor(self):
-        _monitor = self._monitor
-        if _monitor is None:
-            if 'nxreduce' in self.root['entry']:
-                _monitor = self.root['entry/nxreduce/monitor']
-            elif self.parent:
-                root = self.parent_root
-                if 'nxreduce' in root['entry']:
-                    _monitor = root['entry/nxreduce/monitor']
-                else:
-                    _monitor = 'monitor1'
-            else:
-                _monitor = 'monitor1'
-        self._monitor = str(_monitor)
-        return self._monitor
+    def radius(self):
+        if self._radius is None:
+            self._radius = float(self.get_parameter('radius'))
+        return self._radius
 
-    @monitor.setter
-    def monitor(self, value):
-        self._monitor = value
+    @radius.setter
+    def radius(self, value):
+        self._radius = value
 
     @property
     def maximum(self):
@@ -634,7 +588,7 @@ class NXReduce(QtCore.QObject):
         """ Record that a task has finished. Update NeXus file and database """
         process = kwargs.pop('process', program)
         parameters = '\n'.join(
-            [f'{k}: {v}'.replace('_', ' ').capitalize()
+            [f"{k.replace('_', ' ').capitalize()}: {v}"
              for (k, v) in kwargs.items()])
         note = NXnote(process, (f'Current machine: {platform.node()}\n' +
                                 f'Current directory: {self.directory}\n' +
@@ -646,6 +600,8 @@ class NXReduce(QtCore.QObject):
                 program=f'{process}',
                 sequence_index=len(self.entry.NXprocess) + 1,
                 version='nxrefine v' + __version__, note=note)
+            for key in [k for k in kwargs if k in self.default]:
+                self.entry[process][key] = kwargs[key]
 
     def record_start(self, program):
         """ Record that a task has started. Update database """
@@ -951,6 +907,7 @@ class NXReduce(QtCore.QObject):
                 if 'polarization' not in self.entry['instrument/detector']:
                     self.entry['instrument/detector/polarization'] = (
                         polarization)
+        self.clear_parameters(['first', 'last'])
 
     def calculate_radial_sums(self):
         try:
@@ -1140,6 +1097,7 @@ class NXReduce(QtCore.QObject):
                                 output=process.stdout.decode(),
                                 errors=process.stderr.decode())
                     self.record_end('nxtransform')
+                    self.clear_parameters(['monitor', 'norm'])
                 else:
                     self.logger.info('Transform completed - errors reported '
                                      f'({(toc-tic):g} seconds)')
@@ -1290,7 +1248,6 @@ class NXReduce(QtCore.QObject):
             if 'data_mask' in self.data:
                 del self.data['data_mask']
             self.data['data_mask'] = NXlink('entry/mask', self.mask_file)
-
         self.logger.info(f"3D Mask written to '{self.mask_file}'")
 
     def nxmasked_transform(self):
@@ -1864,6 +1821,7 @@ class NXMultiReduce(NXReduce):
 
         toc = timeit.default_timer()
         self.logger.info(f'Punches completed ({toc - tic:g} seconds)')
+        self.clear_parameters(['radius'])
 
     def init_julia(self):
         if self.julia is None:
