@@ -218,6 +218,7 @@ class NXReduce(QtCore.QObject):
         self.gui = gui
 
         self._stopped = False
+        self._process_count = None
 
         self._default = None
         self._server = None
@@ -588,6 +589,16 @@ class NXReduce(QtCore.QObject):
     @property
     def stopped(self):
         return self._stopped
+
+    @property
+    def process_count(self):
+        if self._process_count is None:
+            pc = mp.cpu_count()
+            if pc >= 8:
+                self._process_count = pc / 2
+            else:
+                self._process_count = max(pc-2, 1)
+        return self._process_count            
 
     @stopped.setter
     def stopped(self, value):
@@ -979,7 +990,7 @@ class NXReduce(QtCore.QObject):
         while i < self.last:
             processes = []
             queue = mp.Queue()
-            for _ in range(max(mp.cpu_count()-1, 1)):
+            for _ in range(self.process_count):
                 if self.stopped:
                     return None
                 self.update_progress(i)
@@ -1228,7 +1239,7 @@ class NXReduce(QtCore.QObject):
             self.update_progress(i)
             processes = []
             queue = mp.Queue()
-            for _ in range(max(mp.cpu_count()-1, 1)):
+            for _ in range(self.process_count):
                 if self.stopped:
                     return None
                 self.update_progress(i)
