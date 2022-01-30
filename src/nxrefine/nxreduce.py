@@ -595,10 +595,10 @@ class NXReduce(QtCore.QObject):
         if self._process_count is None:
             pc = mp.cpu_count()
             if pc >= 8:
-                self._process_count = pc / 2
+                self._process_count = int(pc / 2)
             else:
                 self._process_count = max(pc-2, 1)
-        return self._process_count            
+        return self._process_count
 
     @stopped.setter
     def stopped(self, value):
