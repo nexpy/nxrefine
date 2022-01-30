@@ -1,5 +1,64 @@
+import os
+
 import numpy as np
-from nexusformat.nexus import NXdata
+from ImageD11.labelimage import flip1, labelimage
+
+
+def peak_search(data, z, threshold, queue=None):
+    global saved_blobs
+
+    def save_blobs(lio, blobs):
+        for b in blobs:
+            blob = NXBlob(b)
+            saved_blobs.append(blob)
+            if lio.onfirst > 0:
+                lio.onfirst = 0
+
+    labelimage.outputpeaks = save_blobs
+    lio = labelimage(data.shape[-2:], flipper=flip1, fileout=os.devnull)
+    nframes = data.shape[0]
+    saved_blobs = []
+    for i in range(nframes):
+        lio.peaksearch(data[i], threshold, i)
+        lio.mergelast()
+    lio.finalise()
+    for blob in saved_blobs:
+        blob.z += z
+    if queue:
+        queue.put(saved_blobs)
+    else:
+        return saved_blobs
+
+
+class NXBlob(object):
+
+    def __init__(self, peak):
+        self.np = peak[0]
+        self.average = peak[22]
+        self.intensity = self.np * self.average
+        self.x = peak[23]
+        self.y = peak[24]
+        self.z = peak[25]
+        self.sigx = peak[27]
+        self.sigy = peak[26]
+        self.sigz = peak[28]
+        self.covxy = peak[29]
+        self.covyz = peak[30]
+        self.covzx = peak[31]
+
+    def __repr__(self):
+        return f"NXBlob(x={self.x:.2f} y={self.y:.2f} z={self.z:.2f})"
+
+    def is_valid(self, mask, min_pixels=10):
+        if mask is not None:
+            clip = mask[int(self.y), int(self.x)]
+            if clip:
+                return False
+        if (np.isclose(self.average, 0.0) or np.isnan(self.average)
+                or self.np < min_pixels):
+            return False
+        else:
+            return True
 
 
 def fill_gaps(mask, mask_gaps):
@@ -90,8 +149,8 @@ def local_sum_same(X, K, padding):
     return G
 
 
-def mask_volume(volume, pixel_mask, horiz_size_1=11, threshold_1=2,
-                horiz_size_2=51, threshold_2=0.8):
+def mask_volume(volume, pixel_mask, threshold_1=2, horiz_size_1=11,
+                threshold_2=0.8, horiz_size_2=51, queue=None):
     """Generate a 3D mask around Bragg peaks.
 
     Parameters
@@ -116,12 +175,12 @@ def mask_volume(volume, pixel_mask, horiz_size_1=11, threshold_1=2,
         3D array containing the mask for the slab.
     """
 
-    diff_volume = volume[1:, :, :] - volume[0:-1, :, :]
-
+    horiz_size_1, horiz_size_2 = int(horiz_size_1), int(horiz_size_2)
+    sum1, sum2 = horiz_size_1**2, horiz_size_2**2
     horiz_kern_1 = np.ones((1, horiz_size_1, horiz_size_1))
-    sum1 = horiz_kern_1.sum()
     horiz_kern_2 = np.ones((1, horiz_size_2, horiz_size_2))
-    sum2 = horiz_kern_2.sum()
+
+    diff_volume = volume[1:] - volume[:-1]
 
     padded_length = [0, horiz_size_1, horiz_size_1]
     vol_smoothed = local_sum_same(
@@ -153,5 +212,11 @@ def mask_volume(volume, pixel_mask, horiz_size_1=11, threshold_1=2,
     vol_smoothed /= sum2
     vol_smoothed[vol_smoothed < threshold_2] = 0
     vol_smoothed[vol_smoothed > threshold_2] = 1
-    mask = np.maximum(vol_smoothed[0:-1], vol_smoothed[1:])
-    return mask
+    mask = np.zeros(shape=volume.shape, dtype=np.int8)
+    mask[1:-1] = np.maximum(vol_smoothed[0:-1], vol_smoothed[1:])
+    mask[0] = mask[1]
+    mask[-1] = mask[-2]
+    if queue:
+        queue.put(mask)
+    else:
+        return mask

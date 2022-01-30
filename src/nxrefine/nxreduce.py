@@ -8,6 +8,7 @@
 
 import logging
 import logging.handlers
+import multiprocessing as mp
 import operator
 import os
 import platform
@@ -19,7 +20,6 @@ from datetime import datetime
 import h5py as h5
 import numpy as np
 from h5py import is_hdf5
-from ImageD11.labelimage import flip1, labelimage
 from nexusformat.nexus import (NeXusError, NXattenuator, NXcollection, NXdata,
                                NXentry, NXfield, NXinstrument, NXlink, NXLock,
                                NXmonitor, NXnote, NXparameters, NXprocess,
@@ -28,12 +28,12 @@ from nexusformat.nexus import (NeXusError, NXattenuator, NXcollection, NXdata,
 from qtpy import QtCore
 
 from . import __version__
-from .mask_functions import mask_volume
 from .nxdatabase import NXDatabase
 from .nxrefine import NXRefine
 from .nxserver import NXServer
 from .nxsettings import NXSettings
 from .nxsymmetry import NXSymmetry
+from .nxutils import mask_volume, peak_search
 
 
 class NXReduce(QtCore.QObject):
@@ -114,8 +114,9 @@ class NXReduce(QtCore.QObject):
     def __init__(
             self, entry=None, directory=None, parent=None, entries=None,
             data='data/data', extension='.h5', path='/entry/data/data',
-            threshold=None, min_pixels=10, first=None, last=None, radius=None,
-            monitor=None, norm=None, Qh=None, Qk=None, Ql=None, link=False,
+            threshold=None, min_pixels=None, first=None, last=None,
+            monitor=None, norm=None, radius=None,
+            Qh=None, Qk=None, Ql=None, link=False,
             copy=False, maxcount=False, find=False, refine=False,
             lattice=False, transform=False, prepare=False, mask=False,
             overwrite=False, monitor_progress=False, gui=False):
@@ -190,16 +191,15 @@ class NXReduce(QtCore.QObject):
         self.path = path
 
         self._threshold = threshold
-        self.min_pixels = min_pixels
-        self._maximum = None
-        self.summed_data = None
+        self._min_pixels = min_pixels
         self._first = first
         self._last = last
         self._monitor = monitor
         self._norm = norm
         self._radius = radius
-        self.write_parameters(threshold=threshold, first=first, last=last,
-                              monitor=monitor, norm=norm, radius=radius)
+
+        self._maximum = None
+        self.summed_data = None
         self.Qh = Qh
         self.Qk = Qk
         self.Ql = Ql
@@ -488,13 +488,22 @@ class NXReduce(QtCore.QObject):
     @property
     def threshold(self):
         if self._threshold is None:
-            self._threshold = float(
-                self.get_parameter('threshold'))
+            self._threshold = float(self.get_parameter('threshold'))
         return self._threshold
 
     @threshold.setter
     def threshold(self, value):
         self._threshold = value
+
+    @property
+    def min_pixels(self):
+        if self._min_pixels is None:
+            self._min_pixels = int(self.get_parameter('min_pixels'))
+        return self._min_pixels
+
+    @min_pixels.setter
+    def min_pixels(self, value):
+        self._min_pixels = value
 
     @property
     def monitor(self):
@@ -963,39 +972,34 @@ class NXReduce(QtCore.QObject):
     def find_peaks(self):
         self.logger.info("Finding peaks")
 
-        with self.field.nxfile:
-            if self.first is None:
-                self.first = 0
-            if self.last is None:
-                self.last = self.shape[0]
-            z_min, z_max = self.first, self.last
-
-            tic = self.start_progress(z_min, z_max)
-
-            self.blobs = []
-
-            def save_blobs(lio, blobs):
-                for b in blobs:
-                    blob = NXBlob(b)
-                    if blob.isvalid(self.pixel_mask, self.min_pixels):
-                        self.blobs.append(blob)
-                if lio.onfirst > 0:
-                    lio.onfirst = 0
-
-            labelimage.outputpeaks = save_blobs
-            lio = labelimage(self.shape[-2:], flipper=flip1,
-                             fileout=os.devnull)
-            nframes = z_max
-            data = self.field.nxfile[self.path]
-            for i in range(0, nframes):
+        tic = self.start_progress(self.first, self.last)
+        self.blobs = []
+        nframes = self.shape[0]
+        i = self.first
+        while i < self.last:
+            processes = []
+            queue = mp.Queue()
+            for _ in range(max(mp.cpu_count()-1, 1)):
                 if self.stopped:
                     return None
                 self.update_progress(i)
-                lio.peaksearch(data[i], self.threshold, i)
-                lio.mergelast()
-            lio.finalise()
+                slab = self.field[max(i-5, 0):min(i+55, nframes), :, :].nxvalue
+                p = mp.Process(target=peak_search,
+                               args=(slab, max(i-5, 0), self.threshold, queue))
+                p.start()
+                processes.append((i, p))
+                i = min(i+50, nframes)
+                if i >= self.last:
+                    break
+            for k, p in processes:
+                blobs = queue.get()
+                self.blobs += [b for b in blobs if b.z >= k and b.z < k+50]
+            for _, p in processes:
+                p.join()
 
-        peaks = sorted(self.blobs, key=operator.attrgetter('z'))
+        peaks = sorted([b for b in self.blobs
+                        if b.is_valid(self.pixel_mask, self.min_pixels)],
+                       key=operator.attrgetter('z'))
 
         toc = self.stop_progress()
         self.logger.info(f'{len(peaks)} peaks found ({toc - tic:g} seconds)')
@@ -1211,25 +1215,40 @@ class NXReduce(QtCore.QObject):
 
         mask = NXfield(shape=self.shape, dtype=np.int8, fillvalue=0)
 
+        tic = self.start_progress(self.first, self.last)
+        t1 = self.mask_parameters['threshold_1']
+        h1 = self.mask_parameters['horizontal_size_1']
+        t2 = self.mask_parameters['threshold_2']
+        h2 = self.mask_parameters['horizontal_size_2']
         nframes = self.shape[0]
-        tic = self.start_progress(0, nframes)
-        z = np.linspace(0, nframes, int(nframes / 50), dtype=int)
-        z[0] += 1
-        z[-1] += -1
-        for i in range(z.shape[0]-1):
+        i = self.first
+        while i < self.last:
             if self.stopped:
                 return None
-            self.update_progress(z[i])
-            zmin = z[i] - 1
-            zmax = z[i+1] + 1
-            slab = self.field[zmin:zmax, :, :].nxvalue
-            mask_array = mask_volume(
-                slab, self.pixel_mask,
-                threshold_1=self.mask_parameters['threshold_1'],
-                horiz_size_1=self.mask_parameters['horizontal_size_1'],
-                threshold_2=self.mask_parameters['threshold_2'],
-                horiz_size_2=self.mask_parameters['horizontal_size_2'])
-            mask[z[i]:z[i+1]] = mask_array
+            self.update_progress(i)
+            processes = []
+            queue = mp.Queue()
+            for _ in range(max(mp.cpu_count()-1, 1)):
+                if self.stopped:
+                    return None
+                self.update_progress(i)
+                m, n = i - min(5, i), min(i+55, self.last+5, nframes)
+                slab = self.field[m:n].nxvalue
+                p = mp.Process(
+                    target=mask_volume,
+                    args=(slab, self.pixel_mask, t1, h1, t2, h2, queue))
+                p.start()
+                processes.append((i, p))
+                i = min(i+50, nframes)
+                if i >= self.last:
+                    break
+            for j, p in processes:
+                mask_slab = queue.get()
+                m, n = min(5, j), min(50, self.last-j, mask_slab.shape[0])
+                mask[j:j+n] = mask_slab[m:m+n]
+            for _, p in processes:
+                p.join()
+            queue.close()
 
         toc = self.stop_progress()
 
@@ -1880,7 +1899,7 @@ class NXMultiReduce(NXReduce):
                 if v.max() > 0.0:
                     w = LaplaceInterpolation.matern_3d_grid(v, idx)
                     fill_data[(lslice, kslice, hslice)] = w
-            except Exception as error:
+            except Exception:
                 pass
         fill_data = self.symmetrize(fill_data)
         changed_idx = np.where(fill_data > 0)
@@ -2010,34 +2029,3 @@ class NXMultiReduce(NXReduce):
                 self.db.queue_task(self.wrapper_file, 'nxmasked_pdf', 'entry')
             else:
                 self.db.queue_task(self.wrapper_file, 'nxpdf', 'entry')
-
-
-class NXBlob(object):
-
-    def __init__(self, peak):
-        self.np = peak[0]
-        self.average = peak[22]
-        self.intensity = self.np * self.average
-        self.x = peak[23]
-        self.y = peak[24]
-        self.z = peak[25]
-        self.sigx = peak[27]
-        self.sigy = peak[26]
-        self.sigz = peak[28]
-        self.covxy = peak[29]
-        self.covyz = peak[30]
-        self.covzx = peak[31]
-
-    def __repr__(self):
-        return f"NXBlob(x={self.x:.2f} y={self.y:.2f} z={self.z:.2f})"
-
-    def isvalid(self, mask, min_pixels=10):
-        if mask is not None:
-            clip = mask[int(self.y), int(self.x)]
-            if clip:
-                return False
-        if (np.isclose(self.average, 0.0) or np.isnan(self.average)
-                or self.np < min_pixels):
-            return False
-        else:
-            return True
