@@ -149,12 +149,14 @@ def local_sum_same(X, K, padding):
     return G
 
 
-def mask_volume(volume, pixel_mask, threshold_1=2, horiz_size_1=11,
+def mask_volume(idx, volume, pixel_mask, threshold_1=2, horiz_size_1=11,
                 threshold_2=0.8, horiz_size_2=51, queue=None):
     """Generate a 3D mask around Bragg peaks.
 
     Parameters
     ----------
+    idx : int
+        Index of z-value of slab
     volume : array-like
         3D array containing a slab of the raw data.
     pixel_mask : array-like
@@ -217,6 +219,6 @@ def mask_volume(volume, pixel_mask, threshold_1=2, horiz_size_1=11,
     mask[0] = mask[1]
     mask[-1] = mask[-2]
     if queue:
-        queue.put(mask)
+        queue.put((idx, mask))
     else:
         return mask
