@@ -504,7 +504,7 @@ class NXReduce(QtCore.QObject):
 
     @min_pixels.setter
     def min_pixels(self, value):
-        self._min_pixels = value
+        self._min_pixels = int(value)
 
     @property
     def monitor(self):
@@ -988,24 +988,25 @@ class NXReduce(QtCore.QObject):
         nframes = self.shape[0]
         i = self.first
         while i < self.last:
+            if self.stopped:
+                return None
             processes = []
             queue = mp.Queue()
             for _ in range(self.process_count):
-                if self.stopped:
-                    return None
                 self.update_progress(i)
-                slab = self.field[max(i-5, 0):min(i+55, nframes), :, :].nxvalue
+                m, n = i - min(5, i), min(i+55, self.last+5, nframes)
+                slab = self.field[m:n].nxvalue
                 p = mp.Process(target=peak_search,
-                               args=(slab, max(i-5, 0), self.threshold, queue))
+                               args=(i, slab, self.threshold, queue))
                 p.start()
-                processes.append((i, p))
+                processes.append(p)
                 i = min(i+50, nframes)
                 if i >= self.last:
                     break
-            for k, p in processes:
-                blobs = queue.get()
-                self.blobs += [b for b in blobs if b.z >= k and b.z < k+50]
-            for _, p in processes:
+            for p in processes:
+                j, blobs = queue.get()
+                self.blobs += [b for b in blobs if b.z >= j and b.z < j+50]
+            for p in processes:
                 p.join()
 
         peaks = sorted([b for b in self.blobs
@@ -1243,7 +1244,7 @@ class NXReduce(QtCore.QObject):
                 if self.stopped:
                     return None
                 self.update_progress(i)
-                m, n = i - min(5, i), min(i+55, self.last+5, nframes)
+                m, n = i - min(1, i), min(i+51, self.last+1, nframes)
                 slab = self.field[m:n].nxvalue
                 p = mp.Process(
                     target=mask_volume,
@@ -1255,7 +1256,7 @@ class NXReduce(QtCore.QObject):
                     break
             for p in processes:
                 j, mask_array = queue.get()
-                m, n = min(5, j), min(55, self.last+5-j, mask_array.shape[0])
+                m, n = min(1, j), min(51, self.last-j+1, mask_array.shape[0])
                 mask[j:j+n] = mask_array[m:m+n]
             for _, p in processes:
                 p.join()

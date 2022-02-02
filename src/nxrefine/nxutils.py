@@ -4,7 +4,8 @@ import numpy as np
 from ImageD11.labelimage import flip1, labelimage
 
 
-def peak_search(data, z, threshold, queue=None):
+def peak_search(z, data, threshold, queue=None):
+
     global saved_blobs
 
     def save_blobs(lio, blobs):
@@ -25,7 +26,7 @@ def peak_search(data, z, threshold, queue=None):
     for blob in saved_blobs:
         blob.z += z
     if queue:
-        queue.put(saved_blobs)
+        queue.put((z, saved_blobs))
     else:
         return saved_blobs
 
