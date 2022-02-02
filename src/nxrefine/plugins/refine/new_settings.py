@@ -26,15 +26,27 @@ class SettingsDialog(NXDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        try:
+            self.settings = NXSettings()
+            default_directory = self.settings.directory
+        except NeXusError:
+            self.settings = None
+            default_directory = ""
         self.set_layout(
-            self.directorybox('Choose Settings Directory', default=False),
+            self.directorybox('Choose Settings Directory',
+                              default=default_directory),
             self.close_layout(save=True))
+        if self.settings:
+            self.define_parameters()
         self.set_title('New Settings')
 
     def choose_directory(self):
         super().choose_directory()
         directory = self.get_directory()
         self.settings = NXSettings(directory=directory)
+        self.define_parameters()
+
+    def define_parameters(self):
         self.refine_parameters = GridParameters()
         defaults = self.settings.settings['nxrefine']
         for p in defaults:
