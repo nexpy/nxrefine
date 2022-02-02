@@ -87,7 +87,9 @@ class NXSettings(ConfigParser):
         return _settings
 
     def set(self, section, option, value=None):
-        if value is not None:
+        if isinstance(value, int) or isinstance(value, float):
+            super().set(section, option, f"{value:g}")
+        elif value is not None:
             super().set(section, option, str(value))
         else:
             super().set(section, option)
