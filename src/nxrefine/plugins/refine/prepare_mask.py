@@ -12,6 +12,7 @@ from nexpy.gui.utils import is_file_locked, report_error
 from nexpy.gui.widgets import NXLabel, NXPushButton
 from nexusformat.nexus import NeXusError, NXLock
 from nxrefine.nxreduce import NXReduce
+from nxrefine.nxsettings import NXSettings
 
 
 def show_dialog():
@@ -29,7 +30,10 @@ class PrepareDialog(NXDialog):
 
         self.select_entry(self.choose_entry)
 
+        default = NXSettings().settings['nxreduce']
         self.parameters = GridParameters()
+        self.parameters.add('first', default['first'], 'First Frame')
+        self.parameters.add('last', default['last'], 'Last Frame')
         self.parameters.add('threshold1', '2', 'Threshold 1')
         self.parameters.add('horizontal1', '11', 'Horizontal Size 1')
         self.parameters.add('threshold2', '0.8', 'Threshold 2')
@@ -54,6 +58,22 @@ class PrepareDialog(NXDialog):
             self.insert_layout(1, self.parameters.grid_layout)
             self.insert_layout(2, self.prepare_layout)
         self.reduce = NXReduce(self.entry)
+        self.parameters['first'].value = self.reduce.first
+        self.parameters['last'].value = self.reduce.last
+
+    @property
+    def first(self):
+        try:
+            return int(self.parameters['first'].value)
+        except Exception as error:
+            report_error("Preparing Mask", str(error))
+
+    @property
+    def last(self):
+        try:
+            return int(self.parameters['last'].value)
+        except Exception as error:
+            report_error("Preparing Mask", str(error))
 
     @property
     def threshold1(self):
@@ -91,8 +111,10 @@ class PrepareDialog(NXDialog):
             else:
                 return
         self.start_thread()
-        self.reduce = NXReduce(self.entry, prepare=True, overwrite=True,
-                               gui=True)
+        self.reduce = NXReduce(self.entry, prepare=True, 
+                               first=self.first, last=self.last,
+                               overwrite=True, gui=True)
+        self.reduce.mask_parameters['threshold_1'] = self.threshold1
         self.reduce.mask_parameters['threshold_1'] = self.threshold1
         self.reduce.mask_parameters['horizontal_size_1'] = self.horizontal1
         self.reduce.mask_parameters['threshold_2'] = self.threshold2

@@ -93,19 +93,6 @@ class ParametersDialog(NXDialog):
         self.root['entry/nxreduce/monitor'] = self.monitor
         self.root['entry/nxreduce/norm'] = self.norm
         self.root['entry/nxreduce/radius'] = self.radius
-#        self.remove_parameters()
-
-    def remove_parameters(self):
-        for entry in self.entries:
-            if 'peaks' in entry:
-                if 'threshold' in entry['peaks'].attrs:
-                    del entry['peaks'].attrs['threshold']
-                if 'first' in entry['peaks'].attrs:
-                    del entry['peaks'].attrs['first']
-                if 'last' in entry['peaks'].attrs:
-                    del entry['peaks'].attrs['last']
-                if 'norm' in entry['peaks'].attrs:
-                    del entry['peaks'].attrs['norm']
 
     @property
     def threshold(self):
