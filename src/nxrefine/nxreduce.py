@@ -1250,7 +1250,7 @@ class NXReduce(QtCore.QObject):
                     target=mask_volume,
                     args=(i, slab, self.pixel_mask, t1, h1, t2, h2, queue))
                 p.start()
-                processes.append((i, p))
+                processes.append(p)
                 i = min(i+50, nframes)
                 if i >= self.last:
                     break
@@ -1258,7 +1258,7 @@ class NXReduce(QtCore.QObject):
                 j, mask_array = queue.get()
                 m, n = min(1, j), min(51, self.last-j+1, mask_array.shape[0])
                 mask[j:j+n] = mask_array[m:m+n]
-            for _, p in processes:
+            for p in processes:
                 p.join()
             queue.close()
 

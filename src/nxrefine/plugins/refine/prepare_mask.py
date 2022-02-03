@@ -111,7 +111,7 @@ class PrepareDialog(NXDialog):
             else:
                 return
         self.start_thread()
-        self.reduce = NXReduce(self.entry, prepare=True, 
+        self.reduce = NXReduce(self.entry, prepare=True,
                                first=self.first, last=self.last,
                                overwrite=True, gui=True)
         self.reduce.mask_parameters['threshold_1'] = self.threshold1
