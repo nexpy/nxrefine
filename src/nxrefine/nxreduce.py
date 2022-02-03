@@ -1237,7 +1237,6 @@ class NXReduce(QtCore.QObject):
         while i < self.last:
             if self.stopped:
                 return None
-            self.update_progress(i)
             processes = []
             queue = mp.Queue()
             for _ in range(self.process_count):
