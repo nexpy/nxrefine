@@ -48,7 +48,8 @@ class NXSettings(ConfigParser):
         else:
             raise NeXusError(
                 "Please define settings directory - type 'nxsettings -h'")
-        server_directory = os.path.join(server_directory, 'nxserver')
+        if os.path.basename(server_directory) != 'nxserver':
+            server_directory = os.path.join(server_directory, 'nxserver')
         if not os.path.exists(server_directory):
             os.mkdir(server_directory)
         return server_directory
