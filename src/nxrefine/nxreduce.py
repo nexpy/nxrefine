@@ -437,17 +437,23 @@ class NXReduce(QtCore.QObject):
             if 'nxreduce' not in self.root['entry']:
                 self.root['entry/nxreduce'] = NXparameters()
             if threshold is not None:
-                self.root['entry/nxreduce/threshold'] = threshold
+                self.threshold = threshold
+                self.root['entry/nxreduce/threshold'] = self.threshold
             if first is not None:
-                self.root['entry/nxreduce/first_frame'] = first
+                self.first = first
+                self.root['entry/nxreduce/first_frame'] = self.first
             if last is not None:
-                self.root['entry/nxreduce/last_frame'] = last
+                self.last = last
+                self.root['entry/nxreduce/last_frame'] = self.last
             if monitor is not None:
-                self.root['entry/nxreduce/monitor'] = monitor
+                self.monitor = monitor
+                self.root['entry/nxreduce/monitor'] = self.monitor
             if norm is not None:
-                self.root['entry/nxreduce/norm'] = norm
+                self.norm = norm
+                self.root['entry/nxreduce/norm'] = self.norm
             if radius is not None:
-                self.root['entry/nxreduce/radius'] = radius
+                self.radius = radius
+                self.root['entry/nxreduce/radius'] = self.radius
 
     def clear_parameters(self, parameters):
         """Remove legacy records of parameters."""
