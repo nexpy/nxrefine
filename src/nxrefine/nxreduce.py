@@ -161,6 +161,7 @@ class NXReduce(QtCore.QObject):
             else:
                 self.entry_name = entry
             self._root = None
+        self.name = f"{self.sample}_{self.scan}/{self.entry_name}"
         self.base_directory = os.path.dirname(self.wrapper_file)
         self.parent_file = os.path.join(self.base_directory,
                                         self.sample+'_parent.nxs')
@@ -233,7 +234,7 @@ class NXReduce(QtCore.QObject):
     stop = QtCore.Signal()
 
     def __repr__(self):
-        return f"NXReduce('{self.sample}_{self.scan}/{self.entry_name}')"
+        return f"NXReduce('{self.name}')"
 
     @property
     def task_directory(self):
