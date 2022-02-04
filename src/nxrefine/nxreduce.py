@@ -1495,7 +1495,7 @@ class NXReduce(QtCore.QObject):
 class NXMultiReduce(NXReduce):
 
     def __init__(self, directory, entries=None,
-                 combine=False, pdf=False, mask=False, laue='-1', radius=None,
+                 combine=False, pdf=False, mask=False, laue=None,
                  overwrite=False):
         if isinstance(directory, NXroot):
             entry = directory['entry']
