@@ -1004,7 +1004,7 @@ class NXReduce(QtCore.QObject):
                 m, n = i - min(5, i), min(i+55, self.last+5, nframes)
                 slab = self.field[m:n].nxvalue
                 p = mp.Process(target=peak_search,
-                               args=(i, slab, self.threshold, queue))
+                               args=(m, slab, self.threshold, queue))
                 p.start()
                 processes.append(p)
                 i = min(i+50, nframes)
