@@ -34,7 +34,7 @@ class SettingsDialog(NXDialog):
             default_directory = ""
         self.set_layout(
             self.directorybox('Choose Settings Directory',
-                              default=default_directory),
+                              suggestion=default_directory),
             self.close_layout(save=True))
         if self.settings:
             self.define_parameters()
