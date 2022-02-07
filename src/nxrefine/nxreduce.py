@@ -998,7 +998,7 @@ class NXReduce(QtCore.QObject):
             if self.stopped:
                 return None
             processes = []
-            queue = mp.Queue()
+            queue = mp.JoinableQueue()
             for _ in range(self.process_count):
                 self.update_progress(i)
                 m, n = i - min(5, i), min(i+55, self.last+5, nframes)
@@ -1012,9 +1012,12 @@ class NXReduce(QtCore.QObject):
                     break
             for p in processes:
                 j, blobs = queue.get()
+                queue.task_done()
                 self.blobs += [b for b in blobs if b.z >= j and b.z < j+50]
             for p in processes:
+                p.terminate()
                 p.join()
+            queue.close()
 
         peaks = sorted([b for b in self.blobs
                         if b.is_valid(self.pixel_mask, self.min_pixels)],
@@ -1250,7 +1253,7 @@ class NXReduce(QtCore.QObject):
             if self.stopped:
                 return None
             processes = []
-            queue = mp.Queue()
+            queue = mp.JoinableQueue()
             for _ in range(self.process_count):
                 if self.stopped:
                     return None
@@ -1267,9 +1270,11 @@ class NXReduce(QtCore.QObject):
                     break
             for p in processes:
                 j, mask_array = queue.get()
+                queue.task_done()
                 m, n = min(1, j), min(51, self.last-j+1, mask_array.shape[0])
                 mask[j:j+n] = mask_array[m:m+n]
             for p in processes:
+                p.terminate()
                 p.join()
             queue.close()
 
@@ -1851,7 +1856,7 @@ class NXMultiReduce(NXReduce):
                 kslice = slice(ik-mk, ik+mk+1)
                 hslice = slice(ih-mh, ih+mh+1)
                 punch_data[(lslice, kslice, hslice)] = mask
-            except Exception as error:
+            except Exception:
                 pass
         punch_data = self.symmetrize(punch_data)
         changed_idx = np.where(punch_data > 0)
@@ -1895,8 +1900,6 @@ class NXMultiReduce(NXReduce):
         from julia import Main
         LaplaceInterpolation = Main.LaplaceInterpolation
 
-        m = 1
-        epsilon = 0
         tic = timeit.default_timer()
         symm_group = self.entry[self.symm_transform]
         Qh, Qk, Ql = (symm_group['Qh'], symm_group['Qk'], symm_group['Ql'])
