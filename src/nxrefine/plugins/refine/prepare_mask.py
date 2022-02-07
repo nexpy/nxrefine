@@ -7,10 +7,10 @@
 # -----------------------------------------------------------------------------
 
 from nexpy.gui.datadialogs import GridParameters, NXDialog
-from nexpy.gui.pyqt import QtCore
+from nexpy.gui.plotview import NXPlotView
 from nexpy.gui.utils import is_file_locked, report_error
-from nexpy.gui.widgets import NXLabel, NXPushButton
-from nexusformat.nexus import NeXusError, NXLock
+from nexpy.gui.widgets import NXPushButton
+from nexusformat.nexus import NeXusError, NXdata, NXLock
 from nxrefine.nxreduce import NXReduce
 from nxrefine.nxsettings import NXSettings
 
@@ -40,18 +40,17 @@ class PrepareDialog(NXDialog):
         self.parameters.add('horizontal2', '51', 'Horizontal Size 2')
         self.parameters.grid()
         self.prepare_button = NXPushButton('Prepare Mask', self.prepare_mask)
-        self.mask_status = NXLabel()
-        self.mask_status.setVisible(False)
+        self.plot_button = NXPushButton('Plot Mask', self.plot_mask)
         self.prepare_layout = self.make_layout(self.prepare_button,
-                                               self.mask_status,
+                                               self.plot_button,
                                                align='center')
+        self.plot_button.setVisible(False)
         self.set_layout(self.entry_layout,
-                        self.progress_layout(save=True))
-        self.progress_bar.setVisible(False)
-        self.progress_bar.setValue(0)
+                        self.close_layout(save=True, progress=True))
         self.set_title('Prepare 3D Mask')
         self.reduce = None
         self.mask = None
+        self.plotview = None
 
     def choose_entry(self):
         if self.layout.count() == 2:
@@ -66,7 +65,7 @@ class PrepareDialog(NXDialog):
         try:
             return int(self.parameters['first'].value)
         except Exception as error:
-            report_error("Preparing Mask", str(error))
+            report_error("Preparing Mask", error)
 
     @property
     def last(self):
@@ -125,12 +124,18 @@ class PrepareDialog(NXDialog):
         self.reduce.result.connect(self.get_mask)
         self.reduce.stop.connect(self.stop)
         self.thread.started.connect(self.reduce.nxprepare)
-        self.thread.start(QtCore.QThread.LowestPriority)
+        self.thread.start()
 
     def get_mask(self, mask):
         self.mask = mask
-        self.mask_status.setText("Mask complete")
-        self.mask_status.setVisible(True)
+        self.status_message.setText("Mask complete")
+        self.status_message.setVisible(True)
+        self.plot_button.setVisible(True)
+
+    def plot_mask(self):
+        self.plotview = NXPlotView('3D Mask')
+        self.plotview.plot(NXdata(self.mask, self.reduce.data.nxaxes,
+                                  title=f"3D Mask: {self.reduce.name}"))
 
     def stop(self):
         self.stop_progress()
@@ -139,17 +144,18 @@ class PrepareDialog(NXDialog):
         self.stop_thread()
 
     def accept(self):
-        if self.mask is None:
-            report_error("Preparing Mask", "No mask has been created")
-            return
         try:
+            if self.mask is None:
+                raise NeXusError("No mask has been created")
+            elif self.entry.nxfilemode == 'r':
+                raise NeXusError("NeXus file opened as readonly")
             self.reduce.write_mask(self.mask)
-            self.record('nxprepare', masked_file=self.mask_file,
-                        threshold1=self.threshold1,
-                        horizontal1=self.horizontal1,
-                        threshold2=self.threshold2,
-                        horizontal2=self.horizontal2,
-                        process='nxprepare_mask')
+            self.reduce.record('nxprepare', masked_file=self.reduce.mask_file,
+                               threshold1=self.threshold1,
+                               horizontal1=self.horizontal1,
+                               threshold2=self.threshold2,
+                               horizontal2=self.horizontal2,
+                               process='nxprepare_mask')
             self.record_end('nxprepare')
             super().accept()
         except Exception as error:

@@ -43,16 +43,12 @@ class FindDialog(NXDialog):
                             'Minimum Pixels in Peak')
         self.parameters.grid()
         self.find_button = NXPushButton('Find Peaks', self.find_peaks)
-        self.peak_count = NXLabel()
-        self.peak_count.setVisible(False)
         self.find_layout = self.make_layout(
             self.action_buttons(('Find Peaks', self.find_peaks),
                                 ('List Peaks', self.list_peaks)),
-            self.peak_count, align='center')
+            align='center')
         self.set_layout(self.entry_layout,
-                        self.progress_layout(save=True))
-        self.progress_bar.setVisible(False)
-        self.progress_bar.setValue(0)
+                        self.close_layout(save=True, progress=True))
         self.set_title('Find Peaks')
         self.reduce = None
         self.refine = None
@@ -122,12 +118,12 @@ class FindDialog(NXDialog):
         self.reduce.result.connect(self.get_peaks)
         self.reduce.stop.connect(self.stop)
         self.thread.started.connect(self.reduce.nxfind)
-        self.thread.start(QtCore.QThread.LowestPriority)
+        self.thread.start()
 
     def get_peaks(self, peaks):
         self.peaks = peaks
-        self.peak_count.setText(f'{len(self.peaks)} peaks found')
-        self.peak_count.setVisible(True)
+        self.status_message.setText(f'{len(self.peaks)} peaks found')
+        self.status_message.setVisible(True)
         self.refine.xp = np.array([peak.x for peak in peaks])
         self.refine.yp = np.array([peak.y for peak in peaks])
         self.refine.zp = np.array([peak.z for peak in peaks])
