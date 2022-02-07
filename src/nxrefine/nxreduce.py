@@ -1232,7 +1232,12 @@ class NXReduce(QtCore.QObject):
                 self.logger.info('Mask already completed')
                 return
 
-        mask = NXfield(shape=self.shape, dtype=np.int8, fillvalue=0)
+        import tempfile
+        mask_file = nxload(tempfile.mkstemp(suffix='.nxs')[1], mode='w',
+                           libver='latest')
+        mask_file['entry'] = NXentry()
+        mask = mask_file['entry/mask'] = NXfield(shape=self.shape,
+                                                 dtype=np.int8, fillvalue=0)
 
         tic = self.start_progress(self.first, self.last)
         t1 = self.mask_parameters['threshold_1']
@@ -1268,6 +1273,10 @@ class NXReduce(QtCore.QObject):
                 p.join()
             queue.close()
 
+        frame_mask = np.ones(shape=self.shape[1:], dtype=np.int8)
+        mask[:self.first] = frame_mask
+        mask[self.last+1:] = frame_mask
+
         toc = self.stop_progress()
 
         self.logger.info(f"3D Mask prepared in ({toc-tic:g} seconds)")
@@ -1276,18 +1285,17 @@ class NXReduce(QtCore.QObject):
 
     def write_mask(self, mask):
         """Write mask to file."""
-        with self.mask_root.nxfile:
-            if 'mask' in self.mask_root['entry']:
-                del self.mask_root['entry/mask']
-            self.mask_root['entry/mask'] = mask
-
-        with self.root.nxfile:
-            if 'data_mask' in self.data:
-                del self.data['data_mask']
+        if ('data_mask' in self.data
+                and self.data['data_mask'].nxfilename != self.mask_file):
+            del self.data['data_mask']
+        if 'data_mask' not in self.data:
             self.data['data_mask'] = NXlink('entry/mask', self.mask_file)
+        shutil.move(mask.nxfilename, self.mask_file)
+
         self.logger.info(f"3D Mask written to '{self.mask_file}'")
 
     def nxmasked_transform(self):
+        """Transform the data with a 3D mask"""
         if (self.not_complete('nxmasked_transform') and
                 self.transform and self.mask):
             self.record_start('nxmasked_transform')
