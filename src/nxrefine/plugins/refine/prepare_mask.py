@@ -73,35 +73,35 @@ class PrepareDialog(NXDialog):
         try:
             return int(self.parameters['last'].value)
         except Exception as error:
-            report_error("Preparing Mask", str(error))
+            report_error("Preparing Mask", error)
 
     @property
     def threshold1(self):
         try:
             return float(self.parameters['threshold1'].value)
         except Exception as error:
-            report_error("Preparing Mask", str(error))
+            report_error("Preparing Mask", error)
 
     @property
     def horizontal1(self):
         try:
             return int(self.parameters['horizontal1'].value)
         except Exception as error:
-            report_error("Preparing Mask", str(error))
+            report_error("Preparing Mask", error)
 
     @property
     def threshold2(self):
         try:
             return float(self.parameters['threshold2'].value)
         except Exception as error:
-            report_error("Preparing Mask", str(error))
+            report_error("Preparing Mask", error)
 
     @property
     def horizontal2(self):
         try:
             return int(self.parameters['horizontal2'].value)
         except Exception as error:
-            report_error("Preparing Mask", str(error))
+            report_error("Preparing Mask", error)
 
     def prepare_mask(self):
         if is_file_locked(self.reduce.data_file):
@@ -153,7 +153,7 @@ class PrepareDialog(NXDialog):
             self.record_end('nxprepare')
             super().accept()
         except Exception as error:
-            report_error("Preparing Mask", str(error))
+            report_error("Preparing Mask", error)
 
     def reject(self):
         self.stop()

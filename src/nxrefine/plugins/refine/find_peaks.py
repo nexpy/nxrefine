@@ -81,28 +81,28 @@ class FindDialog(NXDialog):
         try:
             return int(self.parameters['threshold'].value)
         except Exception as error:
-            report_error("Finding Peaks", str(error))
+            report_error("Finding Peaks", error)
 
     @property
     def first(self):
         try:
             return int(self.parameters['first'].value)
         except Exception as error:
-            report_error("Finding Peaks", str(error))
+            report_error("Finding Peaks", error)
 
     @property
     def last(self):
         try:
             return int(self.parameters['last'].value)
         except Exception as error:
-            report_error("Finding Peaks", str(error))
+            report_error("Finding Peaks", error)
 
     @property
     def min_pixels(self):
         try:
             return int(self.parameters['min_pixels'].value)
         except Exception as error:
-            report_error("Finding Peaks", str(error))
+            report_error("Finding Peaks", error)
 
     def find_peaks(self):
         if is_file_locked(self.reduce.data_file):
@@ -222,7 +222,7 @@ class FindDialog(NXDialog):
             self.reduce.record_end('nxfind')
             super().accept()
         except Exception as error:
-            report_error("Finding Peaks", str(error))
+            report_error("Finding Peaks", error)
 
     def reject(self):
         self.stop()

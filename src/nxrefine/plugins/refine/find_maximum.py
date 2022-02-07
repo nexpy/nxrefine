@@ -116,7 +116,7 @@ class MaximumDialog(NXDialog):
             self.stop()
             super().accept()
         except Exception as error:
-            report_error("Finding Maximum", str(error))
+            report_error("Finding Maximum", error)
 
     def reject(self):
         self.stop()
