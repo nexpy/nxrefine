@@ -1295,6 +1295,9 @@ class NXReduce(QtCore.QObject):
             del self.data['data_mask']
         if 'data_mask' not in self.data:
             self.data['data_mask'] = NXlink('entry/mask', self.mask_file)
+
+        if os.path.exists(self.mask_file):
+            os.remove(self.mask_file)
         shutil.move(mask.nxfilename, self.mask_file)
 
         self.logger.info(f"3D Mask written to '{self.mask_file}'")
