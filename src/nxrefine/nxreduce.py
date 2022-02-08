@@ -179,7 +179,6 @@ class NXReduce(QtCore.QObject):
         self._field_root = None
         self._field = None
         self._shape = None
-        self._mask_root = None
         self._pixel_mask = None
         self._parent_root = None
         self._parent = parent
@@ -354,14 +353,6 @@ class NXReduce(QtCore.QObject):
 
     def data_exists(self):
         return is_hdf5(self.data_file)
-
-    @property
-    def mask_root(self):
-        if self._mask_root is None:
-            self._mask_root = nxload(self.mask_file, 'a')
-            if 'entry' not in self.mask_root:
-                self.mask_root['entry'] = NXentry()
-        return self._mask_root
 
     @property
     def pixel_mask(self):
@@ -1002,7 +993,8 @@ class NXReduce(QtCore.QObject):
             for _ in range(self.process_count):
                 self.update_progress(i)
                 m, n = i - min(5, i), min(i+55, self.last+5, nframes)
-                slab = self.field[m:n].nxvalue
+                with self.field.nxfile:
+                    slab = self.field[m:n].nxvalue
                 p = mp.Process(target=peak_search,
                                args=(m, slab, self.threshold, queue))
                 p.start()
@@ -1230,11 +1222,6 @@ class NXReduce(QtCore.QObject):
 
     def prepare_mask(self):
         """Prepare 3D mask"""
-        with self.mask_root.nxfile:
-            if 'mask' in self.mask_root['entry'] and not self.overwrite:
-                self.logger.info('Mask already completed')
-                return
-
         import tempfile
         mask_file = nxload(tempfile.mkstemp(suffix='.nxs')[1], mode='w',
                            libver='latest')
@@ -1259,7 +1246,8 @@ class NXReduce(QtCore.QObject):
                     return None
                 self.update_progress(i)
                 m, n = i - min(1, i), min(i+51, self.last+1, nframes)
-                slab = self.field[m:n].nxvalue
+                with self.field.nxfile:
+                    slab = self.field[m:n].nxvalue
                 p = mp.Process(
                     target=mask_volume,
                     args=(i, slab, self.pixel_mask, t1, h1, t2, h2, queue))
@@ -1272,15 +1260,17 @@ class NXReduce(QtCore.QObject):
                 j, mask_array = queue.get()
                 queue.task_done()
                 m, n = min(1, j), min(51, self.last-j+1, mask_array.shape[0])
-                mask[j:j+n] = mask_array[m:m+n]
+                with mask_file.nxfile:
+                    mask[j:j+n] = mask_array[m:m+n]
             for p in processes:
                 p.terminate()
                 p.join()
             queue.close()
 
         frame_mask = np.ones(shape=self.shape[1:], dtype=np.int8)
-        mask[:self.first] = frame_mask
-        mask[self.last+1:] = frame_mask
+        with mask_file.nxfile:
+            mask[:self.first] = frame_mask
+            mask[self.last+1:] = frame_mask
 
         toc = self.stop_progress()
 
@@ -1298,6 +1288,7 @@ class NXReduce(QtCore.QObject):
 
         if os.path.exists(self.mask_file):
             os.remove(self.mask_file)
+        mask.close()
         shutil.move(mask.nxfilename, self.mask_file)
 
         self.logger.info(f"3D Mask written to '{self.mask_file}'")
