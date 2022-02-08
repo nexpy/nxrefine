@@ -156,7 +156,7 @@ class PrepareDialog(NXDialog):
                                threshold2=self.threshold2,
                                horizontal2=self.horizontal2,
                                process='nxprepare_mask')
-            self.record_end('nxprepare')
+            self.reduce.record_end('nxprepare')
             super().accept()
         except Exception as error:
             report_error("Preparing Mask", error)
