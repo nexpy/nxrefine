@@ -993,8 +993,7 @@ class NXReduce(QtCore.QObject):
             for _ in range(self.process_count):
                 self.update_progress(i)
                 m, n = i - min(5, i), min(i+55, self.last+5, nframes)
-                with self.field.nxfile:
-                    slab = self.field[m:n].nxvalue
+                slab = self.field[m:n].nxvalue
                 p = mp.Process(target=peak_search,
                                args=(m, slab, self.threshold, queue))
                 p.start()
@@ -1246,8 +1245,7 @@ class NXReduce(QtCore.QObject):
                     return None
                 self.update_progress(i)
                 m, n = i - min(1, i), min(i+51, self.last+1, nframes)
-                with self.field.nxfile:
-                    slab = self.field[m:n].nxvalue
+                slab = self.field[m:n].nxvalue
                 p = mp.Process(
                     target=mask_volume,
                     args=(i, slab, self.pixel_mask, t1, h1, t2, h2, queue))
