@@ -1221,18 +1221,14 @@ class NXReduce(QtCore.QObject):
 
     def prepare_mask(self):
         """Prepare 3D mask"""
-        import tempfile
-        mask_file = nxload(tempfile.mkstemp(suffix='.nxs')[1], mode='w',
-                           libver='latest')
-        mask_file['entry'] = NXentry()
-        mask = mask_file['entry/mask'] = NXfield(shape=self.shape,
-                                                 dtype=np.int8, fillvalue=0)
-
         tic = self.start_progress(self.first, self.last)
         t1 = self.mask_parameters['threshold_1']
         h1 = self.mask_parameters['horizontal_size_1']
         t2 = self.mask_parameters['threshold_2']
         h2 = self.mask_parameters['horizontal_size_2']
+
+        mask = NXfield(shape=self.shape, dtype=np.int8, fillvalue=0)
+
         nframes = self.shape[0]
         i = self.first
         while i < self.last:
@@ -1258,17 +1254,15 @@ class NXReduce(QtCore.QObject):
                 j, mask_array = queue.get()
                 queue.task_done()
                 m, n = min(1, j), min(51, self.last-j+1, mask_array.shape[0])
-                with mask_file.nxfile:
-                    mask[j:j+n] = mask_array[m:m+n]
+                mask[j:j+n] = mask_array[m:m+n]
             for p in processes:
                 p.terminate()
                 p.join()
             queue.close()
 
         frame_mask = np.ones(shape=self.shape[1:], dtype=np.int8)
-        with mask_file.nxfile:
-            mask[:self.first] = frame_mask
-            mask[self.last+1:] = frame_mask
+        mask[:self.first] = frame_mask
+        mask[self.last+1:] = frame_mask
 
         toc = self.stop_progress()
 
@@ -1278,16 +1272,16 @@ class NXReduce(QtCore.QObject):
 
     def write_mask(self, mask):
         """Write mask to file."""
+        mask_root = nxload(self.mask_file, 'w')
+        with mask_root.nxfile:
+            mask_root['entry'] = NXentry()
+            mask_root['entry/mask'] = mask
+
         if ('data_mask' in self.data
                 and self.data['data_mask'].nxfilename != self.mask_file):
             del self.data['data_mask']
         if 'data_mask' not in self.data:
             self.data['data_mask'] = NXlink('entry/mask', self.mask_file)
-
-        if os.path.exists(self.mask_file):
-            os.remove(self.mask_file)
-        mask.close()
-        shutil.move(mask.nxfilename, self.mask_file)
 
         self.logger.info(f"3D Mask written to '{self.mask_file}'")
 
