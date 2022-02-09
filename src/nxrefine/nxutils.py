@@ -2,6 +2,7 @@ import os
 
 import numpy as np
 from ImageD11.labelimage import flip1, labelimage
+from nexusformat.nexus import nxload
 
 
 def peak_search(z, data, threshold, queue=None):
@@ -150,16 +151,25 @@ def local_sum_same(X, K, padding):
     return G
 
 
-def mask_volume(idx, volume, pixel_mask, threshold_1=2, horiz_size_1=11,
-                threshold_2=0.8, horiz_size_2=51, queue=None):
+def mask_volume(data_file, data_path, mask_file, mask_path, i, j, pixel_mask,
+                threshold_1=2, horiz_size_1=11,
+                threshold_2=0.8, horiz_size_2=51):
     """Generate a 3D mask around Bragg peaks.
 
     Parameters
     ----------
-    idx : int
-        Index of z-value of slab
-    volume : array-like
-        3D array containing a slab of the raw data.
+    data_file : str
+        File path to the raw data file
+    data_path : str
+        Internal path to the raw data
+    mask_file : str
+        File path to the mask file
+    mask_path : str
+        Internal path to the mask array
+    i : int
+        Index of first z-value of slab
+    j : int
+        Index of last z-value of slab
     pixel_mask : array-like
         2D detector mask. This has to be the same shape as the last two
         dimensions of the 3D slab. Values of 1 represent masked pixels.
@@ -171,12 +181,11 @@ def mask_volume(idx, volume, pixel_mask, threshold_1=2, horiz_size_1=11,
         Size of larger convolution rectangles, by default 51
     threshold_2 : float, optional
         Threshold for performing the larger convolution, by default 0.8
-
-    Returns
-    -------
-    array-like
-        3D array containing the mask for the slab.
     """
+
+    data_root = nxload(data_file, 'r')
+    with data_root.nxfile:
+        volume = data_root[data_path][i:j].nxvalue
 
     horiz_size_1, horiz_size_2 = int(horiz_size_1), int(horiz_size_2)
     sum1, sum2 = horiz_size_1**2, horiz_size_2**2
@@ -215,11 +224,7 @@ def mask_volume(idx, volume, pixel_mask, threshold_1=2, horiz_size_1=11,
     vol_smoothed /= sum2
     vol_smoothed[vol_smoothed < threshold_2] = 0
     vol_smoothed[vol_smoothed > threshold_2] = 1
-    mask = np.zeros(shape=volume.shape, dtype=np.int8)
-    mask[1:-1] = np.maximum(vol_smoothed[0:-1], vol_smoothed[1:])
-    mask[0] = mask[1]
-    mask[-1] = mask[-2]
-    if queue:
-        queue.put((idx, mask))
-    else:
-        return mask
+    mask_root = nxload(mask_file, 'r+')
+    with mask_root.nxfile:
+        mask_root[mask_path][i+1:j-1] = (
+            np.maximum(vol_smoothed[0:-1], vol_smoothed[1:]))

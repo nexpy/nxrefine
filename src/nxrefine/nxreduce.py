@@ -1227,7 +1227,10 @@ class NXReduce(QtCore.QObject):
         t2 = self.mask_parameters['threshold_2']
         h2 = self.mask_parameters['horizontal_size_2']
 
-        mask = NXfield(shape=self.shape, dtype=np.int8, fillvalue=0)
+        mask_file = nxload(self.mask_file+'.h5', 'w')
+        mask_file['entry'] = NXentry()
+        mask_file['entry/mask'] = (
+            NXfield(shape=self.shape, dtype=np.int8, fillvalue=0))
 
         nframes = self.shape[0]
         i = self.first
@@ -1235,47 +1238,39 @@ class NXReduce(QtCore.QObject):
             if self.stopped:
                 return None
             processes = []
-            queue = mp.JoinableQueue()
             for _ in range(self.process_count):
                 if self.stopped:
                     return None
                 self.update_progress(i)
                 m, n = i - min(1, i), min(i+51, self.last+1, nframes)
-                slab = self.field[m:n].nxvalue
                 p = mp.Process(
                     target=mask_volume,
-                    args=(i, slab, self.pixel_mask, t1, h1, t2, h2, queue))
+                    args=(self.field.nxfilename, self.field.nxfilepath,
+                          mask_file.nxfilename, 'entry/mask', m, n,
+                          self.pixel_mask, t1, h1, t2, h2))
                 p.start()
                 processes.append(p)
                 i = min(i+50, nframes)
                 if i >= self.last:
                     break
             for p in processes:
-                j, mask_array = queue.get()
-                queue.task_done()
-                m, n = min(1, j), min(51, self.last-j+1, mask_array.shape[0])
-                mask[j:j+n] = mask_array[m:m+n]
-            for p in processes:
-                p.terminate()
                 p.join()
-            queue.close()
 
         frame_mask = np.ones(shape=self.shape[1:], dtype=np.int8)
-        mask[:self.first] = frame_mask
-        mask[self.last+1:] = frame_mask
+        mask_file['entry/mask'][:self.first] = frame_mask
+        mask_file['entry/mask'][self.last+1:] = frame_mask
 
         toc = self.stop_progress()
 
         self.logger.info(f"3D Mask prepared in ({toc-tic:g} seconds)")
 
-        return mask
+        return mask_file['entry/mask']
 
     def write_mask(self, mask):
         """Write mask to file."""
-        mask_root = nxload(self.mask_file, 'w')
-        with mask_root.nxfile:
-            mask_root['entry'] = NXentry()
-            mask_root['entry/mask'] = mask
+        if os.path.exists(self.mask_file):
+            os.remove(self.mask_file)
+        shutil.move(mask.nxfilename, self.mask_file)
 
         if ('data_mask' in self.data
                 and self.data['data_mask'].nxfilename != self.mask_file):
