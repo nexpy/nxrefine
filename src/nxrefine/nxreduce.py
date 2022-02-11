@@ -809,21 +809,19 @@ class NXReduce(QtCore.QObject):
             self.logger.info('Parameters already copied')
 
     def copy_parameters(self):
-        with self.parent_root.nxfile:
-            parent = self.parent_root
-            parent_refine = NXRefine(parent[self.entry_name])
-            parent_reduce = NXReduce(parent[self.entry_name])
-            with self.root.nxfile:
-                refine = NXRefine(self.entry)
-                parent_refine.copy_parameters(refine, sample=True,
-                                              instrument=True)
-                self.write_parameters(
-                    threshold=parent_reduce.threshold,
-                    first=parent_reduce.first, last=parent_reduce.last,
-                    monitor=parent_reduce.monitor, norm=parent_reduce.norm,
-                    radius=parent_reduce.radius)
+        parent = self.parent_root
+        parent_refine = NXRefine(parent[self.entry_name])
+        parent_reduce = NXReduce(parent[self.entry_name])
+        refine = NXRefine(self.entry)
+        parent_refine.copy_parameters(refine, sample=True, instrument=True)
+        self.write_parameters(threshold=parent_reduce.threshold,
+                              first=parent_reduce.first,
+                              last=parent_reduce.last,
+                              monitor=parent_reduce.monitor, 
+                              norm=parent_reduce.norm,
+                              radius=parent_reduce.radius)
         self.logger.info(
-            "Parameters copied from "
+            f"Parameters for {self.name} copied from "
             f"'{os.path.basename(os.path.realpath(self.parent))}'")
 
     def nxmax(self):
