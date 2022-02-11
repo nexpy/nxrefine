@@ -1006,8 +1006,8 @@ class NXReduce(QtCore.QObject):
                     break
             for j, p in enumerate(processes):
                 z, blobs = queues[j].get()
-                self.blobs += [b for b in blobs if b.z >= z and b.z < z+50]
-            for j, p in enumerate(processes):
+                self.blobs += [b for b in blobs if b.z >= z
+                               and b.z < min(z+50, self.last)]
                 p.terminate()
                 p.join()
                 queues[j].close()
@@ -1260,7 +1260,6 @@ class NXReduce(QtCore.QObject):
                     break
             for j, p in enumerate(processes):
                 k = queues[j].get()
-            for j, p in enumerate(processes):
                 p.terminate()
                 p.join()
                 queues[j].close()
