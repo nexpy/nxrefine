@@ -8,13 +8,13 @@
 
 import logging
 import logging.handlers
-import multiprocessing as mp
 import operator
 import os
 import platform
 import shutil
 import subprocess
 import timeit
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime
 
 import h5py as h5
@@ -225,7 +225,7 @@ class NXReduce(QtCore.QObject):
         self._db = None
         self._logger = None
 
-        nxsetlock(1800)
+        nxsetlock(600)
 
     start = QtCore.Signal(object)
     update = QtCore.Signal(object)
@@ -591,11 +591,13 @@ class NXReduce(QtCore.QObject):
     @property
     def process_count(self):
         if self._process_count is None:
-            pc = mp.cpu_count()
-            if pc >= 8:
-                self._process_count = int(pc / 2)
+            pc = os.cpu_count()
+            if pc <= 12:
+                self._process_count = pc - 2
+            elif pc <= 24:
+                self._process_count = pc - 4
             else:
-                self._process_count = max(pc-2, 1)
+                self._process_count = pc - 20
         return self._process_count
 
     @stopped.setter
@@ -817,7 +819,7 @@ class NXReduce(QtCore.QObject):
         self.write_parameters(threshold=parent_reduce.threshold,
                               first=parent_reduce.first,
                               last=parent_reduce.last,
-                              monitor=parent_reduce.monitor, 
+                              monitor=parent_reduce.monitor,
                               norm=parent_reduce.norm,
                               radius=parent_reduce.radius)
         self.logger.info(
@@ -977,42 +979,30 @@ class NXReduce(QtCore.QObject):
             self.logger.info('Peaks already found')
 
     def find_peaks(self):
+        import debugpy
+        debugpy.debug_this_thread()
         self.logger.info("Finding peaks")
 
         tic = self.start_progress(self.first, self.last)
         self.blobs = []
         nframes = self.shape[0]
-        i = self.first
-        while i < self.last:
-            if self.stopped:
-                return None
-            processes = []
-            queues = []
-            for _ in range(self.process_count):
-                self.update_progress(i)
+        with ProcessPoolExecutor(max_workers=self.process_count) as executor:
+            futures = []
+            for i in range(self.first, self.last+1, 50):
                 j, k = i - min(5, i), min(i+55, self.last+5, nframes)
-                q = mp.Queue()
-                p = mp.Process(
-                    target=peak_search,
-                    args=(self.field.nxfilename, self.field.nxfilepath,
-                          i, j, k, self.threshold, q))
-                p.start()
-                processes.append(p)
-                queues.append(q)
-                i = min(i+50, nframes)
-                if i >= self.last:
-                    break
-            for j, p in enumerate(processes):
-                z, blobs = queues[j].get()
+                futures.append(executor.submit(
+                    peak_search, self.field.nxfilename, self.field.nxfilepath,
+                    i, j, k, self.threshold))
+            for future in as_completed(futures):
+                z, blobs = future.result()
                 self.blobs += [b for b in blobs if b.z >= z
-                               and b.z < min(z+50, self.last)]
-                p.terminate()
-                p.join()
-                queues[j].close()
+                               and b.z < min(z+50, self.last)
+                               and b.is_valid(self.pixel_mask, self.min_pixels)
+                               ]
+                self.update_progress(z)
+                futures.remove(future)
 
-        peaks = sorted([b for b in self.blobs
-                        if b.is_valid(self.pixel_mask, self.min_pixels)],
-                       key=operator.attrgetter('z'))
+        peaks = sorted([b for b in self.blobs], key=operator.attrgetter('z'))
 
         toc = self.stop_progress()
         self.logger.info(f'{len(peaks)} peaks found ({toc - tic:g} seconds)')
@@ -1221,6 +1211,8 @@ class NXReduce(QtCore.QObject):
 
     def prepare_mask(self):
         """Prepare 3D mask"""
+        import debugpy
+        debugpy.debug_this_thread()
         tic = self.start_progress(self.first, self.last)
         t1 = self.mask_parameters['threshold_1']
         h1 = self.mask_parameters['horizontal_size_1']
@@ -1233,34 +1225,18 @@ class NXReduce(QtCore.QObject):
             NXfield(shape=self.shape, dtype=np.int8, fillvalue=0))
 
         nframes = self.shape[0]
-        i = self.first
-        while i < self.last:
-            if self.stopped:
-                return None
-            processes = []
-            queues = []
-            for _ in range(self.process_count):
-                if self.stopped:
-                    return None
-                self.update_progress(i)
+        with ProcessPoolExecutor(max_workers=self.process_count) as executor:
+            futures = []
+            for i in range(self.first, self.last+1, 50):
                 j, k = i - min(1, i), min(i+51, self.last+1, nframes)
-                q = mp.Queue()
-                p = mp.Process(
-                    target=mask_volume,
-                    args=(self.field.nxfilename, self.field.nxfilepath,
-                          mask_root.nxfilename, 'entry/mask', i, j, k,
-                          self.pixel_mask, t1, h1, t2, h2, q))
-                p.start()
-                processes.append(p)
-                queues.append(q)
-                i = min(i+50, nframes)
-                if i >= self.last:
-                    break
-            for j, p in enumerate(processes):
-                k = queues[j].get()
-                p.terminate()
-                p.join()
-                queues[j].close()
+                futures.append(executor.submit(
+                    mask_volume, self.field.nxfilename, self.field.nxfilepath,
+                    mask_root.nxfilename, 'entry/mask', i, j, k,
+                    self.pixel_mask, t1, h1, t2, h2))
+            for future in as_completed(futures):
+                k = future.result()
+                self.update_progress(k)
+                futures.remove(future)
 
         frame_mask = np.ones(shape=self.shape[1:], dtype=np.int8)
         with mask_root.nxfile:

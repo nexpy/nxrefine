@@ -5,7 +5,7 @@ from ImageD11.labelimage import flip1, labelimage
 from nexusformat.nexus import nxload, nxsetlock
 
 
-def peak_search(data_file, data_path, i, j, k, threshold, queue=None):
+def peak_search(data_file, data_path, i, j, k, threshold):
     """Identify peaks in the slab of raw data
 
     Parameters
@@ -22,8 +22,6 @@ def peak_search(data_file, data_path, i, j, k, threshold, queue=None):
         Index of last z-value of processed slab
     threshold : float
         Peak threshold
-    queue : Queue, optional
-        Queue used in multiprocessing, by default None
 
     Returns
     -------
@@ -54,10 +52,7 @@ def peak_search(data_file, data_path, i, j, k, threshold, queue=None):
     lio.finalise()
     for blob in saved_blobs:
         blob.z += j
-    if queue:
-        queue.put((i, saved_blobs))
-    else:
-        return saved_blobs
+    return i, saved_blobs
 
 
 class NXBlob(object):
@@ -181,7 +176,7 @@ def local_sum_same(X, K, padding):
 
 def mask_volume(data_file, data_path, mask_file, mask_path, i, j, k,
                 pixel_mask, threshold_1=2, horiz_size_1=11,
-                threshold_2=0.8, horiz_size_2=51, queue=None):
+                threshold_2=0.8, horiz_size_2=51):
     """Generate a 3D mask around Bragg peaks.
 
     Parameters
@@ -261,5 +256,4 @@ def mask_volume(data_file, data_path, mask_file, mask_path, i, j, k,
     with mask_root.nxfile:
         mask_root[mask_path][j+1:k-1] = (
             np.maximum(vol_smoothed[0:-1], vol_smoothed[1:]))
-    if queue:
-        queue.put(i)
+    return i
