@@ -1245,7 +1245,7 @@ class NXReduce(QtCore.QObject):
 
         toc = self.stop_progress()
 
-        self.logger.info(f"3D Mask prepared in ({toc-tic:g} seconds)")
+        self.logger.info(f"3D Mask prepared in {toc-tic:g} seconds")
 
         return mask_root['entry/mask']
 
