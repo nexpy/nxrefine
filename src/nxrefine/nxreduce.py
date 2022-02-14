@@ -979,8 +979,6 @@ class NXReduce(QtCore.QObject):
             self.logger.info('Peaks already found')
 
     def find_peaks(self):
-        import debugpy
-        debugpy.debug_this_thread()
         self.logger.info("Finding peaks")
 
         tic = self.start_progress(self.first, self.last)
@@ -1211,8 +1209,6 @@ class NXReduce(QtCore.QObject):
 
     def prepare_mask(self):
         """Prepare 3D mask"""
-        import debugpy
-        debugpy.debug_this_thread()
         tic = self.start_progress(self.first, self.last)
         t1 = self.mask_parameters['threshold_1']
         h1 = self.mask_parameters['horizontal_size_1']
