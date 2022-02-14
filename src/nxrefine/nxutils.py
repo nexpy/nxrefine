@@ -212,8 +212,7 @@ def mask_volume(data_file, data_path, mask_file, mask_path, i, j, k,
 
     nxsetlock(600)
     data_root = nxload(data_file, 'r')
-    with data_root.nxfile:
-        volume = data_root[data_path][j:k].nxvalue
+    volume = data_root[data_path][j:k].nxvalue
 
     horiz_size_1, horiz_size_2 = int(horiz_size_1), int(horiz_size_2)
     sum1, sum2 = horiz_size_1**2, horiz_size_2**2
@@ -253,7 +252,6 @@ def mask_volume(data_file, data_path, mask_file, mask_path, i, j, k,
     vol_smoothed[vol_smoothed < threshold_2] = 0
     vol_smoothed[vol_smoothed > threshold_2] = 1
     mask_root = nxload(mask_file, 'rw')
-    with mask_root.nxfile:
-        mask_root[mask_path][j+1:k-1] = (
-            np.maximum(vol_smoothed[0:-1], vol_smoothed[1:]))
+    mask_root[mask_path][j+1:k-1] = (
+        np.maximum(vol_smoothed[0:-1], vol_smoothed[1:]))
     return i
