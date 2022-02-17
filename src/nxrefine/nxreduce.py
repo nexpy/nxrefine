@@ -597,7 +597,7 @@ class NXReduce(QtCore.QObject):
             elif pc <= 24:
                 self._process_count = pc - 4
             else:
-                self._process_count = pc - 20
+                self._process_count = int(float(pc)/4)
         return self._process_count
 
     @stopped.setter
@@ -1196,6 +1196,7 @@ class NXReduce(QtCore.QObject):
                 self.write_mask(mask)
                 self.record(
                     'nxprepare', masked_file=self.mask_file,
+                    first=self.first, last=self.last,
                     threshold1=self.mask_parameters['threshold_1'],
                     horizontal1=self.mask_parameters['horizontal_size_1'],
                     threshold2=self.mask_parameters['threshold_2'],
@@ -1223,8 +1224,8 @@ class NXReduce(QtCore.QObject):
         nframes = self.shape[0]
         with ProcessPoolExecutor(max_workers=self.process_count) as executor:
             futures = []
-            for i in range(self.first, self.last+1, 50):
-                j, k = i - min(1, i), min(i+51, self.last+1, nframes)
+            for i in range(self.first, self.last+1, 10):
+                j, k = i - min(1, i), min(i+11, self.last+1, nframes)
                 futures.append(executor.submit(
                     mask_volume, self.field.nxfilename, self.field.nxfilepath,
                     mask_root.nxfilename, 'entry/mask', i, j, k,
