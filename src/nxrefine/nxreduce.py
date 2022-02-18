@@ -412,13 +412,12 @@ class NXReduce(QtCore.QObject):
         parameter = self.default[name]
         if field_name is None:
             field_name = name
-        if ('nxreduce' in self.root['entry']
-                and field_name in self.root['entry/nxreduce']):
+        if (self.parent and 'nxreduce' in self.parent_root['entry']
+                and field_name in self.parent_root['entry/nxreduce']):
+            parameter = self.parent_root['entry/nxreduce'][field_name]
+        elif ('nxreduce' in self.root['entry']
+              and field_name in self.root['entry/nxreduce']):
             parameter = self.root['entry/nxreduce'][field_name]
-        elif self.parent:
-            if ('nxreduce' in self.parent_root['entry']
-                    and field_name in self.parent_root['entry/nxreduce']):
-                parameter = self.parent_root['entry/nxreduce'][field_name]
         return parameter
 
     def write_parameters(self, threshold=None, first=None, last=None,
