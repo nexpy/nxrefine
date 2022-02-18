@@ -646,7 +646,7 @@ class WorkflowDialog(NXDialog):
                 process.stdout.decode().split('\n')) if line]
             lines = [line[line.index('nx'):]
                      for line in lines if 'grep' not in line]
-            self.output_box.setPlainText('\n'.join(lines))
+            self.output_box.setPlainText('\n'.join(set(lines)))
         else:
             self.output_box.setPlainText(process.stderr.decode())
 
