@@ -104,11 +104,7 @@ class PrepareDialog(NXDialog):
 
     def prepare_mask(self):
         if is_file_locked(self.reduce.data_file):
-            if self.confirm_action('Clear lock?',
-                                   f'{self.reduce.data_file} is locked'):
-                NXLock(self.reduce.data_file).release()
-            else:
-                return
+            return
         self.start_thread()
         self.reduce = NXReduce(self.entry, prepare=True,
                                first=self.first, last=self.last,

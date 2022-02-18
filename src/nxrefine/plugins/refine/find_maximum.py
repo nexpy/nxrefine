@@ -11,7 +11,7 @@ from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.pyqt import QtCore
 from nexpy.gui.utils import is_file_locked, report_error
 from nexpy.gui.widgets import NXLabel
-from nexusformat.nexus import NeXusError, NXLock, NXLockException
+from nexusformat.nexus import NeXusError
 from nxrefine.nxreduce import NXReduce
 
 
