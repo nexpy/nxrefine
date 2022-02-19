@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -----------------------------------------------------------------------------
-# Copyright (c) 2013-2021, NeXpy Development Team.
+# Copyright (c) 2013-2022, NeXpy Development Team.
 #
 # Distributed under the terms of the Modified BSD License.
 #
@@ -44,12 +44,12 @@ def main():
             overwrite=args.overwrite)
         if args.mask:
             if args.queue:
-                reduce.queue()
+                reduce.queue('nxtransform', args)
             else:
                 reduce.nxmasked_transform()
         else:
             if args.queue:
-                reduce.queue()
+                reduce.queue('nxtransform', args)
             else:
                 reduce.nxtransform()
 

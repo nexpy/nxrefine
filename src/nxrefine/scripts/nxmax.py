@@ -42,7 +42,7 @@ def main():
                           overwrite=args.overwrite,
                           monitor_progress=args.monitor)
         if args.queue:
-            reduce.queue()
+            reduce.queue('nxmax', args)
         else:
             reduce.nxmax()
 

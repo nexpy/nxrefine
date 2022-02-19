@@ -31,7 +31,7 @@ def main():
     reduce = NXMultiReduce(args.directory, pdf=True, laue=args.laue,
                            mask=args.mask, overwrite=args.overwrite)
     if args.queue:
-        reduce.queue()
+        reduce.queue('nxpdf', args)
     else:
         reduce.nxpdf()
 

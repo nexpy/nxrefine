@@ -42,7 +42,7 @@ def main():
         reduce = NXReduce(entry, args.directory, refine=True,
                           lattice=lattice, overwrite=args.overwrite)
         if args.queue:
-            reduce.queue()
+            reduce.queue('nxrefine', args)
         else:
             reduce.nxrefine()
 

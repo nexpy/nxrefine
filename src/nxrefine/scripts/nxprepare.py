@@ -8,6 +8,7 @@
 # -----------------------------------------------------------------------------
 
 import argparse
+import sys
 
 from nxrefine.nxreduce import NXMultiReduce, NXReduce
 
@@ -51,7 +52,7 @@ def main():
         reduce.mask_parameters['threshold_2'] = args.t2
         reduce.mask_parameters['horizontal_size_2'] = args.h2
         if args.queue:
-            reduce.queue()
+            reduce.queue('nxprepare', args)
         else:
             reduce.nxprepare()
 

@@ -32,7 +32,7 @@ def main():
                            combine=True, mask=args.mask,
                            overwrite=args.overwrite)
     if args.queue:
-        reduce.queue()
+        reduce.queue('nxcombine', args)
     else:
         reduce.nxcombine()
 
