@@ -41,14 +41,12 @@ wrapper file) will be queued or running at the same time
 import datetime
 import os
 
-from nexusformat.nexus import NeXusError, nxload
+from nexusformat.nexus import NeXusError, NXLock, nxload
 from sqlalchemy import (Column, ForeignKey, Integer, String, create_engine,
                         inspect)
 from sqlalchemy.dialects import mysql
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
-
-from .nxlock import NXLock
 
 Base = declarative_base()
 # Records files that have: not been processed, queued on the NXserver
