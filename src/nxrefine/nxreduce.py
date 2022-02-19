@@ -92,12 +92,16 @@ class NXReduce(QtCore.QObject):
             Find Bragg peaks, by default False
         refine : bool, optional
             Refine lattice parameters and orientation matrix, by default False
-        lattice : bool, optional
-            Refine the lattice parameters, by default False
-        transform : bool, optional
-            Transform the data into Q, by default False
         prepare : bool, optional
             Prepare the 3D data mask, by default False
+        transform : bool, optional
+            Transform the data into Q, by default False
+        combine: bool, optional
+            Combine transformed data
+        pdf: bool, optional
+            Create PDF transforms
+        lattice : bool, optional
+            Refine the lattice parameters, by default False
         mask : bool, optional
             Use mask in performing transforms, by default False
         overwrite : bool, optional
@@ -116,10 +120,11 @@ class NXReduce(QtCore.QObject):
             data='data/data', extension='.h5', path='/entry/data/data',
             threshold=None, min_pixels=None, first=None, last=None,
             monitor=None, norm=None, radius=None,
-            Qh=None, Qk=None, Ql=None, link=False,
-            copy=False, maxcount=False, find=False, refine=False,
-            lattice=False, transform=False, prepare=False, mask=False,
-            overwrite=False, monitor_progress=False, gui=False):
+            Qh=None, Qk=None, Ql=None,
+            link=False, copy=False, maxcount=False, find=False, refine=False,
+            prepare=False, transform=False, combine=False, pdf=False,
+            lattice=False, mask=False, overwrite=False,
+            monitor_progress=False, gui=False):
 
         super(NXReduce, self).__init__()
 
@@ -210,8 +215,10 @@ class NXReduce(QtCore.QObject):
         self.find = find
         self.refine = refine
         self.lattice = lattice
-        self.transform = transform
         self.prepare = prepare
+        self.transform = transform
+        self.combine = combine
+        self.pdf = pdf
         self.mask = mask
         self.overwrite = overwrite
         self.monitor_progress = monitor_progress
@@ -1379,92 +1386,92 @@ class NXReduce(QtCore.QObject):
             self.entry['data/monitor_weight'] = monitor_weight
 
     def nxreduce(self):
-        self.nxlink()
-        self.nxcopy()
-        self.nxmax()
-        self.nxfind()
-        if self.complete('nxcopy') and self.complete('nxfind'):
-            self.nxrefine()
-        if self.complete('nxrefine'):
+        if self.link:
+            self.nxlink()
+        if self.copy:
+            self.nxcopy()
+        if self.maxcount:
+            self.nxmax()
+        if self.find:
+            self.nxfind()
+        if self.refine:
+            if self.complete('nxcopy') and self.complete('nxfind'):
+                self.nxrefine()
+            else:
+                self.logger.info('Cannot refine orientation matrix')
+                self.record_fail('nxrefine')
+        if self.prepare:
             self.nxprepare()
+        if self.transform and self.complete('nxrefine'):
             if self.mask:
                 self.nxmasked_transform()
             else:
                 self.nxtransform()
         elif self.transform:
-            self.logger.info('Orientation has not been refined')
+            self.logger.info('Cannot transform without orientation matrix')
             self.record_fail('nxtransform')
             self.record_fail('nxmasked_transform')
-
-    def command(self, parent=False):
-        switches = [f'-d {self.directory}', f'-e {self.entry_name}']
-        if parent:
-            command = 'nxparent '
-            if self.first is not None:
-                switches.append(f'-f {self.first}')
-            if self.last is not None:
-                switches.append(f'-l {self.last}')
-            if self.threshold is not None:
-                switches.append(f'-t {self.threshold}')
-            if self.norm is not None:
-                switches.append(f'-n {self.norm}')
-            if self.radius is not None:
-                switches.append(f'-r {self.radius}')
-            switches.append('-s')
-        else:
-            command = 'nxreduce '
-            if self.link:
-                switches.append('-l')
-            if self.copy:
-                switches.append('-c')
-            if self.maxcount:
-                switches.append('-m')
-            if self.find:
-                switches.append('-f')
-            if self.refine:
-                switches.append('-r')
-            if self.prepare:
-                switches.append('-p')
-            if self.transform:
-                switches.append('-t')
+        if self.combine or self.pdf:
+            reduce = NXMultiReduce(self.directory, entries=self.entries,
+                                   combine=self.combine, pdf=self.pdf,
+                                   mask=self.mask, overwrite=self.overwrite)
             if self.mask:
-                switches.append('-M')
-            if len(switches) == 2:
-                return None
-        if self.overwrite:
-            switches.append('-o')
+                if self.all_complete('nxmasked_transform'):
+                    reduce.nxcombine()
+                if self.complete('nxmasked_combine'):
+                    reduce.nxpdf()
+            else:
+                if self.all_complete('nxtransform'):
+                    reduce.nxcombine()
+                if self.complete('nxcombine'):
+                    reduce.nxpdf()
 
-        return command+' '.join(switches)
-
-    def queue(self, parent=False):
+    def queue(self, command, args):
         """ Add tasks to the server's fifo, and log this in the database """
-        command = self.command(parent)
-        if command:
-            self.server.add_task(command)
-            if self.link:
-                self.db.queue_task(self.wrapper_file,
-                                   'nxlink', self.entry_name)
-            if self.copy:
-                self.db.queue_task(self.wrapper_file,
-                                   'nxcopy', self.entry_name)
-            if self.maxcount:
-                self.db.queue_task(self.wrapper_file, 'nxmax', self.entry_name)
-            if self.find:
-                self.db.queue_task(self.wrapper_file,
-                                   'nxfind', self.entry_name)
-            if self.refine:
-                self.db.queue_task(self.wrapper_file,
-                                   'nxrefine', self.entry_name)
-            if self.prepare:
-                self.db.queue_task(self.wrapper_file,
-                                   'nxprepare', self.entry_name)
-            if self.transform:
-                if self.mask:
-                    self.db.queue_task(self.wrapper_file, 'nxmasked_transform',
-                                       self.entry_name)
-                else:
-                    self.db.queue_task(self.wrapper_file, 'nxtransform',
-                                       self.entry_name)
+        if self.server is None:
+            raise NeXusError("NXServer not running")
+
+        def switches(args):
+            d = vars(args)
+            s = [f"--{k} {d[k]}" if d[k] is not True else f"--{k}"
+                 for k in d if d[k] and k != 'entries' and k != 'queue']
+            s.insert(1, f"--entries {self.entry_name}")
+            return ' '.join(s)
+
+        self.server.add_task(f"{command} {switches(args)}")
+        if self.link:
+            self.db.queue_task(self.wrapper_file, 'nxlink', self.entry_name)
+        if self.copy:
+            self.db.queue_task(self.wrapper_file, 'nxcopy', self.entry_name)
+        if self.maxcount:
+            self.db.queue_task(self.wrapper_file, 'nxmax', self.entry_name)
+        if self.find:
+            self.db.queue_task(self.wrapper_file, 'nxfind', self.entry_name)
+        if self.refine:
+            self.db.queue_task(self.wrapper_file, 'nxrefine', self.entry_name)
+        if self.prepare:
+            self.db.queue_task(self.wrapper_file, 'nxprepare', self.entry_name)
+        if self.transform:
+            if self.mask:
+                self.db.queue_task(self.wrapper_file, 'nxmasked_transform',
+                                   self.entry_name)
+            else:
+                self.db.queue_task(self.wrapper_file, 'nxtransform',
+                                   self.entry_name)
+        if self.combine:
+            if self.mask:
+                self.db.queue_task(self.wrapper_file, 'nxmasked_combine',
+                                   self.entry_name)
+            else:
+                self.db.queue_task(self.wrapper_file, 'nxcombine',
+                                   self.entry_name)
+        if self.pdf:
+            if self.mask:
+                self.db.queue_task(self.wrapper_file, 'nxmasked_pdf',
+                                   self.entry_name)
+            else:
+                self.db.queue_task(self.wrapper_file, 'nxpdf',
+                                   self.entry_name)
 
 
 class NXMultiReduce(NXReduce):
@@ -1756,7 +1763,6 @@ class NXMultiReduce(NXReduce):
 
     def hole_mask(self):
         symm_group = self.entry[self.symm_transform]
-        Qh, Qk, Ql = (symm_group['Qh'], symm_group['Qk'], symm_group['Ql'])
         dl, dk, dh = [(ax[1]-ax[0]).nxvalue for ax in symm_group.nxaxes]
         dhp = np.rint(self.radius / (dh * self.refine.astar))
         dkp = np.rint(self.radius / (dk * self.refine.bstar))
@@ -1987,27 +1993,21 @@ class NXMultiReduce(NXReduce):
         self.db.update_file(self.wrapper_file)
 
     def nxreduce(self):
-        self.nxcombine()
-        self.nxpdf()
-
-    def command(self):
-        command = 'nxreduce '
-        switches = [f'-d {self.directory}']
         if self.combine:
-            switches.append('--combine')
+            self.nxcombine()
         if self.pdf:
-            switches.append('--pdf')
-        if self.mask:
-            switches.append('--mask')
-        if self.overwrite:
-            switches.append('--overwrite')
-        return command+' '.join(switches)
+            self.nxpdf()
 
-    def queue(self):
-        if self.server is None:
-            raise NeXusError("NXServer not running")
-        self.server.add_task(self.command())
+    def queue(self, command, args):
+        """ Add tasks to the server's fifo, and log this in the database """
 
+        def switches(args):
+            d = vars(args)
+            s = [f"--{k} {d[k]}" if d[k] is not True else f"--{k}"
+                 for k in d if d[k] and k != 'queue']
+            return ' '.join(s)
+
+        self.server.add_task(f"{command} {switches(args)}")
         if self.combine:
             if self.mask:
                 self.db.queue_task(self.wrapper_file,
