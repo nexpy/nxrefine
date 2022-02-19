@@ -24,7 +24,7 @@ from nexusformat.nexus import (NeXusError, NXattenuator, NXcollection, NXdata,
                                NXentry, NXfield, NXinstrument, NXlink, NXLock,
                                NXmonitor, NXnote, NXparameters, NXprocess,
                                NXreflections, NXroot, NXsource, nxgetmemory,
-                               nxload, nxsetlock, nxsetmemory)
+                               nxload, nxsetlock, nxsetlockexpiry, nxsetmemory)
 from qtpy import QtCore
 
 from . import __version__
@@ -226,6 +226,7 @@ class NXReduce(QtCore.QObject):
         self._logger = None
 
         nxsetlock(600)
+        nxsetlockexpiry(28800)
 
     start = QtCore.Signal(object)
     update = QtCore.Signal(object)
