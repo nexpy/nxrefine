@@ -171,15 +171,6 @@ class NXReduce(QtCore.QObject):
         self.parent_file = os.path.join(self.base_directory,
                                         self.sample+'_parent.nxs')
 
-        self.mask_file = os.path.join(self.directory,
-                                      self.entry_name+'_mask.nxs')
-        self.transform_file = os.path.join(self.directory,
-                                           self.entry_name+'_transform.nxs')
-        self.masked_transform_file = os.path.join(
-            self.directory, self.entry_name+'_masked_transform.nxs')
-        self.settings_file = os.path.join(self.directory,
-                                          self.entry_name+'_transform.pars')
-
         self._data = data
         self._field_root = None
         self._field = None
@@ -1087,116 +1078,12 @@ class NXReduce(QtCore.QObject):
         with self.root.nxfile:
             refine.write_parameters()
 
-    def nxtransform(self):
-        if self.not_complete('nxtransform') and self.transform:
-            if not self.complete('nxrefine'):
-                self.logger.info(
-                    'Cannot transform until the orientation is complete')
-                return
-            self.record_start('nxtransform')
-            cctw_command = self.prepare_transform()
-            if cctw_command:
-                self.logger.info('Transform process launched')
-                tic = timeit.default_timer()
-                with self.field.nxfile:
-                    with NXLock(self.transform_file):
-                        process = subprocess.run(cctw_command, shell=True,
-                                                 stdout=subprocess.PIPE,
-                                                 stderr=subprocess.PIPE)
-                toc = timeit.default_timer()
-                if process.returncode == 0:
-                    self.logger.info(
-                        f'Transform completed ({toc - tic:g} seconds)')
-                    self.record('nxtransform', norm=self.norm,
-                                command=cctw_command,
-                                output=process.stdout.decode(),
-                                errors=process.stderr.decode())
-                    self.record_end('nxtransform')
-                    self.clear_parameters(['monitor', 'norm'])
-                else:
-                    self.logger.info('Transform completed - errors reported '
-                                     f'({(toc-tic):g} seconds)')
-                    self.record_fail('nxtransform')
-            else:
-                self.logger.info('CCTW command invalid')
-                self.record_fail('nxtransform')
-        elif self.transform:
-            self.logger.info('Data already transformed')
-
-    def get_transform_grid(self):
-        if self.Qh and self.Qk and self.Ql:
-            try:
-                self.Qh = [np.float32(v) for v in self.Qh]
-                self.Qk = [np.float32(v) for v in self.Qk]
-                self.Ql = [np.float32(v) for v in self.Ql]
-            except Exception:
-                self.Qh = self.Qk = self.Ql = None
-        else:
-            if 'transform' in self.entry:
-                transform = self.entry['transform']
-            elif 'masked_transform' in self.entry:
-                transform = self.entry['masked_transform']
-            elif self.parent:
-                root = self.parent_root
-                if 'transform' in root[self.entry_name]:
-                    transform = root[self.entry_name]['transform']
-                elif 'masked_transform' in root[self.entry_name]:
-                    transform = root[self.entry_name]['masked_transform']
-            try:
-                Qh, Qk, Ql = (transform['Qh'].nxvalue,
-                              transform['Qk'].nxvalue,
-                              transform['Ql'].nxvalue)
-                self.Qh = Qh[0], Qh[1]-Qh[0], Qh[-1]
-                self.Qk = Qk[0], Qk[1]-Qk[0], Qk[-1]
-                self.Ql = Ql[0], Ql[1]-Ql[0], Ql[-1]
-            except Exception:
-                self.Qh = self.Qk = self.Ql = None
-
-    def get_normalization(self):
-        from scipy.signal import savgol_filter
-        with self.root.nxfile:
-            if self.norm and self.monitor in self.entry:
-                monitor_signal = self.entry[self.monitor].nxsignal / self.norm
-                monitor_signal[0] = monitor_signal[1]
-                monitor_signal[-1] = monitor_signal[-2]
-                self.data['monitor_weight'] = savgol_filter(monitor_signal,
-                                                            501, 2)
-                self.data['monitor_weight'].attrs['axes'] = 'frame_number'
-                self.data['monitor_weight'][0] = self.data['monitor_weight'][1]
-                self.data['monitor_weight'][-1] = (
-                    self.data['monitor_weight'][-2])
-
-    def prepare_transform(self, mask=False):
-        if mask:
-            transform_file = self.masked_transform_file
-        else:
-            transform_file = self.transform_file
-        with self.root.nxfile:
-            self.get_transform_grid()
-            if self.norm:
-                self.get_normalization()
-            if self.Qh and self.Qk and self.Ql:
-                refine = NXRefine(self.entry)
-                refine.read_parameters()
-                refine.h_start, refine.h_step, refine.h_stop = self.Qh
-                refine.k_start, refine.k_step, refine.k_stop = self.Qk
-                refine.l_start, refine.l_step, refine.l_stop = self.Ql
-                refine.define_grid()
-                refine.prepare_transform(transform_file, mask=mask)
-                refine.write_settings(self.settings_file)
-                command = refine.cctw_command(mask)
-                if command and os.path.exists(transform_file):
-                    with NXLock(transform_file):
-                        os.remove(transform_file)
-                return command
-            else:
-                self.logger.info('Invalid HKL grid')
-                return None
-
     def nxprepare(self):
         if self.not_complete('nxprepare_mask') and self.prepare:
             self.record_start('nxprepare')
             self.logger.info('Preparing 3D mask')
+            self.mask_file = os.path.join(self.directory,
+                                          self.entry_name+'_mask.nxs')
             mask = self.prepare_mask()
             if self.gui:
                 if mask:
@@ -1271,39 +1158,121 @@ class NXReduce(QtCore.QObject):
 
         self.logger.info(f"3D Mask written to '{self.mask_file}'")
 
-    def nxmasked_transform(self):
-        """Transform the data with a 3D mask"""
-        if (self.not_complete('nxmasked_transform') and
-                self.transform and self.mask):
-            self.record_start('nxmasked_transform')
-            cctw_command = self.prepare_transform(mask=True)
+    def nxtransform(self, mask=False):
+        if mask:
+            task = 'nxmasked_transform'
+            process = 'Masked transform'
+            self.transform_file = os.path.join(
+                self.directory, self.entry_name+'_masked_transform.nxs')
+        else:
+            task = 'nxtransform'
+            process = 'Transform'
+            self.transform_file = os.path.join(
+                self.directory, self.entry_name+'_transform.nxs')
+        if self.not_complete(task) and self.transform:
+            if not self.complete('nxrefine'):
+                self.logger.info(
+                    'Cannot transform until the orientation is complete')
+                return
+            self.record_start(task)
+            cctw_command = self.prepare_transform(mask=mask)
             if cctw_command:
-                self.logger.info('Masked transform launched')
+                self.logger.info(f"{process} process launched")
                 tic = timeit.default_timer()
                 with self.field.nxfile:
-                    with NXLock(self.masked_transform_file):
+                    with NXLock(self.transform_file):
                         process = subprocess.run(cctw_command, shell=True,
                                                  stdout=subprocess.PIPE,
                                                  stderr=subprocess.PIPE)
                 toc = timeit.default_timer()
                 if process.returncode == 0:
                     self.logger.info(
-                        f'Masked transform completed ({(toc-tic):g} seconds)')
-                    self.record('nxmasked_transform', mask=self.mask_file,
-                                norm=self.norm,
+                        f'{process} completed ({toc - tic:g} seconds)')
+                    self.write_parameters(monitor=self.monitor, norm=self.norm)
+                    self.record(task, monitor=self.monitor, norm=self.norm,
                                 command=cctw_command,
                                 output=process.stdout.decode(),
                                 errors=process.stderr.decode())
-                    self.record_end('nxmasked_transform')
+                    self.record_end(task)
+                    self.clear_parameters(['monitor', 'norm'])
                 else:
                     self.logger.info(
-                        'Masked transform completed - '
-                        f'errors reported ({(toc-tic):g} seconds)')
-                    self.record_fail('nxmasked_transform')
+                        f"{process} completed - errors reported "
+                        f"({(toc-tic):g} seconds)")
+                    self.record_fail(task)
             else:
                 self.logger.info('CCTW command invalid')
-        elif self.transform and self.mask:
-            self.logger.info('Masked data already transformed')
+                self.record_fail(task)
+        elif self.transform:
+            self.logger.info(f'{process} already created')
+
+    def get_transform_grid(self, mask=False):
+        if self.Qh and self.Qk and self.Ql:
+            try:
+                self.Qh = [np.float32(v) for v in self.Qh]
+                self.Qk = [np.float32(v) for v in self.Qk]
+                self.Ql = [np.float32(v) for v in self.Ql]
+            except Exception:
+                self.Qh = self.Qk = self.Ql = None
+        else:
+            if mask and 'masked_transform' in self.entry:
+                transform = self.entry['masked_transform']
+            elif 'transform' in self.entry:
+                transform = self.entry['transform']
+            elif self.parent:
+                root = self.parent_root
+                if mask and 'masked_transform' in root[self.entry_name]:
+                    transform = root[self.entry_name]['masked_transform']
+                elif 'transform' in root[self.entry_name]:
+                    transform = root[self.entry_name]['transform']
+            try:
+                Qh, Qk, Ql = (transform['Qh'].nxvalue,
+                              transform['Qk'].nxvalue,
+                              transform['Ql'].nxvalue)
+                self.Qh = Qh[0], Qh[1]-Qh[0], Qh[-1]
+                self.Qk = Qk[0], Qk[1]-Qk[0], Qk[-1]
+                self.Ql = Ql[0], Ql[1]-Ql[0], Ql[-1]
+            except Exception:
+                self.Qh = self.Qk = self.Ql = None
+
+    def get_normalization(self):
+        from scipy.signal import savgol_filter
+        with self.root.nxfile:
+            if self.norm and self.monitor in self.entry:
+                monitor_signal = self.entry[self.monitor].nxsignal / self.norm
+                monitor_signal[0] = monitor_signal[1]
+                monitor_signal[-1] = monitor_signal[-2]
+                self.data['monitor_weight'] = savgol_filter(monitor_signal,
+                                                            501, 2)
+                self.data['monitor_weight'].attrs['axes'] = 'frame_number'
+                self.data['monitor_weight'][0] = self.data['monitor_weight'][1]
+                self.data['monitor_weight'][-1] = (
+                    self.data['monitor_weight'][-2])
+
+    def prepare_transform(self, mask=False):
+        settings_file = os.path.join(self.directory,
+                                     self.entry_name+'_transform.pars')
+        with self.root.nxfile:
+            self.get_transform_grid(mask=mask)
+            if self.norm:
+                self.get_normalization()
+            if self.Qh and self.Qk and self.Ql:
+                refine = NXRefine(self.entry)
+                refine.read_parameters()
+                refine.h_start, refine.h_step, refine.h_stop = self.Qh
+                refine.k_start, refine.k_step, refine.k_stop = self.Qk
+                refine.l_start, refine.l_step, refine.l_stop = self.Ql
+                refine.define_grid()
+                refine.prepare_transform(self.transform_file, mask=mask)
+                refine.write_settings(settings_file)
+                command = refine.cctw_command(mask)
+                if command and os.path.exists(self.transform_file):
+                    with NXLock(self.transform_file):
+                        os.remove(self.transform_file)
+                return command
+            else:
+                self.logger.info('Invalid HKL grid')
+                return None
 
     def nxsum(self, scan_list, update=False):
         if os.path.exists(self.data_file) and not (self.overwrite or update):
