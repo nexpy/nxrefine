@@ -508,7 +508,7 @@ class NXReduce(QtCore.QObject):
     @property
     def monitor(self):
         if self._monitor is None:
-            self._monitor = self.get_parameter('monitor')
+            self._monitor = str(self.get_parameter('monitor'))
         return self._monitor
 
     @monitor.setter
