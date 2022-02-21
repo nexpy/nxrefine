@@ -416,9 +416,15 @@ class WorkflowDialog(NXDialog):
         self.all_scans['overwrite'].blockSignals(False)
         self.backup_scans()
 
-    def selected(self, scan, command):
-        return (self.scans[scan][command].isEnabled() and
-                self.scans[scan][command].checkState() == QtCore.Qt.Checked)
+    def selected(self, scan, task):
+        return (self.scans[scan][task].isEnabled() and
+                self.scans[scan][task].checkState() == QtCore.Qt.Checked)
+
+    def any_selected(self, scan):
+        for task in self.tasks:
+            if self.selected(scan, task):
+                return True
+        return False
 
     def queued(self, scan, task):
         self.scans[scan][task].setCheckState(QtCore.Qt.PartiallyChecked)
@@ -428,9 +434,10 @@ class WorkflowDialog(NXDialog):
     def add_tasks(self):
         if self.grid is None:
             raise NeXusError('Need to update status')
-        for scan in self.enabled_scans:
+        for scan in [s for s in self.enabled_scans if self.any_selected(s)]:
             for entry in self.enabled_scans[scan]['entries']:
                 reduce = NXReduce(entry, scan)
+                reduce.regular = reduce.mask = False
                 if self.selected(scan, 'link'):
                     reduce.link = True
                 if self.selected(scan, 'copy'):
