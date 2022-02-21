@@ -453,19 +453,19 @@ class WorkflowDialog(NXDialog):
                 if self.selected(scan, 'transform'):
                     reduce.transform = True
                     reduce.regular = True
-                elif self.selected(scan, 'masked_transform'):
+                if self.selected(scan, 'masked_transform'):
                     reduce.transform = True
                     reduce.mask = True
                 if self.selected(scan, 'combine'):
                     reduce.combine = True
                     reduce.regular = True
-                elif self.selected(scan, 'masked_combine'):
+                if self.selected(scan, 'masked_combine'):
                     reduce.combine = True
                     reduce.mask = True
                 if self.selected(scan, 'pdf'):
                     reduce.combine = True
                     reduce.regular = True
-                elif self.selected(scan, 'masked_pdf'):
+                if self.selected(scan, 'masked_pdf'):
                     reduce.pdf = True
                     reduce.mask = True
                 if self.selected(scan, 'overwrite'):
