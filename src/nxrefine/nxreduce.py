@@ -846,6 +846,7 @@ class NXReduce(QtCore.QObject):
                 self.stop.emit()
             else:
                 self.write_maximum(maximum)
+                self.write_parameters(first=self.first, last=self.last)
                 self.record('nxmax', maximum=maximum,
                             first_frame=self.first, last_frame=self.last)
                 self.record_end('nxmax')
@@ -976,6 +977,8 @@ class NXReduce(QtCore.QObject):
                 self.stop.emit()
             elif peaks:
                 self.write_peaks(peaks)
+                self.write_parameters(
+                    threshold=self.threshold, first=self.first, last=self.last)
                 self.record('nxfind', threshold=self.threshold,
                             first_frame=self.first, last_frame=self.last,
                             peak_number=len(peaks))
@@ -1201,6 +1204,7 @@ class NXReduce(QtCore.QObject):
                 self.stop.emit()
             elif mask:
                 self.write_mask(mask)
+                self.write_parameters(first=self.first, last=self.last)
                 self.record(
                     'nxprepare', masked_file=self.mask_file,
                     first=self.first, last=self.last,
