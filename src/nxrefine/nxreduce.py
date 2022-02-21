@@ -548,22 +548,22 @@ class NXReduce(QtCore.QObject):
                 self._maximum = self.entry['data'].attrs['maximum']
         return self._maximum
 
-    def complete(self, program):
-        if program == 'nxcombine':
-            return program in self.root['entry']
+    def complete(self, task):
+        if task == 'nxcombine' or task == 'nxmasked_combine':
+            return task in self.root['entry']
         else:
-            return program in self.entry
+            return task in self.entry
 
-    def all_complete(self, program):
+    def all_complete(self, task):
         """ Check that all entries for this temperature are done """
         complete = True
         for entry in self.entries:
-            if program not in self.root[entry]:
+            if task not in self.root[entry]:
                 complete = False
         return complete
 
-    def not_complete(self, program):
-        return program not in self.entry or self.overwrite
+    def not_complete(self, task):
+        return task not in self.entry or self.overwrite
 
     def start_progress(self, start, stop):
         self._start = start
@@ -611,9 +611,9 @@ class NXReduce(QtCore.QObject):
     def stopped(self, value):
         self._stopped = value
 
-    def record(self, program, **kwargs):
+    def record(self, task, **kwargs):
         """ Record that a task has finished. Update NeXus file and database """
-        process = kwargs.pop('process', program)
+        process = kwargs.pop('process', task)
         parameters = '\n'.join(
             [f"{k.replace('_', ' ').capitalize()}: {v}"
              for (k, v) in kwargs.items()])
@@ -630,24 +630,24 @@ class NXReduce(QtCore.QObject):
             for key in [k for k in kwargs if k in self.default]:
                 self.entry[process][key] = kwargs[key]
 
-    def record_start(self, program):
+    def record_start(self, task):
         """ Record that a task has started. Update database """
         try:
-            self.db.start_task(self.wrapper_file, program, self.entry_name)
+            self.db.start_task(self.wrapper_file, task, self.entry_name)
         except Exception as error:
             self.logger.info(str(error))
 
-    def record_end(self, program):
+    def record_end(self, task):
         """ Record that a task has ended. Update database """
         try:
-            self.db.end_task(self.wrapper_file, program, self.entry_name)
+            self.db.end_task(self.wrapper_file, task, self.entry_name)
         except Exception as error:
             self.logger.info(str(error))
 
-    def record_fail(self, program):
+    def record_fail(self, task):
         """ Record that a task has failed. Update database """
         try:
-            self.db.fail_task(self.wrapper_file, program, self.entry_name)
+            self.db.fail_task(self.wrapper_file, task, self.entry_name)
         except Exception as error:
             self.logger.info(str(error))
 
@@ -1518,16 +1518,16 @@ class NXMultiReduce(NXReduce):
     def __repr__(self):
         return f"NXMultiReduce('{self.sample}_{self.scan}')"
 
-    def complete(self, program):
+    def complete(self, task):
         complete = True
-        if program == 'nxcombine' or program == 'nxmasked_combine':
-            if program not in self.entry:
+        if task == 'nxcombine' or task == 'nxmasked_combine':
+            if task not in self.entry:
                 complete = False
-        elif program == 'nxtransform' or program == 'nxmasked_transform':
+        elif task == 'nxtransform' or task == 'nxmasked_transform':
             for entry in self.entries:
-                if program not in self.root[entry]:
+                if task not in self.root[entry]:
                     complete = False
-            if not complete and program == 'nxmasked_transform':
+            if not complete and task == 'nxmasked_transform':
                 complete = True
                 for entry in self.entries:
                     if 'nxmask' not in self.root[entry]:
@@ -1654,6 +1654,7 @@ class NXMultiReduce(NXReduce):
             self.punch_holes()
             self.punch_and_fill()
             self.delta_pdf()
+            self.write_parameters(radius=self.radius)
             self.record(task, laue=self.refine.laue_group, radius=self.radius)
             self.record_end(task)
         else:
