@@ -21,8 +21,6 @@ def main():
     parser.add_argument('-qh', nargs=3, help='Qh - min, step, max')
     parser.add_argument('-qk', nargs=3, help='Qk - min, step, max')
     parser.add_argument('-ql', nargs=3, help='Ql - min, step, max')
-    parser.add_argument('-r', '--radius', default=200,
-                        help='radius of mask around each peak (in pixels)')
     parser.add_argument('-R', '--regular', action='store_true',
                         help='perform regular transform')
     parser.add_argument('-M', '--mask', action='store_true',
@@ -42,7 +40,7 @@ def main():
     for entry in entries:
         reduce = NXReduce(
             entry, args.directory, transform=True,
-            Qh=args.qh, Qk=args.qk, Ql=args.ql, radius=args.radius,
+            Qh=args.qh, Qk=args.qk, Ql=args.ql,
             regular=args.regular, mask=args.mask, overwrite=args.overwrite)
         if args.queue:
             reduce.queue('nxtransform', args)
