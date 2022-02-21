@@ -19,6 +19,8 @@ def main():
                         help='scan directory')
     parser.add_argument('-l', '--laue', nargs='?', default=None,
                         help='Laue group to be used if different from file')
+    parser.add_argument('-r', '--radius', type=float,
+                        help='radius of punched holes in Å-1')
     parser.add_argument('-R', '--regular', action='store_true',
                         help='Calculate using regular transforms')
     parser.add_argument('-M', '--mask', action='store_true',
@@ -30,7 +32,8 @@ def main():
 
     args = parser.parse_args()
 
-    reduce = NXMultiReduce(args.directory, pdf=True, laue=args.laue,
+    reduce = NXMultiReduce(args.directory, pdf=True,
+                           laue=args.laue, radius=args.radius,
                            regular=args.regular, mask=args.mask,
                            overwrite=args.overwrite)
     if args.queue:

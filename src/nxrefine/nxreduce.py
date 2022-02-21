@@ -1485,7 +1485,7 @@ class NXMultiReduce(NXReduce):
 
     def __init__(self, directory, entries=None,
                  combine=False, pdf=False, regular=False, mask=False,
-                 laue=None, overwrite=False):
+                 laue=None, radius=None, overwrite=False):
         if isinstance(directory, NXroot):
             entry = directory['entry']
         else:
@@ -1495,11 +1495,14 @@ class NXMultiReduce(NXReduce):
             entry=entry, directory=directory, entries=entries,
             overwrite=overwrite)
         self.refine = NXRefine(self.root[self.entries[0]])
+
         if laue:
             if laue in self.refine.laue_groups:
                 self.refine.laue_group = laue
             else:
                 raise NeXusError('Invalid Laue group specified')
+        self._radius = radius
+
         self.combine = combine
         self.pdf = pdf
         self.regular = regular
