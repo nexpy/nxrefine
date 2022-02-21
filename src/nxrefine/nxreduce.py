@@ -1409,7 +1409,7 @@ class NXReduce(QtCore.QObject):
             if self.pdf:
                 if self.regular and self.complete('nxcombine'):
                     reduce.nxpdf()
-                if self.mask and self.all_complete('nxmasked_combine'):
+                if self.mask and self.complete('nxmasked_combine'):
                     reduce.nxpdf(mask=True)
 
     def queue(self, command, args=None):
@@ -1465,7 +1465,7 @@ class NXReduce(QtCore.QObject):
         if not tasks:
             return
 
-        if 'transform' in tasks or 'combine' in tasks or 'pdf' in tasks:
+        if set(tasks).intersection(['transform', 'combine', 'pdf']):
             if self.regular:
                 tasks.append('regular')
             if self.mask:
@@ -2015,8 +2015,33 @@ class NXMultiReduce(NXReduce):
             if self.mask:
                 self.nxpdf(mask=True)
 
-    def queue(self, command, args):
+    def queue(self, command, args=None):
         """ Add tasks to the server's fifo, and log this in the database """
+
+        tasks = []
+        if self.combine:
+            tasks.append('combine')
+            if self.regular:
+                self.db.queue_task(self.wrapper_file, 'nxcombine', 'entry')
+            if self.mask:
+                self.db.queue_task(self.wrapper_file, 'nxmasked_combine',
+                                   'entry')
+        if self.pdf:
+            tasks.append('pdf')
+            if self.regular:
+                self.db.queue_task(self.wrapper_file, 'nxpdf', 'entry')
+            if self.mask:
+                self.db.queue_task(self.wrapper_file, 'nxmasked_pdf', 'entry')
+
+        if not tasks:
+            return
+
+        if self.regular:
+            tasks.append('regular')
+        if self.mask:
+            tasks.append('mask')
+        if self.overwrite:
+            tasks.append('overwrite')
 
         def switches(args):
             d = vars(args)
@@ -2024,16 +2049,9 @@ class NXMultiReduce(NXReduce):
                  for k in d if d[k] and k != 'queue']
             return ' '.join(s)
 
-        self.server.add_task(f"{command} {switches(args)}")
-
-        if self.combine:
-            if self.regular:
-                self.db.queue_task(self.wrapper_file, 'nxcombine', 'entry')
-            if self.mask:
-                self.db.queue_task(self.wrapper_file, 'nxmasked_combine',
-                                   'entry')
-        if self.pdf:
-            if self.regular:
-                self.db.queue_task(self.wrapper_file, 'nxpdf', 'entry')
-            if self.mask:
-                self.db.queue_task(self.wrapper_file, 'nxmasked_pdf', 'entry')
+        if args:
+            self.server.add_task(f"{command} {switches(args)}")
+        else:
+            self.server.add_task(
+                f"{command} --directory {self.directory} "
+                f"--{' --'.join(tasks)}")

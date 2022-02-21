@@ -118,7 +118,7 @@ class WorkflowDialog(NXDialog):
                             self.sample+'_'+os.path.basename(scan)+'.nxs')
 
     def make_parent(self):
-        reduce = NXMultiReduce(directory=self.get_scan(self.get_filename()),
+        reduce = NXMultiReduce(self.get_scan(self.get_filename()),
                                overwrite=True)
         reduce.make_parent()
         self.db.update_file(reduce.wrapper_file)
@@ -353,6 +353,10 @@ class WorkflowDialog(NXDialog):
                 'pdf', 'masked_pdf']
 
     @property
+    def combined_tasks(self):
+        return ['combine', 'masked_combine', 'pdf', 'masked_pdf']
+
+    @property
     def enabled_scans(self):
         return self.scans
 
@@ -426,6 +430,12 @@ class WorkflowDialog(NXDialog):
                 return True
         return False
 
+    def only_combined(self, scan):
+        for task in [t for t in self.tasks if t not in self.combined_tasks]:
+            if self.selected(scan, task):
+                return False
+        return True
+
     def queued(self, scan, task):
         self.scans[scan][task].setCheckState(QtCore.Qt.PartiallyChecked)
         self.scans[scan][task].setStyleSheet("")
@@ -435,27 +445,34 @@ class WorkflowDialog(NXDialog):
         if self.grid is None:
             raise NeXusError('Need to update status')
         for scan in [s for s in self.enabled_scans if self.any_selected(s)]:
-            for entry in self.enabled_scans[scan]['entries']:
-                reduce = NXReduce(entry, scan)
-                reduce.regular = reduce.mask = False
-                if self.selected(scan, 'link'):
-                    reduce.link = True
-                if self.selected(scan, 'copy'):
-                    reduce.copy = True
-                if self.selected(scan, 'max'):
-                    reduce.maxcount = True
-                if self.selected(scan, 'find'):
-                    reduce.find = True
-                if self.selected(scan, 'refine'):
-                    reduce.refine = True
-                if self.selected(scan, 'prepare'):
-                    reduce.prepare = True
-                if self.selected(scan, 'transform'):
-                    reduce.transform = True
-                    reduce.regular = True
-                if self.selected(scan, 'masked_transform'):
-                    reduce.transform = True
-                    reduce.mask = True
+            for i, entry in enumerate(self.enabled_scans[scan]['entries']):
+                if self.only_combined(scan):
+                    if i == 0:
+                        reduce = NXMultiReduce(scan)
+                        reduce.regular = reduce.mask = False
+                    else:
+                        break
+                else:
+                    reduce = NXReduce(entry, scan)
+                    reduce.regular = reduce.mask = False
+                    if self.selected(scan, 'link'):
+                        reduce.link = True
+                    if self.selected(scan, 'copy'):
+                        reduce.copy = True
+                    if self.selected(scan, 'max'):
+                        reduce.maxcount = True
+                    if self.selected(scan, 'find'):
+                        reduce.find = True
+                    if self.selected(scan, 'refine'):
+                        reduce.refine = True
+                    if self.selected(scan, 'prepare'):
+                        reduce.prepare = True
+                    if self.selected(scan, 'transform'):
+                        reduce.transform = True
+                        reduce.regular = True
+                    if self.selected(scan, 'masked_transform'):
+                        reduce.transform = True
+                        reduce.mask = True
                 if self.selected(scan, 'combine'):
                     reduce.combine = True
                     reduce.regular = True
@@ -463,7 +480,7 @@ class WorkflowDialog(NXDialog):
                     reduce.combine = True
                     reduce.mask = True
                 if self.selected(scan, 'pdf'):
-                    reduce.combine = True
+                    reduce.pdf = True
                     reduce.regular = True
                 if self.selected(scan, 'masked_pdf'):
                     reduce.pdf = True
