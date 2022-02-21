@@ -123,7 +123,7 @@ class NXReduce(QtCore.QObject):
             Qh=None, Qk=None, Ql=None,
             link=False, copy=False, maxcount=False, find=False, refine=False,
             prepare=False, transform=False, combine=False, pdf=False,
-            lattice=False, mask=False, overwrite=False,
+            lattice=False, regular=False, mask=False, overwrite=False,
             monitor_progress=False, gui=False):
 
         super(NXReduce, self).__init__()
@@ -210,7 +210,10 @@ class NXReduce(QtCore.QObject):
         self.transform = transform
         self.combine = combine
         self.pdf = pdf
+        self.regular = regular
         self.mask = mask
+        if not self.mask:
+            self.regular = True
         self.overwrite = overwrite
         self.monitor_progress = monitor_progress
         self.gui = gui
@@ -1376,33 +1379,92 @@ class NXReduce(QtCore.QObject):
         if self.prepare:
             self.nxprepare()
         if self.transform and self.complete('nxrefine'):
-            if self.mask:
-                self.nxmasked_transform()
-            else:
+            if self.regular:
                 self.nxtransform()
+            if self.mask:
+                self.nxtransform(mask=True)
         elif self.transform:
             self.logger.info('Cannot transform without orientation matrix')
-            self.record_fail('nxtransform')
-            self.record_fail('nxmasked_transform')
+            if self.regular:
+                self.record_fail('nxtransform')
+            if self.mask:
+                self.record_fail('nxmasked_transform')
         if self.combine or self.pdf:
             reduce = NXMultiReduce(self.directory, entries=self.entries,
                                    combine=self.combine, pdf=self.pdf,
-                                   mask=self.mask, overwrite=self.overwrite)
-            if self.mask:
-                if self.all_complete('nxmasked_transform'):
+                                   regular=self.regular, mask=self.mask,
+                                   overwrite=self.overwrite)
+            if self.combine:
+                if self.regular and self.all_complete('nxtransform'):
                     reduce.nxcombine()
-                if self.complete('nxmasked_combine'):
+                if self.mask and self.all_complete('nxmasked_transform'):
+                    reduce.nxcombine(mask=True)
+            if self.pdf:
+                if self.regular and self.complete('nxcombine'):
                     reduce.nxpdf()
-            else:
-                if self.all_complete('nxtransform'):
-                    reduce.nxcombine()
-                if self.complete('nxcombine'):
-                    reduce.nxpdf()
+                if self.mask and self.all_complete('nxmasked_combine'):
+                    reduce.nxpdf(mask=True)
 
-    def queue(self, command, args):
+    def queue(self, command, args=None):
         """ Add tasks to the server's fifo, and log this in the database """
+
         if self.server is None:
             raise NeXusError("NXServer not running")
+
+        tasks = []
+        if self.link:
+            tasks.append('link')
+            self.db.queue_task(self.wrapper_file, 'nxlink', self.entry_name)
+        if self.copy:
+            tasks.append('copy')
+            self.db.queue_task(self.wrapper_file, 'nxcopy', self.entry_name)
+        if self.maxcount:
+            tasks.append('max')
+            self.db.queue_task(self.wrapper_file, 'nxmax', self.entry_name)
+        if self.find:
+            tasks.append('find')
+            self.db.queue_task(self.wrapper_file, 'nxfind', self.entry_name)
+        if self.refine:
+            tasks.append('refine')
+            self.db.queue_task(self.wrapper_file, 'nxrefine', self.entry_name)
+        if self.prepare:
+            tasks.append('prepare')
+            self.db.queue_task(self.wrapper_file, 'nxprepare', self.entry_name)
+        if self.transform:
+            tasks.append('transform')
+            if self.regular:
+                self.db.queue_task(self.wrapper_file, 'nxtransform',
+                                   self.entry_name)
+            if self.mask:
+                self.db.queue_task(self.wrapper_file, 'nxmasked_transform',
+                                   self.entry_name)
+        if self.combine:
+            tasks.append('combine')
+            if self.regular:
+                self.db.queue_task(self.wrapper_file, 'nxcombine',
+                                   self.entry_name)
+            if self.mask:
+                self.db.queue_task(self.wrapper_file, 'nxmasked_combine',
+                                   self.entry_name)
+        if self.pdf:
+            tasks.append('pdf')
+            if self.regular:
+                self.db.queue_task(self.wrapper_file, 'nxpdf',
+                                   self.entry_name)
+            if self.mask:
+                self.db.queue_task(self.wrapper_file, 'nxmasked_pdf',
+                                   self.entry_name)
+
+        if not tasks:
+            return
+
+        if 'transform' in tasks or 'combine' in tasks or 'pdf' in tasks:
+            if self.regular:
+                tasks.append('regular')
+            if self.mask:
+                tasks.append('mask')
+        if self.overwrite:
+            tasks.append('overwrite')
 
         def switches(args):
             d = vars(args)
@@ -1411,47 +1473,19 @@ class NXReduce(QtCore.QObject):
             s.insert(1, f"--entries {self.entry_name}")
             return ' '.join(s)
 
-        self.server.add_task(f"{command} {switches(args)}")
-        if self.link:
-            self.db.queue_task(self.wrapper_file, 'nxlink', self.entry_name)
-        if self.copy:
-            self.db.queue_task(self.wrapper_file, 'nxcopy', self.entry_name)
-        if self.maxcount:
-            self.db.queue_task(self.wrapper_file, 'nxmax', self.entry_name)
-        if self.find:
-            self.db.queue_task(self.wrapper_file, 'nxfind', self.entry_name)
-        if self.refine:
-            self.db.queue_task(self.wrapper_file, 'nxrefine', self.entry_name)
-        if self.prepare:
-            self.db.queue_task(self.wrapper_file, 'nxprepare', self.entry_name)
-        if self.transform:
-            if self.mask:
-                self.db.queue_task(self.wrapper_file, 'nxmasked_transform',
-                                   self.entry_name)
-            else:
-                self.db.queue_task(self.wrapper_file, 'nxtransform',
-                                   self.entry_name)
-        if self.combine:
-            if self.mask:
-                self.db.queue_task(self.wrapper_file, 'nxmasked_combine',
-                                   self.entry_name)
-            else:
-                self.db.queue_task(self.wrapper_file, 'nxcombine',
-                                   self.entry_name)
-        if self.pdf:
-            if self.mask:
-                self.db.queue_task(self.wrapper_file, 'nxmasked_pdf',
-                                   self.entry_name)
-            else:
-                self.db.queue_task(self.wrapper_file, 'nxpdf',
-                                   self.entry_name)
+        if args:
+            self.server.add_task(f"{command} {switches(args)}")
+        else:
+            self.server.add_task(
+                f"{command} --directory {self.directory} "
+                f"--entries {self.entry_name} --{' --'.join(tasks)}")
 
 
 class NXMultiReduce(NXReduce):
 
     def __init__(self, directory, entries=None,
-                 combine=False, pdf=False, mask=False, laue=None,
-                 overwrite=False):
+                 combine=False, pdf=False, regular=False, mask=False,
+                 laue=None, overwrite=False):
         if isinstance(directory, NXroot):
             entry = directory['entry']
         else:
@@ -1468,20 +1502,10 @@ class NXMultiReduce(NXReduce):
                 raise NeXusError('Invalid Laue group specified')
         self.combine = combine
         self.pdf = pdf
+        self.regular = regular
         self.mask = mask
-        if self.mask:
-            self.transform_file = os.path.join(self.directory,
-                                               'masked_transform.nxs')
-            self.symm_file = os.path.join(self.directory,
-                                          'symm_masked_transform.nxs')
-            self.symm_transform = 'symm_masked_transform'
-            self.pdf_file = os.path.join(self.directory, 'masked_pdf.nxs')
-        else:
-            self.transform_file = os.path.join(self.directory, 'transform.nxs')
-            self.symm_file = os.path.join(self.directory, 'symm_transform.nxs')
-            self.symm_transform = 'symm_transform'
-            self.pdf_file = os.path.join(self.directory, 'pdf.nxs')
-        self.total_pdf_file = os.path.join(self.directory, 'total_pdf.nxs')
+        if not self.mask:
+            self.regular = True
         self.julia = None
 
     def __repr__(self):
@@ -1503,21 +1527,22 @@ class NXMultiReduce(NXReduce):
                         complete = False
         return complete
 
-    def nxcombine(self):
-        if self.mask:
+    def nxcombine(self, mask=False):
+        if mask:
             task = 'nxmasked_combine'
-            title = 'Masked combine'
+            transform_task = 'nxmasked_transform'
+            title = 'Masked Combine'
+            self.transform_file = os.path.join(self.directory,
+                                               'masked_transform.nxs')
         else:
             task = 'nxcombine'
+            transform_task = 'nxtransform'
             title = 'Combine'
+            self.transform_file = os.path.join(self.directory, 'transform.nxs')
         if self.not_complete(task) and self.combine:
-            if self.mask:
-                if not self.complete('nxmasked_transform'):
-                    self.logger.info(
-                        'Cannot combine until masked transforms complete')
-                    return
-            elif not self.complete('nxtransform'):
-                self.logger.info('Cannot combine until transforms complete')
+            if not self.complete(transform_task):
+                self.logger.info(
+                    f'{title}: Cannot combine until transforms complete')
                 return
             self.record_start(task)
             cctw_command = self.prepare_combine()
@@ -1595,15 +1620,25 @@ class NXMultiReduce(NXReduce):
                               transform+r'.nxs\#/entry/data/v')
         return f'cctw merge {input} -o {output}'
 
-    def nxpdf(self):
-        if self.mask:
+    def nxpdf(self, mask=False):
+        if mask:
             task = 'nxmasked_pdf'
-            title = 'Masked PDF'
+            self.transform = 'masked_transform'
+            self.symm_transform = 'symm_masked_transform'
+            self.symm_file = os.path.join(self.directory,
+                                          'masked_symm_transform.nxs')
+            self.total_pdf_file = os.path.join(self.directory,
+                                               'masked_total_pdf.nxs')
+            self.pdf_file = os.path.join(self.directory, 'masked_pdf.nxs')
         else:
             task = 'nxpdf'
-            title = 'PDF'
+            self.transform = 'transform'
+            self.symm_transform = 'symm_transform'
+            self.symm_file = os.path.join(self.directory, 'symm_transform.nxs')
+            self.total_pdf_file = os.path.join(self.directory, 'total_pdf.nxs')
+            self.pdf_file = os.path.join(self.directory, 'pdf.nxs')
         if self.not_complete(task) and self.pdf:
-            if self.mask:
+            if mask:
                 if not self.complete('nxmasked_combine'):
                     self.logger.info("Cannot calculate PDF until the "
                                      "masked transforms are combined")
@@ -1630,19 +1665,11 @@ class NXMultiReduce(NXReduce):
             self.logger.info('PDF already calculated')
 
     def set_memory(self):
-        if self.mask:
-            transform = 'masked_transform'
-        else:
-            transform = 'transform'
-        total_size = self.entry[transform].nxsignal.nbytes / 1e6
+        total_size = self.entry[self.transform].nxsignal.nbytes / 1e6
         if total_size > nxgetmemory():
             nxsetmemory(total_size + 1000)
 
     def symmetrize_transform(self):
-        if self.mask:
-            transform = 'masked_transform'
-        else:
-            transform = 'transform'
         if os.path.exists(self.symm_file):
             if self.overwrite:
                 os.remove(self.symm_file)
@@ -1654,12 +1681,12 @@ class NXMultiReduce(NXReduce):
         for i, entry in enumerate(self.entries):
             r = NXReduce(self.root[entry])
             if i == 0:
-                summed_data = r.entry[transform].nxsignal.nxvalue
-                summed_weights = r.entry[transform].nxweights.nxvalue
-                summed_axes = r.entry[transform].nxaxes
+                summed_data = r.entry[self.transform].nxsignal.nxvalue
+                summed_weights = r.entry[self.transform].nxweights.nxvalue
+                summed_axes = r.entry[self.transform].nxaxes
             else:
-                summed_data += r.entry[transform].nxsignal.nxvalue
-                summed_weights += r.entry[transform].nxweights.nxvalue
+                summed_data += r.entry[self.transform].nxsignal.nxvalue
+                summed_weights += r.entry[self.transform].nxweights.nxvalue
         summed_transforms = NXdata(NXfield(summed_data, name='data'),
                                    summed_axes, weights=summed_weights)
         symmetry = NXSymmetry(summed_transforms,
@@ -1673,8 +1700,8 @@ class NXMultiReduce(NXReduce):
             del self.entry[self.symm_transform]
         symm_data = NXlink('/entry/data/data',
                            file=self.symm_file, name='data')
-        self.entry[self.symm_transform] = NXdata(symm_data,
-                                                 self.entry[transform].nxaxes)
+        self.entry[self.symm_transform] = NXdata(
+            symm_data, self.entry[self.transform].nxaxes)
         self.entry[self.symm_transform]['data_weights'] = NXlink(
             '/entry/data/data_weights', file=self.symm_file)
         self.logger.info(f"'{self.symm_transform}' added to entry")
@@ -1706,8 +1733,8 @@ class NXMultiReduce(NXReduce):
                 self.logger.info('Total PDF file already exists')
                 return
         tic = timeit.default_timer()
-        symm_data = self.entry[self.symm_transform].nxsignal[:-1,
-                                                             :-1, :-1].nxvalue
+        symm_data = self.entry[
+            self.symm_transform].nxsignal[:-1, :-1, :-1].nxvalue
         symm_data *= self.fft_taper(symm_data.shape)
         fft = np.real(np.fft.fftshift(np.fft.fftn(np.fft.fftshift(symm_data))))
         fft *= (1.0 / np.prod(fft.shape))
@@ -1968,9 +1995,15 @@ class NXMultiReduce(NXReduce):
 
     def nxreduce(self):
         if self.combine:
-            self.nxcombine()
+            if self.regular:
+                self.nxcombine()
+            if self.mask:
+                self.nxcombine(mask=True)
         if self.pdf:
-            self.nxpdf()
+            if self.regular:
+                self.nxpdf()
+            if self.mask:
+                self.nxpdf(mask=True)
 
     def queue(self, command, args):
         """ Add tasks to the server's fifo, and log this in the database """
@@ -1982,14 +2015,15 @@ class NXMultiReduce(NXReduce):
             return ' '.join(s)
 
         self.server.add_task(f"{command} {switches(args)}")
+
         if self.combine:
-            if self.mask:
-                self.db.queue_task(self.wrapper_file,
-                                   'nxmasked_combine', 'entry')
-            else:
+            if self.regular:
                 self.db.queue_task(self.wrapper_file, 'nxcombine', 'entry')
+            if self.mask:
+                self.db.queue_task(self.wrapper_file, 'nxmasked_combine',
+                                   'entry')
         if self.pdf:
+            if self.regular:
+                self.db.queue_task(self.wrapper_file, 'nxpdf', 'entry')
             if self.mask:
                 self.db.queue_task(self.wrapper_file, 'nxmasked_pdf', 'entry')
-            else:
-                self.db.queue_task(self.wrapper_file, 'nxpdf', 'entry')

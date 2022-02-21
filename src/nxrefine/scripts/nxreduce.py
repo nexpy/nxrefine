@@ -34,12 +34,14 @@ def main():
                         help='prepare 3D masks')
     parser.add_argument('-t', '--transform', action='store_true',
                         help='perform CCTW transforms')
-    parser.add_argument('-M', '--mask', action='store_true',
-                        help='perform CCTW transforms with 3D mask')
     parser.add_argument('-b', '--combine', action='store_true',
                         help='combine CCTW transforms')
     parser.add_argument('-P', '--pdf', action='store_true',
                         help='perform PDF transforms')
+    parser.add_argument('-R', '--regular', action='store_true',
+                        help='perform regular CCTW transforms')
+    parser.add_argument('-M', '--mask', action='store_true',
+                        help='perform CCTW transforms with 3D mask')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing maximum')
     parser.add_argument('-q', '--queue', action='store_true',
@@ -57,7 +59,7 @@ def main():
                           maxcount=args.max, find=args.find, copy=args.copy,
                           refine=args.refine, prepare=args.prepare,
                           transform=args.transform, combine=args.combine,
-                          pdf=args.pdf, mask=args.mask,
+                          pdf=args.pdf, regular=args.regular, mask=args.mask,
                           overwrite=args.overwrite)
         if args.queue:
             reduce.queue('nxreduce', args)

@@ -305,9 +305,9 @@ class WorkflowDialog(NXDialog):
                     checkbox.setEnabled(True)
                     checkbox.setStyleSheet("color: red")
             if status['data'].checkState() == QtCore.Qt.Unchecked:
-                for program in ['link', 'max', 'find', 'prepare', 'transform',
-                                'masked_transform']:
-                    status[program].setEnabled(False)
+                for task in ['link', 'max', 'find', 'prepare', 'transform',
+                             'masked_transform']:
+                    status[task].setEnabled(False)
             self.update_progress(i)
 
         self.stop_progress()
@@ -340,14 +340,14 @@ class WorkflowDialog(NXDialog):
     def backup_scans(self):
         for scan in self.scans:
             self.scans_backup[scan] = []
-            for status in self.programs:
+            for status in self.tasks:
                 self.scans_backup[scan].append(
                     (status,
                      self.scans[scan][status].isEnabled(),
                      self.scans[scan][status].checkState()))
 
     @property
-    def programs(self):
+    def tasks(self):
         return ['link', 'copy', 'max', 'find', 'refine', 'prepare',
                 'transform', 'masked_transform', 'combine', 'masked_combine',
                 'pdf', 'masked_pdf']
@@ -368,14 +368,14 @@ class WorkflowDialog(NXDialog):
             self.scans[scan][status].setEnabled(enabled)
             self.scans[scan][status].setCheckState(checked)
 
-    def select_programs(self, scan):
+    def select_tasks(self, scan):
         if self.overwrite_selected(scan):
-            for status in self.programs:
+            for status in self.tasks:
                 self.scans[scan][status].setEnabled(True)
         else:
             self.restore_scan(scan)
         if self.overwrite_selected(scan):
-            for status in self.programs:
+            for status in self.tasks:
                 if self.scans[scan][status].isEnabled():
                     self.scans[scan][status].setChecked(
                         self.all_scans[status].isChecked())
@@ -384,7 +384,7 @@ class WorkflowDialog(NXDialog):
 
     def select_scans(self):
         for scan in self.enabled_scans:
-            self.select_programs(scan)
+            self.select_tasks(scan)
 
     def select_all(self):
         for scan in self.enabled_scans:
@@ -396,7 +396,7 @@ class WorkflowDialog(NXDialog):
             self.scans[scan]['sync'].setCheckState(
                 self.all_scans['sync'].checkState())
         for scan in self.enabled_scans:
-            self.select_programs(scan)
+            self.select_tasks(scan)
 
     def select_status(self, status):
         for scan in self.enabled_scans:
@@ -420,10 +420,10 @@ class WorkflowDialog(NXDialog):
         return (self.scans[scan][command].isEnabled() and
                 self.scans[scan][command].checkState() == QtCore.Qt.Checked)
 
-    def queued(self, scan, program):
-        self.scans[scan][program].setCheckState(QtCore.Qt.PartiallyChecked)
-        self.scans[scan][program].setStyleSheet("")
-        self.scans[scan][program].setEnabled(False)
+    def queued(self, scan, task):
+        self.scans[scan][task].setCheckState(QtCore.Qt.PartiallyChecked)
+        self.scans[scan][task].setStyleSheet("")
+        self.scans[scan][task].setEnabled(False)
 
     def add_tasks(self):
         if self.grid is None:
@@ -445,53 +445,28 @@ class WorkflowDialog(NXDialog):
                     reduce.prepare = True
                 if self.selected(scan, 'transform'):
                     reduce.transform = True
+                    reduce.regular = True
                 elif self.selected(scan, 'masked_transform'):
                     reduce.transform = True
                     reduce.mask = True
+                if self.selected(scan, 'combine'):
+                    reduce.combine = True
+                    reduce.regular = True
+                elif self.selected(scan, 'masked_combine'):
+                    reduce.combine = True
+                    reduce.mask = True
+                if self.selected(scan, 'pdf'):
+                    reduce.combine = True
+                    reduce.regular = True
+                elif self.selected(scan, 'masked_pdf'):
+                    reduce.pdf = True
+                    reduce.mask = True
                 if self.selected(scan, 'overwrite'):
                     reduce.overwrite = True
-                reduce.queue()
-            if self.selected(scan, 'link'):
-                self.queued(scan, 'link')
-            if self.selected(scan, 'copy'):
-                self.queued(scan, 'copy')
-            if self.selected(scan, 'max'):
-                self.queued(scan, 'max')
-            if self.selected(scan, 'find'):
-                self.queued(scan, 'find')
-            if self.selected(scan, 'refine'):
-                self.queued(scan, 'refine')
-            if self.selected(scan, 'prepare'):
-                self.queued(scan, 'prepare')
-            if self.selected(scan, 'transform'):
-                self.queued(scan, 'transform')
-            if self.selected(scan, 'masked_transform'):
-                self.queued(scan, 'masked_transform')
-            if self.selected(scan, 'combine') or self.selected(scan, 'pdf'):
-                multi_reduce = NXMultiReduce(scan)
-                if self.selected(scan, 'combine'):
-                    multi_reduce.combine = True
-                    self.queued(scan, 'combine')
-                if self.selected(scan, 'pdf'):
-                    multi_reduce.pdf = True
-                    self.queued(scan, 'pdf')
-                if self.selected(scan, 'overwrite'):
-                    multi_reduce.overwrite = True
-                multi_reduce.queue()
-            if self.selected(
-                    scan, 'masked_combine') or self.selected(
-                    scan, 'masked_pdf'):
-                multi_reduce = NXMultiReduce(scan)
-                multi_reduce.mask = True
-                if self.selected(scan, 'masked_combine'):
-                    multi_reduce.combine = True
-                    self.queued(scan, 'masked_combine')
-                if self.selected(scan, 'masked_pdf'):
-                    multi_reduce.pdf = True
-                    self.queued(scan, 'masked_pdf')
-                if self.selected(scan, 'overwrite'):
-                    multi_reduce.overwrite = True
-                multi_reduce.queue()
+                reduce.queue('nxreduce')
+            for task in self.tasks:
+                if self.selected(scan, task):
+                    self.queued(scan, task)
         self.deselect_all()
 
     def view_logs(self):
@@ -504,8 +479,7 @@ class WorkflowDialog(NXDialog):
         self.scan_combo = dialog.select_box(scans, slot=self.choose_scan)
         self.entry_combo = dialog.select_box(self.entries,
                                              slot=self.refreshview)
-        self.program_combo = dialog.select_box(self.programs,
-                                               slot=self.refreshview)
+        self.task_combo = dialog.select_box(self.tasks, slot=self.refreshview)
         self.defaultview = None
         self.output_box = NXPlainTextEdit(wrap=False)
         cpu_process_button = NXPushButton('View CPU Processes', self.procview)
@@ -518,7 +492,7 @@ class WorkflowDialog(NXDialog):
                                         align='justified')
         dialog.set_layout(
             dialog.make_layout(self.scan_combo, self.entry_combo,
-                               self.program_combo),
+                               self.task_combo),
             self.output_box,
             dialog.action_buttons(('View Data Directory', self.dataview),
                                   ('View Server Logs', self.serverview),
@@ -600,40 +574,38 @@ class WorkflowDialog(NXDialog):
         self.defaultview = self.outview
         scan = self.sample + '_' + self.scan_combo.currentText()
         entry = self.entry_combo.currentText()
-        program = 'nx' + self.program_combo.currentText()
-        if (program == 'nxcombine' or program == 'nxmasked_combine' or
-                program == 'nxpdf'):
+        task = 'nx' + self.task_combo.currentText()
+        if (task == 'nxcombine' or task == 'nxmasked_combine' or
+                task == 'nxpdf'):
             entry = 'entry'
         wrapper_file = os.path.join(self.sample_directory, scan+'.nxs')
         root = nxload(wrapper_file)
-        if program in root[entry]:
-            text = 'Date: ' + root[entry][program]['date'].nxvalue + '\n'
-            text = text + root[entry][program]['note/data'].nxvalue
+        if task in root[entry]:
+            text = 'Date: ' + root[entry][task]['date'].nxvalue + '\n'
+            text = text + root[entry][task]['note/data'].nxvalue
             self.output_box.setPlainText(text)
         else:
-            self.output_box.setPlainText(f'No output for {program}')
+            self.output_box.setPlainText(f'No output for {task}')
 
     def databaseview(self):
         self.defaultview = self.databaseview
         scan = self.sample + '_' + self.scan_combo.currentText()
-        entry = self.entry_combo.currentText()
-        program = 'nx' + self.program_combo.currentText()
-        if (program == 'nxcombine' or program == 'nxmasked_combine' or
-                program == 'nxpdf'):
-            entry = 'entry'
+        task = 'nx' + self.task_combo.currentText()
         wrapper_file = os.path.join(self.sample_directory, scan+'.nxs')
         f = self.db.get_file(wrapper_file)
         text = [' '.join([t.name, str(t.entry), str(t.status),
                           str(t.queue_time), str(t.start_time),
                           str(t.end_time)])
-                for t in f.tasks if t.name == program]
+                for t in f.tasks if t.name == task]
         if text:
             self.output_box.setPlainText('\n'.join(text))
         else:
             self.output_box.setPlainText('No Entries')
 
     def procview(self):
-        patterns = ['nxreduce', 'nxcombine', 'nxpdf', 'nxsum']
+        patterns = ['nxcombine', 'nxcopy', 'nxfind', 'nxlink', 'nxmax',
+                    'nxpdf', 'nxprepare', 'nxreduce', 'nxrefine', 'nxsum',
+                    'nxtransform']
         if self.server.server_type == 'multicore':
             command = f"ps -auxww | grep -e {' -e '.join(patterns)}"
         else:

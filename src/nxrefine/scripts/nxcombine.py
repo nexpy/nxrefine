@@ -19,7 +19,9 @@ def main():
     parser.add_argument('-d', '--directory', default='', help='scan directory')
     parser.add_argument('-e', '--entries', nargs='+',
                         help='names of entries to be combined.')
-    parser.add_argument('-m', '--mask', action='store_true',
+    parser.add_argument('-R', '--regular', action='store_true',
+                        help='combine transforms')
+    parser.add_argument('-M', '--mask', action='store_true',
                         help='combine transforms with 3D mask')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing transform')
@@ -29,12 +31,15 @@ def main():
     args = parser.parse_args()
 
     reduce = NXMultiReduce(args.directory, entries=args.entries,
-                           combine=True, mask=args.mask,
+                           combine=True, regular=args.regular, mask=args.mask,
                            overwrite=args.overwrite)
     if args.queue:
         reduce.queue('nxcombine', args)
     else:
-        reduce.nxcombine()
+        if reduce.regular:
+            reduce.nxcombine()
+        elif reduce.mask:
+            reduce.nxcombine(mask=True)
 
 
 if __name__ == "__main__":
