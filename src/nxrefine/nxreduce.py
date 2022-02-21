@@ -217,6 +217,7 @@ class NXReduce(QtCore.QObject):
         self.overwrite = overwrite
         self.monitor_progress = monitor_progress
         self.gui = gui
+        self.timer = {}
 
         self._stopped = False
         self._process_count = None
@@ -628,6 +629,7 @@ class NXReduce(QtCore.QObject):
         """ Record that a task has started. Update database """
         try:
             self.db.start_task(self.wrapper_file, task, self.entry_name)
+            self.timer[task] = timeit.default_timer()
         except Exception as error:
             self.logger.info(str(error))
 
@@ -635,6 +637,8 @@ class NXReduce(QtCore.QObject):
         """ Record that a task has ended. Update database """
         try:
             self.db.end_task(self.wrapper_file, task, self.entry_name)
+            elapsed_time = timeit.default_timer() - self.timer[task]
+            self.logger.info(f"'{task}' complete ({elapsed_time:g} seconds)")
         except Exception as error:
             self.logger.info(str(error))
 
@@ -642,6 +646,8 @@ class NXReduce(QtCore.QObject):
         """ Record that a task has failed. Update database """
         try:
             self.db.fail_task(self.wrapper_file, task, self.entry_name)
+            elapsed_time = timeit.default_timer() - self.timer[task]
+            self.logger.info(f"'{task}' failed ({elapsed_time:g} seconds)")
         except Exception as error:
             self.logger.info(str(error))
 
@@ -656,8 +662,8 @@ class NXReduce(QtCore.QObject):
             if logs:
                 self.transfer_logs(logs)
                 self.record('nxlink', logs='Transferred')
-                self.record_end('nxlink')
                 self.logger.info('Entry linked to raw data')
+                self.record_end('nxlink')
             else:
                 self.record_fail('nxlink')
         elif self.link:
@@ -804,6 +810,7 @@ class NXReduce(QtCore.QObject):
             if self.parent:
                 self.copy_parameters()
                 self.record('nxcopy', parent=self.parent)
+                self.logger.info('Entry parameters copied from parent')
                 self.record_end('nxcopy')
             else:
                 self.logger.info('No parent defined or accessible')
