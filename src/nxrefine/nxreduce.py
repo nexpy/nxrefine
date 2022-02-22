@@ -630,6 +630,7 @@ class NXReduce(QtCore.QObject):
         try:
             self.db.start_task(self.wrapper_file, task, self.entry_name)
             self.timer[task] = timeit.default_timer()
+            self.logger.info(f"{self.name}: '{task}' started")
         except Exception as error:
             self.logger.info(str(error))
 
@@ -638,7 +639,8 @@ class NXReduce(QtCore.QObject):
         try:
             self.db.end_task(self.wrapper_file, task, self.entry_name)
             elapsed_time = timeit.default_timer() - self.timer[task]
-            self.logger.info(f"'{task}' complete ({elapsed_time:g} seconds)")
+            self.logger.info(
+                f"{self.name}: '{task}' complete ({elapsed_time:g} seconds)")
         except Exception as error:
             self.logger.info(str(error))
 
