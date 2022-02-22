@@ -96,8 +96,7 @@ class ScanDialog(NXDialog):
 
     def get_samples(self):
         home_directory = self.get_directory()
-        if (os.path.exists(home_directory) and
-                'configurations' in os.listdir(home_directory)):
+        if os.path.exists(home_directory):
             sample_directories = [f for f in os.listdir(home_directory)
                                   if (not f.startswith('.') and
                                       os.path.isdir(
