@@ -925,7 +925,46 @@ class NXReduce(QtCore.QObject):
                 del self.entry['summed_frames']
             self.entry['summed_frames'] = NXdata(self.summed_frames,
                                                  self.entry['data'].nxaxes[0])
+            self.calculate_radial_sums()
         self.clear_parameters(['first', 'last'])
+
+    def calculate_radial_sums(self):
+        try:
+            from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
+            parameters = (
+                self.entry['instrument/calibration/refinement/parameters'])
+            ai = AzimuthalIntegrator(
+                dist=parameters['Distance'].nxvalue,
+                detector=parameters['Detector'].nxvalue,
+                poni1=parameters['Poni1'].nxvalue,
+                poni2=parameters['Poni2'].nxvalue,
+                rot1=parameters['Rot1'].nxvalue,
+                rot2=parameters['Rot2'].nxvalue,
+                rot3=parameters['Rot3'].nxvalue,
+                pixel1=parameters['PixelSize1'].nxvalue,
+                pixel2=parameters['PixelSize2'].nxvalue,
+                wavelength=parameters['Wavelength'].nxvalue)
+            polarization = ai.polarization(factor=0.99)
+            counts = (self.summed_data.nxvalue.filled(fill_value=0)
+                      / polarization)
+            polar_angle, intensity = ai.integrate1d(counts,
+                                                    2048,
+                                                    unit='2th_deg',
+                                                    mask=self.pixel_mask,
+                                                    correctSolidAngle=True)
+            Q = 4 * np.pi * np.sin(polar_angle / 2) / ai.wavelength
+            if 'radial_sum' in self.entry:
+                del self.entry['radial_sum']
+            self.entry['radial_sum'] = NXdata(
+                NXfield(intensity, name='radial_sum'),
+                NXfield(Q, name='Q', units='Ang-1'),
+                polar_angle=NXfield(polar_angle, name='polar_angle'))
+            if 'polarization' not in self.entry['instrument/detector']:
+                self.entry['instrument/detector/polarization'] = polarization
+        except Exception as error:
+            self.logger.info('Unable to create radial sum')
+            self.logger.info(str(error))
+            return None
 
     def nxfind(self):
         if self.not_complete('nxfind') and self.find:
@@ -943,7 +982,7 @@ class NXReduce(QtCore.QObject):
                 self.write_parameters(
                     threshold=self.threshold, first=self.first, last=self.last)
                 self.record('nxfind', threshold=self.threshold,
-                            first_frame=self.first, last_frame=self.last,
+                            first=self.first, last=self.last,
                             peak_number=len(peaks))
                 self.record_end('nxfind')
             else:
@@ -1049,46 +1088,6 @@ class NXReduce(QtCore.QObject):
     def write_refinement(self, refine):
         with self.root.nxfile:
             refine.write_parameters()
-            self.calculate_radial_sums()
-
-    def calculate_radial_sums(self):
-        try:
-            if 'summed_data' not in self.entry:
-                raise NeXusError('Summed data not available')
-            else:
-                counts = (self.entry['summed_data'].nxsignal.nxvalue
-                          / polarization)
-            from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
-            parameters = (
-                self.entry['instrument/calibration/refinement/parameters'])
-            ai = AzimuthalIntegrator(
-                dist=parameters['Distance'].nxvalue,
-                detector=parameters['Detector'].nxvalue,
-                poni1=parameters['Poni1'].nxvalue,
-                poni2=parameters['Poni2'].nxvalue,
-                rot1=parameters['Rot1'].nxvalue,
-                rot2=parameters['Rot2'].nxvalue,
-                rot3=parameters['Rot3'].nxvalue,
-                pixel1=parameters['PixelSize1'].nxvalue,
-                pixel2=parameters['PixelSize2'].nxvalue,
-                wavelength=parameters['Wavelength'].nxvalue)
-            polarization = ai.polarization(factor=0.99)
-            polar_angle, intensity = ai.integrate1d(counts,
-                                                    2048,
-                                                    unit='2th_deg',
-                                                    mask=self.pixel_mask,
-                                                    correctSolidAngle=True)
-            if 'radial_sum' in self.entry:
-                del self.entry['radial_sum']
-            self.entry['radial_sum'] = NXdata(
-                NXfield(intensity, name='radial_sum'),
-                NXfield(polar_angle, name='polar_angle'))
-            if 'polarization' not in self.entry['instrument/detector']:
-                self.entry['instrument/detector/polarization'] = polarization
-        except Exception as error:
-            self.logger.info('Unable to create radial sum')
-            self.logger.info(str(error))
-            return None
 
     def nxprepare(self):
         if self.not_complete('nxprepare_mask') and self.prepare:
