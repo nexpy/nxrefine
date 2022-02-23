@@ -357,6 +357,10 @@ class NXReduce(QtCore.QObject):
         return self._shape
 
     @property
+    def nframes(self):
+        return self.shape[0]
+
+    @property
     def data_file(self):
         return self.entry[self._data].nxfilename
 
@@ -866,16 +870,15 @@ class NXReduce(QtCore.QObject):
         self.logger.info('Finding maximum counts')
         with self.field.nxfile:
             maximum = 0.0
-            nframes = self.shape[0]
             chunk_size = self.field.chunks[0]
             if chunk_size < 20:
                 chunk_size = 50
             if self.first is None:
                 self.first = 0
             if self.last is None:
-                self.last = nframes
+                self.last = self.nframes
             data = self.field.nxfile[self.path]
-            fsum = np.zeros(nframes, dtype=np.float64)
+            fsum = np.zeros(self.nframes, dtype=np.float64)
             pixel_mask = self.pixel_mask
             # Add constantly firing pixels to the mask
             pixel_max = np.zeros((self.shape[1], self.shape[2]))
@@ -1001,11 +1004,10 @@ class NXReduce(QtCore.QObject):
 
         tic = self.start_progress(self.first, self.last)
         self.blobs = []
-        nframes = self.shape[0]
         with ProcessPoolExecutor(max_workers=self.process_count) as executor:
             futures = []
             for i in range(self.first, self.last+1, 50):
-                j, k = i - min(5, i), min(i+55, self.last+5, nframes)
+                j, k = i - min(5, i), min(i+55, self.last+5, self.nframes)
                 futures.append(executor.submit(
                     peak_search, self.field.nxfilename, self.field.nxfilepath,
                     i, j, k, self.threshold))
@@ -1136,11 +1138,10 @@ class NXReduce(QtCore.QObject):
         mask_root['entry/mask'] = (
             NXfield(shape=self.shape, dtype=np.int8, fillvalue=0))
 
-        nframes = self.shape[0]
         with ProcessPoolExecutor(max_workers=self.process_count) as executor:
             futures = []
             for i in range(self.first, self.last+1, 10):
-                j, k = i - min(1, i), min(i+11, self.last+1, nframes)
+                j, k = i - min(1, i), min(i+11, self.last+1, self.nframes)
                 futures.append(executor.submit(
                     mask_volume, self.field.nxfilename, self.field.nxfilepath,
                     mask_root.nxfilename, 'entry/mask', i, j, k,
