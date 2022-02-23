@@ -1261,10 +1261,12 @@ class NXReduce(QtCore.QObject):
                 monitor_signal[-1] = monitor_signal[-2]
                 self.data['monitor_weight'] = savgol_filter(monitor_signal,
                                                             501, 2)
-                self.data['monitor_weight'].attrs['axes'] = 'frame_number'
-                self.data['monitor_weight'][0] = self.data['monitor_weight'][1]
-                self.data['monitor_weight'][-1] = (
-                    self.data['monitor_weight'][-2])
+            else:
+                self.data['monitor_weight'] = np.ones(self.nframes,
+                                                      dtype=np.float32)
+            self.data['monitor_weight'][:self.first] = 0.0
+            self.data['monitor_weight'][self.last+1:] = 0.0
+            self.data['monitor_weight'].attrs['axes'] = 'frame_number'
 
     def prepare_transform(self, mask=False):
         settings_file = os.path.join(self.directory,
