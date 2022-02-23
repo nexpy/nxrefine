@@ -956,20 +956,20 @@ class NXReduce(QtCore.QObject):
             polarization = ai.polarization(factor=0.99)
             counts = (self.summed_data.nxvalue.filled(fill_value=0)
                       / polarization)
-            polar_angle, intensity = ai.integrate1d(counts,
-                                                    2048,
-                                                    unit='2th_deg',
-                                                    mask=self.pixel_mask,
-                                                    correctSolidAngle=True)
-            Q = 4 * np.pi * np.sin(polar_angle / 2) / ai.wavelength
+            polar_angle, intensity = ai.integrate1d(
+                counts, 2048, unit='2th_deg', mask=self.pixel_mask,
+                correctSolidAngle=True, method=('bbox', 'histogram', 'cython'))
+            Q = (4 * np.pi * np.sin(np.radians(polar_angle) / 2.0)
+                 / (ai.wavelength * 1e10))
             if 'radial_sum' in self.entry:
                 del self.entry['radial_sum']
             self.entry['radial_sum'] = NXdata(
                 NXfield(intensity, name='radial_sum'),
-                NXfield(Q, name='Q', units='Ang-1'),
-                polar_angle=NXfield(polar_angle, name='polar_angle'))
-            if 'polarization' not in self.entry['instrument/detector']:
-                self.entry['instrument/detector/polarization'] = polarization
+                NXfield(polar_angle, units='degrees', long_name='Polar Angle'),
+                Q=NXfield(Q, name='Q', units='Ang-1'))
+            if 'polarization' in self.entry['instrument/detector']:
+                del self.entry['polarization']
+            self.entry['instrument/detector/polarization'] = polarization
         except Exception as error:
             self.logger.info('Unable to create radial sum')
             self.logger.info(str(error))
