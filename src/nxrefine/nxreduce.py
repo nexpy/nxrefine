@@ -968,7 +968,7 @@ class NXReduce(QtCore.QObject):
                 NXfield(polar_angle, units='degrees', long_name='Polar Angle'),
                 Q=NXfield(Q, name='Q', units='Ang-1'))
             if 'polarization' in self.entry['instrument/detector']:
-                del self.entry['polarization']
+                del self.entry['instrument/detector/polarization']
             self.entry['instrument/detector/polarization'] = polarization
         except Exception as error:
             self.logger.info('Unable to create radial sum')
