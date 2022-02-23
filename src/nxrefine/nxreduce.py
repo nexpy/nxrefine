@@ -76,6 +76,9 @@ class NXReduce(QtCore.QObject):
             Name of monitor used in normalizations, by default None
         norm : float, optional
             Value used to normalize monitor counts, by default None
+        mask_parameters : dict, optional
+            Thresholds and convolution sizes used to prepare 3D masks, by
+            default None.
         Qh : tuple of floats, optional
             Minimum, step size, and maximum value of Qh array, by default None
         Qk : tuple of floats, optional
@@ -112,14 +115,11 @@ class NXReduce(QtCore.QObject):
             Use PyQt signals to monitor progress, by default False
         """
 
-    mask_parameters = {'threshold_1': 2, 'horizontal_size_1': 11,
-                       'threshold_2': 0.8, 'horizontal_size_2': 51}
-
     def __init__(
             self, entry=None, directory=None, parent=None, entries=None,
             data='data/data', extension='.h5', path='/entry/data/data',
             threshold=None, min_pixels=None, first=None, last=None,
-            monitor=None, norm=None, radius=None,
+            monitor=None, norm=None, radius=None, mask_parameters=None,
             Qh=None, Qk=None, Ql=None,
             link=False, copy=False, maxcount=False, find=False, refine=False,
             prepare=False, transform=False, combine=False, pdf=False,
@@ -193,6 +193,12 @@ class NXReduce(QtCore.QObject):
         self._monitor = monitor
         self._norm = norm
         self._radius = radius
+        if mask_parameters is None:
+            self.mask_parameters = {
+                'threshold_1': 2, 'horizontal_size_1': 11,
+                'threshold_2': 0.8, 'horizontal_size_2': 51}
+        else:
+            self.mask_parameters = mask_parameters
 
         self._maximum = None
         self.summed_data = None
