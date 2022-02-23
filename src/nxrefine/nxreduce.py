@@ -958,14 +958,14 @@ class NXReduce(QtCore.QObject):
                       / polarization)
             polar_angle, intensity = ai.integrate1d(
                 counts, 2048, unit='2th_deg', mask=self.pixel_mask,
-                correctSolidAngle=True, method=('bbox', 'histogram', 'cython'))
+                correctSolidAngle=True, method=('no', 'histogram', 'cython'))
             Q = (4 * np.pi * np.sin(np.radians(polar_angle) / 2.0)
                  / (ai.wavelength * 1e10))
             if 'radial_sum' in self.entry:
                 del self.entry['radial_sum']
             self.entry['radial_sum'] = NXdata(
                 NXfield(intensity, name='radial_sum'),
-                NXfield(polar_angle, units='degrees', long_name='Polar Angle'),
+                NXfield(polar_angle, name='polar_angle', units='degrees'),
                 Q=NXfield(Q, name='Q', units='Ang-1'))
             if 'polarization' in self.entry['instrument/detector']:
                 del self.entry['instrument/detector/polarization']
