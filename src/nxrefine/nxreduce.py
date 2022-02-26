@@ -19,6 +19,7 @@ from datetime import datetime
 
 import h5py as h5
 import numpy as np
+import scipy
 from h5py import is_hdf5
 from nexusformat.nexus import (NeXusError, NXattenuator, NXcollection, NXdata,
                                NXentry, NXfield, NXinstrument, NXlink, NXLock,
@@ -1756,7 +1757,9 @@ class NXMultiReduce(NXReduce):
         symm_data = self.entry[
             self.symm_transform].nxsignal[:-1, :-1, :-1].nxvalue
         symm_data *= self.fft_taper(symm_data.shape)
-        fft = np.real(np.fft.fftshift(np.fft.fftn(np.fft.fftshift(symm_data))))
+        fft = np.real(np.fft.fftshift(
+            scipy.fft.fftn(np.fft.fftshift(symm_data),
+                           workers=self.process_count)))
         fft *= (1.0 / np.prod(fft.shape))
 
         root = nxload(self.total_pdf_file, 'a')
@@ -1944,7 +1947,9 @@ class NXMultiReduce(NXReduce):
         symm_data = (self.entry[self.symm_transform]['filled_data']
                      [:-1, :-1, :-1].nxvalue)
         symm_data *= self.fft_taper(symm_data.shape)
-        fft = np.real(np.fft.fftshift(np.fft.fftn(np.fft.fftshift(symm_data))))
+        fft = np.real(np.fft.fftshift(
+            scipy.fft.fftn(np.fft.fftshift(symm_data),
+                           workers=self.process_count)))
         fft *= (1.0 / np.prod(fft.shape))
 
         root = nxload(self.pdf_file, 'a')
