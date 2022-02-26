@@ -10,8 +10,6 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 import numpy as np
 from nexusformat.nexus import nxsetlock
 
-from .nxreduce import NXReduce
-
 
 def triclinic(data):
     """Laue group: -1"""
@@ -79,6 +77,7 @@ def cubic(data):
 def symmetrize_data(symm_function, signal, data_file, data_path,
                     symm_file, symm_path):
     nxsetlock(60)
+    from .nxreduce import NXReduce
     for i, entry in enumerate([e for e in data_file if e != 'entry']):
         r = NXReduce(data_file[entry])
         if i == 0:
