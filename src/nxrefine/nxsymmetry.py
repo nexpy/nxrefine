@@ -1,114 +1,135 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2013-2021, NeXpy Development Team.
+# Copyright (c) 2013-2022, NeXpy Development Team.
 #
 # Distributed under the terms of the Modified BSD License.
 #
 # The full license is in the file COPYING, distributed with this software.
 # -----------------------------------------------------------------------------
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import numpy as np
-from nexusformat.nexus import NXdata, NXfield
+from nexusformat.nexus import nxsetlock
+
+from .nxreduce import NXReduce
+
+
+def triclinic(data):
+    """Laue group: -1"""
+    outarr = np.nan_to_num(data)
+    outarr += np.flip(outarr)
+    return outarr
+
+
+def monoclinic(data):
+    """Laue group: 2/m"""
+    outarr = np.nan_to_num(data)
+    outarr += np.rot90(outarr, 2, (0, 2))
+    outarr += np.flip(outarr, 0)
+    return outarr
+
+
+def orthorhombic(data):
+    """Laue group: mmm"""
+    outarr = np.nan_to_num(data)
+    outarr += np.flip(outarr, 0)
+    outarr += np.flip(outarr, 1)
+    outarr += np.flip(outarr, 2)
+    return outarr
+
+
+def tetragonal1(data):
+    """Laue group: 4/m"""
+    outarr = np.nan_to_num(data)
+    outarr += np.rot90(outarr, 1, (1, 2))
+    outarr += np.rot90(outarr, 2, (1, 2))
+    outarr += np.flip(outarr, 0)
+    return outarr
+
+
+def tetragonal2(data):
+    """Laue group: 4/mmm"""
+    outarr = np.nan_to_num(data)
+    outarr += np.rot90(outarr, 1, (1, 2))
+    outarr += np.rot90(outarr, 2, (1, 2))
+    outarr += np.rot90(outarr, 2, (0, 1))
+    outarr += np.flip(outarr, 0)
+    return outarr
+
+
+def hexagonal(data):
+    """Laue group: 6/m, 6/mmm (modeled as 2/m along the c-axis)"""
+    outarr = np.nan_to_num(data)
+    outarr += np.rot90(outarr, 2, (1, 2))
+    outarr += np.flip(outarr, 0)
+    return outarr
+
+
+def cubic(data):
+    """Laue group: m-3 or m-3m"""
+    outarr = np.nan_to_num(data)
+    outarr += (np.transpose(outarr, axes=(1, 2, 0)) +
+               np.transpose(outarr, axes=(2, 0, 1)))
+    outarr += np.transpose(outarr, axes=(0, 2, 1))
+    outarr += np.flip(outarr, 0)
+    outarr += np.flip(outarr, 1)
+    outarr += np.flip(outarr, 2)
+    return outarr
+
+
+def symmetrize_data(symm_function, signal, data_file, data_path,
+                    symm_file, symm_path):
+    nxsetlock(60)
+    for i, entry in enumerate([e for e in data_file if e != 'entry']):
+        r = NXReduce(data_file[entry])
+        if i == 0:
+            if signal:
+                data = r.entry[data_path].nxsignal.nxvalue
+            else:
+                data = r.entry[data_path].nxweights.nxvalue
+        else:
+            if signal:
+                data += r.entry[data_path].nxsignal.nxvalue
+            else:
+                data += r.entry[data_path].nxweights.nxvalue
+    result = symm_function(np.nan_to_num(data))
+    if signal:
+        symm_file[symm_path].nxsignal = result
+    else:
+        symm_file[symm_path].nxweights = result
 
 
 class NXSymmetry(object):
 
-    def __init__(self, data, laue_group='-1'):
-        laue_functions = {'-1': self.triclinic,
-                          '2/m': self.monoclinic,
-                          'mmm': self.orthorhombic,
-                          '4/m': self.tetragonal1,
-                          '4/mmm': self.tetragonal2,
-                          '-3': self.triclinic,
-                          '-3m': self.triclinic,
-                          '6/m': self.hexagonal,
-                          '6/mmm': self.hexagonal,
-                          'm-3': self.cubic,
-                          'm-3m': self.cubic}
+    def __init__(self, data_file, data_path, symm_file, laue_group):
+        laue_functions = {'-1': triclinic,
+                          '2/m': monoclinic,
+                          'mmm': orthorhombic,
+                          '4/m': tetragonal1,
+                          '4/mmm': tetragonal2,
+                          '-3': triclinic,
+                          '-3m': triclinic,
+                          '6/m': hexagonal,
+                          '6/mmm': hexagonal,
+                          'm-3': cubic,
+                          'm-3m': cubic}
         if laue_group in laue_functions:
-            self._function = laue_functions[laue_group]
+            self.symm_function = laue_functions[laue_group]
         else:
-            self._function = self.triclinic
-        if isinstance(data, NXdata):
-            self._data = data
-            signal = data.nxsignal.nxvalue
-            weights = data.nxweights.nxvalue
-        else:
-            self._data = None
-            if isinstance(data, NXfield):
-                signal = data.nxvalue
-            else:
-                signal = data
-            weights = None
-        self._signal = np.nan_to_num(signal)
-        if weights is None:
-            self._wts = np.zeros(self._signal.shape, dtype=self._signal.dtype)
-            self._wts[np.where(self._signal > 0)] = 1
-        else:
-            self._wts = np.nan_to_num(weights, nan=1.0)
-
-    def triclinic(self, data):
-        """Laue group: -1"""
-        outarr = data
-        outarr += np.flip(outarr)
-        return outarr
-
-    def monoclinic(self, data):
-        """Laue group: 2/m"""
-        outarr = data
-        outarr += np.rot90(outarr, 2, (0, 2))
-        outarr += np.flip(outarr, 0)
-        return outarr
-
-    def orthorhombic(self, data):
-        """Laue group: mmm"""
-        outarr = data
-        outarr += np.flip(outarr, 0)
-        outarr += np.flip(outarr, 1)
-        outarr += np.flip(outarr, 2)
-        return outarr
-
-    def tetragonal1(self, data):
-        """Laue group: 4/m"""
-        outarr = data
-        outarr += np.rot90(outarr, 1, (1, 2))
-        outarr += np.rot90(outarr, 2, (1, 2))
-        outarr += np.flip(outarr, 0)
-        return outarr
-
-    def tetragonal2(self, data):
-        """Laue group: 4/mmm"""
-        outarr = data
-        outarr += np.rot90(outarr, 1, (1, 2))
-        outarr += np.rot90(outarr, 2, (1, 2))
-        outarr += np.rot90(outarr, 2, (0, 1))
-        outarr += np.flip(outarr, 0)
-        return outarr
-
-    def hexagonal(self, data):
-        """Laue group: 6/m, 6/mmm (modeled as 2/m along the c-axis)"""
-        outarr = data
-        outarr += np.rot90(outarr, 2, (1, 2))
-        outarr += np.flip(outarr, 0)
-        return outarr
-
-    def cubic(self, data):
-        """Laue group: m-3 or m-3m"""
-        outarr = data
-        outarr += np.transpose(outarr, axes=(1, 2, 0)
-                               )+np.transpose(outarr, axes=(2, 0, 1))
-        outarr += np.transpose(outarr, axes=(0, 2, 1))
-        outarr += np.flip(outarr, 0)
-        outarr += np.flip(outarr, 1)
-        outarr += np.flip(outarr, 2)
-        return outarr
+            self.symm_function = triclinic
+        self.data_file = data_file
+        self.data_path = data_path
+        self.symm_file = symm_file
+        self.symm_path = 'entry/data'
 
     def symmetrize(self):
-        signal = np.nan_to_num(self._function(self._signal))
-        weights = np.nan_to_num(self._function(self._wts))
-        with np.errstate(divide='ignore'):
-            result = np.where(weights > 0, signal/weights, 0.0)
-        if self._data:
-            return NXdata(NXfield(result, name=self._data.nxsignal.nxname),
-                          self._data.nxaxes)
-        else:
-            return result
+        with ProcessPoolExecutor() as executor:
+            for signal in [True, False]:
+                executor.submit(symmetrize_data, self.symm_function, signal,
+                                self.data_file, self.data_path,
+                                self.symm_file, self.symm_path)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            self.symm_file[self.symm_path].nxsignal = np.where(
+                self.symm_file[self.symm_path].nxweights.nxvalue > 0,
+                self.symm_file[self.symm_path].nxsignal.nxvalue /
+                self.symm_file[self.symm_path].nxweights.nxvalue,
+                0.0)
