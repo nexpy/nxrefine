@@ -5,10 +5,12 @@
 #
 # The full license is in the file COPYING, distributed with this software.
 # -----------------------------------------------------------------------------
-from concurrent.futures import ProcessPoolExecutor, as_completed
+import os
+import tempfile
+from concurrent.futures import ProcessPoolExecutor, wait
 
 import numpy as np
-from nexusformat.nexus import nxsetlock
+from nexusformat.nexus import nxload, nxsetlock, NXdata
 
 
 def triclinic(data):
@@ -74,32 +76,54 @@ def cubic(data):
     return outarr
 
 
-def symmetrize_data(symm_function, signal, data_file, data_path,
-                    symm_file, symm_path):
+def symmetrize_entries(symm_function, signal, data_file, data_path,
+                       result_file):
     nxsetlock(60)
-    from .nxreduce import NXReduce
+    root = nxload(data_file, 'r')
     for i, entry in enumerate([e for e in data_file if e != 'entry']):
-        r = NXReduce(data_file[entry])
         if i == 0:
             if signal:
-                data = r.entry[data_path].nxsignal.nxvalue
+                data = root[entry][data_path].nxsignal.nxvalue
+            elif root[entry][data_path].nxweights:
+                data = root[entry][data_path].nxweights.nxvalue
             else:
-                data = r.entry[data_path].nxweights.nxvalue
+                signal = root[entry][data_path].nxsignal.nxvalue
+                data = np.zeros(root[entry][data_path].shape,
+                                dtype=root[entry][data_path].nxsignal.dtype)
+                data[np.where(signal > 0)] = 1
         else:
             if signal:
-                data += r.entry[data_path].nxsignal.nxvalue
-            else:
-                data += r.entry[data_path].nxweights.nxvalue
+                data += root[entry][data_path].nxsignal.nxvalue
+            elif root[entry][data_path].nxweights:
+                data += root[entry][data_path].nxweights.nxvalue
     result = symm_function(np.nan_to_num(data))
     if signal:
-        symm_file[symm_path].nxsignal = result
+        result_file[['data']].nxsignal = result
     else:
-        symm_file[symm_path].nxweights = result
+        result_file['data'].nxweights = result
+
+
+def symmetrize_data(symm_function, signal, data_file, data_path, result_file):
+    nxsetlock(60)
+    root = nxload(data_file, 'r')
+    if signal:
+        data = root['entry'][data_path].nxsignal.nxvalue
+    else:
+        signal = root['entry'][data_path].nxsignal.nxvalue
+        data = np.zeros(root['entry'][data_path].shape,
+                        dtype=root['entry'][data_path].nxsignal.dtype)
+        data[np.where(signal > 0)] = 1
+    result = symm_function(np.nan_to_num(data))
+    if signal:
+        result_file[['data']].nxsignal = result
+    else:
+        result_file['data'].nxweights = result
 
 
 class NXSymmetry(object):
 
-    def __init__(self, data_file, data_path, symm_file, laue_group):
+    def __init__(self, data_file, data_path, symm_file=None, symm_path=None,
+                 laue_group=None):
         laue_functions = {'-1': triclinic,
                           '2/m': monoclinic,
                           'mmm': orthorhombic,
@@ -111,24 +135,46 @@ class NXSymmetry(object):
                           '6/mmm': hexagonal,
                           'm-3': cubic,
                           'm-3m': cubic}
-        if laue_group in laue_functions:
+        if laue_group and laue_group in laue_functions:
             self.symm_function = laue_functions[laue_group]
         else:
             self.symm_function = triclinic
         self.data_file = data_file
         self.data_path = data_path
-        self.symm_file = symm_file
-        self.symm_path = 'entry/data'
+        if self.symm_file:
+            self.symm_file = symm_file
+        else:
+            self.symm_file = None
+        if self.symm_path:
+            self.symm_path = symm_path
+        else:
+            self.symm_path = None
 
-    def symmetrize(self):
+    def __enter__(self):
+        self.result_file = nxload(tempfile.mkstemp(suffix='.nxs')[1], mode='w',
+                                  libver='latest')
+        self.result_file['data'] = NXdata()
+        return self
+
+    def __exit__(self):
+        os.remove(self.result_file.nxfilename)
+
+    def symmetrize(self, entries=False):
+        if entries:
+            symmetrize = symmetrize_entries
+        else:
+            symmetrize = symmetrize_data
         with ProcessPoolExecutor() as executor:
+            futures = []
             for signal in [True, False]:
-                executor.submit(symmetrize_data, self.symm_function, signal,
-                                self.data_file, self.data_path,
-                                self.symm_file, self.symm_path)
+                futures.append(executor.submit(
+                    symmetrize, self.symm_function, signal,
+                    self.data_file, self.data_path, self.result_file))
+        wait(futures)
         with np.errstate(divide='ignore', invalid='ignore'):
-            self.symm_file[self.symm_path].nxsignal = np.where(
-                self.symm_file[self.symm_path].nxweights.nxvalue > 0,
-                self.symm_file[self.symm_path].nxsignal.nxvalue /
-                self.symm_file[self.symm_path].nxweights.nxvalue,
+            self.result_file['data'].nxsignal = np.where(
+                self.result_file['data'].nxweights.nxvalue > 0,
+                self.result_file['data'].nxsignal.nxvalue /
+                self.result_file['data'].nxweights.nxvalue,
                 0.0)
+        return self.result_file['data'].nxsignal.nxvalue

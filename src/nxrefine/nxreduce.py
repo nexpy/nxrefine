@@ -1680,7 +1680,6 @@ class NXMultiReduce(NXReduce):
             self.set_memory()
             self.symmetrize_transform()
             self.total_pdf()
-            self.punch_holes()
             self.punch_and_fill()
             self.delta_pdf()
             self.write_parameters(radius=self.radius)
@@ -1698,19 +1697,21 @@ class NXMultiReduce(NXReduce):
         self.logger.info('Transform being symmetrized')
         tic = timeit.default_timer()
         symm_root = nxload(self.symm_file, 'w')
+        symm_root['entry'] = NXentry()
         symm_root['entry/data'] = NXdata()
-        symmetry = NXSymmetry(self.root, f'entry/{self.transform_data}',
-                              symm_root, laue_group=self.refine.laue_group)
-        symmetry.symmetrize()
+        with NXSymmetry(self.root, self.transform_data,
+                        laue_group=self.refine.laue_group) as symmetry:
+            symm_root['entry/data/data'] = symmetry.symmetrize(entries=True)
         symm_root['entry/data'].nxweights = self.fft_weights(
             symm_root['entry/data'].shape)
+        symm_root['entry/data'].nxaxes = self.entry[self.transform_data].nxaxes
         if self.symm_data in self.entry:
             del self.entry[self.symm_data]
-        symm_data = NXlink(
-            '/entry/data/data', file=self.symm_file, name='data')
+        symm_data = NXlink('/entry/data/data', file=self.symm_file,
+                           name='data')
         self.entry[self.symm_data] = NXdata(
             symm_data, self.entry[self.transform_data].nxaxes)
-        self.entry[self.symm_data]['data_weights'] = NXlink(
+        self.entry[self.symm_data].nxweights = NXlink(
             '/entry/data/data_weights', file=self.symm_file)
         self.logger.info(f"'{self.symm_data}' added to entry")
         toc = timeit.default_timer()
@@ -1796,12 +1797,11 @@ class NXMultiReduce(NXReduce):
         else:
             return self.refine.indices
 
-    def symmetrize(self, data):
-        if self.refine.laue_group in ['-3', '-3m', '6/m', '6/mmm']:
-            return data
-        else:
-            symmetry = NXSymmetry(data, laue_group=self.refine.laue_group)
-            return symmetry.symmetrize()
+    def symmetrize(self, data_file, data_path):
+        if self.refine.laue_group not in ['-3', '-3m', '6/m', '6/mmm']:
+            with NXSymmetry(data_file, data_path,
+                            laue_group=self.refine.laue_group) as symmetry:
+                self.data_file['entry'][data_path] = symmetry.symmetrize()
 
     def punch_holes(self):
         self.logger.info('Punching holes')
@@ -1812,18 +1812,18 @@ class NXMultiReduce(NXReduce):
             else:
                 self.logger.info('Punched holes already exists')
                 return
+
         tic = timeit.default_timer()
         symm_group = self.entry[self.symm_data]
         Qh, Qk, Ql = (symm_group['Qh'], symm_group['Qk'], symm_group['Ql'])
 
-        root = nxload(self.symm_file, 'rw')
-        entry = root['entry']
+        symm_root = nxload(self.symm_file, 'rw')
+        symm_data = symm_root['entry/data']
 
         mask, _ = self.hole_mask()
         ml = int((mask.shape[0]-1)/2)
         mk = int((mask.shape[1]-1)/2)
         mh = int((mask.shape[2]-1)/2)
-        symm_data = entry['data/data'].nxdata
         punch_data = np.zeros(shape=symm_data.shape, dtype=symm_data.dtype)
         for h, k, l in self.indices:
             try:
@@ -1836,13 +1836,13 @@ class NXMultiReduce(NXReduce):
                 punch_data[(lslice, kslice, hslice)] = mask
             except Exception:
                 pass
-        punch_data = self.symmetrize(punch_data)
         changed_idx = np.where(punch_data > 0)
-        symm_data[changed_idx] *= 0
+        if 'punch' in symm_root['entry/data']:
+            del symm_root['entry/data/punch']
+        symm_root['entry/data/punch'] = symm_data
+        symm_root['entry/data/punch'][changed_idx] *= 0
+        self.symmetrize(self.symm_file, 'data/punch')
 
-        if 'punch' in entry['data']:
-            del entry['data/punch']
-        entry['data/punch'] = symm_data
         self.entry[self.symm_data]['punched_data'] = NXlink(
             '/entry/data/punch', file=self.symm_file)
         self.logger.info(f"'punched_data' added to '{self.symm_data}'")
@@ -1882,8 +1882,8 @@ class NXMultiReduce(NXReduce):
         symm_group = self.entry[self.symm_data]
         Qh, Qk, Ql = (symm_group['Qh'], symm_group['Qk'], symm_group['Ql'])
 
-        root = nxload(self.symm_file, 'rw')
-        entry = root['entry']
+        symm_root = nxload(self.symm_file, 'rw')
+        symm_data = symm_root['entry/data/data']
 
         mask, mask_indices = self.hole_mask()
         idx = [Main.CartesianIndex(int(i[0]+1), int(i[1]+1), int(i[2]+1))
@@ -1891,7 +1891,7 @@ class NXMultiReduce(NXReduce):
         ml = int((mask.shape[0]-1)/2)
         mk = int((mask.shape[1]-1)/2)
         mh = int((mask.shape[2]-1)/2)
-        symm_data = entry['data/data'].nxdata
+        punch_data = np.zeros(shape=symm_data.shape, dtype=symm_data.dtype)
         fill_data = np.zeros(shape=symm_data.shape, dtype=symm_data.dtype)
         self.refine.polar_max = self.refine.two_theta_max()
         for h, k, l in self.indices:
@@ -1902,19 +1902,34 @@ class NXMultiReduce(NXReduce):
                 lslice = slice(il-ml, il+ml+1)
                 kslice = slice(ik-mk, ik+mk+1)
                 hslice = slice(ih-mh, ih+mh+1)
-                v = symm_data[(lslice, kslice, hslice)]
+                punch_data[(lslice, kslice, hslice)] = mask
+                v = symm_data[(lslice, kslice, hslice)].nxvalue
                 if v.max() > 0.0:
                     w = LaplaceInterpolation.matern_3d_grid(v, idx)
                     fill_data[(lslice, kslice, hslice)] = w
             except Exception:
                 pass
-        fill_data = self.symmetrize(fill_data)
-        changed_idx = np.where(fill_data > 0)
-        symm_data[changed_idx] = fill_data[changed_idx]
 
-        if 'fill' in entry['data']:
-            del entry['data/fill']
-        entry['data/fill'] = symm_data
+        if 'punch' in symm_root['entry/data']:
+            del symm_root['entry/data/punch']
+        symm_root['entry/data/punch'] = punch_data
+        self.symmetrize(self.symm_file, 'data/punch')
+        changed_idx = np.where(symm_root['entry/data/punch'] > 0)
+        symm_root['entry/data/punch'] = symm_data
+        symm_root['entry/data/punch'][changed_idx] *= 0
+        self.entry[self.symm_data]['punched_data'] = NXlink(
+            '/entry/data/punch', file=self.symm_file)
+        self.logger.info(f"'punched_data' added to '{self.symm_data}'")
+
+        if 'fill' in symm_root['entry/data']:
+            del symm_root['entry/data/fill']
+        symm_root['entry/data/fill_buffer'] = fill_data
+        self.symmetrize(self.symm_file, 'data/fill_buffer')
+        changed_idx = np.where(symm_root['entry/data/fill_buffer'] > 0)
+        symm_root['entry/data/fill'] = symm_data
+        symm_root['entry/data/fill'][changed_idx] = (
+            symm_root['entry/data/fill_buffer'][changed_idx])
+        del symm_root['entry/data/fill_buffer']
         self.entry[self.symm_data]['filled_data'] = NXlink(
             '/entry/data/fill', file=self.symm_file)
         self.logger.info(f"'filled_data' added to '{self.symm_data}'")
