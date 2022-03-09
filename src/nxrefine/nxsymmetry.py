@@ -83,18 +83,18 @@ def symmetrize_entries(symm_function, data_type, data_file, data_path):
     for i, entry in enumerate([e for e in data_root if e != 'entry']):
         if i == 0:
             if data_type == 'signal':
-                data = data_root[entry][data_path].nxvalue
-            elif data_root[entry][data_path].nxgroup.nxweights:
-                data = data_root[entry][data_path].nxgroup.nxweights.nxvalue
+                data = data_root[entry][data_path].nxsignal.nxvalue
+            elif data_root[entry][data_path].nxweights:
+                data = data_root[entry][data_path].nxweights.nxvalue
             else:
-                signal = data_root[entry][data_path].nxvalue
+                signal = data_root[entry][data_path].nxsignal.nxvalue
                 data = np.zeros(signal.shape, dtype=signal.dtype)
                 data[np.where(signal > 0)] = 1
         else:
             if data_type == 'signal':
-                data += data_root[entry][data_path].nxvalue
-            elif data_root[entry][data_path].nxgroup.nxweights:
-                data += data_root[entry][data_path].nxgroup.nxweights.nxvalue
+                data += data_root[entry][data_path].nxsignal.nxvalue
+            elif data_root[entry][data_path].nxweights:
+                data += data_root[entry][data_path].nxweights.nxvalue
     result = symm_function(data)
     root = nxload(tempfile.mkstemp(suffix='.nxs')[1], mode='w')
     root['data'] = result
