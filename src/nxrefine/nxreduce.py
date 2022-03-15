@@ -1553,12 +1553,14 @@ class NXMultiReduce(NXReduce):
             task = 'nxmasked_combine'
             transform_task = 'nxmasked_transform'
             title = 'Masked Combine'
+            self.transform_path = 'masked_transform'
             self.transform_file = os.path.join(self.directory,
                                                'masked_transform.nxs')
         else:
             task = 'nxcombine'
             transform_task = 'nxtransform'
             title = 'Combine'
+            self.transform_path = 'transform'
             self.transform_file = os.path.join(self.directory, 'transform.nxs')
         if self.not_complete(task) and self.combine:
             if not self.complete(transform_task):
@@ -1568,14 +1570,14 @@ class NXMultiReduce(NXReduce):
             self.record_start(task)
             cctw_command = self.prepare_combine()
             if cctw_command:
-                if self.mask:
+                if mask:
                     self.logger.info("Combining masked transforms "
                                      f"({', '.join(self.entries)})")
-                    transform_path = 'masked_transform/data'
+                    transform_data = 'masked_transform/data'
                 else:
                     self.logger.info("Combining transforms "
                                      f"({', '.join(self.entries)})")
-                    transform_path = 'transform/data'
+                    transform_data = 'transform/data'
                 tic = timeit.default_timer()
                 with NXLock(self.transform_file):
                     if os.path.exists(self.transform_file):
@@ -1583,7 +1585,7 @@ class NXMultiReduce(NXReduce):
                     data_lock = {}
                     for entry in self.entries:
                         data_lock[entry] = NXLock(
-                            self.root[entry][transform_path].nxfilename)
+                            self.root[entry][transform_data].nxfilename)
                         data_lock[entry].acquire()
                     process = subprocess.run(cctw_command, shell=True,
                                              stdout=subprocess.PIPE,
@@ -1610,41 +1612,36 @@ class NXMultiReduce(NXReduce):
             self.logger.info('Data already combined')
 
     def prepare_combine(self):
-        if self.mask:
-            transform = 'masked_transform'
-        else:
-            transform = 'transform'
         try:
             with self.root.nxfile:
                 entry = self.entries[0]
-                Qh, Qk, Ql = (self.root[entry][transform]['Qh'],
-                              self.root[entry][transform]['Qk'],
-                              self.root[entry][transform]['Ql'])
-                data = NXlink('/entry/data/v',
-                              file=os.path.join(self.scan, transform+'.nxs'),
+                Qh, Qk, Ql = (self.root[entry][self.transform_path]['Qh'],
+                              self.root[entry][self.transform_path]['Qk'],
+                              self.root[entry][self.transform_path]['Ql'])
+                data = NXlink('/entry/data/v', self.transform_file,
                               name='data')
-                if transform in self.entry:
-                    del self.entry[transform]
-                self.entry[transform] = NXdata(data, [Ql, Qk, Qh])
-                self.entry[transform].attrs['angles'] = (
-                    self.root[entry][transform].attrs['angles'])
-                self.entry[transform].set_default(over=True)
+                if self.transform_path in self.entry:
+                    del self.entry[self.transform_path]
+                self.entry[self.transform_path] = NXdata(data, [Ql, Qk, Qh])
+                self.entry[self.transform_path].attrs['angles'] = (
+                    self.root[entry][self.transform_path].attrs['angles'])
+                self.entry[self.transform_path].set_default(over=True)
         except Exception as error:
             self.logger.info('Unable to initialize transform group')
             self.logger.info(str(error))
             return None
         input = ' '.join([os.path.join(
             self.directory,
-            fr'{entry}_{transform}.nxs\#/entry/data')
+            fr'{entry}_{self.transform_path}.nxs\#/entry/data')
             for entry in self.entries])
         output = os.path.join(self.directory,
-                              transform+r'.nxs\#/entry/data/v')
+                              fr'{self.transform_path}.nxs\#/entry/data/v')
         return f'cctw merge {input} -o {output}'
 
     def nxpdf(self, mask=False):
         if mask:
             task = 'nxmasked_pdf'
-            self.transform_data = 'masked_transform'
+            self.transform_path = 'masked_transform'
             self.symm_data = 'symm_masked_transform'
             self.total_pdf_data = 'total_masked_pdf'
             self.pdf_data = 'masked_pdf'
@@ -1655,7 +1652,7 @@ class NXMultiReduce(NXReduce):
             self.pdf_file = os.path.join(self.directory, 'masked_pdf.nxs')
         else:
             task = 'nxpdf'
-            self.transform_data = 'transform'
+            self.transform_path = 'transform'
             self.symm_data = 'symm_transform'
             self.total_pdf_data = 'total_pdf'
             self.pdf_data = 'pdf'
@@ -1689,7 +1686,7 @@ class NXMultiReduce(NXReduce):
             self.logger.info('PDF already calculated')
 
     def set_memory(self):
-        total_size = self.entry[self.transform_data].nxsignal.nbytes / 1e6
+        total_size = self.entry[self.transform_path].nxsignal.nbytes / 1e6
         if total_size > nxgetmemory():
             nxsetmemory(total_size + 1000)
 
@@ -1699,19 +1696,19 @@ class NXMultiReduce(NXReduce):
         symm_root = nxload(self.symm_file, 'w')
         symm_root['entry'] = NXentry()
         symm_root['entry/data'] = NXdata()
-        symmetry = NXSymmetry(self.entry[self.transform_data],
+        symmetry = NXSymmetry(self.entry[self.transform_path],
                               laue_group=self.refine.laue_group)
         symm_root['entry/data/data'] = symmetry.symmetrize(entries=True)
         symm_root['entry/data'].nxsignal = symm_root['entry/data/data']
         symm_root['entry/data'].nxweights = self.fft_weights(
             symm_root['entry/data'].shape)
-        symm_root['entry/data'].nxaxes = self.entry[self.transform_data].nxaxes
+        symm_root['entry/data'].nxaxes = self.entry[self.transform_path].nxaxes
         if self.symm_data in self.entry:
             del self.entry[self.symm_data]
         symm_data = NXlink('/entry/data/data', file=self.symm_file,
                            name='data')
         self.entry[self.symm_data] = NXdata(
-            symm_data, self.entry[self.transform_data].nxaxes)
+            symm_data, self.entry[self.transform_path].nxaxes)
         self.entry[self.symm_data].nxweights = NXlink(
             '/entry/data/data_weights', file=self.symm_file)
         self.logger.info(f"'{self.symm_data}' added to entry")
