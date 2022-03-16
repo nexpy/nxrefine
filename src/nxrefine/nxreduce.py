@@ -1732,7 +1732,8 @@ class NXMultiReduce(NXReduce):
             '/entry/data/data_weights', file=self.symm_file)
         self.logger.info(f"'{self.symm_data}' added to entry")
         toc = timeit.default_timer()
-        self.logger.info(f"Symmetrization completed ({toc-tic:g} seconds)")
+        self.logger.info(f"{self.title}: Symmetrization completed "
+                         f"({toc-tic:g} seconds)")
 
     def fft_weights(self, shape, alpha=0.5):
         from scipy.signal import tukey
@@ -1751,13 +1752,14 @@ class NXMultiReduce(NXReduce):
         return np.einsum('i,j,k->ijk', z, y, x)
 
     def total_pdf(self):
-        self.logger.info(f"{self.title}: Calculating total PDF")
         if os.path.exists(self.total_pdf_file):
             if self.overwrite:
                 os.remove(self.total_pdf_file)
             else:
-                self.logger.info("Total PDF file already exists")
+                self.logger.info(
+                    f"{self.title}: Total PDF file already exists")
                 return
+        self.logger.info(f"{self.title}: Calculating total PDF")
         tic = timeit.default_timer()
         symm_data = self.entry[
             self.symm_data].nxsignal[:-1, :-1, :-1].nxvalue
@@ -1788,7 +1790,8 @@ class NXMultiReduce(NXReduce):
             self.refine.lattice_parameters[3:])
         self.logger.info(f"'{self.total_pdf_data}' added to entry")
         toc = timeit.default_timer()
-        self.logger.info(f"Total PDF calculated ({toc - tic:g} seconds)")
+        self.logger.info(f"{self.title}: Total PDF calculated "
+                         f"({toc - tic:g} seconds)")
 
     def hole_mask(self):
         symm_group = self.entry[self.symm_data]
@@ -1872,7 +1875,8 @@ class NXMultiReduce(NXReduce):
         self.logger.info(f"'punched_data' added to '{self.symm_data}'")
 
         toc = timeit.default_timer()
-        self.logger.info(f"Punches completed ({toc - tic:g} seconds)")
+        self.logger.info(f"{self.title}: Punches completed "
+                         f"({toc - tic:g} seconds)")
         self.clear_parameters(['radius'])
 
     def punch_and_fill(self):
@@ -1882,7 +1886,8 @@ class NXMultiReduce(NXReduce):
             if self.overwrite:
                 del self.entry[self.symm_data]['filled_data']
             else:
-                self.logger.info("Data already punched-and-filled")
+                self.logger.info(
+                    f"{self.title}: Data already punched-and-filled")
                 return
 
         from julia import Main
@@ -1943,7 +1948,8 @@ class NXMultiReduce(NXReduce):
         self.logger.info(f"'filled_data' added to '{self.symm_data}'")
 
         toc = timeit.default_timer()
-        self.logger.info(f"Punch-and-fill completed ({toc - tic:g} seconds)")
+        self.logger.info(f"{self.title}: Punch-and-fill completed "
+                         f"({toc - tic:g} seconds)")
 
     def delta_pdf(self):
         self.logger.info(f"{self.title}: Calculating Delta-PDF")
@@ -1951,7 +1957,8 @@ class NXMultiReduce(NXReduce):
             if self.overwrite:
                 os.remove(self.pdf_file)
             else:
-                self.logger.info("Delta-PDF file already exists")
+                self.logger.info(
+                    f"{self.title}: Delta-PDF file already exists")
                 return
         tic = timeit.default_timer()
         symm_data = (self.entry[self.symm_data]['filled_data']
@@ -1985,7 +1992,8 @@ class NXMultiReduce(NXReduce):
             self.refine.lattice_parameters[3:])
         self.logger.info(f"'{self.pdf_data}' added to entry")
         toc = timeit.default_timer()
-        self.logger.info(f"Delta-PDF calculated ({toc - tic:g} seconds)")
+        self.logger.info(f"{self.title}: Delta-PDF calculated "
+                         f"({toc - tic:g} seconds)")
 
     def nxsum(self, scan_list):
         if not os.path.exists(self.wrapper_file) or self.overwrite:
