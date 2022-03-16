@@ -1532,19 +1532,6 @@ class NXMultiReduce(NXReduce):
     def __repr__(self):
         return f"NXMultiReduce('{self.sample}_{self.scan}')"
 
-    def init_julia(self):
-        if self.julia is None:
-            try:
-                from julia import Julia
-                self.julia = Julia(compiled_modules=False)
-                import pkg_resources
-
-                from julia import Main
-                Main.include(pkg_resources.resource_filename(
-                    'nxrefine', 'julia/LaplaceInterpolation.jl'))
-            except Exception as error:
-                self.logger.info()
-
     def complete(self, task):
         complete = True
         if task == 'nxcombine' or task == 'nxmasked_combine':
@@ -1688,6 +1675,9 @@ class NXMultiReduce(NXReduce):
                 self.logger.info(
                     "Need to define a valid Laue group before PDF calculation")
                 return
+            self.init_julia()
+            if self.julia is None:
+                return
             self.record_start('nxpdf')
             self.set_memory()
             self.symmetrize_transform()
@@ -1699,6 +1689,20 @@ class NXMultiReduce(NXReduce):
             self.record_end(task)
         else:
             self.logger.info(f"{self.title} already calculated")
+
+    def init_julia(self):
+        if self.julia is None:
+            try:
+                from julia import Julia
+                jl = Julia(compiled_modules=False)
+                import pkg_resources
+                from julia import Main
+                Main.include(pkg_resources.resource_filename(
+                    'nxrefine', 'julia/LaplaceInterpolation.jl'))
+                self.julia = jl
+            except Exception as error:
+                self.logger.info(f"Cannot initialize Julia: {error}")
+                self.julia = None
 
     def set_memory(self):
         total_size = self.entry[self.transform_path].nxsignal.nbytes / 1e6
@@ -1881,7 +1885,6 @@ class NXMultiReduce(NXReduce):
                 self.logger.info("Data already punched-and-filled")
                 return
 
-        self.init_julia()
         from julia import Main
         LaplaceInterpolation = Main.LaplaceInterpolation
 
