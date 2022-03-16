@@ -1552,20 +1552,20 @@ class NXMultiReduce(NXReduce):
         if mask:
             task = 'nxmasked_combine'
             transform_task = 'nxmasked_transform'
-            title = 'Masked Combine'
+            self.title = 'Masked Combine'
             self.transform_path = 'masked_transform'
             self.transform_file = os.path.join(self.directory,
                                                'masked_transform.nxs')
         else:
             task = 'nxcombine'
             transform_task = 'nxtransform'
-            title = 'Combine'
+            self.title = 'Combine'
             self.transform_path = 'transform'
             self.transform_file = os.path.join(self.directory, 'transform.nxs')
         if self.not_complete(task) and self.combine:
             if not self.complete(transform_task):
                 self.logger.info(
-                    f'{title}: Cannot combine until transforms complete')
+                    f'{self.title}: Cannot combine until transforms complete')
                 return
             self.record_start(task)
             cctw_command = self.prepare_combine()
@@ -1595,7 +1595,7 @@ class NXMultiReduce(NXReduce):
                 toc = timeit.default_timer()
                 if process.returncode == 0:
                     self.logger.info(
-                        f"{title} ({', '.join(self.entries)}) "
+                        f"{self.title} ({', '.join(self.entries)}) "
                         f"completed ({toc-tic:g} seconds)")
                     self.record(task, command=cctw_command,
                                 output=process.stdout.decode(),
@@ -1603,7 +1603,7 @@ class NXMultiReduce(NXReduce):
                     self.record_end(task)
                 else:
                     self.logger.info(
-                        f"{title} ({', '.join(self.entries)}) completed "
+                        f"{self.title} ({', '.join(self.entries)}) completed "
                         f"- errors reported ({(toc-tic):g} seconds)")
                     self.record_fail('nxcombine')
             else:
@@ -1641,6 +1641,7 @@ class NXMultiReduce(NXReduce):
     def nxpdf(self, mask=False):
         if mask:
             task = 'nxmasked_pdf'
+            self.title = 'Masked PDF'
             self.transform_path = 'masked_transform'
             self.symm_data = 'symm_masked_transform'
             self.total_pdf_data = 'total_masked_pdf'
@@ -1652,6 +1653,7 @@ class NXMultiReduce(NXReduce):
             self.pdf_file = os.path.join(self.directory, 'masked_pdf.nxs')
         else:
             task = 'nxpdf'
+            self.title = 'PDF'
             self.transform_path = 'transform'
             self.symm_data = 'symm_transform'
             self.total_pdf_data = 'total_pdf'
@@ -1691,7 +1693,7 @@ class NXMultiReduce(NXReduce):
             nxsetmemory(total_size + 1000)
 
     def symmetrize_transform(self):
-        self.logger.info('Transform being symmetrized')
+        self.logger.info(f'{self.title}: Transform being symmetrized')
         tic = timeit.default_timer()
         symm_root = nxload(self.symm_file, 'w')
         symm_root['entry'] = NXentry()
@@ -1732,7 +1734,7 @@ class NXMultiReduce(NXReduce):
         return np.einsum('i,j,k->ijk', z, y, x)
 
     def total_pdf(self):
-        self.logger.info('Calculating total PDF')
+        self.logger.info(f'{self.title}: Calculating total PDF')
         if os.path.exists(self.total_pdf_file):
             if self.overwrite:
                 os.remove(self.total_pdf_file)
@@ -1809,7 +1811,7 @@ class NXMultiReduce(NXReduce):
             return data
 
     def punch_holes(self):
-        self.logger.info('Punching holes')
+        self.logger.info(f'{self.title}: Punching holes')
         if (self.symm_data in self.entry and
                 'punched_data' in self.entry[self.symm_data]):
             if self.overwrite:
@@ -1870,7 +1872,7 @@ class NXMultiReduce(NXReduce):
                 raise NeXusError(str(error))
 
     def punch_and_fill(self):
-        self.logger.info('Performing punch-and-fill')
+        self.logger.info(f'{self.title}: Performing punch-and-fill')
         if (self.symm_data in self.entry and
                 'filled_data' in self.entry[self.symm_data]):
             if self.overwrite:
@@ -1941,7 +1943,7 @@ class NXMultiReduce(NXReduce):
         self.logger.info(f'Punch-and-fill completed ({toc - tic:g} seconds)')
 
     def delta_pdf(self):
-        self.logger.info('Calculating Delta-PDF')
+        self.logger.info(f'{self.title}: Calculating Delta-PDF')
         if os.path.exists(self.pdf_file):
             if self.overwrite:
                 os.remove(self.pdf_file)
