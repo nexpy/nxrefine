@@ -161,7 +161,7 @@ class NXDatabase(object):
         Parameters
         ----------
         filename : str
-            Path of wrapper file relative to GUP directory.
+            Path of wrapper file.
 
         Returns
         -------
@@ -234,18 +234,18 @@ class NXDatabase(object):
                         tasks['nxtransform'] += 1
                     if 'nxmasked_transform' in nxentry or 'nxmask' in nxentry:
                         tasks['nxmasked_transform'] += 1
-                    if 'nxcombine' in root['entry']:
-                        tasks['nxcombine'] += 1
-                    if 'nxmasked_combine' in root['entry']:
-                        tasks['nxmasked_combine'] += 1
-                    if 'nxpdf' in root['entry']:
-                        tasks['nxpdf'] += 1
-                    if 'nxmasked_pdf' in root['entry']:
-                        tasks['nxmasked_pdf'] += 1
-            for task, val in tasks.items():
-                if val == 0:
+            if 'nxcombine' in root['entry']:
+                tasks['nxcombine'] = len(entries)
+            if 'nxmasked_combine' in root['entry']:
+                tasks['nxmasked_combine'] = len(entries)
+            if 'nxpdf' in root['entry']:
+                tasks['nxpdf'] = len(entries)
+            if 'nxmasked_pdf' in root['entry']:
+                tasks['nxmasked_pdf'] = len(entries)
+            for task, value in tasks.items():
+                if value == 0:
                     setattr(f, task, NOT_STARTED)
-                elif val == len(entries):
+                elif value == len(entries):
                     setattr(f, task, DONE)
                 else:
                     setattr(f, task, IN_PROGRESS)
@@ -283,6 +283,56 @@ class NXDatabase(object):
             self.session.commit()
         return f
 
+    def get_task(self, f, task, entry):
+        """Return the latest database entry for the specified task.
+
+        This creates a new task if one does not exist.
+
+        Parameters
+        ----------
+        file : File
+            File object.
+        task : str
+            Task being checked.
+        entry : str
+            Entry of NeXus file being checked.
+        """
+        for t in reversed(f.tasks):
+            if t.name == task and t.entry == entry:
+                break
+        else:
+            # This task was started from command line
+            t = Task(name=task, entry=entry)
+            f.tasks.append(t)
+        return t
+
+    def task_status(self, filename, task, entry=None):
+        """Return the status of the task.
+
+        Parameters
+        ----------
+        filename : str
+            Path of wrapper file.
+        task : str
+            Task being checked.
+        entry : str
+            Entry of NeXus file being checked.
+        """
+        with NXLock(self.database):
+            f = self.get_file(filename)
+            if entry:
+                for t in reversed(f.tasks):
+                    if t.name == task and t.entry == entry:
+                        status = t.status
+                else:
+                    status = NOT_STARTED
+            else:
+                status = getattr(f, task)
+        return status
+
+    def task_complete(self, filename, task, entry=None):
+        return self.task_status(filename, task, entry) == DONE
+
     def queue_task(self, filename, task, entry, queue_time=None):
         """Update a file to 'queued' status and create a matching task.
 
@@ -297,17 +347,13 @@ class NXDatabase(object):
         """
         with NXLock(self.database):
             f = self.get_file(filename)
-            for t in reversed(f.tasks):
-                if t.name == task and t.entry == entry:
-                    break
-            else:
-                t = Task(name=task, entry=entry)
-                f.tasks.append(t)
+            t = self.get_task(f, task, entry)
             t.status = QUEUED
             if queue_time:
                 t.queue_time = queue_time
             else:
                 t.queue_time = datetime.datetime.now()
+            t.start_time = t.end_time = None
             self.update_status(f, task)
 
     def start_task(self, filename, task, entry, start_time=None):
@@ -324,20 +370,14 @@ class NXDatabase(object):
         """
         with NXLock(self.database):
             f = self.get_file(filename)
-            # Find the desired task, and create a new one if it doesn't exist
-            for t in reversed(f.tasks):
-                if t.name == task and t.entry == entry:
-                    break
-            else:
-                # This task was started from command line
-                t = Task(name=task, entry=entry)
-                f.tasks.append(t)
+            t = self.get_task(f, task, entry)
             t.status = IN_PROGRESS
             if start_time:
                 t.start_time = start_time
             else:
                 t.start_time = datetime.datetime.now()
             t.pid = os.getpid()
+            t.end_time = None
             self.update_status(f, task)
 
     def end_task(self, filename, task, entry, end_time=None):
@@ -357,14 +397,7 @@ class NXDatabase(object):
         """
         with NXLock(self.database):
             f = self.get_file(filename)
-            # The entries that have finished this task
-            for t in reversed(f.tasks):
-                if t.name == task and t.entry == entry:
-                    break
-            else:
-                # This task was started from command line
-                t = Task(name=task, entry=entry)
-                f.tasks.append(t)
+            t = self.get_task(f, task, entry)
             t.status = DONE
             if end_time:
                 t.end_time = end_time
