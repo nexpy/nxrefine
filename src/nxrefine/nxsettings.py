@@ -22,7 +22,7 @@ class NXSettings(ConfigParser):
         super().read(self.file)
         sections = self.sections()
         if 'setup' not in sections:
-            self.add_section('nxsetup')
+            self.add_section('setup')
         if 'nxrefine' not in sections:
             self.add_section('nxrefine')
         if 'nxreduce' not in sections:
