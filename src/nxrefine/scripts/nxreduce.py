@@ -34,7 +34,7 @@ def main():
                         help='prepare 3D masks')
     parser.add_argument('-t', '--transform', action='store_true',
                         help='perform CCTW transforms')
-    parser.add_argument('-b', '--combine', action='store_true',
+    parser.add_argument('-C', '--combine', action='store_true',
                         help='combine CCTW transforms')
     parser.add_argument('-P', '--pdf', action='store_true',
                         help='perform PDF transforms')
