@@ -324,6 +324,7 @@ class NXDatabase(object):
                 for t in reversed(f.tasks):
                     if t.name == task and t.entry == entry:
                         status = t.status
+                        break
                 else:
                     status = NOT_STARTED
             else:
