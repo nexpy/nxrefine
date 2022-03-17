@@ -55,6 +55,8 @@ class NXSettings(ConfigParser):
         return server_directory
 
     def add_defaults(self):
+        if not self.has_option('setup', 'type'):
+            self.set('setup', 'type', 'multicore')
         default = {'wavelength': 0.141, 'distance': 650,
                    'phi': -5.0, 'phi_end': 360.0, 'phi_step': 0.1,
                    'chi': -90.0, 'omega': 0.0, 'x': 0.0, 'y': 0.0,
