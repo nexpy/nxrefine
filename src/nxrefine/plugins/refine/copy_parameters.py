@@ -37,7 +37,7 @@ class CopyDialog(NXDialog):
         self.checkbox['overwrite'].setVisible(False)
         for entry in [e for e in self.root if e != 'entry']:
             reduce = NXReduce(self.root[entry])
-            if not reduce.not_complete('nxcopy'):
+            if not reduce.not_processed('nxcopy'):
                 self.checkbox['overwrite'].setVisible(True)
         self._selected = True
 

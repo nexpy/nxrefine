@@ -555,20 +555,14 @@ class NXReduce(QtCore.QObject):
         return self._maximum
 
     def complete(self, task):
-        if task == 'nxcombine' or task == 'nxmasked_combine':
-            return task in self.root['entry']
-        else:
-            return task in self.entry
+        """Check that a task for this entry in the wrapper file are done """
+        return self.db.task_complete(self.wrapper_file, task, self.entry_name)
 
     def all_complete(self, task):
-        """ Check that all entries for this temperature are done """
-        complete = True
-        for entry in self.entries:
-            if task not in self.root[entry]:
-                complete = False
-        return complete
+        """Check that a task for all entries in this wrapper file are done."""
+        return self.db.task_complete(self.wrapper_file, task)
 
-    def not_complete(self, task):
+    def not_processed(self, task):
         return task not in self.entry or self.overwrite
 
     def start_progress(self, start, stop):
@@ -665,7 +659,7 @@ class NXReduce(QtCore.QObject):
             self.logger.info(str(error))
 
     def nxlink(self):
-        if self.not_complete('nxlink') and self.link:
+        if self.not_processed('nxlink') and self.link:
             if not self.data_exists():
                 self.logger.info("Data file not available")
                 return
@@ -818,7 +812,7 @@ class NXReduce(QtCore.QObject):
             return
         elif self.is_parent():
             self.logger.info("Set as parent; no parameters copied")
-        elif self.not_complete('nxcopy'):
+        elif self.not_processed('nxcopy'):
             self.record_start('nxcopy')
             if self.parent:
                 self.copy_parameters()
@@ -848,7 +842,7 @@ class NXReduce(QtCore.QObject):
             f"'{os.path.basename(os.path.realpath(self.parent))}'")
 
     def nxmax(self):
-        if self.not_complete('nxmax') and self.maxcount:
+        if self.not_processed('nxmax') and self.maxcount:
             if not self.data_exists():
                 self.logger.info("Data file not available")
                 return
@@ -977,7 +971,7 @@ class NXReduce(QtCore.QObject):
             return None
 
     def nxfind(self):
-        if self.not_complete('nxfind') and self.find:
+        if self.not_processed('nxfind') and self.find:
             if not self.data_exists():
                 self.logger.info("Data file not available")
                 return
@@ -1055,7 +1049,7 @@ class NXReduce(QtCore.QObject):
         self.clear_parameters(['threshold', 'first', 'last'])
 
     def nxrefine(self):
-        if self.not_complete('nxrefine') and self.refine:
+        if self.not_processed('nxrefine') and self.refine:
             if not self.complete('nxfind'):
                 self.logger.info(
                     'Cannot refine until peak search is completed')
@@ -1099,7 +1093,7 @@ class NXReduce(QtCore.QObject):
             refine.write_parameters()
 
     def nxprepare(self):
-        if self.not_complete('nxprepare_mask') and self.prepare:
+        if self.not_processed('nxprepare_mask') and self.prepare:
             self.record_start('nxprepare')
             self.logger.info("Preparing 3D mask")
             self.mask_file = os.path.join(self.directory,
@@ -1188,7 +1182,7 @@ class NXReduce(QtCore.QObject):
             process = 'Transform'
             self.transform_file = os.path.join(
                 self.directory, self.entry_name+'_transform.nxs')
-        if self.not_complete(task) and self.transform:
+        if self.not_processed(task) and self.transform:
             if not self.complete('nxrefine'):
                 self.logger.info(
                     'Cannot transform until the orientation is complete')
@@ -1418,9 +1412,9 @@ class NXReduce(QtCore.QObject):
                 if self.mask and self.all_complete('nxmasked_transform'):
                     reduce.nxcombine(mask=True)
             if self.pdf:
-                if self.regular and self.complete('nxcombine'):
+                if self.regular and self.all_complete('nxcombine'):
                     reduce.nxpdf()
-                if self.mask and self.complete('nxmasked_combine'):
+                if self.mask and self.all_complete('nxmasked_combine'):
                     reduce.nxpdf(mask=True)
 
     def queue(self, command, args=None):
@@ -1432,46 +1426,40 @@ class NXReduce(QtCore.QObject):
         tasks = []
         if self.link:
             tasks.append('link')
-            self.db.queue_task(self.wrapper_file, 'nxlink', self.entry_name)
+            self.queue_task('nxlink')
         if self.copy:
             tasks.append('copy')
-            self.db.queue_task(self.wrapper_file, 'nxcopy', self.entry_name)
+            self.queue_task('nxcopy')
         if self.maxcount:
             tasks.append('max')
-            self.db.queue_task(self.wrapper_file, 'nxmax', self.entry_name)
+            self.queue_task('nxmax')
         if self.find:
             tasks.append('find')
-            self.db.queue_task(self.wrapper_file, 'nxfind', self.entry_name)
+            self.queue_task('nxfind')
         if self.refine:
             tasks.append('refine')
-            self.db.queue_task(self.wrapper_file, 'nxrefine', self.entry_name)
+            self.queue_task('nxrefine')
         if self.prepare:
             tasks.append('prepare')
-            self.db.queue_task(self.wrapper_file, 'nxprepare', self.entry_name)
+            self.queue_task('nxprepare')
         if self.transform:
             tasks.append('transform')
             if self.regular:
-                self.db.queue_task(self.wrapper_file, 'nxtransform',
-                                   self.entry_name)
+                self.queue_task('nxtransform')
             if self.mask:
-                self.db.queue_task(self.wrapper_file, 'nxmasked_transform',
-                                   self.entry_name)
+                self.queue_task('nxmasked_transform')
         if self.combine:
             tasks.append('combine')
             if self.regular:
-                self.db.queue_task(self.wrapper_file, 'nxcombine',
-                                   self.entry_name)
+                self.queue_task('nxcombine', entry='entry')
             if self.mask:
-                self.db.queue_task(self.wrapper_file, 'nxmasked_combine',
-                                   self.entry_name)
+                self.queue_task('nxmasked_combine', entry='entry')
         if self.pdf:
             tasks.append('pdf')
             if self.regular:
-                self.db.queue_task(self.wrapper_file, 'nxpdf',
-                                   self.entry_name)
+                self.queue_task('nxpdf', entry='entry')
             if self.mask:
-                self.db.queue_task(self.wrapper_file, 'nxmasked_pdf',
-                                   self.entry_name)
+                self.queue_task('nxmasked_pdf', entry='entry')
 
         if not tasks:
             return
@@ -1497,6 +1485,12 @@ class NXReduce(QtCore.QObject):
             self.server.add_task(
                 f"{command} --directory {self.directory} "
                 f"--entries {self.entry_name} --{' --'.join(tasks)}")
+
+    def queue_task(self, task, entry=None):
+        if entry is None:
+            entry = self.entry_name
+        if self.not_processed(task):
+            self.db.queue_task(self.wrapper_file, task, entry)
 
 
 class NXMultiReduce(NXReduce):
@@ -1533,20 +1527,7 @@ class NXMultiReduce(NXReduce):
         return f"NXMultiReduce('{self.sample}_{self.scan}')"
 
     def complete(self, task):
-        complete = True
-        if task == 'nxcombine' or task == 'nxmasked_combine':
-            if task not in self.entry:
-                complete = False
-        elif task == 'nxtransform' or task == 'nxmasked_transform':
-            for entry in self.entries:
-                if task not in self.root[entry]:
-                    complete = False
-            if not complete and task == 'nxmasked_transform':
-                complete = True
-                for entry in self.entries:
-                    if 'nxmask' not in self.root[entry]:
-                        complete = False
-        return complete
+        return self.all_complete(task)
 
     def nxcombine(self, mask=False):
         if mask:
@@ -1562,7 +1543,7 @@ class NXMultiReduce(NXReduce):
             self.title = 'Combine'
             self.transform_path = 'transform'
             self.transform_file = os.path.join(self.directory, 'transform.nxs')
-        if self.not_complete(task) and self.combine:
+        if self.not_processed(task) and self.combine:
             if not self.complete(transform_task):
                 self.logger.info(
                     f"{self.title}: Cannot combine until transforms complete")
@@ -1661,7 +1642,7 @@ class NXMultiReduce(NXReduce):
             self.symm_file = os.path.join(self.directory, 'symm_transform.nxs')
             self.total_pdf_file = os.path.join(self.directory, 'total_pdf.nxs')
             self.pdf_file = os.path.join(self.directory, 'pdf.nxs')
-        if self.not_complete(task) and self.pdf:
+        if self.not_processed(task) and self.pdf:
             if mask:
                 if not self.complete('nxmasked_combine'):
                     self.logger.info("Cannot calculate PDF until the "
@@ -2058,16 +2039,15 @@ class NXMultiReduce(NXReduce):
         if self.combine:
             tasks.append('combine')
             if self.regular:
-                self.db.queue_task(self.wrapper_file, 'nxcombine', 'entry')
+                self.queue_task('nxcombine')
             if self.mask:
-                self.db.queue_task(self.wrapper_file, 'nxmasked_combine',
-                                   'entry')
+                self.queue_task('nxmasked_combine')
         if self.pdf:
             tasks.append('pdf')
             if self.regular:
-                self.db.queue_task(self.wrapper_file, 'nxpdf', 'entry')
+                self.queue_task('nxpdf')
             if self.mask:
-                self.db.queue_task(self.wrapper_file, 'nxmasked_pdf', 'entry')
+                self.queue_task('nxmasked_pdf')
 
         if not tasks:
             return
