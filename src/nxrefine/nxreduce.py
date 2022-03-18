@@ -1174,12 +1174,12 @@ class NXReduce(QtCore.QObject):
     def nxtransform(self, mask=False):
         if mask:
             task = 'nxmasked_transform'
-            process = 'Masked transform'
+            process_name = 'Masked transform'
             self.transform_file = os.path.join(
                 self.directory, self.entry_name+'_masked_transform.nxs')
         else:
             task = 'nxtransform'
-            process = 'Transform'
+            process_name = 'Transform'
             self.transform_file = os.path.join(
                 self.directory, self.entry_name+'_transform.nxs')
         if self.not_processed(task) and self.transform:
@@ -1190,7 +1190,7 @@ class NXReduce(QtCore.QObject):
             self.record_start(task)
             cctw_command = self.prepare_transform(mask=mask)
             if cctw_command:
-                self.logger.info(f"{process} process launched")
+                self.logger.info(f"{process_name} process launched")
                 tic = timeit.default_timer()
                 with self.field.nxfile:
                     with NXLock(self.transform_file):
@@ -1200,7 +1200,7 @@ class NXReduce(QtCore.QObject):
                 toc = timeit.default_timer()
                 if process.returncode == 0:
                     self.logger.info(
-                        f"{process} completed ({toc - tic:g} seconds)")
+                        f"{process_name} completed ({toc - tic:g} seconds)")
                     self.write_parameters(monitor=self.monitor, norm=self.norm)
                     self.record(task, monitor=self.monitor, norm=self.norm,
                                 command=cctw_command,
@@ -1210,14 +1210,14 @@ class NXReduce(QtCore.QObject):
                     self.clear_parameters(['monitor', 'norm'])
                 else:
                     self.logger.info(
-                        f"{process} completed - errors reported "
+                        f"{process_name} completed - errors reported "
                         f"({(toc-tic):g} seconds)")
                     self.record_fail(task)
             else:
                 self.logger.info("CCTW command invalid")
                 self.record_fail(task)
         elif self.transform:
-            self.logger.info(f"{process} already created")
+            self.logger.info(f"{process_name} already created")
 
     def get_transform_grid(self, mask=False):
         if self.Qh and self.Qk and self.Ql:
