@@ -40,6 +40,10 @@ class NXSettings(ConfigParser):
         if 'setup' not in self.home_settings.sections():
             self.home_settings.add_section('setup')
         if server_directory:
+            if os.path.basename(server_directory) != 'nxserver':
+                server_directory = os.path.join(server_directory, 'nxserver')
+            if not os.path.exists(server_directory):
+                raise NeXusError(f"{server_directory} does not exist.")
             self.home_settings.set('setup', 'directory', server_directory)
             with open(self.home_file, 'w') as f:
                 self.home_settings.write(f)
@@ -48,10 +52,6 @@ class NXSettings(ConfigParser):
         else:
             raise NeXusError(
                 "Please define settings directory - type 'nxsettings -h'")
-        if os.path.basename(server_directory) != 'nxserver':
-            server_directory = os.path.join(server_directory, 'nxserver')
-        if not os.path.exists(server_directory):
-            os.mkdir(server_directory)
         return server_directory
 
     def add_defaults(self):

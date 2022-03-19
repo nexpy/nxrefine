@@ -105,7 +105,7 @@ class NXServer(NXDaemon):
 
     def __repr__(self):
         return (f"NXServer(directory='{self.directory}', "
-                "type='{self.server_type}')")
+                f"type='{self.server_type}')")
 
     def initialize(self, directory, server_type, nodes):
         self.server_settings = NXSettings(directory=directory)
