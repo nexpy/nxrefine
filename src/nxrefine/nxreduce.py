@@ -14,7 +14,6 @@ import platform
 import shutil
 import subprocess
 import timeit
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime
 
 import h5py as h5
@@ -1127,18 +1126,13 @@ class NXReduce(QtCore.QObject):
         mask_root['entry/mask'] = (
             NXfield(shape=self.shape, dtype=np.int8, fillvalue=0))
 
-        with ProcessPoolExecutor(max_workers=self.process_count) as executor:
-            futures = []
-            for i in range(self.first, self.last+1, 10):
-                j, k = i - min(1, i), min(i+11, self.last+1, self.nframes)
-                futures.append(executor.submit(
-                    mask_volume, self.field.nxfilename, self.field.nxfilepath,
-                    mask_root.nxfilename, 'entry/mask', i, j, k,
-                    self.pixel_mask, t1, h1, t2, h2))
-            for future in as_completed(futures):
-                k = future.result()
-                self.update_progress(k)
-                futures.remove(future)
+        for i in range(self.first, self.last+1, 10):
+            j, k = i - min(1, i), min(i+11, self.last+1, self.nframes)
+            k = mask_volume(
+                self.field.nxfilename, self.field.nxfilepath,
+                mask_root.nxfilename, 'entry/mask', i, j, k,
+                self.pixel_mask, t1, h1, t2, h2)
+            self.update_progress(k)
 
         frame_mask = np.ones(shape=self.shape[1:], dtype=np.int8)
         with mask_root.nxfile:
