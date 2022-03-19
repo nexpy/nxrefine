@@ -1416,7 +1416,7 @@ class NXReduce(QtCore.QObject):
                 raise NeXusError("NXServer not running")
         except Exception as error:
             self.logger.info(str(error))
-            raise NeXusError(str(error))
+            raise
 
     def queue(self, command, args=None):
         """ Add tasks to the server's fifo, and log this in the database """
