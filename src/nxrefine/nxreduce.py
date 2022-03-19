@@ -999,21 +999,15 @@ class NXReduce(QtCore.QObject):
 
         tic = self.start_progress(self.first, self.last)
         self.blobs = []
-        with ProcessPoolExecutor(max_workers=self.process_count) as executor:
-            futures = []
-            for i in range(self.first, self.last+1, 50):
-                j, k = i - min(5, i), min(i+55, self.last+5, self.nframes)
-                futures.append(executor.submit(
-                    peak_search, self.field.nxfilename, self.field.nxfilepath,
-                    i, j, k, self.threshold))
-            for future in as_completed(futures):
-                z, blobs = future.result()
-                self.blobs += [b for b in blobs if b.z >= z
-                               and b.z < min(z+50, self.last)
-                               and b.is_valid(self.pixel_mask, self.min_pixels)
-                               ]
-                self.update_progress(z)
-                futures.remove(future)
+        for i in range(self.first, self.last+1, 50):
+            j, k = i - min(5, i), min(i+55, self.last+5, self.nframes)
+            z, blobs = peak_search(
+                self.field.nxfilename, self.field.nxfilepath, i, j, k,
+                self.threshold)
+            self.blobs += [b for b in blobs if b.z >= z
+                           and b.z < min(z+50, self.last)
+                           and b.is_valid(self.pixel_mask, self.min_pixels)]
+            self.update_progress(z)
 
         peaks = sorted([b for b in self.blobs], key=operator.attrgetter('z'))
 
