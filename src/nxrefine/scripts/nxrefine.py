@@ -24,7 +24,7 @@ def main():
                         help='refine lattice parameters')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing maximum')
-    parser.add_argument('-q', '--queue', action='store_true',
+    parser.add_argument('-q', '--queue', nargs="?", default=argparse.SUPPRESS,
                         help='add to server task queue')
 
     args = parser.parse_args()
@@ -41,7 +41,7 @@ def main():
             lattice = False
         reduce = NXReduce(entry, args.directory, refine=True,
                           lattice=lattice, overwrite=args.overwrite)
-        if args.queue:
+        if 'queue' in args:
             reduce.queue('nxrefine', args)
         else:
             reduce.nxrefine()

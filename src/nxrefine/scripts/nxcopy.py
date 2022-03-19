@@ -24,7 +24,7 @@ def main():
                         help='file name of file to copy from')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing peaks')
-    parser.add_argument('-q', '--queue', action='store_true',
+    parser.add_argument('-q', '--queue', nargs="?", default=argparse.SUPPRESS,
                         help='add to server task queue')
 
     args = parser.parse_args()
@@ -37,7 +37,7 @@ def main():
     for entry in entries:
         reduce = NXReduce(entry, args.directory, parent=args.parent, copy=True,
                           overwrite=args.overwrite)
-        if args.queue:
+        if 'queue' in args:
             reduce.queue('nxcopy', args)
         else:
             reduce.nxcopy()

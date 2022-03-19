@@ -288,15 +288,6 @@ class NXReduce(QtCore.QObject):
         return self._default
 
     @property
-    def server(self):
-        if self._server is None:
-            try:
-                self._server = NXServer()
-            except Exception as error:
-                self.logger.info(str(error))
-        return self._server
-
-    @property
     def db(self):
         if self._db is None:
             try:
@@ -1405,11 +1396,32 @@ class NXReduce(QtCore.QObject):
                 if self.mask and self.all_complete('nxmasked_combine'):
                     reduce.nxpdf(mask=True)
 
+    def connect_server(self, args=None):
+        """Create a NXServer instance.
+
+        If a string argument is given, it is used to define the path to
+        the server directory.
+
+        Parameters
+        ----------
+        args : str or bool, optional
+            Arguments passed by the argparser module, by default None
+        """
+        try:
+            if args and 'queue' in args and isinstance(args.queue, str):
+                self.server = NXServer(directory=args.queue)
+            else:
+                self.server = NXServer()
+            if not self.server.is_running():
+                raise NeXusError("NXServer not running")
+        except Exception as error:
+            self.logger.info(str(error))
+            raise NeXusError(str(error))
+
     def queue(self, command, args=None):
         """ Add tasks to the server's fifo, and log this in the database """
 
-        if self.server is None:
-            raise NeXusError("NXServer not running")
+        self.connect_server(args)
 
         tasks = []
         if self.link:
@@ -2022,6 +2034,7 @@ class NXMultiReduce(NXReduce):
 
     def queue(self, command, args=None):
         """ Add tasks to the server's fifo, and log this in the database """
+        self.connect_server()
 
         tasks = []
         if self.combine:

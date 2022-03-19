@@ -22,7 +22,7 @@ def main():
                         help='names of entries to be searched')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing peaks')
-    parser.add_argument('-q', '--queue', action='store_true',
+    parser.add_argument('-q', '--queue', nargs="?", default=argparse.SUPPRESS,
                         help='add to server task queue')
 
     args = parser.parse_args()
@@ -35,7 +35,7 @@ def main():
     for entry in entries:
         reduce = NXReduce(entry, args.directory, link=True,
                           overwrite=args.overwrite)
-        if args.queue:
+        if 'queue' in args:
             reduce.queue('nxlink', args)
         else:
             reduce.nxlink()

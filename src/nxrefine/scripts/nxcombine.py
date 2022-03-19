@@ -25,7 +25,7 @@ def main():
                         help='combine transforms with 3D mask')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing transform')
-    parser.add_argument('-q', '--queue', action='store_true',
+    parser.add_argument('-q', '--queue', nargs="?", default=argparse.SUPPRESS,
                         help='add to server task queue')
 
     args = parser.parse_args()
@@ -33,7 +33,7 @@ def main():
     reduce = NXMultiReduce(args.directory, entries=args.entries,
                            combine=True, regular=args.regular, mask=args.mask,
                            overwrite=args.overwrite)
-    if args.queue:
+    if 'queue' in args:
         reduce.queue('nxcombine', args)
     else:
         if reduce.regular:

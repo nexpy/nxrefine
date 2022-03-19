@@ -44,7 +44,7 @@ def main():
                         help='perform CCTW transforms with 3D mask')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing maximum')
-    parser.add_argument('-q', '--queue', action='store_true',
+    parser.add_argument('-q', '--queue', nargs="?", default=argparse.SUPPRESS,
                         help='add to server task queue')
 
     args = parser.parse_args()
@@ -61,7 +61,7 @@ def main():
                           transform=args.transform, combine=args.combine,
                           pdf=args.pdf, regular=args.regular, mask=args.mask,
                           overwrite=args.overwrite)
-        if args.queue:
+        if 'queue' in args:
             reduce.queue('nxreduce', args)
         else:
             reduce.nxreduce()

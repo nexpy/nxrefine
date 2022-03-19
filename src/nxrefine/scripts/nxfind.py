@@ -31,7 +31,7 @@ def main():
                         help='The parent .nxs file to use')
     parser.add_argument('-m', '--monitor', action='store_true',
                         help='monitor progress in the command line')
-    parser.add_argument('-q', '--queue', action='store_true',
+    parser.add_argument('-q', '--queue', nargs="?", default=argparse.SUPPRESS,
                         help='add to server task queue')
 
     args = parser.parse_args()
@@ -48,7 +48,7 @@ def main():
                           min_pixels=args.pixels,
                           overwrite=args.overwrite,
                           monitor_progress=args.monitor)
-        if args.queue:
+        if 'queue' in args:
             reduce.queue('nxfind', args)
         else:
             reduce.nxfind()

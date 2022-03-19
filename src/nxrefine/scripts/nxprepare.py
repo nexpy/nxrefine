@@ -33,7 +33,7 @@ def main():
                         help='overwrite existing mask')
     parser.add_argument('-m', '--monitor', action='store_true',
                         help='monitor progress in the command line')
-    parser.add_argument('-q', '--queue', action='store_true',
+    parser.add_argument('-q', '--queue', nargs="?", default=argparse.SUPPRESS,
                         help='add to server task queue')
 
     args = parser.parse_args()
@@ -51,7 +51,7 @@ def main():
         reduce.mask_parameters['horizontal_size_1'] = args.h1
         reduce.mask_parameters['threshold_2'] = args.t2
         reduce.mask_parameters['horizontal_size_2'] = args.h2
-        if args.queue:
+        if 'queue' in args:
             reduce.queue('nxprepare', args)
         else:
             reduce.nxprepare()
