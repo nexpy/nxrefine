@@ -673,6 +673,13 @@ class NXRefine(object):
         except Exception:
             self.peaks = None
 
+    def stepsize(self, value):
+        import math
+        stepsizes = np.array([1, 2, 5, 10])
+        digits = math.floor(math.log10(value))
+        multiplier = 10**digits
+        return find_nearest(stepsizes, value/multiplier) * multiplier
+
     def initialize_grid(self):
         """Initialize the parameters that define HKL grid."""
         if self.Qh is not None and self.Qk is not None and self.Ql is not None:
@@ -683,38 +690,33 @@ class NXRefine(object):
             self.l_start, self.l_step, self.l_stop = (
                 self.Ql[0], self.Ql[1]-self.Ql[0], self.Ql[-1])
         else:
-            polar_max = self.polar_max
-            try:
-                self.set_polar_max(self.polar_angle.max())
-            except Exception:
-                pass
-            self.h_stop = np.round(self.ds_max * self.a)
+
+            self.h_stop = np.round(self.Qmax / self.astar)
             h_range = np.round(2*self.h_stop)
             self.h_start = -self.h_stop
-            self.h_step = np.round(h_range/1000, 2)
-            self.k_stop = np.round(self.ds_max * self.b)
+            self.h_step = self.stepsize(h_range/1000)
+            self.k_stop = np.round(self.Qmax / self.bstar)
             k_range = np.round(2*self.k_stop)
             self.k_start = -self.k_stop
-            self.k_step = np.round(k_range/1000, 2)
-            self.l_stop = np.round(self.ds_max * self.c)
+            self.k_step = self.stepsize(k_range/1000)
+            self.l_stop = np.round(self.Qmax / self.cstar)
             l_range = np.round(2*self.l_stop)
             self.l_start = -self.l_stop
-            self.l_step = np.round(l_range/1000, 2)
-            self.polar_max = polar_max
+            self.l_step = self.stepsize(l_range/1000)
         self.define_grid()
 
     def define_grid(self):
         """Define the HKL grid for CCTW."""
-        self.h_shape = np.int32(np.round((self.h_stop - self.h_start) /
-                                         self.h_step, 2)) + 1
-        self.k_shape = np.int32(np.round((self.k_stop - self.k_start) /
-                                         self.k_step, 2)) + 1
-        self.l_shape = np.int32(np.round((self.l_stop - self.l_start) /
-                                         self.l_step, 2)) + 1
+        self.h_shape = int(
+            np.round((self.h_stop - self.h_start) / self.h_step, 2)) + 1
+        self.k_shape = int(
+            np.round((self.k_stop - self.k_start) / self.k_step, 2)) + 1
+        self.l_shape = int(
+            np.round((self.l_stop - self.l_start) / self.l_step, 2)) + 1
         self.grid_origin = [self.h_start, self.k_start, self.l_start]
-        self.grid_step = [np.int32(np.rint(1.0/self.h_step)),
-                          np.int32(np.rint(1.0/self.k_step)),
-                          np.int32(np.rint(1.0/self.l_step))]
+        self.grid_step = [int(np.rint(1.0/self.h_step)),
+                          int(np.rint(1.0/self.k_step)),
+                          int(np.rint(1.0/self.l_step))]
         self.grid_shape = [self.h_shape, self.k_shape, self.l_shape]
         self.grid_basis = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
 
@@ -1155,9 +1157,10 @@ class NXRefine(object):
         return self.phi
 
     @property
-    def ds_max(self):
+    def Qmax(self):
         """Maximum inverse d-spacing measured at the maximum polar angle."""
-        return 2 * np.sin(self.polar_max*radians/2) / self.wavelength
+        return (4 * np.pi * np.sin(self.two_theta_max()*radians/2)
+                / self.wavelength)
 
     def absent(self, H, K, L):
         """Return True if the HKL indices are systematically absent."""
