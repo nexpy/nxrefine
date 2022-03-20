@@ -144,14 +144,9 @@ class NXSymmetry(object):
             symmetrize = symmetrize_entries
         else:
             symmetrize = symmetrize_data
-        with ProcessPoolExecutor(max_workers=2) as executor:
-            futures = []
-            for data_type in ['signal', 'weights']:
-                futures.append(executor.submit(
-                    symmetrize, self.symm_function, data_type,
-                    self.data_file, self.data_path))
-        for future in as_completed(futures):
-            data_type, result_file = future.result()
+        for data_type in ['signal', 'weights']:
+            data_type, result_file = symmetrize(
+                self.symm_function, data_type, self.data_file, self.data_path)
             result_root = nxload(result_file, 'r')
             if data_type == 'signal':
                 signal = result_root['data'].nxvalue
