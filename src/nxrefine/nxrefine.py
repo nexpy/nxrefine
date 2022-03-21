@@ -691,15 +691,19 @@ class NXRefine(object):
                 self.Ql[0], self.Ql[1]-self.Ql[0], self.Ql[-1])
         else:
 
-            self.h_stop = np.round(self.Qmax / self.astar)
+            def round(value):
+                import math
+                return math.ceil(np.round(value) / 2.) * 2
+
+            self.h_stop = round(self.Qmax / self.astar)
             h_range = np.round(2*self.h_stop)
             self.h_start = -self.h_stop
             self.h_step = self.stepsize(h_range/1000)
-            self.k_stop = np.round(self.Qmax / self.bstar)
+            self.k_stop = round(self.Qmax / self.bstar)
             k_range = np.round(2*self.k_stop)
             self.k_start = -self.k_stop
             self.k_step = self.stepsize(k_range/1000)
-            self.l_stop = np.round(self.Qmax / self.cstar)
+            self.l_stop = round(self.Qmax / self.cstar)
             l_range = np.round(2*self.l_stop)
             self.l_start = -self.l_stop
             self.l_step = self.stepsize(l_range/1000)
