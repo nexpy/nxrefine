@@ -1275,8 +1275,7 @@ class NXReduce(QtCore.QObject):
                     transmission *= inst['filter/transmission'].nxsignal
                 except Exception:
                     pass
-                self.data['monitor_weight'] = (
-                    self.data['monitor_weight'] * transmission)
+                self.data['monitor_weight'] *= transmission
             else:
                 self.data['monitor_weight'] = np.ones(self.nframes,
                                                       dtype=np.float32)
