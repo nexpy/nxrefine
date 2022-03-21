@@ -1500,6 +1500,8 @@ class NXReduce(QtCore.QObject):
             return ' '.join(s)
 
         if args:
+            if 'directory' in args:
+                args.directory = os.path.realpath(args.directory)
             self.server.add_task(f"{command} {switches(args)}")
         else:
             self.server.add_task(
@@ -2086,6 +2088,8 @@ class NXMultiReduce(NXReduce):
             return ' '.join(s)
 
         if args:
+            if 'directory' in args:
+                args.directory = os.path.realpath(args.directory)
             self.server.add_task(f"{command} {switches(args)}")
         else:
             self.server.add_task(
