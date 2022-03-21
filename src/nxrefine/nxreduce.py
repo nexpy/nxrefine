@@ -21,10 +21,11 @@ import numpy as np
 import scipy
 from h5py import is_hdf5
 from nexusformat.nexus import (NeXusError, NXattenuator, NXcollection, NXdata,
-                               NXentry, NXfield, NXinstrument, NXlink, NXLock,
-                               NXmonitor, NXnote, NXparameters, NXprocess,
-                               NXreflections, NXroot, NXsource, nxgetmemory,
-                               nxload, nxsetlock, nxsetlockexpiry, nxsetmemory)
+                               NXentry, NXfield, NXfilter, NXinstrument,
+                               NXlink, NXLock, NXmonitor, NXnote, NXparameters,
+                               NXprocess, NXreflections, NXroot, NXsource,
+                               nxgetmemory, nxload, nxsetlock, nxsetlockexpiry,
+                               nxsetmemory)
 from qtpy import QtCore
 
 from . import __version__
@@ -796,6 +797,14 @@ class NXReduce(QtCore.QObject):
                     self.entry['instrument/attenuator'] = NXattenuator()
                 self.entry['instrument/attenuator/attenuator_transmission'] = (
                     logs['Calculated_filter_transmission'])
+            if 'Shutter' in logs:
+                if 'filter' not in self.entry['instrument']:
+                    self.entry['instrument/filter'] = NXfilter()
+                transmission = NXfield(1.0 - logs['Shutter'][:frames],
+                                       name='transmission')
+                frames = NXfield(np.array(range(frames)), name='frame_number')
+                self.entry['instrument/filter/transmission'] = (
+                    NXdata(transmission, frames))
 
     def nxcopy(self):
         if not self.copy:
@@ -1153,12 +1162,12 @@ class NXReduce(QtCore.QObject):
     def nxtransform(self, mask=False):
         if mask:
             task = 'nxmasked_transform'
-            process_name = 'Masked transform'
+            task_name = 'Masked transform'
             self.transform_file = os.path.join(
                 self.directory, self.entry_name+'_masked_transform.nxs')
         else:
             task = 'nxtransform'
-            process_name = 'Transform'
+            task_name = 'Transform'
             self.transform_file = os.path.join(
                 self.directory, self.entry_name+'_transform.nxs')
         if self.not_processed(task) and self.transform:
@@ -1169,7 +1178,7 @@ class NXReduce(QtCore.QObject):
             self.record_start(task)
             cctw_command = self.prepare_transform(mask=mask)
             if cctw_command:
-                self.logger.info(f"{process_name} process launched")
+                self.logger.info(f"{task_name} process launched")
                 tic = timeit.default_timer()
                 with self.field.nxfile:
                     with NXLock(self.transform_file):
@@ -1179,7 +1188,7 @@ class NXReduce(QtCore.QObject):
                 toc = timeit.default_timer()
                 if process.returncode == 0:
                     self.logger.info(
-                        f"{process_name} completed ({toc - tic:g} seconds)")
+                        f"{task_name} completed ({toc - tic:g} seconds)")
                     self.write_parameters(monitor=self.monitor, norm=self.norm)
                     self.record(task, monitor=self.monitor, norm=self.norm,
                                 command=cctw_command,
@@ -1189,14 +1198,14 @@ class NXReduce(QtCore.QObject):
                     self.clear_parameters(['monitor', 'norm'])
                 else:
                     self.logger.info(
-                        f"{process_name} completed - errors reported "
+                        f"{task_name} completed - errors reported "
                         f"({(toc-tic):g} seconds)")
                     self.record_fail(task)
             else:
                 self.logger.info("CCTW command invalid")
                 self.record_fail(task)
         elif self.transform:
-            self.logger.info(f"{process_name} already created")
+            self.logger.info(f"{task_name} already created")
 
     def get_transform_grid(self, mask=False):
         if self.Qh and self.Qk and self.Ql:
@@ -1236,6 +1245,17 @@ class NXReduce(QtCore.QObject):
                 monitor_signal[-1] = monitor_signal[-2]
                 self.data['monitor_weight'] = savgol_filter(monitor_signal,
                                                             501, 2)
+                inst = self.entry['instrument']
+                try:
+                    transmission = inst['attenuator/attenuator_transmission']
+                except Exception:
+                    transmission = 1.0
+                try:
+                    transmission *= inst['filter/transmission'].nxsignal
+                except Exception:
+                    pass
+                self.data['monitor_weight'] = (
+                    self.data['monitor_weight'] * transmission)
             else:
                 self.data['monitor_weight'] = np.ones(self.nframes,
                                                       dtype=np.float32)
@@ -1674,9 +1694,9 @@ class NXMultiReduce(NXReduce):
     def init_julia(self):
         if self.julia is None:
             try:
+                import pkg_resources
                 from julia import Julia
                 jl = Julia(compiled_modules=False)
-                import pkg_resources
                 from julia import Main
                 Main.include(pkg_resources.resource_filename(
                     'nxrefine', 'julia/LaplaceInterpolation.jl'))
