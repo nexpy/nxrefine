@@ -671,15 +671,20 @@ class NXReduce(QtCore.QObject):
                 self.logger.info("Data file not available")
                 return
             self.record_start('nxlink')
-            self.link_data()
-            logs = self.read_logs()
-            if logs:
-                self.transfer_logs(logs)
-                self.record('nxlink', logs='Transferred')
-                self.logger.info("Entry linked to raw data")
-                self.record_end('nxlink')
-            else:
+            try:
+                self.link_data()
+                logs = self.read_logs()
+                if logs:
+                    self.transfer_logs(logs)
+                    self.record('nxlink', logs='Transferred')
+                    self.logger.info("Entry linked to raw data")
+                    self.record_end('nxlink')
+                else:
+                    self.record_fail('nxlink')
+            except Exception as error:
+                self.logger.info(str(error))
                 self.record_fail('nxlink')
+                raise
         elif self.link:
             self.logger.info("Data already linked")
 
@@ -831,14 +836,19 @@ class NXReduce(QtCore.QObject):
             self.logger.info("Set as parent; no parameters copied")
         elif self.not_processed('nxcopy'):
             self.record_start('nxcopy')
-            if self.parent:
-                self.copy_parameters()
-                self.record('nxcopy', parent=self.parent)
-                self.logger.info("Entry parameters copied from parent")
-                self.record_end('nxcopy')
-            else:
-                self.logger.info("No parent defined or accessible")
+            try:
+                if self.parent:
+                    self.copy_parameters()
+                    self.record('nxcopy', parent=self.parent)
+                    self.logger.info("Entry parameters copied from parent")
+                    self.record_end('nxcopy')
+                else:
+                    self.logger.info("No parent defined or accessible")
+                    self.record_fail('nxcopy')
+            except Exception as error:
+                self.logger.info(str(error))
                 self.record_fail('nxcopy')
+                raise
         else:
             self.logger.info("Parameters already copied")
 
@@ -864,17 +874,22 @@ class NXReduce(QtCore.QObject):
                 self.logger.info("Data file not available")
                 return
             self.record_start('nxmax')
-            maximum = self.find_maximum()
-            if self.gui:
-                if maximum:
-                    self.result.emit(maximum)
-                self.stop.emit()
-            else:
-                self.write_maximum(maximum)
-                self.write_parameters(first=self.first, last=self.last)
-                self.record('nxmax', maximum=maximum,
-                            first_frame=self.first, last_frame=self.last)
-                self.record_end('nxmax')
+            try:
+                maximum = self.find_maximum()
+                if self.gui:
+                    if maximum:
+                        self.result.emit(maximum)
+                    self.stop.emit()
+                else:
+                    self.write_maximum(maximum)
+                    self.write_parameters(first=self.first, last=self.last)
+                    self.record('nxmax', maximum=maximum,
+                                first_frame=self.first, last_frame=self.last)
+                    self.record_end('nxmax')
+            except Exception as error:
+                self.logger.info(str(error))
+                self.record_fail('nxmax')
+                raise
         elif self.maxcount:
             self.logger.info("Maximum counts already found")
 
@@ -993,21 +1008,26 @@ class NXReduce(QtCore.QObject):
                 self.logger.info("Data file not available")
                 return
             self.record_start('nxfind')
-            peaks = self.find_peaks()
-            if self.gui:
-                if peaks:
-                    self.result.emit(peaks)
-                self.stop.emit()
-            elif peaks:
-                self.write_peaks(peaks)
-                self.write_parameters(
-                    threshold=self.threshold, first=self.first, last=self.last)
-                self.record('nxfind', threshold=self.threshold,
-                            first=self.first, last=self.last,
-                            peak_number=len(peaks))
-                self.record_end('nxfind')
-            else:
+            try:
+                peaks = self.find_peaks()
+                if self.gui:
+                    if peaks:
+                        self.result.emit(peaks)
+                    self.stop.emit()
+                elif peaks:
+                    self.write_peaks(peaks)
+                    self.write_parameters(threshold=self.threshold,
+                                          first=self.first, last=self.last)
+                    self.record('nxfind', threshold=self.threshold,
+                                first=self.first, last=self.last,
+                                peak_number=len(peaks))
+                    self.record_end('nxfind')
+                else:
+                    self.record_fail('nxfind')
+            except Exception as error:
+                self.logger.info(str(error))
                 self.record_fail('nxfind')
+                raise
         elif self.find:
             self.logger.info("Peaks already found")
 
@@ -1072,19 +1092,24 @@ class NXReduce(QtCore.QObject):
                     'Cannot refine until peak search is completed')
                 return
             self.record_start('nxrefine')
-            self.logger.info("Refining orientation")
-            if self.lattice or self.first_entry:
-                lattice = True
-            else:
-                lattice = False
-            result = self.refine_parameters(lattice=lattice)
-            if result:
-                if not self.gui:
-                    self.write_refinement(result)
-                self.record('nxrefine', fit_report=result.fit_report)
-                self.record_end('nxrefine')
-            else:
+            try:
+                self.logger.info("Refining orientation")
+                if self.lattice or self.first_entry:
+                    lattice = True
+                else:
+                    lattice = False
+                result = self.refine_parameters(lattice=lattice)
+                if result:
+                    if not self.gui:
+                        self.write_refinement(result)
+                    self.record('nxrefine', fit_report=result.fit_report)
+                    self.record_end('nxrefine')
+                else:
+                    self.record_fail('nxrefine')
+            except Exception as error:
+                self.logger.info(str(error))
                 self.record_fail('nxrefine')
+                raise
         elif self.refine:
             self.logger.info("HKL values already refined")
 
@@ -1111,29 +1136,34 @@ class NXReduce(QtCore.QObject):
 
     def nxprepare(self):
         if self.not_processed('nxprepare_mask') and self.prepare:
-            self.record_start('nxprepare')
-            self.logger.info("Preparing 3D mask")
-            self.mask_file = os.path.join(self.directory,
-                                          self.entry_name+'_mask.nxs')
-            mask = self.prepare_mask()
-            if self.gui:
-                if mask:
-                    self.result.emit(mask)
-                self.stop.emit()
-            elif mask:
-                self.write_mask(mask)
-                self.write_parameters(first=self.first, last=self.last)
-                self.record(
-                    'nxprepare', masked_file=self.mask_file,
-                    first=self.first, last=self.last,
-                    threshold1=self.mask_parameters['threshold_1'],
-                    horizontal1=self.mask_parameters['horizontal_size_1'],
-                    threshold2=self.mask_parameters['threshold_2'],
-                    horizontal2=self.mask_parameters['horizontal_size_2'],
-                    process='nxprepare_mask')
-                self.record_end('nxprepare')
-            else:
+            try:
+                self.record_start('nxprepare')
+                self.logger.info("Preparing 3D mask")
+                self.mask_file = os.path.join(self.directory,
+                                              self.entry_name+'_mask.nxs')
+                mask = self.prepare_mask()
+                if self.gui:
+                    if mask:
+                        self.result.emit(mask)
+                    self.stop.emit()
+                elif mask:
+                    self.write_mask(mask)
+                    self.write_parameters(first=self.first, last=self.last)
+                    self.record(
+                        'nxprepare', masked_file=self.mask_file,
+                        first=self.first, last=self.last,
+                        threshold1=self.mask_parameters['threshold_1'],
+                        horizontal1=self.mask_parameters['horizontal_size_1'],
+                        threshold2=self.mask_parameters['threshold_2'],
+                        horizontal2=self.mask_parameters['horizontal_size_2'],
+                        process='nxprepare_mask')
+                    self.record_end('nxprepare')
+                else:
+                    self.record_fail('nxprepare')
+            except Exception as error:
+                self.logger.info(str(error))
                 self.record_fail('nxprepare')
+                raise
         elif self.prepare:
             self.logger.info("3D Mask already prepared")
 
@@ -1205,34 +1235,40 @@ class NXReduce(QtCore.QObject):
                     'Cannot transform until the orientation is complete')
                 return
             self.record_start(task)
-            cctw_command = self.prepare_transform(mask=mask)
-            if cctw_command:
-                self.logger.info(f"{task_name} process launched")
-                tic = timeit.default_timer()
-                with self.field.nxfile:
-                    with NXLock(self.transform_file):
-                        process = subprocess.run(cctw_command, shell=True,
-                                                 stdout=subprocess.PIPE,
-                                                 stderr=subprocess.PIPE)
-                toc = timeit.default_timer()
-                if process.returncode == 0:
-                    self.logger.info(
-                        f"{task_name} completed ({toc - tic:g} seconds)")
-                    self.write_parameters(monitor=self.monitor, norm=self.norm)
-                    self.record(task, monitor=self.monitor, norm=self.norm,
-                                command=cctw_command,
-                                output=process.stdout.decode(),
-                                errors=process.stderr.decode())
-                    self.record_end(task)
-                    self.clear_parameters(['monitor', 'norm'])
+            try:
+                cctw_command = self.prepare_transform(mask=mask)
+                if cctw_command:
+                    self.logger.info(f"{task_name} process launched")
+                    tic = timeit.default_timer()
+                    with self.field.nxfile:
+                        with NXLock(self.transform_file):
+                            process = subprocess.run(cctw_command, shell=True,
+                                                     stdout=subprocess.PIPE,
+                                                     stderr=subprocess.PIPE)
+                    toc = timeit.default_timer()
+                    if process.returncode == 0:
+                        self.logger.info(
+                            f"{task_name} completed ({toc - tic:g} seconds)")
+                        self.write_parameters(monitor=self.monitor,
+                                              norm=self.norm)
+                        self.record(task, monitor=self.monitor, norm=self.norm,
+                                    command=cctw_command,
+                                    output=process.stdout.decode(),
+                                    errors=process.stderr.decode())
+                        self.record_end(task)
+                        self.clear_parameters(['monitor', 'norm'])
+                    else:
+                        self.logger.info(
+                            f"{task_name} completed - errors reported "
+                            f"({(toc-tic):g} seconds)")
+                        self.record_fail(task)
                 else:
-                    self.logger.info(
-                        f"{task_name} completed - errors reported "
-                        f"({(toc-tic):g} seconds)")
+                    self.logger.info("CCTW command invalid")
                     self.record_fail(task)
-            else:
-                self.logger.info("CCTW command invalid")
+            except Exception as error:
+                self.logger.info(str(error))
                 self.record_fail(task)
+                raise
         elif self.transform:
             self.logger.info(f"{task_name} already created")
 
@@ -1323,19 +1359,25 @@ class NXReduce(QtCore.QObject):
             self.logger.info("Sum directory not created")
         else:
             self.record_start('nxsum')
-            self.logger.info("Sum files launched")
-            tic = timeit.default_timer()
-            if not self.check_files(scan_list):
+            try:
+                self.logger.info("Sum files launched")
+                tic = timeit.default_timer()
+                if not self.check_files(scan_list):
+                    self.record_fail('nxsum')
+                else:
+                    self.logger.info(
+                        "All files and metadata have been checked")
+                    if not update:
+                        self.sum_files(scan_list)
+                    self.sum_monitors(scan_list)
+                    toc = timeit.default_timer()
+                    self.logger.info(f"Sum completed ({toc - tic:g} seconds)")
+                    self.record('nxsum', scans=','.join(scan_list))
+                    self.record_end('nxsum')
+            except Exception as error:
+                self.logger.info(str(error))
                 self.record_fail('nxsum')
-            else:
-                self.logger.info("All files and metadata have been checked")
-                if not update:
-                    self.sum_files(scan_list)
-                self.sum_monitors(scan_list)
-                toc = timeit.default_timer()
-                self.logger.info(f"Sum completed ({toc - tic:g} seconds)")
-                self.record('nxsum', scans=','.join(scan_list))
-                self.record_end('nxsum')
+                raise
 
     def check_sum_files(self, scan_list):
         status = True
@@ -1579,46 +1621,52 @@ class NXMultiReduce(NXReduce):
                     f"{self.title}: Cannot combine until transforms complete")
                 return
             self.record_start(task)
-            cctw_command = self.prepare_combine()
-            if cctw_command:
-                if mask:
-                    self.logger.info("Combining masked transforms "
-                                     f"({', '.join(self.entries)})")
-                    transform_data = 'masked_transform/data'
+            try:
+                cctw_command = self.prepare_combine()
+                if cctw_command:
+                    if mask:
+                        self.logger.info("Combining masked transforms "
+                                         f"({', '.join(self.entries)})")
+                        transform_data = 'masked_transform/data'
+                    else:
+                        self.logger.info("Combining transforms "
+                                         f"({', '.join(self.entries)})")
+                        transform_data = 'transform/data'
+                    tic = timeit.default_timer()
+                    with NXLock(self.transform_file):
+                        if os.path.exists(self.transform_file):
+                            os.remove(self.transform_file)
+                        data_lock = {}
+                        for entry in self.entries:
+                            data_lock[entry] = NXLock(
+                                self.root[entry][transform_data].nxfilename)
+                            data_lock[entry].acquire()
+                        process = subprocess.run(cctw_command, shell=True,
+                                                 stdout=subprocess.PIPE,
+                                                 stderr=subprocess.PIPE)
+                        for entry in self.entries:
+                            data_lock[entry].release()
+                    toc = timeit.default_timer()
+                    if process.returncode == 0:
+                        self.logger.info(
+                            f"{self.title} ({', '.join(self.entries)}) "
+                            f"completed ({toc-tic:g} seconds)")
+                        self.record(task, command=cctw_command,
+                                    output=process.stdout.decode(),
+                                    errors=process.stderr.decode())
+                        self.record_end(task)
+                    else:
+                        self.logger.info(
+                            f"{self.title} "
+                            f"({', '.join(self.entries)}) completed "
+                            f"- errors reported ({(toc-tic):g} seconds)")
+                        self.record_fail('nxcombine')
                 else:
-                    self.logger.info("Combining transforms "
-                                     f"({', '.join(self.entries)})")
-                    transform_data = 'transform/data'
-                tic = timeit.default_timer()
-                with NXLock(self.transform_file):
-                    if os.path.exists(self.transform_file):
-                        os.remove(self.transform_file)
-                    data_lock = {}
-                    for entry in self.entries:
-                        data_lock[entry] = NXLock(
-                            self.root[entry][transform_data].nxfilename)
-                        data_lock[entry].acquire()
-                    process = subprocess.run(cctw_command, shell=True,
-                                             stdout=subprocess.PIPE,
-                                             stderr=subprocess.PIPE)
-                    for entry in self.entries:
-                        data_lock[entry].release()
-                toc = timeit.default_timer()
-                if process.returncode == 0:
-                    self.logger.info(
-                        f"{self.title} ({', '.join(self.entries)}) "
-                        f"completed ({toc-tic:g} seconds)")
-                    self.record(task, command=cctw_command,
-                                output=process.stdout.decode(),
-                                errors=process.stderr.decode())
-                    self.record_end(task)
-                else:
-                    self.logger.info(
-                        f"{self.title} ({', '.join(self.entries)}) completed "
-                        f"- errors reported ({(toc-tic):g} seconds)")
-                    self.record_fail('nxcombine')
-            else:
-                self.logger.info("CCTW command invalid")
+                    self.logger.info("CCTW command invalid")
+            except Exception as error:
+                self.logger.info(str(error))
+                self.record_fail(transform_task)
+                raise
         else:
             self.logger.info(f"{self.title}: Data already combined")
 
@@ -1690,14 +1738,20 @@ class NXMultiReduce(NXReduce):
             if self.julia is None:
                 return
             self.record_start('nxpdf')
-            self.set_memory()
-            self.symmetrize_transform()
-            self.total_pdf()
-            self.punch_and_fill()
-            self.delta_pdf()
-            self.write_parameters(radius=self.radius)
-            self.record(task, laue=self.refine.laue_group, radius=self.radius)
-            self.record_end(task)
+            try:
+                self.set_memory()
+                self.symmetrize_transform()
+                self.total_pdf()
+                self.punch_and_fill()
+                self.delta_pdf()
+                self.write_parameters(radius=self.radius)
+                self.record(task, laue=self.refine.laue_group,
+                            radius=self.radius)
+                self.record_end(task)
+            except Exception as error:
+                self.logger.info(str(error))
+                self.record_fail(task)
+                raise
         else:
             self.logger.info(f"{self.title} already calculated")
 
