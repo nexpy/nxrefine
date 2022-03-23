@@ -466,7 +466,10 @@ class NXDatabase(object):
             elif IN_PROGRESS in status.values():
                 setattr(f, task, IN_PROGRESS)
             elif QUEUED in status.values():
-                setattr(f, task, QUEUED)
+                if DONE in status.values():
+                    setattr(f, task, IN_PROGRESS)
+                else:
+                    setattr(f, task, QUEUED)
             elif DONE in status.values():
                 setattr(f, task, IN_PROGRESS)
             else:
