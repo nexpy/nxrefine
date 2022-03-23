@@ -198,7 +198,6 @@ class TransformDialog(NXDialog):
                         self.refine.prepare_transform(
                             masked_output_file, mask=True)
                     self.refine.write_settings(settings_file)
-
             super().accept()
         except NeXusError as error:
             report_error("Preparing Data Transform", error)

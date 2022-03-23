@@ -566,6 +566,12 @@ class NXReduce(QtCore.QObject):
     def not_processed(self, task):
         return task not in self.entry or self.overwrite
 
+    @property
+    def oriented(self):
+        return ('instrument' in self.entry and
+                'detector' in self.entry['instrument'] and
+                'orientation_matrix' in self.entry['instrument/detector'])
+
     def start_progress(self, start, stop):
         self._start = start
         if self.gui:
@@ -813,6 +819,8 @@ class NXReduce(QtCore.QObject):
                 transmission = NXfield(1.0 - logs['Shutter'][:frames],
                                        name='transmission')
                 frames = NXfield(np.array(range(frames)), name='frame_number')
+                if 'transmission' in self.entry['instrument/filter']:
+                    del self.entry['instrument/filter/transmission']
                 self.entry['instrument/filter/transmission'] = (
                     NXdata(transmission, frames))
 
@@ -1192,7 +1200,7 @@ class NXReduce(QtCore.QObject):
             self.transform_file = os.path.join(
                 self.directory, self.entry_name+'_transform.nxs')
         if self.not_processed(task) and self.transform:
-            if not self.complete('nxrefine'):
+            if not self.oriented:
                 self.logger.info(
                     'Cannot transform until the orientation is complete')
                 return
@@ -1409,17 +1417,18 @@ class NXReduce(QtCore.QObject):
                 self.record_fail('nxrefine')
         if self.prepare:
             self.nxprepare()
-        if self.transform and self.complete('nxrefine'):
-            if self.regular:
-                self.nxtransform()
-            if self.mask:
-                self.nxtransform(mask=True)
-        elif self.transform:
-            self.logger.info("Cannot transform without orientation matrix")
-            if self.regular:
-                self.record_fail('nxtransform')
-            if self.mask:
-                self.record_fail('nxmasked_transform')
+        if self.transform:
+            if self.oriented:
+                if self.regular:
+                    self.nxtransform()
+                if self.mask:
+                    self.nxtransform(mask=True)
+            else:
+                self.logger.info("Cannot transform without orientation matrix")
+                if self.regular:
+                    self.record_fail('nxtransform')
+                if self.mask:
+                    self.record_fail('nxmasked_transform')
         if self.combine or self.pdf:
             reduce = NXMultiReduce(self.directory, entries=self.entries,
                                    combine=self.combine, pdf=self.pdf,
