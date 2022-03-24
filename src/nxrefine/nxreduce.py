@@ -1737,7 +1737,7 @@ class NXMultiReduce(NXReduce):
             self.init_julia()
             if self.julia is None:
                 return
-            self.record_start('nxpdf')
+            self.record_start(task)
             try:
                 self.set_memory()
                 self.symmetrize_transform()
