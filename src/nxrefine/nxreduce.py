@@ -2040,8 +2040,6 @@ class NXMultiReduce(NXReduce):
 
         if self.pdf_data in self.entry:
             del self.entry[self.pdf_data]
-        if 'pdf' in self.entry:
-            del self.entry['pdf']
         pdf = NXlink('/entry/pdf/pdf', file=self.pdf_file, name='pdf')
 
         dl, dk, dh = [(ax[1]-ax[0]).nxvalue
