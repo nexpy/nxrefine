@@ -1895,65 +1895,8 @@ class NXMultiReduce(NXReduce):
         else:
             return data
 
-    def punch_holes(self):
-        self.logger.info(f"{self.title}: Punching holes")
-        if (self.symm_data in self.entry and
-                'punched_data' in self.entry[self.symm_data]):
-            if self.overwrite:
-                del self.entry[self.symm_data]['punched_data']
-            else:
-                self.logger.info("Punched holes already exists")
-                return
-
-        tic = timeit.default_timer()
-        symm_group = self.entry[self.symm_data]
-        Qh, Qk, Ql = (symm_group['Qh'], symm_group['Qk'], symm_group['Ql'])
-
-        symm_root = nxload(self.symm_file, 'rw')
-        symm_data = symm_root['entry/data']
-
-        mask, _ = self.hole_mask()
-        ml = int((mask.shape[0]-1)/2)
-        mk = int((mask.shape[1]-1)/2)
-        mh = int((mask.shape[2]-1)/2)
-        punch_data = np.zeros(shape=symm_data.shape, dtype=symm_data.dtype)
-        for h, k, l in self.indices:
-            try:
-                ih = np.argwhere(np.isclose(Qh, h))[0][0]
-                ik = np.argwhere(np.isclose(Qk, k))[0][0]
-                il = np.argwhere(np.isclose(Ql, l))[0][0]
-                lslice = slice(il-ml, il+ml+1)
-                kslice = slice(ik-mk, ik+mk+1)
-                hslice = slice(ih-mh, ih+mh+1)
-                punch_data[(lslice, kslice, hslice)] = mask
-            except Exception:
-                pass
-        changed_idx = np.where(punch_data > 0)
-        if 'punch' in symm_root['entry/data']:
-            del symm_root['entry/data/punch']
-        symm_root['entry/data/punch'] = symm_data
-        symm_root['entry/data/punch'][changed_idx] *= 0
-        self.symmetrize(self.symm_file, 'data/punch')
-
-        self.entry[self.symm_data]['punched_data'] = NXlink(
-            '/entry/data/punch', file=self.symm_file)
-        self.logger.info(f"'punched_data' added to '{self.symm_data}'")
-
-        toc = timeit.default_timer()
-        self.logger.info(f"{self.title}: Punches completed "
-                         f"({toc - tic:g} seconds)")
-        self.clear_parameters(['radius'])
-
     def punch_and_fill(self):
         self.logger.info(f"{self.title}: Performing punch-and-fill")
-        if (self.symm_data in self.entry and
-                'filled_data' in self.entry[self.symm_data]):
-            if self.overwrite:
-                del self.entry[self.symm_data]['filled_data']
-            else:
-                self.logger.info(
-                    f"{self.title}: Data already punched-and-filled")
-                return
 
         from julia import Main
         LaplaceInterpolation = Main.LaplaceInterpolation
@@ -1971,7 +1914,6 @@ class NXMultiReduce(NXReduce):
         ml = int((mask.shape[0]-1)/2)
         mk = int((mask.shape[1]-1)/2)
         mh = int((mask.shape[2]-1)/2)
-        punch_data = np.zeros(shape=symm_data.shape, dtype=symm_data.dtype)
         fill_data = np.zeros(shape=symm_data.shape, dtype=symm_data.dtype)
         self.refine.polar_max = self.refine.two_theta_max()
         for h, k, l in self.indices:
@@ -1982,24 +1924,14 @@ class NXMultiReduce(NXReduce):
                 lslice = slice(il-ml, il+ml+1)
                 kslice = slice(ik-mk, ik+mk+1)
                 hslice = slice(ih-mh, ih+mh+1)
-                punch_data[(lslice, kslice, hslice)] = mask
                 v = symm_data[(lslice, kslice, hslice)].nxvalue
                 if v.max() > 0.0:
                     w = LaplaceInterpolation.matern_3d_grid(v, idx)
-                    fill_data[(lslice, kslice, hslice)] = w
+                    fill_data[(lslice, kslice, hslice)] = w * mask
             except Exception:
                 pass
 
-        punch_data = self.symmetrize(punch_data)
-        changed_idx = np.where(punch_data > 0)
-        buffer = symm_data.nxvalue
-        buffer[changed_idx] *= 0
-        if 'punch' in symm_root['entry/data']:
-            del symm_root['entry/data/punch']
-        symm_root['entry/data/punch'] = buffer
-        self.entry[self.symm_data]['punched_data'] = NXlink(
-            '/entry/data/punch', file=self.symm_file)
-        self.logger.info(f"'punched_data' added to '{self.symm_data}'")
+        self.logger.info(f"{self.title}: Symmetrizing punch-and-fill")
 
         fill_data = self.symmetrize(fill_data)
         changed_idx = np.where(fill_data > 0)
@@ -2008,9 +1940,19 @@ class NXMultiReduce(NXReduce):
         if 'fill' in symm_root['entry/data']:
             del symm_root['entry/data/fill']
         symm_root['entry/data/fill'] = buffer
+        if 'filled_data' in self.entry[self.symm_data]:
+            del self.entry[self.symm_data]['filled_data']
         self.entry[self.symm_data]['filled_data'] = NXlink(
             '/entry/data/fill', file=self.symm_file)
-        self.logger.info(f"'filled_data' added to '{self.symm_data}'")
+
+        buffer[changed_idx] *= 0
+        if 'punch' in symm_root['entry/data']:
+            del symm_root['entry/data/punch']
+        symm_root['entry/data/punch'] = buffer
+        if 'punched_data' in self.entry[self.symm_data]:
+            del self.entry[self.symm_data]['punched_data']
+        self.entry[self.symm_data]['punched_data'] = NXlink(
+            '/entry/data/punch', file=self.symm_file)
 
         toc = timeit.default_timer()
         self.logger.info(f"{self.title}: Punch-and-fill completed "
