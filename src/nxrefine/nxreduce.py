@@ -74,6 +74,8 @@ class NXReduce(QtCore.QObject):
             Last frame included in the data reduction, by default None
         radius : float, optional
             Radius used in punching holes in inverse Angstroms, by default None
+        qmax : float, optional
+            Maximum Q used in PDF taper function, by default None
         monitor : str, optional
             Name of monitor used in normalizations, by default None
         norm : float, optional
@@ -121,7 +123,8 @@ class NXReduce(QtCore.QObject):
             self, entry=None, directory=None, parent=None, entries=None,
             data='data/data', extension='.h5', path='/entry/data/data',
             threshold=None, min_pixels=None, first=None, last=None,
-            monitor=None, norm=None, radius=None, mask_parameters=None,
+            monitor=None, norm=None, radius=None, qmax=None,
+            mask_parameters=None,
             Qh=None, Qk=None, Ql=None,
             link=False, copy=False, maxcount=False, find=False, refine=False,
             prepare=False, transform=False, combine=False, pdf=False,
@@ -195,6 +198,7 @@ class NXReduce(QtCore.QObject):
         self._monitor = monitor
         self._norm = norm
         self._radius = radius
+        self._qmax = qmax
         if mask_parameters is None:
             self.mask_parameters = {
                 'threshold_1': 2, 'horizontal_size_1': 11,
@@ -436,8 +440,9 @@ class NXReduce(QtCore.QObject):
         return parameter
 
     def write_parameters(self, threshold=None, first=None, last=None,
-                         monitor=None, norm=None, radius=None):
-        if not (threshold or first or last or monitor or norm or radius):
+                         monitor=None, norm=None, radius=None, qmax=None):
+        if not (
+            threshold or first or last or monitor or norm or radius or qmax):
             return
         with self.root.nxfile:
             if 'nxreduce' not in self.root['entry']:
@@ -460,6 +465,9 @@ class NXReduce(QtCore.QObject):
             if radius is not None:
                 self.radius = radius
                 self.root['entry/nxreduce/radius'] = self.radius
+            if qmax is not None:
+                self.qmax = qmax
+                self.root['entry/nxreduce/qmax'] = self.qmax
 
     def clear_parameters(self, parameters):
         """Remove legacy records of parameters."""
@@ -547,6 +555,16 @@ class NXReduce(QtCore.QObject):
     @radius.setter
     def radius(self, value):
         self._radius = value
+
+    @property
+    def qmax(self):
+        if self._qmax is None:
+            self._qmax = float(self.get_parameter('qmax'))
+        return self._qmax
+
+    @qmax.setter
+    def qmax(self, value):
+        self._qmax = value
 
     @property
     def maximum(self):
@@ -863,7 +881,8 @@ class NXReduce(QtCore.QObject):
                               last=parent_reduce.last,
                               monitor=parent_reduce.monitor,
                               norm=parent_reduce.norm,
-                              radius=parent_reduce.radius)
+                              radius=parent_reduce.radius,
+                              qmax=parent_reduce.qmax)
         self.logger.info(
             f"Parameters for {self.name} copied from "
             f"'{os.path.basename(os.path.realpath(self.parent))}'")
@@ -1569,7 +1588,7 @@ class NXMultiReduce(NXReduce):
 
     def __init__(self, directory, entries=None,
                  combine=False, pdf=False, regular=False, mask=False,
-                 laue=None, radius=None, overwrite=False):
+                 laue=None, radius=None, qmax=None, overwrite=False):
         if isinstance(directory, NXroot):
             entry = directory['entry']
         else:
@@ -1586,6 +1605,7 @@ class NXMultiReduce(NXReduce):
             else:
                 raise NeXusError('Invalid Laue group specified')
         self._radius = radius
+        self._qmax = qmax
 
         self.combine = combine
         self.pdf = pdf
@@ -1744,9 +1764,9 @@ class NXMultiReduce(NXReduce):
                 self.total_pdf()
                 self.punch_and_fill()
                 self.delta_pdf()
-                self.write_parameters(radius=self.radius)
+                self.write_parameters(radius=self.radius, qmax=self.qmax)
                 self.record(task, laue=self.refine.laue_group,
-                            radius=self.radius)
+                            radius=self.radius, qmax=self.qmax)
                 self.record_end(task)
             except Exception as error:
                 self.logger.info(str(error))
