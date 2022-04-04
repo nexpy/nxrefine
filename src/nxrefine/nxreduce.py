@@ -1784,8 +1784,8 @@ class NXMultiReduce(NXReduce):
                               laue_group=self.refine.laue_group)
         symm_root['entry/data/data'] = symmetry.symmetrize(entries=True)
         symm_root['entry/data'].nxsignal = symm_root['entry/data/data']
-        symm_root['entry/data'].nxweights = self.fft_weights(
-            symm_root['entry/data'].shape)
+        symm_root['entry/data'].nxweights = self.fft_taper(
+            symm_root['entry/data'], weights=True)
         symm_root['entry/data'].nxaxes = self.entry[self.transform_path].nxaxes
         if self.symm_data in self.entry:
             del self.entry[self.symm_data]
@@ -1800,21 +1800,28 @@ class NXMultiReduce(NXReduce):
         self.logger.info(f"{self.title}: Symmetrization completed "
                          f"({toc-tic:g} seconds)")
 
-    def fft_weights(self, shape, alpha=0.5):
-        from scipy.signal import tukey
-        x = tukey(shape[2], alpha=alpha)
-        y = tukey(shape[1], alpha=alpha)
-        z = tukey(shape[0], alpha=alpha)
-        return np.einsum('i,j,k->ijk', 1.0/np.where(z > 0, z, z[1]/2),
-                         1.0/np.where(y > 0, y, y[1]/2),
-                         1.0/np.where(x > 0, x, x[1]/2))
+    def fft_taper(self, data, alpha=0.5, weights=False):
+        from scipy.signal.windows import tukey
+        axes = data.nxaxes
+        scales = [self.refine.cstar, self.refine.bstar, self.refine.astar]
 
-    def fft_taper(self, shape, alpha=0.5):
-        from scipy.signal import tukey
-        x = tukey(shape[2], alpha=alpha)
-        y = tukey(shape[1], alpha=alpha)
-        z = tukey(shape[0], alpha=alpha)
-        return np.einsum('i,j,k->ijk', z, y, x)
+        def axis_range(i):
+            rlu_max = self.qmax / scales[i]
+            return axes[i].index(-rlu_max), axes[i].index(rlu_max, max=True)+1
+
+        axis = []
+        for i in data.shape:
+            a = np.zeros(data.shape[i], dtype=float)
+            i_min, i_max = axis_range(i)
+            a[i_min:i_max] = tukey(i_max-i_min, alpha=alpha)
+            axis.append(a)
+        if weights:
+            return np.einsum('i,j,k->ijk',
+                             1.0/np.where(axis[0] > 0, axis[0], axis[0][1]/2),
+                             1.0/np.where(axis[1] > 0, axis[1], axis[1][1]/2),
+                             1.0/np.where(axis[2] > 0, axis[2], axis[2][1]/2))
+        else:
+            return np.einsum('i,j,k->ijk', axis[0], axis[1], axis[2])
 
     def total_pdf(self):
         if os.path.exists(self.total_pdf_file):
@@ -1828,7 +1835,7 @@ class NXMultiReduce(NXReduce):
         tic = timeit.default_timer()
         symm_data = self.entry[
             self.symm_data].nxsignal[:-1, :-1, :-1].nxvalue
-        symm_data *= self.fft_taper(symm_data.shape)
+        symm_data *= self.fft_taper(symm_data)
         fft = np.real(np.fft.fftshift(
             scipy.fft.fftn(np.fft.fftshift(symm_data),
                            workers=self.process_count)))
@@ -1970,7 +1977,7 @@ class NXMultiReduce(NXReduce):
         tic = timeit.default_timer()
         symm_data = (self.entry[self.symm_data]['filled_data']
                      [:-1, :-1, :-1].nxvalue)
-        symm_data *= self.fft_taper(symm_data.shape)
+        symm_data *= self.fft_taper(symm_data)
         fft = np.real(np.fft.fftshift(
             scipy.fft.fftn(np.fft.fftshift(symm_data),
                            workers=self.process_count)))

@@ -39,6 +39,7 @@ class ParametersDialog(NXDialog):
         self.parameters['monitor'].value = default['monitor']
         self.parameters.add('norm', default['norm'], 'Normalization Value')
         self.parameters.add('radius', default['radius'], 'Punch Radius (Å)')
+        self.parameters.add('qmax', default['qmax'], 'Maximum Taper Q (Å-1)')
 
         self.set_layout(self.root_layout,
                         self.close_buttons(save=True))
@@ -66,6 +67,8 @@ class ParametersDialog(NXDialog):
                 self.parameters['norm'].value = reduce['norm']
             if 'radius' in reduce:
                 self.parameters['radius'].value = reduce['radius']
+            if 'qmax' in reduce:
+                self.parameters['qmax'].value = reduce['qmax']
         else:
             try:
                 reduce = NXReduce(self.entries[0])
@@ -81,6 +84,8 @@ class ParametersDialog(NXDialog):
                     self.parameters['norm'].value = reduce.norm
                 if reduce.radius:
                     self.parameters['radius'].value = reduce.radius
+                if reduce.qmax:
+                    self.parameters['qmax'].value = reduce.qmax
             except Exception:
                 pass
 
@@ -93,6 +98,7 @@ class ParametersDialog(NXDialog):
         self.root['entry/nxreduce/monitor'] = self.monitor
         self.root['entry/nxreduce/norm'] = self.norm
         self.root['entry/nxreduce/radius'] = self.radius
+        self.root['entry/nxreduce/qmax'] = self.qmax
 
     @property
     def threshold(self):
