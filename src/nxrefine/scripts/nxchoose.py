@@ -28,6 +28,8 @@ def main():
                         help='normalization to monitor')
     parser.add_argument('-r', '--radius', type=float,
                         help='radius of punched holes in Å-1')
+    parser.add_argument('-Q', '--Qmax', type=float,
+                        help='maximum Q in Å-1 used in PDF tapers')
     parser.add_argument('-p', '--print', action='store_true',
                         help='print current parameters')
 
@@ -42,11 +44,12 @@ def main():
         print(f"Monitor = {reduce.monitor}")
         print(f"Normalization = {reduce.norm:g}")
         print(f"Radius = {reduce.radius:g}")
+        print(f"Qmax = {reduce.Qmax:g}")
     else:
         reduce.write_parameters(threshold=args.threshold,
                                 first=args.first, last=args.last,
                                 monitor=args.monitor, norm=args.norm,
-                                radius=args.radius)
+                                radius=args.radius, qmax=args.Qmax)
 
 
 if __name__ == "__main__":

@@ -1721,29 +1721,7 @@ class NXMultiReduce(NXReduce):
         return f"cctw merge {input} -o {output}"
 
     def nxpdf(self, mask=False):
-        if mask:
-            task = 'nxmasked_pdf'
-            self.title = 'Masked PDF'
-            self.transform_path = 'masked_transform'
-            self.symm_data = 'symm_masked_transform'
-            self.total_pdf_data = 'total_masked_pdf'
-            self.pdf_data = 'masked_pdf'
-            self.symm_file = os.path.join(self.directory,
-                                          'masked_symm_transform.nxs')
-            self.total_pdf_file = os.path.join(self.directory,
-                                               'masked_total_pdf.nxs')
-            self.pdf_file = os.path.join(self.directory, 'masked_pdf.nxs')
-        else:
-            task = 'nxpdf'
-            self.title = 'PDF'
-            self.transform_path = 'transform'
-            self.symm_data = 'symm_transform'
-            self.total_pdf_data = 'total_pdf'
-            self.pdf_data = 'pdf'
-            self.symm_file = os.path.join(self.directory, 'symm_transform.nxs')
-            self.total_pdf_file = os.path.join(self.directory, 'total_pdf.nxs')
-            self.pdf_file = os.path.join(self.directory, 'pdf.nxs')
-        if self.not_processed(task) and self.pdf:
+        if self.not_processed(self.task) and self.pdf:
             if mask:
                 if not self.complete('nxmasked_combine'):
                     self.logger.info("Cannot calculate PDF until the "
@@ -1760,20 +1738,20 @@ class NXMultiReduce(NXReduce):
             self.init_julia()
             if self.julia is None:
                 return
-            self.record_start(task)
+            self.init_pdf(mask)
+            self.record_start(self.task)
             try:
-                self.set_memory()
                 self.symmetrize_transform()
                 self.total_pdf()
                 self.punch_and_fill()
                 self.delta_pdf()
                 self.write_parameters(radius=self.radius, qmax=self.qmax)
-                self.record(task, laue=self.refine.laue_group,
+                self.record(self.task, laue=self.refine.laue_group,
                             radius=self.radius, qmax=self.qmax)
-                self.record_end(task)
+                self.record_end(self.task)
             except Exception as error:
                 self.logger.info(str(error))
-                self.record_fail(task)
+                self.record_fail(self.task)
                 raise
         else:
             self.logger.info(f"{self.title} already calculated")
@@ -1792,10 +1770,39 @@ class NXMultiReduce(NXReduce):
                 self.logger.info(f"Cannot initialize Julia: {error}")
                 self.julia = None
 
-    def set_memory(self):
+    def init_pdf(self, mask=False):
+        if mask:
+            self.task = 'nxmasked_pdf'
+            self.title = 'Masked PDF'
+            self.transform_path = 'masked_transform'
+            self.symm_data = 'symm_masked_transform'
+            self.total_pdf_data = 'total_masked_pdf'
+            self.pdf_data = 'masked_pdf'
+            self.symm_file = os.path.join(self.directory,
+                                          'masked_symm_transform.nxs')
+            self.total_pdf_file = os.path.join(self.directory,
+                                               'masked_total_pdf.nxs')
+            self.pdf_file = os.path.join(self.directory, 'masked_pdf.nxs')
+            self.Qh, self.Qk, self.Ql = (self.entry['masked_transform/Qh'],
+                                         self.entry['masked_transform/Qk'],
+                                         self.entry['masked_transform/Ql'])
+        else:
+            self.task = 'nxpdf'
+            self.title = 'PDF'
+            self.transform_path = 'transform'
+            self.symm_data = 'symm_transform'
+            self.total_pdf_data = 'total_pdf'
+            self.pdf_data = 'pdf'
+            self.symm_file = os.path.join(self.directory, 'symm_transform.nxs')
+            self.total_pdf_file = os.path.join(self.directory, 'total_pdf.nxs')
+            self.pdf_file = os.path.join(self.directory, 'pdf.nxs')
+            self.Qh, self.Qk, self.Ql = (self.entry['transform/Qh'],
+                                         self.entry['transform/Qk'],
+                                         self.entry['transform/Ql'])
         total_size = self.entry[self.transform_path].nxsignal.nbytes / 1e6
         if total_size > nxgetmemory():
             nxsetmemory(total_size + 1000)
+        self.taper = self.fft_taper()
 
     def symmetrize_transform(self):
         self.logger.info(f"{self.title}: Transform being symmetrized")
@@ -1807,8 +1814,7 @@ class NXMultiReduce(NXReduce):
                               laue_group=self.refine.laue_group)
         symm_root['entry/data/data'] = symmetry.symmetrize(entries=True)
         symm_root['entry/data'].nxsignal = symm_root['entry/data/data']
-        symm_root['entry/data'].nxweights = self.fft_taper(
-            symm_root['entry/data'], weights=True)
+        symm_root['entry/data'].nxweights = 1.0 / self.taper
         symm_root['entry/data'].nxaxes = self.entry[self.transform_path].nxaxes
         if self.symm_data in self.entry:
             del self.entry[self.symm_data]
@@ -1823,28 +1829,21 @@ class NXMultiReduce(NXReduce):
         self.logger.info(f"{self.title}: Symmetrization completed "
                          f"({toc-tic:g} seconds)")
 
-    def fft_taper(self, data, alpha=0.5, weights=False):
-        from scipy.signal.windows import tukey
-        axes = data.nxaxes
-        scales = [self.refine.cstar, self.refine.bstar, self.refine.astar]
-
-        def axis_range(i):
-            rlu_max = self.qmax / scales[i]
-            return axes[i].index(-rlu_max), axes[i].index(rlu_max, max=True)+1
-
-        axis = []
-        for i in data.shape:
-            a = np.zeros(data.shape[i], dtype=float)
-            i_min, i_max = axis_range(i)
-            a[i_min:i_max] = tukey(i_max-i_min, alpha=alpha)
-            axis.append(a)
-        if weights:
-            return np.einsum('i,j,k->ijk',
-                             1.0/np.where(axis[0] > 0, axis[0], axis[0][1]/2),
-                             1.0/np.where(axis[1] > 0, axis[1], axis[1][1]/2),
-                             1.0/np.where(axis[2] > 0, axis[2], axis[2][1]/2))
-        else:
-            return np.einsum('i,j,k->ijk', axis[0], axis[1], axis[2])
+    def fft_taper(self, qmax=None):
+        self.logger.info(f"{self.title}: Calculating taper function")
+        tic = timeit.default_timer()
+        if qmax is None:
+            qmax = self.qmax
+        X, Y, Z = np.meshgrid(self.Qk * self.refine.bstar,
+                              self.Ql * self.refine.cstar,
+                              self.Qh * self.refine.astar)
+        taper = np.ones(X.shape, dtype=float)
+        R = np.sqrt(X**2 + Y**2 + Z**2) / qmax
+        taper = np.ma.masked_where(R < 1, taper)
+        taper = taper * np.exp(-10 * (R - 1)**2)
+        self.logger.info(f"{self.title}: Taper function calculated "
+                         f"({toc-tic:g} seconds)")
+        return taper.filled(1.0)
 
     def total_pdf(self):
         if os.path.exists(self.total_pdf_file):
@@ -1856,11 +1855,10 @@ class NXMultiReduce(NXReduce):
                 return
         self.logger.info(f"{self.title}: Calculating total PDF")
         tic = timeit.default_timer()
-        symm_data = self.entry[
-            self.symm_data].nxsignal[:-1, :-1, :-1].nxvalue
-        symm_data *= self.fft_taper(symm_data)
+        symm_data = self.entry[self.symm_data].nxsignal.nxvalue
+        symm_data *= self.taper
         fft = np.real(np.fft.fftshift(
-            scipy.fft.fftn(np.fft.fftshift(symm_data),
+            scipy.fft.fftn(np.fft.fftshift(symm_data[:-1, :-1, :-1]),
                            workers=self.process_count)))
         fft *= (1.0 / np.prod(fft.shape))
 
@@ -1998,11 +1996,10 @@ class NXMultiReduce(NXReduce):
                     f"{self.title}: Delta-PDF file already exists")
                 return
         tic = timeit.default_timer()
-        symm_data = (self.entry[self.symm_data]['filled_data']
-                     [:-1, :-1, :-1].nxvalue)
-        symm_data *= self.fft_taper(symm_data)
+        symm_data = self.entry[self.symm_data]['filled_data'].nxvalue
+        symm_data *= self.taper
         fft = np.real(np.fft.fftshift(
-            scipy.fft.fftn(np.fft.fftshift(symm_data),
+            scipy.fft.fftn(np.fft.fftshift(symm_data[:-1, :-1, :-1]),
                            workers=self.process_count)))
         fft *= (1.0 / np.prod(fft.shape))
 
