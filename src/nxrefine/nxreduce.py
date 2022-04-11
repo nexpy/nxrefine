@@ -173,16 +173,14 @@ class NXReduce(QtCore.QObject):
             self._root = None
         self.name = f"{self.sample}_{self.scan}/{self.entry_name}"
         self.base_directory = os.path.dirname(self.wrapper_file)
-        self.parent_file = os.path.join(self.base_directory,
-                                        self.sample+'_parent.nxs')
 
         self._data = data
         self._field_root = None
         self._field = None
         self._shape = None
         self._pixel_mask = None
-        self._parent_root = None
         self._parent = parent
+        self._parent_root = None
         self._entries = entries
 
         if extension.startswith('.'):
@@ -389,22 +387,27 @@ class NXReduce(QtCore.QObject):
             self.entry['instrument/detector/pixel_mask'] = mask
 
     @property
+    def parent(self):
+        if self._parent is None:
+            if self.is_parent():
+                self._parent = os.path.realpath(self.parent_file)
+            else:
+                self._parent = None
+        return self._parent
+
+    @property
     def parent_root(self):
-        if self._parent_root is None:
-            self._parent_root = nxload(self.parent_file, 'r')
+        if self._parent_root is None and self.parent:
+            self._parent_root = nxload(self.parent, 'r')
         return self._parent_root
 
     @property
-    def parent(self):
-        if self._parent is None:
-            if (not self.is_parent()
-                    and os.path.exists(os.path.realpath(self.parent_file))):
-                self._parent = os.path.realpath(self.parent_file)
-        return self._parent
+    def parent_file(self):
+        return os.path.join(self.base_directory, self.sample+'_parent.nxs')
 
     def is_parent(self):
-        if (os.path.exists(self.parent_file) and
-                os.path.realpath(self.parent_file) == self.wrapper_file):
+        if (os.path.exists(self.parent_file)
+                and os.path.realpath(self.parent_file) == self.wrapper_file):
             return True
         else:
             return False
@@ -441,8 +444,8 @@ class NXReduce(QtCore.QObject):
 
     def write_parameters(self, threshold=None, first=None, last=None,
                          monitor=None, norm=None, radius=None, qmax=None):
-        if not (
-            threshold or first or last or monitor or norm or radius or qmax):
+        if not (threshold or first or last or monitor or norm
+                or radius or qmax):
             return
         with self.root.nxfile:
             if 'nxreduce' not in self.root['entry']:
