@@ -1721,7 +1721,11 @@ class NXMultiReduce(NXReduce):
         return f"cctw merge {input} -o {output}"
 
     def nxpdf(self, mask=False):
-        if self.not_processed(self.task) and self.pdf:
+        if mask:
+            task = 'nxmasked_pdf'
+        else:
+            task = 'nxpdf'
+        if self.not_processed(task) and self.pdf:
             if mask:
                 if not self.complete('nxmasked_combine'):
                     self.logger.info("Cannot calculate PDF until the "
@@ -1738,20 +1742,20 @@ class NXMultiReduce(NXReduce):
             self.init_julia()
             if self.julia is None:
                 return
+            self.record_start(task)
             self.init_pdf(mask)
-            self.record_start(self.task)
             try:
                 self.symmetrize_transform()
                 self.total_pdf()
                 self.punch_and_fill()
                 self.delta_pdf()
                 self.write_parameters(radius=self.radius, qmax=self.qmax)
-                self.record(self.task, laue=self.refine.laue_group,
+                self.record(task, laue=self.refine.laue_group,
                             radius=self.radius, qmax=self.qmax)
-                self.record_end(self.task)
+                self.record_end(task)
             except Exception as error:
                 self.logger.info(str(error))
-                self.record_fail(self.task)
+                self.record_fail(task)
                 raise
         else:
             self.logger.info(f"{self.title} already calculated")
@@ -1772,7 +1776,6 @@ class NXMultiReduce(NXReduce):
 
     def init_pdf(self, mask=False):
         if mask:
-            self.task = 'nxmasked_pdf'
             self.title = 'Masked PDF'
             self.transform_path = 'masked_transform'
             self.symm_data = 'symm_masked_transform'
@@ -1787,7 +1790,6 @@ class NXMultiReduce(NXReduce):
                                          self.entry['masked_transform/Qk'],
                                          self.entry['masked_transform/Ql'])
         else:
-            self.task = 'nxpdf'
             self.title = 'PDF'
             self.transform_path = 'transform'
             self.symm_data = 'symm_transform'
