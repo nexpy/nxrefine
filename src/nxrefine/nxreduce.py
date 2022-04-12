@@ -19,7 +19,7 @@ from datetime import datetime
 
 import h5py as h5
 import numpy as np
-import scipy
+import scipy.fft
 from h5py import is_hdf5
 from nexusformat.nexus import (NeXusError, NXattenuator, NXcollection, NXdata,
                                NXentry, NXfield, NXfilter, NXinstrument,
@@ -1843,6 +1843,7 @@ class NXMultiReduce(NXReduce):
         R = np.sqrt(X**2 + Y**2 + Z**2) / qmax
         taper = np.ma.masked_where(R < 1, taper)
         taper = taper * np.exp(-10 * (R - 1)**2)
+        toc = timeit.default_timer()
         self.logger.info(f"{self.title}: Taper function calculated "
                          f"({toc-tic:g} seconds)")
         return taper.filled(1.0)
@@ -1859,8 +1860,8 @@ class NXMultiReduce(NXReduce):
         tic = timeit.default_timer()
         symm_data = self.entry[self.symm_data].nxsignal.nxvalue
         symm_data *= self.taper
-        fft = np.real(np.fft.fftshift(
-            scipy.fft.fftn(np.fft.fftshift(symm_data[:-1, :-1, :-1]),
+        fft = np.real(scipy.fft.fftshift(
+            scipy.fft.fftn(scipy.fft.fftshift(symm_data[:-1, :-1, :-1]),
                            workers=self.process_count)))
         fft *= (1.0 / np.prod(fft.shape))
 
@@ -1874,11 +1875,11 @@ class NXMultiReduce(NXReduce):
 
         dl, dk, dh = [(ax[1]-ax[0]).nxvalue
                       for ax in self.entry[self.symm_data].nxaxes]
-        x = NXfield(np.fft.fftshift(np.fft.fftfreq(
+        x = NXfield(scipy.fft.fftshift(scipy.fft.fftfreq(
             fft.shape[2], dh)), name='x', scaling_factor=self.refine.a)
-        y = NXfield(np.fft.fftshift(np.fft.fftfreq(
+        y = NXfield(scipy.fft.fftshift(scipy.fft.fftfreq(
             fft.shape[1], dk)), name='y', scaling_factor=self.refine.b)
-        z = NXfield(np.fft.fftshift(np.fft.fftfreq(
+        z = NXfield(scipy.fft.fftshift(scipy.fft.fftfreq(
             fft.shape[0], dl)), name='z', scaling_factor=self.refine.c)
         self.entry[self.total_pdf_data] = NXdata(pdf, (z, y, x))
         self.entry[self.total_pdf_data].attrs['angles'] = (
@@ -2000,8 +2001,8 @@ class NXMultiReduce(NXReduce):
         tic = timeit.default_timer()
         symm_data = self.entry[self.symm_data]['filled_data'].nxvalue
         symm_data *= self.taper
-        fft = np.real(np.fft.fftshift(
-            scipy.fft.fftn(np.fft.fftshift(symm_data[:-1, :-1, :-1]),
+        fft = np.real(scipy.fft.fftshift(
+            scipy.fft.fftn(scipy.fft.fftshift(symm_data[:-1, :-1, :-1]),
                            workers=self.process_count)))
         fft *= (1.0 / np.prod(fft.shape))
 
@@ -2015,11 +2016,11 @@ class NXMultiReduce(NXReduce):
 
         dl, dk, dh = [(ax[1]-ax[0]).nxvalue
                       for ax in self.entry[self.symm_data].nxaxes]
-        x = NXfield(np.fft.fftshift(np.fft.fftfreq(
+        x = NXfield(scipy.fft.fftshift(scipy.fft.fftfreq(
             fft.shape[2], dh)), name='x', scaling_factor=self.refine.a)
-        y = NXfield(np.fft.fftshift(np.fft.fftfreq(
+        y = NXfield(scipy.fft.fftshift(scipy.fft.fftfreq(
             fft.shape[1], dk)), name='y', scaling_factor=self.refine.b)
-        z = NXfield(np.fft.fftshift(np.fft.fftfreq(
+        z = NXfield(scipy.fft.fftshift(scipy.fft.fftfreq(
             fft.shape[0], dl)), name='z', scaling_factor=self.refine.c)
         self.entry[self.pdf_data] = NXdata(pdf, (z, y, x))
         self.entry[self.pdf_data].attrs['angles'] = (
