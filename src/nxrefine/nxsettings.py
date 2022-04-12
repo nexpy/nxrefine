@@ -65,9 +65,9 @@ class NXSettings(ConfigParser):
             if not self.has_option('nxrefine', p):
                 self.set('nxrefine', p, default[p])
         default = {'threshold': 50000, 'min_pixels': 10,
-                   'first': 25, 'last': 3625,
+                   'first': 10, 'last': 3640,
                    'monitor': 'monitor2', 'norm': 30000,
-                   'radius': 0.2, 'qmax': 8.0}
+                   'radius': 0.2, 'qmax': 10.0}
         for p in default:
             if not self.has_option('nxreduce', p):
                 self.set('nxreduce', p, default[p])
