@@ -34,9 +34,10 @@ def peak_search(data_file, data_path, i, j, k, threshold):
     def save_blobs(lio, blobs):
         for b in blobs:
             blob = NXBlob(b)
-            saved_blobs.append(blob)
-            if lio.onfirst > 0:
-                lio.onfirst = 0
+            if blob.np > 0.0:
+                saved_blobs.append(blob)
+                if lio.onfirst > 0:
+                    lio.onfirst = 0
 
     data_root = nxload(data_file, 'r')
     with data_root.nxfile:
