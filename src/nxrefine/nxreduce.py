@@ -1836,17 +1836,19 @@ class NXMultiReduce(NXReduce):
         tic = timeit.default_timer()
         if qmax is None:
             qmax = self.qmax
-        X, Y, Z = np.meshgrid(self.Qk * self.refine.bstar,
-                              self.Ql * self.refine.cstar,
-                              self.Qh * self.refine.astar)
+        Z, Y, X = np.meshgrid(self.Ql * self.refine.cstar,
+                              self.Qk * self.refine.bstar,
+                              self.Qh * self.refine.astar,
+                              indexing='ij')
         taper = np.ones(X.shape, dtype=float)
         R = np.sqrt(X**2 + Y**2 + Z**2) / qmax
-        taper = np.ma.masked_where(R < 1, taper)
-        taper = taper * np.exp(-10 * (R - 1)**2)
+        idx = (R > 1.0) & (R < 2.0)
+        taper[idx] = 0.5 * (1 - np.cos(R[idx] * np.pi))
+        taper[R >= 2.0] = taper.min()
         toc = timeit.default_timer()
         self.logger.info(f"{self.title}: Taper function calculated "
                          f"({toc-tic:g} seconds)")
-        return taper.filled(1.0)
+        return taper
 
     def total_pdf(self):
         if os.path.exists(self.total_pdf_file):
