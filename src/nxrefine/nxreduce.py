@@ -389,7 +389,7 @@ class NXReduce(QtCore.QObject):
     @property
     def parent(self):
         if self._parent is None:
-            if self.is_parent():
+            if not self.is_parent():
                 self._parent = os.path.realpath(self.parent_file)
             else:
                 self._parent = None
@@ -1832,6 +1832,29 @@ class NXMultiReduce(NXReduce):
                          f"({toc-tic:g} seconds)")
 
     def fft_taper(self, qmax=None):
+        """Calculate spherical Tukey taper function.
+
+        The taper function values are read from the parent if they have
+        already been calculated.
+
+        Parameters
+        ----------
+        qmax : float, optional
+            Maximum Q value in Å-1, by default None.
+
+        Returns
+        -------
+        array-like
+            An array containing the 3D taper function values.
+        """
+        if self.parent:
+            entry = self.parent_root['entry']
+            if ('symm_transform' in entry
+                    and entry['symm_transform'].nxweights):
+                return 1.0 / entry['symm_transform'].nxweights.nxvalue
+            elif ('symm_masked_transform' in entry
+                    and entry['symm_masked_transform'].nxweights):
+                return 1.0 / entry['symm_masked_transform'].nxweights.nxvalue
         self.logger.info(f"{self.title}: Calculating taper function")
         tic = timeit.default_timer()
         if qmax is None:
@@ -1841,7 +1864,7 @@ class NXMultiReduce(NXReduce):
                               self.Qh * self.refine.astar,
                               indexing='ij')
         taper = np.ones(X.shape, dtype=float)
-        R = np.sqrt(X**2 + Y**2 + Z**2) / qmax
+        R = 2 * np.sqrt(X**2 + Y**2 + Z**2) / qmax
         idx = (R > 1.0) & (R < 2.0)
         taper[idx] = 0.5 * (1 - np.cos(R[idx] * np.pi))
         taper[R >= 2.0] = taper.min()
