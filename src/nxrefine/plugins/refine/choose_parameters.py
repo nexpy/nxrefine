@@ -124,6 +124,10 @@ class ParametersDialog(NXDialog):
     def radius(self):
         return float(self.parameters['radius'].value)
 
+    @property
+    def qmax(self):
+        return float(self.parameters['qmax'].value)
+
     def accept(self):
         try:
             self.write_parameters()
