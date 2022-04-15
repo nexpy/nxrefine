@@ -1834,8 +1834,8 @@ class NXMultiReduce(NXReduce):
     def fft_taper(self, qmax=None):
         """Calculate spherical Tukey taper function.
 
-        The taper function values are read from the parent if they have
-        already been calculated.
+        The taper function values are read from the parent if they are
+        available.
 
         Parameters
         ----------
@@ -1863,7 +1863,7 @@ class NXMultiReduce(NXReduce):
                               self.Qk * self.refine.bstar,
                               self.Qh * self.refine.astar,
                               indexing='ij')
-        taper = np.ones(X.shape, dtype=float)
+        taper = np.ones(X.shape, dtype=np.float32)
         R = 2 * np.sqrt(X**2 + Y**2 + Z**2) / qmax
         idx = (R > 1.0) & (R < 2.0)
         taper[idx] = 0.5 * (1 - np.cos(R[idx] * np.pi))
