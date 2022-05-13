@@ -7,14 +7,16 @@
 # -----------------------------------------------------------------------------
 
 import os
+from re import S
 import subprocess
 import time
-from configparser import ConfigParser
 from datetime import datetime
 from multiprocessing import JoinableQueue, Process, Queue
 
 import psutil
 from nexusformat.nexus import NeXusError
+from persistqueue import Queue as TaskQueue
+from persistqueue.serializers import json
 
 from .nxdaemon import NXDaemon
 from .nxsettings import NXSettings
@@ -99,9 +101,9 @@ class NXServer(NXDaemon):
         self.tasks = None
         self.results = None
         self.workers = []
-        if not os.path.exists(self.task_list):
-            os.mkfifo(self.task_list)
         super(NXServer, self).__init__(self.pid_name, self.pid_file)
+        self.task_queue = TaskQueue(self.task_list, serializer=json,
+                                    autosave=True, chunksize=1)
 
     def __repr__(self):
         return (f"NXServer(directory='{self.directory}', "
@@ -173,7 +175,7 @@ class NXServer(NXDaemon):
 
     def run(self):
         """
-        Create worker processes to process commands from the task_fifo
+        Create worker processes to process commands from the task queue
 
         Create a worker for each cpu, read commands from task_list, submit
             an NXTask for each command to a JoinableQueue
@@ -185,7 +187,6 @@ class NXServer(NXDaemon):
                         for cpu in self.cpus]
         for worker in self.workers:
             worker.start()
-        self.task_fifo = open(self.task_list, 'r')
         while True:
             time.sleep(5)
             command = self.read_task()
@@ -204,12 +205,30 @@ class NXServer(NXDaemon):
 
     def add_task(self, command):
         """Add a task to the server queue"""
-        task_fifo = os.open(self.task_list, os.O_RDWR)
-        os.write(task_fifo, (command+'\n').encode())
+        if command not in self.queued_tasks():
+            self.task_queue.put(command)
 
     def read_task(self):
-        command = self.task_fifo.readline()[:-1]
-        return command
+        if self.task_queue.qsize() > 0:
+            return self.task_queue.get(timeout=0)
+        else:
+            return None
+
+    def remove_task(self, command):
+        tasks = self.queued_tasks()
+        if command in tasks:
+            tasks.remove(command)
+        self.clear()
+        for task in tasks:
+            self.add_task(task)
+
+    def queued_tasks(self):
+        queue = TaskQueue(self.task_list, serializer=json, autosave=False,
+                          chunksize=1)
+        tasks = []
+        while queue.qsize() > 0:
+            tasks.append(queue.get(timeout=0))
+        return tasks
 
     def stop(self):
         if self.is_running():
@@ -217,8 +236,10 @@ class NXServer(NXDaemon):
 
     def clear(self):
         if os.path.exists(self.task_list):
-            os.remove(self.task_list)
-        os.mkfifo(self.task_list)
+            import shutil
+            shutil.rmtree(self.task_list, ignore_errors=True)
+        self.task_queue = TaskQueue(self.task_list, serializer=json,
+                                    autosave=True, chunksize=1)
 
     def kill(self):
         """Kill the server process.
