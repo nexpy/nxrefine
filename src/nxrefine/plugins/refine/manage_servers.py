@@ -76,6 +76,7 @@ class ServerDialog(NXDialog):
         self.set_title('Manage Servers')
         self.setMinimumWidth(800)
         self.experiment_directory = None
+        self.log_text = ''
         self.timer = QtCore.QTimer(self)
         self.timer.timeout.connect(self.update_queue)
         self.timer.start(5000)
@@ -103,12 +104,11 @@ class ServerDialog(NXDialog):
     def update_queue(self):
         with open(self.server.log_file) as f:
             text = f.read()
-        if text:
+        if text != self.log_text:
             self.log_editor.setPlainText(text)
             self.log_editor.verticalScrollBar().setValue(
                 self.log_editor.verticalScrollBar().maximum())
-        else:
-            self.log_editor.setPlainText('No Logs')
+            self.log_text = text
         self.queue_editor.setPlainText('\n'.join(self.server.queued_tasks()))
         self.server_status.setText(self.server.status())
 
