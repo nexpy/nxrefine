@@ -7,7 +7,6 @@
 # -----------------------------------------------------------------------------
 
 import os
-from re import S
 import subprocess
 import time
 from datetime import datetime
@@ -95,15 +94,10 @@ class NXServer(NXDaemon):
     def __init__(self, directory=None, server_type=None, nodes=None):
         self.pid_name = 'NXServer'
         self.initialize(directory, server_type, nodes)
-        self.task_list = os.path.join(self.directory, 'task_list')
-        self.log_file = os.path.join(self.directory, 'nxserver.log')
-        self.pid_file = os.path.join(self.directory, 'nxserver.pid')
         self.tasks = None
         self.results = None
         self.workers = []
         super(NXServer, self).__init__(self.pid_name, self.pid_file)
-        self.task_queue = TaskQueue(self.task_list, serializer=json,
-                                    autosave=True, chunksize=1)
 
     def __repr__(self):
         return (f"NXServer(directory='{self.directory}', "
@@ -134,6 +128,17 @@ class NXServer(NXDaemon):
                 cpu_count = psutil.cpu_count()
             self.cpus = ['cpu'+str(cpu) for cpu in range(1, cpu_count+1)]
         self.server_settings.save()
+        self.log_file = os.path.join(self.directory, 'nxserver.log')
+        self.pid_file = os.path.join(self.directory, 'nxserver.pid')
+        self.task_list = os.path.join(self.directory, 'task_list')
+        self.task_queue = self.initialize_queue()
+
+    def initialize_queue(self, autosave=True):
+        tempdir = os.path.join(self.task_list, 'tempdir')
+        if not os.path.exists(tempdir):
+            os.makedirs(tempdir)
+        return TaskQueue(self.task_list, serializer=json, autosave=autosave,
+                         chunksize=1, tempdir=tempdir)
 
     def read_nodes(self):
         """Read available nodes"""
@@ -210,8 +215,9 @@ class NXServer(NXDaemon):
 
     def read_task(self):
         if self.task_queue.qsize() > 0:
-            return self.task_queue.get(timeout=0)
+            return self.task_queue.get(block=False)
         else:
+            self.task_queue = self.initialize_queue()
             return None
 
     def remove_task(self, command):
@@ -223,8 +229,7 @@ class NXServer(NXDaemon):
             self.add_task(task)
 
     def queued_tasks(self):
-        queue = TaskQueue(self.task_list, serializer=json, autosave=False,
-                          chunksize=1)
+        queue = self.initialize_queue(autosave=False)
         tasks = []
         while queue.qsize() > 0:
             tasks.append(queue.get(timeout=0))
@@ -238,8 +243,7 @@ class NXServer(NXDaemon):
         if os.path.exists(self.task_list):
             import shutil
             shutil.rmtree(self.task_list, ignore_errors=True)
-        self.task_queue = TaskQueue(self.task_list, serializer=json,
-                                    autosave=True, chunksize=1)
+        self.task_queue = self.initialize_queue()
 
     def kill(self):
         """Kill the server process.
