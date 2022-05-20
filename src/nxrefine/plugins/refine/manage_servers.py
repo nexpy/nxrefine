@@ -43,48 +43,34 @@ class ServerDialog(NXDialog):
         if self.server.server_type == 'multinode':
             self.node_editor = NXPlainTextEdit()
             self.node_editor.setPlainText('\n'.join(self.server.read_nodes()))
-        self.queue_editor = NXPlainTextEdit(wrap=False)
-        self.queue_editor.setReadOnly(True)
-        self.log_editor = NXPlainTextEdit(wrap=False)
-        self.log_editor.setReadOnly(True)
-        if self.server.server_type == 'multinode':
-            self.node_editor = NXPlainTextEdit()
-            self.node_editor.setPlainText('\n'.join(self.server.read_nodes()))
-            self.set_layout(self.labels(('Server Status'), header=True),
-                            self.server_layout,
-                            self.labels(('List of Nodes'), header=True),
-                            self.node_editor,
-                            self.labels(('Server Log'), header=True),
-                            self.log_editor,
-                            self.labels(('Task Queue'), header=True),
-                            self.queue_editor,
-                            self.action_buttons(
-                                ('Update Nodes', self.update_nodes),
-                                ('Clear Queue', self.clear_queue)),
-                            self.close_buttons(close=True))
-        else:
-            self.set_layout(self.labels(('Server Status'), header=True),
-                            self.server_layout,
-                            self.labels(('Server Log'), header=True),
-                            self.log_editor,
-                            self.labels(('Task Queue'), header=True),
-                            self.queue_editor,
-                            self.action_buttons(
-                                ('Clear Queue', self.clear_queue)),
-                            self.close_buttons(close=True))
-
+        self.text_box = NXPlainTextEdit(wrap=False)
+        self.text_box.setReadOnly(True)
+        self.set_layout(self.labels(('Server Status'), header=True),
+                        self.server_layout,
+                        self.action_buttons(
+                            ('Server Nodes', self.show_nodes),
+                            ('Server Log', self.show_log),
+                            ('Server Queue', self.show_queue),
+                            ('Server Processes', self.show_processes)),
+                        self.text_box,
+                        self.action_buttons(
+                            ('Clear Queue', self.clear_queue)),
+                        self.close_buttons(close=True))
+        for button in ['Server Nodes', 'Server Log', 'Server Queue',
+                       'Server Processes']:
+            self.pushbutton[button].setCheckable(True)
+        if self.server.server_type == 'multicore':
+            self.pushbutton['Server Nodes'].setVisible(False)
         self.set_title('Manage Servers')
         self.setMinimumWidth(800)
         self.experiment_directory = None
-        self.log_text = ''
+        self.current_text = ''
         self.timer = QtCore.QTimer(self)
-        self.timer.timeout.connect(self.update_queue)
+        self.timer.timeout.connect(self.update_text)
         self.timer.start(5000)
 
     def toggle_server(self):
         if self.pushbutton['server'].text() == 'Start Server':
-            if self.server.server_type == 'multinode':
-                self.update_nodes()
             subprocess.run('nxserver start', shell=True)
         else:
             subprocess.run('nxserver stop', shell=True)
@@ -94,29 +80,78 @@ class ServerDialog(NXDialog):
         else:
             self.pushbutton['server'].setText('Start Server')
 
-    def update_nodes(self):
-        if self.server.server_type == 'multinode':
-            nodes = self.node_editor.document().toPlainText().split('\n')
-            self.server.write_nodes(nodes)
-            self.server.remove_nodes([node for node in self.server.read_nodes()
-                                      if node not in nodes])
+    def reset_buttons(self):
+        for button in ['Server Nodes', 'Server Log', 'Server Queue',
+                       'Server Processes']:
+            self.pushbutton[button].setChecked(False)
 
-    def update_queue(self):
+    def show_nodes(self):
+        self.reset_buttons()
+        self.pushbutton['Server Nodes'].setChecked(True)
+        text = '\n'.join(self.server.read_nodes())
+        if text != self.current_text:
+            self.text_box.setPlainText(text)
+            self.current_text = text
+
+    def show_log(self):
+        self.reset_buttons()
+        self.pushbutton['Server Log'].setChecked(True)
         with open(self.server.log_file) as f:
             text = f.read()
-        if text != self.log_text:
-            self.log_editor.setPlainText(text)
-            self.log_editor.verticalScrollBar().setValue(
-                self.log_editor.verticalScrollBar().maximum())
-            self.log_text = text
-        self.queue_editor.setPlainText('\n'.join(self.server.queued_tasks()))
+        if text != self.current_text:
+            self.text_box.setPlainText(text)
+            self.text_box.verticalScrollBar().setValue(
+                self.text_box.verticalScrollBar().maximum())
+            self.current_text = text
+
+    def show_queue(self):
+        self.reset_buttons()
+        self.pushbutton['Server Queue'].setChecked(True)
+        text = '\n'.join(self.server.queued_tasks())
+        if text != self.current_text:
+            self.text_box.setPlainText(text)
+        self.current_text = text
+
+    def show_processes(self):
+        self.reset_buttons()
+        self.pushbutton['Server Processes'].setChecked(True)
+        patterns = ['nxcombine', 'nxcopy', 'nxfind', 'nxlink', 'nxmax',
+                    'nxpdf', 'nxprepare', 'nxreduce', 'nxrefine', 'nxsum',
+                    'nxtransform']
+        if self.server.server_type == 'multicore':
+            command = f"ps aux | grep -e {' -e '.join(patterns)}"
+        else:
+            command = "pdsh -w {} 'ps -f' | grep -e {}".format(
+                ",".join(self.server.cpus), " -e ".join(patterns))
+        process = subprocess.run(command, shell=True, stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE)
+        if process.returncode == 0:
+            lines = [line for line in sorted(
+                process.stdout.decode().split('\n')) if line]
+            lines = [line[line.index('nx'):]
+                     for line in lines if 'grep' not in line]
+            text = '\n'.join(set(lines))
+        else:
+            text = process.stderr.decode()
+        if text != self.current_text:
+            self.text_box.setPlainText(text)
+        self.current_text = text
+
+    def update_text(self):
         self.server_status.setText(self.server.status())
+        if self.server.is_running():
+            self.pushbutton['server'].setText('Stop Server')
+        else:
+            self.pushbutton['server'].setText('Start Server')
+        if self.pushbutton['Server Nodes'].isChecked():
+            self.show_nodes()
+        elif self.pushbutton['Server Log'].isChecked():
+            self.show_log()
+        elif self.pushbutton['Server Queue'].isChecked():
+            self.show_queue()
+        elif self.pushbutton['Server Processes'].isChecked():
+            self.show_processes()
 
     def clear_queue(self):
         if confirm_action('Clear server queue?'):
             self.server.clear()
-
-    def accept(self):
-        if self.server.server_type == 'multinode':
-            self.update_nodes()
-        super().accept()
