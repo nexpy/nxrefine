@@ -54,8 +54,7 @@ class ServerDialog(NXDialog):
                                         update_actions, 'stretch',
                                         self.close_buttons(close=True),
                                         align='justified')
-        self.set_layout(self.labels(('Server Status'), header=True),
-                        server_layout, text_actions, self.text_box,
+        self.set_layout(server_layout, text_actions, self.text_box,
                         close_layout)
         for button in ['Server Nodes', 'Server Log', 'Server Queue',
                        'Server Processes']:
