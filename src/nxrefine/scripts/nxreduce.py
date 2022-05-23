@@ -55,16 +55,23 @@ def main():
         entries = NXMultiReduce(args.directory).entries
 
     for entry in entries:
-        reduce = NXReduce(entry, args.directory, link=args.link,
-                          maxcount=args.max, find=args.find, copy=args.copy,
-                          refine=args.refine, prepare=args.prepare,
-                          transform=args.transform, combine=args.combine,
-                          pdf=args.pdf, regular=args.regular, mask=args.mask,
+        reduce = NXReduce(entry=entry, directory=args.directory,
+                          link=args.link, maxcount=args.max, find=args.find,
+                          copy=args.copy, refine=args.refine,
+                          prepare=args.prepare, transform=args.transform,
+                          combine=args.combine, pdf=args.pdf,
+                          regular=args.regular, mask=args.mask,
                           overwrite=args.overwrite)
         if args.queue:
             reduce.queue('nxreduce', args)
         else:
+            reduce.combine = reduce.pdf = False
             reduce.nxreduce()
+    if (args.combine or args.pdf) and not args.queue:
+        reduce = NXMultiReduce(args.directory, combine=args.combine,
+                               pdf=args.pdf, regular=args.regular,
+                               mask=args.mask, overwrite=args.overwrite)
+        reduce.nxreduce()
 
 
 if __name__ == "__main__":
