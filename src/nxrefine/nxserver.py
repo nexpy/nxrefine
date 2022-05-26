@@ -14,7 +14,7 @@ from multiprocessing import JoinableQueue, Process, Queue
 
 import psutil
 from nexusformat.nexus import NeXusError
-from persistqueue import Queue as TaskQueue
+from persistqueue import Queue as FileQueue
 from persistqueue.serializers import json
 
 from .nxdaemon import NXDaemon
@@ -127,15 +127,15 @@ class NXServer(NXDaemon):
         self.server_settings.save()
         self.log_file = os.path.join(self.directory, 'nxserver.log')
         self.pid_file = os.path.join(self.directory, 'nxserver.pid')
-        self.task_list = os.path.join(self.directory, 'task_list')
+        self.queue_directory = os.path.join(self.directory, 'task_list')
         self.task_queue = self.initialize_queue()
 
     def initialize_queue(self, autosave=True):
-        tempdir = os.path.join(self.task_list, 'tempdir')
+        tempdir = os.path.join(self.queue_directory, 'tempdir')
         if not os.path.exists(tempdir):
             os.makedirs(tempdir)
-        return TaskQueue(self.task_list, serializer=json, autosave=autosave,
-                         chunksize=1, tempdir=tempdir)
+        return FileQueue(self.queue_directory, serializer=json,
+                         autosave=autosave, chunksize=1, tempdir=tempdir)
 
     def read_nodes(self):
         """Read available nodes"""
@@ -237,9 +237,9 @@ class NXServer(NXDaemon):
             self.add_task('stop')
 
     def clear(self):
-        if os.path.exists(self.task_list):
+        if os.path.exists(self.queue_directory):
             import shutil
-            shutil.rmtree(self.task_list, ignore_errors=True)
+            shutil.rmtree(self.queue_directory, ignore_errors=True)
         self.task_queue = self.initialize_queue()
 
     def kill(self):
