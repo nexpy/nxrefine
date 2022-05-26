@@ -24,11 +24,10 @@ from .nxsettings import NXSettings
 class NXWorker(Process):
     """Class for processing tasks on a specific cpu."""
 
-    def __init__(self, cpu, task_queue, result_queue, server_log):
+    def __init__(self, cpu, task_queue, server_log):
         Process.__init__(self)
         self.cpu = cpu
         self.task_queue = task_queue
-        self.result_queue = result_queue
         self.server_log = server_log
         self.cpu_log = os.path.join(os.path.dirname(self.server_log),
                                     self.cpu + '.log')
@@ -50,7 +49,6 @@ class NXWorker(Process):
                 next_task.execute(self.cpu, self.cpu_log)
             self.task_queue.task_done()
             self.log(f"{self.cpu}: Finished '{next_task.command}'")
-            self.result_queue.put(next_task.command)
         return
 
     def terminate(self):
@@ -95,7 +93,6 @@ class NXServer(NXDaemon):
         self.pid_name = 'NXServer'
         self.initialize(directory, server_type, nodes)
         self.tasks = None
-        self.results = None
         self.workers = []
         super(NXServer, self).__init__(self.pid_name, self.pid_file)
 
@@ -182,13 +179,12 @@ class NXServer(NXDaemon):
         """
         Create worker processes to process commands from the task queue
 
-        Create a worker for each cpu, read commands from task_list, submit
-            an NXTask for each command to a JoinableQueue
+        Create a worker for each cpu, read commands from the server
+        queue, and add an NXTask for each command to a JoinableQueue
         """
         self.log(f'Starting server (pid={os.getpid()})')
         self.tasks = JoinableQueue()
-        self.results = Queue()
-        self.workers = [NXWorker(cpu, self.tasks, self.results, self.log_file)
+        self.workers = [NXWorker(cpu, self.tasks, self.log_file)
                         for cpu in self.cpus]
         for worker in self.workers:
             worker.start()
