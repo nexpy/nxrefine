@@ -194,11 +194,12 @@ class NXServer(NXDaemon):
             worker.start()
         while True:
             time.sleep(5)
-            command = self.read_task()
-            if command == 'stop':
-                break
-            elif command:
-                self.tasks.put(NXTask(command, self.server_type))
+            if self.tasks.empty():
+                command = self.read_task()
+                if command == 'stop':
+                    break
+                elif command:
+                    self.tasks.put(NXTask(command, self.server_type))
         for worker in self.workers:
             self.tasks.put(None)
         self.tasks.join()
