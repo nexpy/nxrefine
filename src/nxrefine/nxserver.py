@@ -10,7 +10,8 @@ import os
 import subprocess
 import time
 from datetime import datetime
-from multiprocessing import JoinableQueue, Process, Queue
+from threading import Thread
+from queue import Queue
 
 import psutil
 from nexusformat.nexus import NeXusError
@@ -21,11 +22,11 @@ from .nxdaemon import NXDaemon
 from .nxsettings import NXSettings
 
 
-class NXWorker(Process):
+class NXWorker(Thread):
     """Class for processing tasks on a specific cpu."""
 
     def __init__(self, cpu, task_queue, server_log):
-        Process.__init__(self)
+        super().__init__()
         self.cpu = cpu
         self.task_queue = task_queue
         self.server_log = server_log
@@ -41,7 +42,7 @@ class NXWorker(Process):
             time.sleep(5)
             next_task = self.task_queue.get()
             if next_task is None:
-                self.log(f'{self.cpu}: Exiting')
+                self.log(f"Stopping worker on {self.cpu} (pid={os.getpid()})")
                 self.task_queue.task_done()
                 break
             else:
@@ -50,10 +51,6 @@ class NXWorker(Process):
             self.task_queue.task_done()
             self.log(f"{self.cpu}: Finished '{next_task.command}'")
         return
-
-    def terminate(self):
-        self.log(f"Stopping worker on {self.cpu} (pid={os.getpid()})")
-        Process.terminate(self)
 
     def log(self, message):
         with open(self.server_log, 'a') as f:
@@ -180,10 +177,10 @@ class NXServer(NXDaemon):
         Create worker processes to process commands from the task queue
 
         Create a worker for each cpu, read commands from the server
-        queue, and add an NXTask for each command to a JoinableQueue
+        queue, and add an NXTask for each command to a Queue.
         """
         self.log(f'Starting server (pid={os.getpid()})')
-        self.tasks = JoinableQueue()
+        self.tasks = Queue()
         self.workers = [NXWorker(cpu, self.tasks, self.log_file)
                         for cpu in self.cpus]
         for worker in self.workers:
@@ -200,7 +197,6 @@ class NXServer(NXDaemon):
             self.tasks.put(None)
         self.tasks.join()
         for worker in self.workers:
-            worker.terminate()
             worker.join()
         self.log("Stopping server")
         super(NXServer, self).stop()
