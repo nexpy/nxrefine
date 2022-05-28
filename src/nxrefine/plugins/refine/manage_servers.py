@@ -140,7 +140,7 @@ class ServerDialog(NXDialog):
                     'nxpdf ', 'nxprepare ', 'nxreduce ', 'nxrefine ', 'nxsum ',
                     'nxtransform ']
         if self.server.server_type == 'multicore':
-            command = f"ps aux | grep -e {' -e '.join(patterns)}"
+            command = f"ps auxww | grep -e {' -e '.join(patterns)}"
         else:
             command = "pdsh -w {} 'ps -f' | grep -e {}".format(
                 ",".join(self.server.cpus), " -e ".join(patterns))
