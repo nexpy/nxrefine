@@ -22,6 +22,22 @@ from .nxdaemon import NXDaemon
 from .nxsettings import NXSettings
 
 
+class NXQueue(Queue):
+    """Queue class that records when a task is done."""
+
+    def __init__(self, maxsize=0):
+        super().__init__(maxsize=maxsize)
+        self.active_tasks = 0
+
+    def get(self, block=True, timeout=None):
+        self.active_tasks += 1
+        return super().get(block=block, timeout=timeout)
+
+    def task_done(self):
+        self.active_tasks -= 1
+        super().task_done()
+
+
 class NXWorker(Thread):
     """Class for processing tasks on a specific cpu."""
 
@@ -180,18 +196,19 @@ class NXServer(NXDaemon):
         queue, and add an NXTask for each command to a Queue.
         """
         self.log(f'Starting server (pid={os.getpid()})')
-        self.tasks = Queue(maxsize=len(self.cpus))
+        self.tasks = NXQueue(maxsize=len(self.cpus))
         self.workers = [NXWorker(cpu, self.tasks, self.log_file)
                         for cpu in self.cpus]
         for worker in self.workers:
             worker.start()
         while True:
             time.sleep(5)
-            command = self.read_task()
-            if command == 'stop':
-                break
-            elif command:
-                self.tasks.put(NXTask(command, self.server_type))
+            if self.tasks.active_tasks < len(self.cpus):
+                command = self.read_task()
+                if command == 'stop':
+                    break
+                elif command:
+                    self.tasks.put(NXTask(command, self.server_type))
         for worker in self.workers:
             self.tasks.put(None)
         self.tasks.join()
