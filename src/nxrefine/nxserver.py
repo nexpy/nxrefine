@@ -180,19 +180,18 @@ class NXServer(NXDaemon):
         queue, and add an NXTask for each command to a Queue.
         """
         self.log(f'Starting server (pid={os.getpid()})')
-        self.tasks = Queue()
+        self.tasks = Queue(maxsize=len(self.cpus))
         self.workers = [NXWorker(cpu, self.tasks, self.log_file)
                         for cpu in self.cpus]
         for worker in self.workers:
             worker.start()
         while True:
             time.sleep(5)
-            if self.tasks.empty():
-                command = self.read_task()
-                if command == 'stop':
-                    break
-                elif command:
-                    self.tasks.put(NXTask(command, self.server_type))
+            command = self.read_task()
+            if command == 'stop':
+                break
+            elif command:
+                self.tasks.put(NXTask(command, self.server_type))
         for worker in self.workers:
             self.tasks.put(None)
         self.tasks.join()
