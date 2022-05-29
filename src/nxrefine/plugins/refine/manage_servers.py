@@ -136,9 +136,9 @@ class ServerDialog(NXDialog):
     def show_processes(self):
         self.reset_buttons()
         self.pushbutton['Server Processes'].setChecked(True)
-        patterns = ['nxcombine ', 'nxcopy ', 'nxfind ', 'nxlink ', 'nxmax ',
-                    'nxpdf ', 'nxprepare ', 'nxreduce ', 'nxrefine ', 'nxsum ',
-                    'nxtransform ']
+        patterns = ['nxcombine', 'nxcopy', 'nxfind', 'nxlink', 'nxmax',
+                    'nxpdf', 'nxprepare', 'nxreduce', 'nxrefine', 'nxsum',
+                    'nxtransform']
         if self.server.server_type == 'multicore':
             command = f"ps auxww | grep -e {' -e '.join(patterns)}"
         else:

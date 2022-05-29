@@ -8,6 +8,7 @@
 
 import os
 import subprocess
+import time
 
 from nexpy.gui.datadialogs import NXDialog, NXWidget
 from nexpy.gui.pyqt import QtCore, QtWidgets
@@ -488,6 +489,7 @@ class WorkflowDialog(NXDialog):
                 if self.selected(scan, 'overwrite'):
                     reduce.overwrite = True
                 reduce.queue('nxreduce')
+                time.sleep(0.5)
             for task in self.tasks:
                 if self.selected(scan, task):
                     self.queued(scan, task)
