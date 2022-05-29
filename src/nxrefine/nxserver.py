@@ -27,24 +27,25 @@ class NXQueue(Queue):
 
     def __init__(self, maxsize=0):
         super().__init__(maxsize=maxsize)
-        self.active_tasks = 0
+        self.active_workers = 0
 
     def get(self, block=True, timeout=None):
-        self.active_tasks += 1
-        return super().get(block=block, timeout=timeout)
+        task = super().get(block=block, timeout=timeout)
+        self.active_workers += 1
+        return task
 
     def task_done(self):
-        self.active_tasks -= 1
         super().task_done()
+        self.active_workers -= 1
 
 
 class NXWorker(Thread):
     """Class for processing tasks on a specific cpu."""
 
-    def __init__(self, cpu, task_queue, server_log):
+    def __init__(self, cpu, worker_queue, server_log):
         super().__init__()
         self.cpu = cpu
-        self.task_queue = task_queue
+        self.worker_queue = worker_queue
         self.server_log = server_log
         self.cpu_log = os.path.join(os.path.dirname(self.server_log),
                                     self.cpu + '.log')
@@ -56,15 +57,15 @@ class NXWorker(Thread):
         self.log(f"Starting worker on {self.cpu} (pid={os.getpid()})")
         while True:
             time.sleep(5)
-            next_task = self.task_queue.get()
+            next_task = self.worker_queue.get()
             if next_task is None:
                 self.log(f"Stopping worker on {self.cpu} (pid={os.getpid()})")
-                self.task_queue.task_done()
+                self.worker_queue.task_done()
                 break
             else:
                 self.log(f"{self.cpu}: Executing '{next_task.command}'")
                 next_task.execute(self.cpu, self.cpu_log)
-            self.task_queue.task_done()
+            self.worker_queue.task_done()
             self.log(f"{self.cpu}: Finished '{next_task.command}'")
         return
 
@@ -105,7 +106,7 @@ class NXServer(NXDaemon):
     def __init__(self, directory=None, server_type=None, nodes=None):
         self.pid_name = 'NXServer'
         self.initialize(directory, server_type, nodes)
-        self.tasks = None
+        self.worker_queue = None
         self.workers = []
         super(NXServer, self).__init__(self.pid_name, self.pid_file)
 
@@ -148,7 +149,7 @@ class NXServer(NXDaemon):
         if not os.path.exists(tempdir):
             os.makedirs(tempdir)
         return FileQueue(self.queue_directory, serializer=json,
-                         autosave=autosave, chunksize=1, tempdir=tempdir)
+                         autosave=autosave, tempdir=tempdir)
 
     def read_nodes(self):
         """Read available nodes"""
@@ -196,31 +197,33 @@ class NXServer(NXDaemon):
         queue, and add an NXTask for each command to a Queue.
         """
         self.log(f'Starting server (pid={os.getpid()})')
-        self.tasks = NXQueue(maxsize=len(self.cpus))
-        self.workers = [NXWorker(cpu, self.tasks, self.log_file)
+        self.worker_queue = NXQueue()
+        self.workers = [NXWorker(cpu, self.worker_queue, self.log_file)
                         for cpu in self.cpus]
         for worker in self.workers:
             worker.start()
         while True:
             time.sleep(5)
-            if self.tasks.active_tasks < len(self.cpus):
+            if self.worker_queue.active_workers < len(self.cpus):
                 command = self.read_task()
                 if command == 'stop':
                     break
                 elif command:
-                    self.tasks.put(NXTask(command, self.server_type))
+                    self.worker_queue.put(NXTask(command, self.server_type))
         for worker in self.workers:
-            self.tasks.put(None)
-        self.tasks.join()
+            self.worker_queue.put(None)
+        self.worker_queue.join()
         for worker in self.workers:
             worker.join()
         self.log("Stopping server")
         super(NXServer, self).stop()
 
-    def add_task(self, command):
+    def add_task(self, tasks):
         """Add a task to the server queue"""
-        if command not in self.queued_tasks():
-            self.task_queue.put(command)
+        tasks = tasks.split('\n')
+        for task in tasks:
+            if task not in self.queued_tasks():
+                self.task_queue.put(task)
 
     def read_task(self):
         if self.task_queue.qsize() > 0:
@@ -229,10 +232,10 @@ class NXServer(NXDaemon):
             self.task_queue = self.initialize_queue()
             return None
 
-    def remove_task(self, command):
+    def remove_task(self, task):
         tasks = self.queued_tasks()
-        if command in tasks:
-            tasks.remove(command)
+        if task in tasks:
+            tasks.remove(task)
         self.clear()
         for task in tasks:
             self.add_task(task)
