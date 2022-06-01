@@ -269,7 +269,7 @@ class NXServer(NXDaemon):
         if os.path.exists(self.queue_directory):
             import shutil
             shutil.rmtree(self.queue_directory, ignore_errors=True)
-        self.task_queue = self.initialize_queue()
+        self.task_queue = NXFileQueue(self.queue_directory)
 
     def kill(self):
         """Kill the server process.
