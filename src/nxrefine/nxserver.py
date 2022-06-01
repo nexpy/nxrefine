@@ -14,7 +14,7 @@ from threading import Thread
 from queue import Queue
 
 import psutil
-from nexusformat.nexus import NeXusError
+from nexusformat.nexus import NeXusError, NXLock
 from persistqueue import Queue as FileQueue
 from persistqueue.serializers import json
 
@@ -37,6 +37,26 @@ class NXQueue(Queue):
     def task_done(self):
         super().task_done()
         self.active_workers -= 1
+
+
+class NXFileQueue(FileQueue):
+    """A file-based queue with locked access"""
+
+    def __init__(self, directory, autosave=True):
+        tempdir = os.path.join(directory, 'tempdir')
+        self.lockfile = os.path.join(directory, 'filequeue')
+        if not os.path.exists(tempdir):
+            os.makedirs(tempdir)
+        super().__init__(directory, serializer=json, autosave=autosave,
+                         tempdir=tempdir)
+
+    def put(self, item):
+        with NXLock(self.lockfile):
+            super().put(item, block=True, timeout=None)
+
+    def get(self, block=True, timeout=None):
+        with NXLock(self.lockfile):
+            item = super().get(block=True, timeout=None)
 
 
 class NXWorker(Thread):
@@ -142,14 +162,7 @@ class NXServer(NXDaemon):
         self.log_file = os.path.join(self.directory, 'nxserver.log')
         self.pid_file = os.path.join(self.directory, 'nxserver.pid')
         self.queue_directory = os.path.join(self.directory, 'task_list')
-        self.task_queue = self.initialize_queue()
-
-    def initialize_queue(self, autosave=True):
-        tempdir = os.path.join(self.queue_directory, 'tempdir')
-        if not os.path.exists(tempdir):
-            os.makedirs(tempdir)
-        return FileQueue(self.queue_directory, serializer=json,
-                         autosave=autosave, tempdir=tempdir)
+        self.task_queue = NXFileQueue(self.queue_directory)
 
     def read_nodes(self):
         """Read available nodes"""
@@ -220,7 +233,8 @@ class NXServer(NXDaemon):
 
     def add_task(self, tasks):
         """Add a task to the server queue"""
-        tasks = tasks.split('\n')
+        if isinstance(tasks, str):
+            tasks = tasks.split('\n')
         for task in tasks:
             if task not in self.queued_tasks():
                 self.task_queue.put(task)
@@ -229,7 +243,7 @@ class NXServer(NXDaemon):
         if self.task_queue.qsize() > 0:
             return self.task_queue.get(block=False)
         else:
-            self.task_queue = self.initialize_queue()
+            self.task_queue = NXFileQueue(self.queue_directory)
             return None
 
     def remove_task(self, task):
@@ -241,7 +255,7 @@ class NXServer(NXDaemon):
             self.add_task(task)
 
     def queued_tasks(self):
-        queue = self.initialize_queue(autosave=False)
+        queue = NXFileQueue(self.queue_directory, autosave=False)
         tasks = []
         while queue.qsize() > 0:
             tasks.append(queue.get(timeout=0))
