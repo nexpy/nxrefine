@@ -50,13 +50,14 @@ class NXFileQueue(FileQueue):
         super().__init__(directory, serializer=json, autosave=autosave,
                          tempdir=tempdir)
 
-    def put(self, item):
+    def put(self, item, block=True, timeout=None):
         with NXLock(self.lockfile):
-            super().put(item, block=True, timeout=None)
+            super().put(item, block=block, timeout=timeout)
 
     def get(self, block=True, timeout=None):
         with NXLock(self.lockfile):
-            item = super().get(block=True, timeout=None)
+            item = super().get(block=block, timeout=timeout)
+        return item
 
 
 class NXWorker(Thread):
