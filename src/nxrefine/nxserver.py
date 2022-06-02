@@ -43,6 +43,7 @@ class NXFileQueue(FileQueue):
     """A file-based queue with locked access"""
 
     def __init__(self, directory, autosave=True):
+        self.directory = directory
         tempdir = os.path.join(directory, 'tempdir')
         self.lockfile = os.path.join(directory, 'filequeue')
         if not os.path.exists(tempdir):
@@ -50,14 +51,17 @@ class NXFileQueue(FileQueue):
         with NXLock(self.lockfile):
             super().__init__(directory, serializer=json, autosave=autosave,
                              tempdir=tempdir)
+            self.fix_access()
 
     def put(self, item, block=True, timeout=None):
         with NXLock(self.lockfile):
             super().put(item, block=block, timeout=timeout)
+            self.fix_access()
 
     def get(self, block=True, timeout=None):
         with NXLock(self.lockfile):
             item = super().get(block=block, timeout=timeout)
+            self.fix_access()
         return item
 
     def queued_items(self):
@@ -66,6 +70,12 @@ class NXFileQueue(FileQueue):
             while self.qsize() > 0:
                 items.append(super().get(timeout=0))
         return items
+
+    def fix_access(self):
+        try:
+            os.chmod(os.path.join(self.directory, 'info'), 0o664)
+        except Exception:
+            pass
 
 
 class NXWorker(Thread):
