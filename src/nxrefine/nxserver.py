@@ -47,8 +47,9 @@ class NXFileQueue(FileQueue):
         self.lockfile = os.path.join(directory, 'filequeue')
         if not os.path.exists(tempdir):
             os.makedirs(tempdir)
-        super().__init__(directory, serializer=json, autosave=autosave,
-                         tempdir=tempdir)
+        with NXLock(self.lockfile):
+            super().__init__(directory, serializer=json, autosave=autosave,
+                             tempdir=tempdir)
 
     def put(self, item, block=True, timeout=None):
         with NXLock(self.lockfile):
@@ -58,6 +59,13 @@ class NXFileQueue(FileQueue):
         with NXLock(self.lockfile):
             item = super().get(block=block, timeout=timeout)
         return item
+
+    def queued_items(self):
+        with NXLock(self.lockfile):
+            items = []
+            while self.qsize() > 0:
+                items.append(super().get(timeout=0))
+        return items
 
 
 class NXWorker(Thread):
@@ -257,10 +265,7 @@ class NXServer(NXDaemon):
 
     def queued_tasks(self):
         queue = NXFileQueue(self.queue_directory, autosave=False)
-        tasks = []
-        while queue.qsize() > 0:
-            tasks.append(queue.get(timeout=0))
-        return tasks
+        return queue.queued_items()
 
     def stop(self):
         if self.is_running():
