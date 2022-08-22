@@ -1082,7 +1082,6 @@ class NXReduce(QtCore.QObject):
 
     def write_peaks(self, peaks):
         group = NXreflections()
-        group['npixels'] = NXfield([peak.np for peak in peaks], dtype=float)
         group['intensity'] = NXfield([peak.intensity for peak in peaks],
                                      dtype=float)
         group['x'] = NXfield([peak.x for peak in peaks], dtype=float)
@@ -1091,9 +1090,6 @@ class NXReduce(QtCore.QObject):
         group['sigx'] = NXfield([peak.sigx for peak in peaks], dtype=float)
         group['sigy'] = NXfield([peak.sigy for peak in peaks], dtype=float)
         group['sigz'] = NXfield([peak.sigz for peak in peaks], dtype=float)
-        group['covxy'] = NXfield([peak.covxy for peak in peaks], dtype=float)
-        group['covyz'] = NXfield([peak.covyz for peak in peaks], dtype=float)
-        group['covzx'] = NXfield([peak.covzx for peak in peaks], dtype=float)
         group.attrs['first'] = self.first
         group.attrs['last'] = self.last
         group.attrs['threshold'] = self.threshold

@@ -1,8 +1,6 @@
-import os
-
 import numpy as np
-from ImageD11.labelimage import flip1, labelimage
-from nexusformat.nexus import nxload, nxsetlock
+from nexusformat.nexus import nxopen, nxsetlock, NXdata
+from skimage.feature import peak_local_max
 
 
 def peak_search(data_file, data_path, i, j, k, threshold):
@@ -28,32 +26,31 @@ def peak_search(data_file, data_path, i, j, k, threshold):
     list of NXBlobs
         Peak locations and intensities stored in NXBlob instances
     """
-    global saved_blobs
     nxsetlock(600)
 
-    def save_blobs(lio, blobs):
-        for b in blobs:
-            if b[0] < 0.1:
-                continue
-            lio.spot3d_id += 1
-            blob = NXBlob(b)
-            if blob.np > 0.0:
-                saved_blobs.append(blob)
-        if lio.onfirst > 0:
-            lio.onfirst = 0
-
-    data_root = nxload(data_file, 'r')
-    with data_root.nxfile:
+    with nxopen(data_file, "r") as data_root:
         data = data_root[data_path][j:k].nxvalue
 
-    labelimage.outputpeaks = save_blobs
-    lio = labelimage(data.shape[-2:], flipper=flip1, fileout=os.devnull)
     nframes = data.shape[0]
     saved_blobs = []
+    last_blobs = []
     for z in range(nframes):
-        lio.peaksearch(data[z], threshold, z)
-        lio.mergelast()
-    lio.finalise()
+        blobs = [
+            NXBlob(x, y, z, data[z, int(y), int(x)])
+            for y, x in peak_local_max(
+                data[z], min_distance=10, threshold_abs=threshold
+            )
+        ]
+        for lb in last_blobs:
+            found = False
+            for b in blobs:
+                if lb == b:
+                    found = True
+                    b.update(lb)
+            if not found:
+                lb.refine(data)
+                saved_blobs.append(lb)
+        last_blobs = blobs
     for blob in saved_blobs:
         blob.z += j
     return i, saved_blobs
@@ -61,33 +58,58 @@ def peak_search(data_file, data_path, i, j, k, threshold):
 
 class NXBlob(object):
 
-    def __init__(self, peak):
-        self.np = peak[0]
-        self.average = peak[22]
-        self.intensity = self.np * self.average
-        self.x = peak[23]
-        self.y = peak[24]
-        self.z = peak[25]
-        self.sigx = peak[27]
-        self.sigy = peak[26]
-        self.sigz = peak[28]
-        self.covxy = peak[29]
-        self.covyz = peak[30]
-        self.covzx = peak[31]
+    def __init__(self, x, y, z, max_value=0.0, intensity=0.0,
+                 sigx=0.0, sigy=0.0, sigz=0.0):
+        self.x = x
+        self.y = y
+        self.z = z
+        self.max_value = max_value
+        self.intensity = intensity
+        self.sigx = sigx
+        self.sigy = sigy
+        self.sigz = sigz
 
     def __repr__(self):
-        return f"NXBlob(x={self.x:.2f} y={self.y:.2f} z={self.z:.2f})"
+        return (
+            f"NXBlob(x={self.x:.2f} y={self.y:.2f} z={self.z:.2f} "
+            + f"intensity={self.intensity:.2f} "
+            + f"dx={self.sigx:.2f} dy={self.sigy:.2f} dz={self.sigz:.2f})"
+        )
 
-    def is_valid(self, mask, min_pixels=10):
-        if mask is not None:
-            clip = mask[int(self.y), int(self.x)]
-            if clip:
-                return False
-        if (np.isclose(self.average, 0.0) or np.isnan(self.average)
-                or self.np < min_pixels):
-            return False
-        else:
+    def __eq__(self, other):
+        if (
+            (self.x - other.x) ** 2
+            + (self.y - other.y) ** 2
+            + (self.z - other.z) ** 2
+        ) < 100:
             return True
+        else:
+            return False
+
+    @property
+    def xyz(self):
+        return (int(self.z), int(self.y), int(self.x))
+
+    def update(self, other):
+        if other.max_value > self.max_value:
+            self.x = other.x
+            self.y = other.y
+            self.z = other.z
+            self.max_value = other.max_value
+
+    def refine(self, data):
+        def idx(i, delta):
+            return np.s_[max(0, self.xyz[i] - delta):
+                         min(self.xyz[i] + delta, data.shape[i])]
+
+        slab = NXdata(data)[idx(0, 10), idx(1, 10), idx(2, 10)]
+        slabx = slab.sum((0, 1))
+        self.x, self.sigx = slabx.mean().nxvalue, slabx.std().nxvalue
+        slaby = slab.sum((0, 2))
+        self.y, self.sigy = slaby.mean().nxvalue, slaby.std().nxvalue
+        slabz = slab.sum((1, 2))
+        self.z, self.sigz = slabz.mean().nxvalue, slabz.std().nxvalue
+        self.intensity = slab.sum()
 
 
 def fill_gaps(mask, mask_gaps):
@@ -215,8 +237,8 @@ def mask_volume(data_file, data_path, mask_file, mask_path, i, j, k,
     """
 
     nxsetlock(600)
-    data_root = nxload(data_file, 'r')
-    volume = data_root[data_path][j:k].nxvalue
+    with nxopen(data_file, 'r') as data_root:
+        volume = data_root[data_path][j:k].nxvalue
 
     horiz_size_1, horiz_size_2 = int(horiz_size_1), int(horiz_size_2)
     sum1, sum2 = horiz_size_1**2, horiz_size_2**2
@@ -255,7 +277,7 @@ def mask_volume(data_file, data_path, mask_file, mask_path, i, j, k,
     vol_smoothed /= sum2
     vol_smoothed[vol_smoothed < threshold_2] = 0
     vol_smoothed[vol_smoothed > threshold_2] = 1
-    mask_root = nxload(mask_file, 'rw')
-    mask_root[mask_path][j+1:k-1] = (
-        np.maximum(vol_smoothed[0:-1], vol_smoothed[1:]))
+    with nxopen(mask_file, 'rw') as mask_root:
+        mask_root[mask_path][j+1:k-1] = (
+            np.maximum(vol_smoothed[0:-1], vol_smoothed[1:]))
     return i
