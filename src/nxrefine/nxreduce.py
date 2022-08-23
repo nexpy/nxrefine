@@ -1069,7 +1069,6 @@ class NXReduce(QtCore.QObject):
                 z, blobs = future.result()
                 self.blobs += [b for b in blobs if b.z >= z
                                and b.z < min(z+50, self.last)
-                               and b.is_valid(self.pixel_mask, self.min_pixels)
                                ]
                 self.update_progress(z)
                 futures.remove(future)

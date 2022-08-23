@@ -3,7 +3,7 @@ from nexusformat.nexus import nxopen, nxsetlock, NXdata
 from skimage.feature import peak_local_max
 
 
-def peak_search(data_file, data_path, i, j, k, threshold):
+def peak_search(data_file, data_path, i, j, k, threshold, min_pixels=10):
     """Identify peaks in the slab of raw data
 
     Parameters
@@ -36,7 +36,7 @@ def peak_search(data_file, data_path, i, j, k, threshold):
     last_blobs = []
     for z in range(nframes):
         blobs = [
-            NXBlob(x, y, z, data[z, int(y), int(x)])
+            NXBlob(x, y, z, data[z, int(y), int(x)], min_pixels=min_pixels)
             for y, x in peak_local_max(
                 data[z], min_distance=10, threshold_abs=threshold
             )
@@ -49,7 +49,8 @@ def peak_search(data_file, data_path, i, j, k, threshold):
                     b.update(lb)
             if not found:
                 lb.refine(data)
-                saved_blobs.append(lb)
+                if lb.is_valid():
+                    saved_blobs.append(lb)
         last_blobs = blobs
     for blob in saved_blobs:
         blob.z += j
@@ -59,7 +60,7 @@ def peak_search(data_file, data_path, i, j, k, threshold):
 class NXBlob(object):
 
     def __init__(self, x, y, z, max_value=0.0, intensity=0.0,
-                 sigx=0.0, sigy=0.0, sigz=0.0):
+                 sigx=0.0, sigy=0.0, sigz=0.0, min_pixels=10):
         self.x = x
         self.y = y
         self.z = z
@@ -68,6 +69,7 @@ class NXBlob(object):
         self.sigx = sigx
         self.sigy = sigy
         self.sigz = sigz
+        self.min_pixels = min_pixels
 
     def __repr__(self):
         return (
@@ -98,11 +100,14 @@ class NXBlob(object):
             self.max_value = other.max_value
 
     def refine(self, data):
-        def idx(i, delta):
-            return np.s_[max(0, self.xyz[i] - delta):
-                         min(self.xyz[i] + delta, data.shape[i])]
+        def peak_range():
+            idx = []
+            for i in range(3):
+                idx.append(np.s_[max(0, self.xyz[i] - self.min_pixels):
+                           min(self.xyz[i] + self.min_pixels, data.shape[i])])
+            return tuple(idx)
 
-        slab = NXdata(data)[idx(0, 10), idx(1, 10), idx(2, 10)]
+        slab = NXdata(data)[peak_range()]
         slabx = slab.sum((0, 1))
         self.x, self.sigx = slabx.mean().nxvalue, slabx.std().nxvalue
         slaby = slab.sum((0, 2))
@@ -110,6 +115,12 @@ class NXBlob(object):
         slabz = slab.sum((1, 2))
         self.z, self.sigz = slabz.mean().nxvalue, slabz.std().nxvalue
         self.intensity = slab.sum()
+
+    def is_valid(self):
+        if self.sigx < 1.0 or self.sigy < 1.0:
+            return False
+        else:
+            return True
 
 
 def fill_gaps(mask, mask_gaps):
