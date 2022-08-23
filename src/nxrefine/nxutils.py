@@ -38,7 +38,7 @@ def peak_search(data_file, data_path, i, j, k, threshold, min_pixels=10):
         blobs = [
             NXBlob(x, y, z, data[z, int(y), int(x)], min_pixels=min_pixels)
             for y, x in peak_local_max(
-                data[z], min_distance=10, threshold_abs=threshold
+                data[z], min_distance=min_pixels, threshold_abs=threshold
             )
         ]
         for lb in last_blobs:

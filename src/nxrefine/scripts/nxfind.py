@@ -24,7 +24,7 @@ def main():
     parser.add_argument('-f', '--first', type=int, help='first frame')
     parser.add_argument('-l', '--last', type=int, help='last frame')
     parser.add_argument('-P', '--pixels', type=int,
-                        help='minimum pixels in a peak')
+                        help='minimum pixels between peaks')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing peaks')
     parser.add_argument('-p', '--parent', default=None,

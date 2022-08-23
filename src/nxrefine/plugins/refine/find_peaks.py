@@ -40,7 +40,7 @@ class FindDialog(NXDialog):
         self.parameters.add('first', default['first'], 'First Frame')
         self.parameters.add('last', default['last'], 'Last Frame')
         self.parameters.add('min_pixels', default['min_pixels'],
-                            'Minimum Pixels in Peak')
+                            'Minimum Pixels Between Peaks')
         self.parameters.grid()
         self.find_button = NXPushButton('Find Peaks', self.find_peaks)
         self.find_layout = self.make_layout(
