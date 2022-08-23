@@ -117,7 +117,7 @@ class NXBlob(object):
         self.intensity = slab.sum()
 
     def is_valid(self):
-        if self.sigx < 1.0 or self.sigy < 1.0:
+        if self.sigx < 0.5 or self.sigy < 0.5:
             return False
         else:
             return True
