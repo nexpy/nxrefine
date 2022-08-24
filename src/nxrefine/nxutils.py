@@ -29,7 +29,7 @@ def peak_search(data_file, data_path, i, j, k, threshold, min_pixels=10):
     nxsetlock(600)
 
     with nxopen(data_file, "r") as data_root:
-        data = data_root[data_path][j:k].nxvalue
+        data = data_root[data_path][j:k].nxvalue.clip(0)
 
     nframes = data.shape[0]
     saved_blobs = []
