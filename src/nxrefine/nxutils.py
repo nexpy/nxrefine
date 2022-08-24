@@ -29,7 +29,7 @@ def peak_search(data_file, data_path, i, j, k, threshold, min_pixels=10):
     nxsetlock(600)
 
     with nxopen(data_file, "r") as data_root:
-        data = data_root[data_path][j:k].nxvalue.clip(0)
+        data = data_root[data_path][j:k].nxvalue
 
     nframes = data.shape[0]
     saved_blobs = []
@@ -107,7 +107,7 @@ class NXBlob(object):
                            min(self.xyz[i] + self.min_pixels, data.shape[i])])
             return tuple(idx)
 
-        slab = NXdata(data)[peak_range()]
+        slab = NXdata(data[peak_range()].clip(0))
         slabx = slab.sum((0, 1))
         self.x, self.sigx = slabx.mean().nxvalue, slabx.std().nxvalue
         slaby = slab.sum((0, 2))
