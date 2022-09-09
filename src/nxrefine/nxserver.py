@@ -142,9 +142,10 @@ class NXTask(object):
 
 class NXServer(NXDaemon):
 
-    def __init__(self, directory=None, server_type=None, nodes=None):
+    def __init__(self, directory=None, server_type=None, sequential=None,
+                 nodes=None):
         self.pid_name = 'NXServer'
-        self.initialize(directory, server_type, nodes)
+        self.initialize(directory, server_type, sequential, nodes)
         self.worker_queue = None
         self.workers = []
         super(NXServer, self).__init__(self.pid_name, self.pid_file)
@@ -153,7 +154,7 @@ class NXServer(NXDaemon):
         return (f"NXServer(directory='{self.directory}', "
                 "type='{self.server_type}')")
 
-    def initialize(self, directory, server_type, nodes):
+    def initialize(self, directory, server_type, sequential, nodes):
         self.server_settings = NXSettings(directory=directory)
         self.directory = self.server_settings.directory
         if server_type:
@@ -177,6 +178,8 @@ class NXServer(NXDaemon):
             else:
                 cpu_count = psutil.cpu_count()
             self.cpus = ['cpu'+str(cpu) for cpu in range(1, cpu_count+1)]
+        if sequential:
+            self.server_settings.set('setup', 'sequential', True)
         self.server_settings.save()
         self.log_file = os.path.join(self.directory, 'nxserver.log')
         self.pid_file = os.path.join(self.directory, 'nxserver.pid')

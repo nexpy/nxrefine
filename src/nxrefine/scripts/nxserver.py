@@ -26,19 +26,26 @@ def main():
     parser.add_argument('-c', '--cores', help='Number of cores')
     parser.add_argument('-r', '--remove', default=[], nargs='+',
                         help='Remove nodes')
+    parser.add_argument('-s', '--sequential', action='store_true',
+                        help='Use sequential (rather than parallel) processes')
     parser.add_argument(
         'command', action='store', nargs='?',
         help='valid commands are: status|start|stop|list|clear|kill')
 
     args = parser.parse_args()
+    
+    if args.sequential:
+        sequential = True
+    else:
+        sequential = None
 
     if args.directory:
         server = NXServer(directory=os.path.realpath(args.directory),
                           server_type=args.type)
     elif args.type:
-        server = NXServer(server_type=args.type)
+        server = NXServer(server_type=args.type, sequential=sequential)
     else:
-        server = NXServer()
+        server = NXServer(sequential=sequential)
 
     if server.server_type == 'multinode':
         server.write_nodes(args.nodes)
