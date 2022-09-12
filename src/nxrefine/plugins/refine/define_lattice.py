@@ -8,8 +8,6 @@
 
 import os
 
-import iotbx.cif as cif
-from cctbx import sgtbx
 from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.pyqt import getOpenFileName
 from nexpy.gui.utils import report_error
@@ -67,6 +65,7 @@ class LatticeDialog(NXDialog):
         self.set_title('Defining Lattice')
 
     def choose_entry(self):
+        from cctbx import sgtbx
         self.refine = NXRefine(self.root['entry'])
         if self.layout.count() == 2:
             self.insert_layout(1, self.parameters.grid(header=False))
@@ -77,6 +76,8 @@ class LatticeDialog(NXDialog):
         self.update_parameters()
 
     def import_cif(self):
+        import iotbx.cif as cif
+        from cctbx import sgtbx
         filename = getOpenFileName(self, 'Open CIF File')
         if os.path.exists(filename):
             cif_info = cif.reader(file_path=filename).model()
@@ -135,6 +136,7 @@ class LatticeDialog(NXDialog):
         self.parameters['gamma'].value = self.refine.gamma
 
     def set_groups(self):
+        from cctbx import sgtbx
         if self.space_group:
             try:
                 if isinstance(self.space_group, float):
