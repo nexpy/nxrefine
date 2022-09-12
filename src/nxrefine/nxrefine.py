@@ -9,7 +9,6 @@
 import os
 
 import numpy as np
-from cctbx import crystal, miller, sgtbx, uctbx
 from nexusformat.nexus import (NeXusError, NXdata, NXdetector, NXfield,
                                NXgoniometer, NXinstrument, NXlink,
                                NXmonochromator, NXsample)
@@ -889,6 +888,7 @@ class NXRefine(object):
     @property
     def unit_cell(self):
         """CCTBX unit cell."""
+        from cctbx import uctbx
         return uctbx.unit_cell(self.lattice_parameters)
 
     @property
@@ -929,6 +929,7 @@ class NXRefine(object):
     @property
     def sgi(self):
         """CCTBX space group information."""
+        from cctbx import sgtbx
         if self.space_group == '':
             sg = self.space_groups[self.centring]
         else:
@@ -937,6 +938,7 @@ class NXRefine(object):
 
     @sgi.setter
     def sgi(self, value):
+        from cctbx import sgtbx
         _sgi = sgtbx.space_group_info(value)
         self.space_group = _sgi.type().lookup_symbol()
         self.symmetry = _sgi.group().crystal_system().lower()
@@ -956,6 +958,7 @@ class NXRefine(object):
     @property
     def miller(self):
         """Set of allowed Miller indices."""
+        from cctbx import crystal, miller
         d_min = self.wavelength / (2 * np.sin(self.polar_max*radians/2))
         return miller.build_set(crystal_symmetry=crystal.symmetry(
             space_group_symbol=self.sgn,
@@ -976,6 +979,7 @@ class NXRefine(object):
 
     def indices_hkl(self, H, K, L):
         """Return the symmetry-equivalent HKL indices."""
+        from cctbx import miller
         _symm_equiv = miller.sym_equiv_indices(self.sg, (H, K, L))
         _indices = sorted([i.h() for i in _symm_equiv.indices()],
                           reverse=True)
