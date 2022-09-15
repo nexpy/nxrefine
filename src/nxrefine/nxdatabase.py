@@ -142,6 +142,10 @@ class NXDatabase(object):
             self.engine = create_engine(connection, echo=echo)
             Base.metadata.create_all(self.engine)
         self.database = os.path.realpath(self.engine.url.database)
+        try:
+            os.chmod(self.database, 0o775)
+        except Exception:
+            pass
         self._session = None
 
     @property
