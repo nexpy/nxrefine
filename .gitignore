@@ -46,6 +46,11 @@ Icon?
 
 # eclipse
 .settings
+.project
+.pydevproject
+
+# emacs
+*~
 
 # Virtual Studio Code
 .vscode
@@ -55,3 +60,7 @@ src/nxrefine/_version.py
 
 # unused NXRefine code
 _unused
+
+# miscellaneous system files
+.directoryhash
+ 
