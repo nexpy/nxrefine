@@ -34,6 +34,8 @@ class ParametersDialog(NXDialog):
                             'Peak Threshold')
         self.parameters.add('first', default['first'], 'First Frame')
         self.parameters.add('last', default['last'], 'Last Frame')
+        self.parameters.add('polar_max', default['polar_max'],
+                            'Max. Polar Angle')
         self.parameters.add('monitor', ['monitor1', 'monitor2'],
                             'Normalization Monitor')
         self.parameters['monitor'].value = default['monitor']
@@ -61,6 +63,8 @@ class ParametersDialog(NXDialog):
                 self.parameters['first'].value = reduce['first_frame']
             if 'last_frame' in reduce:
                 self.parameters['last'].value = reduce['last_frame']
+            if 'polar_max' in reduce:
+                self.parameters['polar_max'].value = reduce['polar_max']
             if 'monitor' in reduce:
                 self.parameters['monitor'].value = reduce['monitor']
             if 'norm' in reduce:
@@ -72,12 +76,14 @@ class ParametersDialog(NXDialog):
         else:
             try:
                 reduce = NXReduce(self.entries[0])
+                if reduce.threshold:
+                    self.parameters['threshold'].value = reduce.threshold
                 if reduce.first:
                     self.parameters['first'].value = reduce.first
                 if reduce.last:
                     self.parameters['last'].value = reduce.last
-                if reduce.threshold:
-                    self.parameters['threshold'].value = reduce.threshold
+                if reduce.polar_max:
+                    self.parameters['polar_max'].value = reduce.polar_max
                 if reduce.monitor:
                     self.parameters['monitor'].value = reduce.monitor
                 if reduce.norm:
@@ -95,6 +101,7 @@ class ParametersDialog(NXDialog):
         self.root['entry/nxreduce/threshold'] = self.threshold
         self.root['entry/nxreduce/first_frame'] = self.first
         self.root['entry/nxreduce/last_frame'] = self.last
+        self.root['entry/nxreduce/polar_max'] = self.polar_max
         self.root['entry/nxreduce/monitor'] = self.monitor
         self.root['entry/nxreduce/norm'] = self.norm
         self.root['entry/nxreduce/radius'] = self.radius
@@ -111,6 +118,10 @@ class ParametersDialog(NXDialog):
     @property
     def last(self):
         return int(self.parameters['last'].value)
+
+    @property
+    def polar_max(self):
+        return float(self.parameters['polar_max'].value)
 
     @property
     def monitor(self):

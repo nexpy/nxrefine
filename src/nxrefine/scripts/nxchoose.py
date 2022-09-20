@@ -22,6 +22,8 @@ def main():
                         help='peak threshold')
     parser.add_argument('-f', '--first', type=int, help='first frame')
     parser.add_argument('-l', '--last', type=int, help='last frame')
+    parser.add_argument('-p', '--polar_max',
+                        help='maximum polar angle in degrees')
     parser.add_argument('-m', '--monitor',
                         help='monitor to use in normalizations')
     parser.add_argument('-n', '--norm', type=float,
@@ -30,24 +32,26 @@ def main():
                         help='radius of punched holes in Å-1')
     parser.add_argument('-Q', '--Qmax', type=float,
                         help='maximum Q in Å-1 used in PDF tapers')
-    parser.add_argument('-p', '--print', action='store_true',
+    parser.add_argument('-o', '--output', action='store_true',
                         help='print current parameters')
 
     args = parser.parse_args()
 
     reduce = NXReduce(directory=args.directory)
-    if args.print:
+    if args.output:
         print('Current NXReduce parameters\n---------------------------')
         print(f"Threshold = {reduce.threshold:g}")
         print(f"First Frame = {reduce.first}")
         print(f"Last Frame = {reduce.last}")
+        print(f"Maximum Polar Angle = {reduce.polar_max:g}")
         print(f"Monitor = {reduce.monitor}")
         print(f"Normalization = {reduce.norm:g}")
         print(f"Radius = {reduce.radius:g}")
-        print(f"Qmax = {reduce.Qmax:g}")
+        print(f"Qmax = {reduce.qmax:g}")
     else:
         reduce.write_parameters(threshold=args.threshold,
                                 first=args.first, last=args.last,
+                                polar_max=args.polar_max,
                                 monitor=args.monitor, norm=args.norm,
                                 radius=args.radius, qmax=args.Qmax)
 

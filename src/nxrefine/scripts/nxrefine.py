@@ -22,6 +22,8 @@ def main():
                         help='names of entries to be processed')
     parser.add_argument('-l', '--lattice', action='store_true',
                         help='refine lattice parameters')
+    parser.add_argument('-p', '--polar_max',
+                        help='maximum polar angle in degrees')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing maximum')
     parser.add_argument('-q', '--queue', action='store_true',
@@ -41,6 +43,8 @@ def main():
             lattice = False
         reduce = NXReduce(entry, args.directory, refine=True,
                           lattice=lattice, overwrite=args.overwrite)
+        if args.polar_max:
+            reduce.polar_max = args.polar_max
         if args.queue:
             reduce.queue('nxrefine', args)
         else:

@@ -34,7 +34,35 @@ class RefineLatticeDialog(NXDialog):
 
         self.select_entry(self.choose_entry)
 
-        self.refine = NXRefine()
+        self.refine_buttons = self.action_buttons(
+            ('Refine Angles', self.refine_angles),
+            ('Refine HKLs', self.refine_hkls),
+            ('Restore', self.restore_parameters),
+            ('Reset', self.reset_parameters))
+
+        self.orientation_buttons = self.action_buttons(
+            ('Refine Orientation Matrix', self.refine_orientation),
+            ('Remove Orientation Matrix', self.remove_orientation))
+
+        self.lattice_buttons = self.action_buttons(
+            ('Plot', self.plot_lattice),
+            ('List', self.list_peaks),
+            ('Update', self.update_scaling),
+            ('Save', self.write_parameters))
+
+        self.set_layout(self.entry_layout, self.close_layout())
+
+        self.layout.setSpacing(2)
+
+        self.set_title('Refining Lattice')
+
+        self.peaks_box = None
+        self.table_model = None
+        self.orient_box = None
+        self.update_box = None
+        self.fit_report = []
+
+    def define_parameters(self):
         self.parameters = GridParameters()
         self.parameters.add('symmetry', self.refine.symmetries, 'Symmetry',
                             None, self.set_lattice_parameters)
@@ -69,43 +97,15 @@ class RefineLatticeDialog(NXDialog):
             'twotheta', self.refine.twotheta, 'Two Theta (deg)')
         self.parameters.add('gonpitch', self.refine.gonpitch,
                             'Goniometer Pitch (deg)', False)
-        self.parameters.add('polar', self.refine.polar_max,
+        self.parameters.add('polar', self.reduce.polar_max,
                             'Max. Polar Angle (deg)', None, self.set_polar_max)
         self.parameters.add('polar_tolerance', self.refine.polar_tolerance,
                             'Polar Angle Tolerance')
         self.parameters.add('peak_tolerance', self.refine.peak_tolerance,
                             'Peak Angle Tolerance')
+
         self.parameters.grid()
-        self.set_symmetry()
-
-        self.refine_buttons = self.action_buttons(
-            ('Refine Angles', self.refine_angles),
-            ('Refine HKLs', self.refine_hkls),
-            ('Restore', self.restore_parameters),
-            ('Reset', self.reset_parameters))
-
-        self.orientation_buttons = self.action_buttons(
-            ('Refine Orientation Matrix', self.refine_orientation),
-            ('Remove Orientation Matrix', self.remove_orientation))
-
-        self.lattice_buttons = self.action_buttons(
-            ('Plot', self.plot_lattice),
-            ('List', self.list_peaks),
-            ('Update', self.update_scaling),
-            ('Save', self.write_parameters))
-
-        self.set_layout(self.entry_layout, self.close_layout())
-
         self.parameters.grid_layout.setVerticalSpacing(1)
-        self.layout.setSpacing(2)
-
-        self.set_title('Refining Lattice')
-
-        self.peaks_box = None
-        self.table_model = None
-        self.orient_box = None
-        self.update_box = None
-        self.fit_report = []
 
     def choose_entry(self):
         try:
@@ -116,6 +116,8 @@ class RefineLatticeDialog(NXDialog):
             report_error("Refining Lattice", error)
             return
         self.refine = refine
+        self.reduce = NXReduce(self.entry)
+        self.define_parameters()
         self.set_title(f"Refining {self.refine.name}")
         if self.layout.count() == 2:
             self.insert_layout(1, self.parameters.grid_layout)
@@ -123,6 +125,7 @@ class RefineLatticeDialog(NXDialog):
             self.insert_layout(3, self.orientation_buttons)
             self.insert_layout(4, self.parameters.report_layout())
             self.insert_layout(5, self.lattice_buttons)
+        self.set_lattice_parameters()
         self.update_parameters()
         self.update_table()
 
@@ -154,7 +157,6 @@ class RefineLatticeDialog(NXDialog):
         self.parameters['omega'].value = self.refine.omega
         self.parameters['twotheta'].value = self.refine.twotheta
         self.parameters['gonpitch'].value = self.refine.gonpitch
-        self.parameters['polar'].value = self.refine.polar_max
         self.parameters['polar_tolerance'].value = self.refine.polar_tolerance
         self.parameters['peak_tolerance'].value = self.refine.peak_tolerance
         self.parameters['symmetry'].value = self.refine.symmetry
@@ -194,11 +196,12 @@ class RefineLatticeDialog(NXDialog):
             self.refine.xp, self.refine.yp)
         self.refine.write_angles(polar_angles, azimuthal_angles)
         self.refine.write_parameters()
-        reduce = NXReduce(self.entry)
-        reduce.record_start('nxrefine')
-        reduce.record('nxrefine', fit_report='\n'.join(self.fit_report))
-        reduce.logger.info('Orientation refined in NeXpy')
-        reduce.record_end('nxrefine')
+        self.reduce.write_parameters(polar_max=self.refine.polar_max)
+        self.reduce.record_start('nxrefine')
+        self.reduce.record('nxrefine', polar_max=self.reduce.polar_max,
+                           fit_report='\n'.join(self.fit_report))
+        self.reduce.logger.info('Orientation refined in NeXpy')
+        self.reduce.record_end('nxrefine')
         root = self.entry.nxroot
         entries = [entry for entry in root.entries
                    if entry != 'entry' and entry != self.entry.nxname]

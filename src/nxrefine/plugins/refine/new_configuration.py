@@ -84,6 +84,7 @@ class ConfigurationDialog(NXDialog):
         entry = self.configuration_file['entry']
         entry['nxreduce/threshold'] = NXfield(default['threshold'],
                                               dtype=float)
+        entry['nxreduce/polar_max'] = NXfield(default['polar_max'])
         entry['nxreduce/monitor'] = NXfield(default['monitor'])
         entry['nxreduce/norm'] = NXfield(default['norm'], dtype=float)
         entry['nxreduce/first_frame'] = NXfield(default['first'], dtype=int)
@@ -96,6 +97,8 @@ class ConfigurationDialog(NXDialog):
                           'First Frame')
         self.analysis.add('last', entry['nxreduce/last_frame'],
                           'Last Frame')
+        self.analysis.add('polar_max', entry['nxreduce/polar_max'],
+                          'Maximum Polar Angle')
         self.analysis.add('monitor', ['monitor1', 'monitor2'],
                           'Normalization Monitor')
         self.analysis['monitor'].value = default['monitor']
@@ -196,6 +199,7 @@ class ConfigurationDialog(NXDialog):
         entry['nxreduce/threshold'] = self.analysis['threshold'].value
         entry['nxreduce/first_frame'] = self.analysis['first'].value
         entry['nxreduce/last_frame'] = self.analysis['last'].value
+        entry['nxreduce/polar_max'] = self.analysis['polar_max'].value
         entry['nxreduce/monitor'] = self.analysis['monitor'].value
         entry['nxreduce/norm'] = self.analysis['norm'].value
         entry['nxreduce/radius'] = self.analysis['radius'].value
