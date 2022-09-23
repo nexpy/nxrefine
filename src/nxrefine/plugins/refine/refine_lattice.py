@@ -117,9 +117,9 @@ class RefineLatticeDialog(NXDialog):
             return
         self.refine = refine
         self.reduce = NXReduce(self.entry)
-        self.define_parameters()
         self.set_title(f"Refining {self.refine.name}")
         if self.layout.count() == 2:
+            self.define_parameters()
             self.insert_layout(1, self.parameters.grid_layout)
             self.insert_layout(2, self.refine_buttons)
             self.insert_layout(3, self.orientation_buttons)
