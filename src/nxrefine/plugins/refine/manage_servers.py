@@ -7,12 +7,13 @@
 # -----------------------------------------------------------------------------
 import os
 import subprocess
+from pathlib import Path
 
 from nexpy.gui.datadialogs import NXDialog
 from nexpy.gui.pyqt import QtCore
-from nexpy.gui.utils import confirm_action, report_error
+from nexpy.gui.utils import confirm_action, format_mtime, report_error
 from nexpy.gui.widgets import NXPlainTextEdit
-from nexusformat.nexus import NeXusError
+from nexusformat.nexus import NeXusError, nxgetconfig
 from nxrefine.nxserver import NXServer
 
 
@@ -42,7 +43,8 @@ class ServerDialog(NXDialog):
                            ('Server Log', self.show_log),
                            ('Server Queue', self.show_queue),
                            ('Server Processes', self.show_processes),
-                           ('Server Nodes', self.show_nodes))
+                           ('Server Nodes', self.show_nodes),
+                           ('Server Locks', self.show_locks))
         self.text_box = NXPlainTextEdit(wrap=False)
         self.text_box.setReadOnly(True)
         self.log_combo = self.select_box(['nxserver'] + self.server.cpus,
@@ -62,6 +64,11 @@ class ServerDialog(NXDialog):
         if self.server.server_type == 'multicore':
             self.pushbutton['Server Nodes'].setVisible(False)
             self.pushbutton['Update Nodes'].setVisible(False)
+        self.lockdirectory = nxgetconfig('lockdirectory')
+        if self.lockdirectory and Path(self.lockdirectory).exists():
+            self.lockdirectory = Path(self.lockdirectory).resolve()
+        else:
+            self.pushbutton['Server Locks'].setVisible(False)
         self.set_title('Manage Servers')
         self.setMinimumWidth(800)
         self.experiment_directory = None
@@ -111,9 +118,9 @@ class ServerDialog(NXDialog):
         self.reset_buttons()
         self.pushbutton['Server Log'].setChecked(True)
         self.log_combo.setEnabled(True)
-        log_file = os.path.join(self.server.directory,
-                                f'{self.log_combo.selected}.log')
-        if os.path.exists(log_file):
+        log_file = Path(self.server.directory).joinpath(
+            f'{self.log_combo.selected}.log')
+        if Path(log_file).exists():
             with open(log_file) as f:
                 text = f.read()
         else:
@@ -167,6 +174,17 @@ class ServerDialog(NXDialog):
         if text != self.current_text:
             self.text_box.setPlainText(text)
             self.current_text = text
+
+    def show_locks(self):
+        def _getmtime(entry):
+            return entry.stat().st_mtime
+        text = []
+        for f in sorted(os.scandir(self.lockdirectory), key=_getmtime):
+            text.append(f'{format_mtime(f.stat().st_mtime)} {f.name}')
+        if text:
+            self.text_box.setPlainText('\n'.join(text))
+        else:
+            self.text_box.setPlainText('No Files')
 
     def update_nodes(self):
         if self.pushbutton['Server Nodes'].isChecked():
