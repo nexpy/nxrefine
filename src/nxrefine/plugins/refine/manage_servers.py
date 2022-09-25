@@ -9,10 +9,10 @@ import os
 import subprocess
 from pathlib import Path
 
-from nexpy.gui.datadialogs import NXDialog
+from nexpy.gui.datadialogs import NXWidget, NXDialog
 from nexpy.gui.pyqt import QtCore
 from nexpy.gui.utils import confirm_action, format_mtime, report_error
-from nexpy.gui.widgets import NXPlainTextEdit
+from nexpy.gui.widgets import NXPlainTextEdit, NXScrollArea
 from nexusformat.nexus import NeXusError, nxgetconfig
 from nxrefine.nxserver import NXServer
 
@@ -51,6 +51,7 @@ class ServerDialog(NXDialog):
                                          slot=self.show_log)
         update_actions = self.action_buttons(
                              ('Clear Queue', self.clear_queue),
+                             ('Clear Locks', self.clear_locks),
                              ('Update Nodes', self.update_nodes))
         close_layout = self.make_layout(self.log_combo, 'stretch',
                                         update_actions, 'stretch',
@@ -69,6 +70,7 @@ class ServerDialog(NXDialog):
             self.lockdirectory = Path(self.lockdirectory).resolve()
         else:
             self.pushbutton['Server Locks'].setVisible(False)
+            self.pushbutton['Clear Locks'].setVisible(False)
         self.set_title('Manage Servers')
         self.setMinimumWidth(800)
         self.experiment_directory = None
@@ -180,11 +182,42 @@ class ServerDialog(NXDialog):
             return entry.stat().st_mtime
         text = []
         for f in sorted(os.scandir(self.lockdirectory), key=_getmtime):
-            text.append(f'{format_mtime(f.stat().st_mtime)} {f.name}')
+            if f.name.endswith('.lock'):
+                text.append(f'{format_mtime(f.stat().st_mtime)} {f.name}')
         if text:
             self.text_box.setPlainText('\n'.join(text))
         else:
             self.text_box.setPlainText('No Files')
+
+    def clear_locks(self):
+        def _getmtime(entry):
+            return entry.stat().st_mtime
+        dialog = NXDialog(parent=self)
+        locks = []
+        for f in sorted(os.scandir(self.lockdirectory), key=_getmtime):
+            if f.name.endswith('.lock'):
+                locks.append(self.checkboxes((f.name, f.name, False),
+                                             align='left'))
+        dialog.scroll_area = NXScrollArea()
+        dialog.scroll_widget = NXWidget()
+        dialog.scroll_widget.set_layout(*locks)
+        dialog.scroll_area.setWidget(dialog.scroll_widget)
+
+        dialog.set_layout(dialog.scroll_area,
+                          self.action_buttons(('Clear Lock', self.clear_lock)),
+                          dialog.close_buttons(close=True))
+
+        dialog.set_title('Clear Locks')
+        self.locks_dialog = dialog
+        self.locks_dialog.show()
+
+    def clear_lock(self):
+        for f in list(self.checkbox):
+            if self.checkbox[f].isChecked():
+                Path(self.lockdirectory).joinpath(f).unlink(missing_ok=True)
+                del self.checkbox[f]
+        self.locks_dialog.close()
+        self.show_locks()
 
     def update_nodes(self):
         if self.pushbutton['Server Nodes'].isChecked():
