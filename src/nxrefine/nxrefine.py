@@ -94,6 +94,8 @@ class NXRefine(object):
 
     Attributes
     ----------
+    chemical_formula : str
+        Chemical formula of the sample
     a, b, c : float
         Lattice parameters defining the crystallographic unit cell in Å.
     alpha, beta, gamma : float
@@ -174,6 +176,7 @@ class NXRefine(object):
         self.xd = 0.0
         self.yd = 0.0
         self.frame_time = 0.1
+        self.formula = ''
         self.space_group = ''
         self.laue_group = ''
         self.symmetry = 'triclinic'
@@ -280,6 +283,8 @@ class NXRefine(object):
             self.beta = self.read_parameter('sample/unitcell_beta', self.beta)
             self.gamma = self.read_parameter(
                 'sample/unitcell_gamma', self.gamma)
+            self.formula = self.read_parameter('sample/chemical_formula',
+                                               self.formula)
             self.space_group = self.read_parameter(
                 'sample/space_group', self.space_group)
             self.laue_group = self.read_parameter(
@@ -400,6 +405,7 @@ class NXRefine(object):
         with self.entry.nxfile:
             if 'sample' not in self.entry:
                 self.entry['sample'] = NXsample()
+            self.write_parameter('sample/chemical_formula', self.formula)
             self.write_parameter('sample/space_group', self.space_group)
             self.write_parameter('sample/laue_group', self.laue_group)
             self.write_parameter('sample/unit_cell_group', self.symmetry)
@@ -474,6 +480,7 @@ class NXRefine(object):
                     other.entry.nxroot['entry/sample'] = NXsample()
                 if 'sample' not in other.entry:
                     other.entry.makelink(other.entry.nxroot['entry/sample'])
+                other.write_parameter('sample/chemical_formula', self.formula)
                 other.write_parameter('sample/space_group', self.space_group)
                 other.write_parameter('sample/laue_group', self.laue_group)
                 other.write_parameter('sample/unit_cell_group', self.symmetry)

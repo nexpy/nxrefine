@@ -34,6 +34,7 @@ class LatticeDialog(NXDialog):
         self.refine = NXRefine()
 
         self.parameters = GridParameters()
+        self.parameters.add('chemical_formula', '', 'Chemical Formula')
         self.parameters.add('space_group', self.refine.space_group,
                             'Space Group', slot=self.set_groups)
         self.parameters.add('laue_group', self.refine.laue_groups,
@@ -156,6 +157,10 @@ class LatticeDialog(NXDialog):
                 pass
 
     @property
+    def chemical_formula(self):
+        return self.parameters['chemical_formula'].value
+
+    @property
     def space_group(self):
         return self.parameters['space_group'].value
 
@@ -207,6 +212,7 @@ class LatticeDialog(NXDialog):
         (self.refine.a, self.refine.b, self.refine.c,
          self.refine.alpha, self.refine.beta, self.refine.gamma) = (
             self.get_lattice_parameters())
+        self.refine.formula = self.chemical_formula
         self.refine.space_group = self.space_group
         self.refine.laue_group = self.laue_group
         self.refine.symmetry = self.get_symmetry()
