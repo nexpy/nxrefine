@@ -25,8 +25,7 @@ from nexusformat.nexus import (NeXusError, NXattenuator, NXcollection, NXdata,
                                NXentry, NXfield, NXfilter, NXinstrument,
                                NXlink, NXLock, NXmonitor, NXnote, NXparameters,
                                NXprocess, NXreflections, NXroot, NXsource,
-                               nxgetmemory, nxload, nxsetlock, nxsetlockexpiry,
-                               nxsetmemory)
+                               nxload, nxgetconfig, nxsetconfig)
 from qtpy import QtCore
 
 from . import __version__
@@ -240,8 +239,7 @@ class NXReduce(QtCore.QObject):
         self._db = None
         self._logger = None
 
-        nxsetlock(600)
-        nxsetlockexpiry(28800)
+        nxsetconfig(lock=600, lockexpiry=28800)
 
     start = QtCore.Signal(object)
     update = QtCore.Signal(object)
@@ -1529,7 +1527,7 @@ class NXReduce(QtCore.QObject):
         """ Add tasks to the server's fifo, and log this in the database """
 
         if self.server is None:
-            raise NeXusError("NXServer not running")
+            raise NeXusError("NXServer not configured")
 
         tasks = []
         if self.link:
@@ -1818,8 +1816,8 @@ class NXMultiReduce(NXReduce):
                                          self.entry['transform/Qk'],
                                          self.entry['transform/Ql'])
         total_size = self.entry[self.transform_path].nxsignal.nbytes / 1e6
-        if total_size > nxgetmemory():
-            nxsetmemory(total_size + 1000)
+        if total_size > nxgetconfig('memory'):
+            nxsetconfig(memory=total_size+1000)
         self.taper = self.fft_taper()
 
     def symmetrize_transform(self):

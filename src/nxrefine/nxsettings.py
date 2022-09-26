@@ -6,8 +6,8 @@
 # The full license is in the file COPYING, distributed with this software.
 # -----------------------------------------------------------------------------
 
-import os
 from configparser import ConfigParser
+from pathlib import Path
 
 from nexusformat.nexus import NeXusError
 
@@ -18,7 +18,7 @@ class NXSettings(ConfigParser):
     def __init__(self, directory=None):
         super().__init__(allow_no_value=True)
         self.directory = self.get_directory(server_directory=directory)
-        self.file = os.path.join(self.directory, 'settings.ini')
+        self.file = Path(self.directory).joinpath('settings.ini')
         super().read(self.file)
         sections = self.sections()
         if 'setup' not in sections:
@@ -31,11 +31,10 @@ class NXSettings(ConfigParser):
 
     def get_directory(self, server_directory=None):
         self.home_settings = ConfigParser()
-        home_directory = os.path.join(os.path.abspath(os.path.expanduser('~')),
-                                      '.nxserver')
-        if not os.path.exists(home_directory):
-            os.mkdir(home_directory)
-        self.home_file = os.path.join(home_directory, 'settings.ini')
+        home_directory = Path.home().joinpath('.nxserver')
+        if not Path(home_directory).exists():
+            Path(home_directory).mkdir()
+        self.home_file = Path(home_directory).joinpath('settings.ini')
         self.home_settings.read(self.home_file)
         if 'setup' not in self.home_settings.sections():
             self.home_settings.add_section('setup')
@@ -48,10 +47,12 @@ class NXSettings(ConfigParser):
         else:
             raise NeXusError(
                 "Please define settings directory - type 'nxsettings -h'")
-        if os.path.basename(server_directory) != 'nxserver':
-            server_directory = os.path.join(server_directory, 'nxserver')
-        if not os.path.exists(server_directory):
-            os.mkdir(server_directory)
+        if Path(server_directory).name != 'nxserver':
+            server_directory = Path(server_directory).joinpath('nxserver')
+        if not Path(server_directory).exists():
+            Path(server_directory).mkdir()
+        if not Path(server_directory).joinpath('locks').exists():
+            Path(server_directory).joinpath('locks').mkdir(mode=0o777)
         return server_directory
 
     def add_defaults(self):
