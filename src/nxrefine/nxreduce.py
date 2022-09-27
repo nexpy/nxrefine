@@ -1074,20 +1074,31 @@ class NXReduce(QtCore.QObject):
 
         tic = self.start_progress(self.first, self.last)
         self.blobs = []
-        with ProcessPoolExecutor(max_workers=self.process_count) as executor:
-            futures = []
+        if self.server.server_type == 'multicore':
+            with ProcessPoolExecutor(
+                    max_workers=self.process_count) as executor:
+                futures = []
+                for i in range(self.first, self.last+1, 50):
+                    j, k = i - min(5, i), min(i+55, self.last+5, self.nframes)
+                    futures.append(executor.submit(
+                        peak_search,
+                        self.field.nxfilename, self.field.nxfilepath,
+                        i, j, k, self.threshold))
+                for future in as_completed(futures):
+                    z, blobs = future.result()
+                    self.blobs += [b for b in blobs if b.z >= z
+                                   and b.z < min(z+50, self.last)]
+                    self.update_progress(z)
+                    futures.remove(future)
+        else:
             for i in range(self.first, self.last+1, 50):
                 j, k = i - min(5, i), min(i+55, self.last+5, self.nframes)
-                futures.append(executor.submit(
-                    peak_search, self.field.nxfilename, self.field.nxfilepath,
-                    i, j, k, self.threshold))
-            for future in as_completed(futures):
-                z, blobs = future.result()
+                z, blobs = peak_search(
+                    self.field.nxfilename, self.field.nxfilepath,
+                    i, j, k, self.threshold)
                 self.blobs += [b for b in blobs if b.z >= z
-                               and b.z < min(z+50, self.last)
-                               ]
+                               and b.z < min(z+50, self.last)]
                 self.update_progress(z)
-                futures.remove(future)
 
         peaks = sorted([b for b in self.blobs], key=operator.attrgetter('z'))
 
@@ -1216,18 +1227,28 @@ class NXReduce(QtCore.QObject):
         mask_root['entry/mask'] = (
             NXfield(shape=self.shape, dtype=np.int8, fillvalue=0))
 
-        with ProcessPoolExecutor(max_workers=self.process_count) as executor:
-            futures = []
+        if self.server.server_type == 'multicore':
+            with ProcessPoolExecutor(
+                    max_workers=self.process_count) as executor:
+                futures = []
+                for i in range(self.first, self.last+1, 10):
+                    j, k = i - min(1, i), min(i+11, self.last+1, self.nframes)
+                    futures.append(executor.submit(
+                        mask_volume,
+                        self.field.nxfilename, self.field.nxfilepath,
+                        mask_root.nxfilename, 'entry/mask', i, j, k,
+                        self.pixel_mask, t1, h1, t2, h2))
+                for future in as_completed(futures):
+                    k = future.result()
+                    self.update_progress(k)
+                    futures.remove(future)
+        else:
             for i in range(self.first, self.last+1, 10):
                 j, k = i - min(1, i), min(i+11, self.last+1, self.nframes)
-                futures.append(executor.submit(
-                    mask_volume, self.field.nxfilename, self.field.nxfilepath,
-                    mask_root.nxfilename, 'entry/mask', i, j, k,
-                    self.pixel_mask, t1, h1, t2, h2))
-            for future in as_completed(futures):
-                k = future.result()
+                k = mask_volume(self.field.nxfilename, self.field.nxfilepath,
+                                mask_root.nxfilename, 'entry/mask', i, j, k,
+                                self.pixel_mask, t1, h1, t2, h2)
                 self.update_progress(k)
-                futures.remove(future)
 
         frame_mask = np.ones(shape=self.shape[1:], dtype=np.int8)
         with mask_root.nxfile:
