@@ -59,8 +59,8 @@ class ServerDialog(NXDialog):
                                         align='justified')
         self.set_layout(server_layout, text_actions, self.text_box,
                         close_layout)
-        for button in ['Server Nodes', 'Server Log', 'Server Queue',
-                       'Server Processes']:
+        for button in ['Server Log', 'Server Queue', 'Server Processes',
+                       'Server Nodes', 'Server Locks']:
             self.pushbutton[button].setCheckable(True)
         if self.server.server_type == 'multicore':
             self.pushbutton['Server Nodes'].setVisible(False)
@@ -106,10 +106,12 @@ class ServerDialog(NXDialog):
             self.show_processes()
         elif self.pushbutton['Server Nodes'].isChecked():
             self.show_nodes()
+        elif self.pushbutton['Server Locks'].isChecked():
+            self.show_locks()
 
     def reset_buttons(self):
         for button in ['Server Log', 'Server Queue', 'Server Processes',
-                       'Server Nodes']:
+                       'Server Nodes', 'Server Locks']:
             self.pushbutton[button].setChecked(False)
         self.log_combo.setEnabled(False)
         self.pushbutton['Clear Queue'].setEnabled(False)
