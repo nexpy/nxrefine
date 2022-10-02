@@ -1742,6 +1742,7 @@ class NXMultiReduce(NXReduce):
                 self.entry[self.transform_path] = NXdata(data, [Ql, Qk, Qh])
                 self.entry[self.transform_path].attrs['angles'] = (
                     self.root[entry][self.transform_path].attrs['angles'])
+                self.add_title(self.entry[self.transform_path])
                 self.entry[self.transform_path].set_default(over=True)
         except Exception as error:
             self.logger.info("Unable to initialize transform group")
@@ -1754,6 +1755,24 @@ class NXMultiReduce(NXReduce):
         output = os.path.join(self.directory,
                               fr'{self.transform_path}.nxs\#/entry/data/v')
         return f"cctw merge {input} -o {output}"
+
+    def add_title(self, data):
+        title = []
+        if 'chemical_formula' in self.entry['sample']:
+            title.append(str(self.entry['sample/chemical_formula']))
+        elif 'name' in self.entry['sample']:
+            title.append(str(self.entry['sample/name']))
+        else:
+            title.append(self.root.nxname)
+        if 'temperature' in self.entry['sample']:
+            if 'units' in self.entry['sample/temperature'].attrs:
+                units = self.entry['sample/temperature'].attrs['units']
+                title.append(f"{self.entry['sample/temperature']:g}{units}")
+            else:
+                title.append('T=' + str(self.entry['sample/temperature']))
+        name = data.nxname.replace('symm', 'symmetrized').replace('_', ' ')
+        title.append(name.title().replace('Pdf', 'PDF'))
+        data['title'] = ' '.join(title)
 
     def nxpdf(self, mask=False):
         if mask:
@@ -1861,6 +1880,7 @@ class NXMultiReduce(NXReduce):
             symm_data, self.entry[self.transform_path].nxaxes)
         self.entry[self.symm_data].nxweights = NXlink(
             '/entry/data/data_weights', file=self.symm_file)
+        self.add_title(self.entry[self.symm_data])
         self.logger.info(f"'{self.symm_data}' added to entry")
         toc = timeit.default_timer()
         self.logger.info(f"{self.title}: Symmetrization completed "
@@ -1944,6 +1964,7 @@ class NXMultiReduce(NXReduce):
         self.entry[self.total_pdf_data] = NXdata(pdf, (z, y, x))
         self.entry[self.total_pdf_data].attrs['angles'] = (
             self.refine.lattice_parameters[3:])
+        self.add_title(self.entry[self.total_pdf_data])
         self.logger.info(f"'{self.total_pdf_data}' added to entry")
         toc = timeit.default_timer()
         self.logger.info(f"{self.title}: Total PDF calculated "
@@ -2085,6 +2106,7 @@ class NXMultiReduce(NXReduce):
         self.entry[self.pdf_data] = NXdata(pdf, (z, y, x))
         self.entry[self.pdf_data].attrs['angles'] = (
             self.refine.lattice_parameters[3:])
+        self.add_title(self.entry[self.pdf_data])
         self.logger.info(f"'{self.pdf_data}' added to entry")
         toc = timeit.default_timer()
         self.logger.info(f"{self.title}: Delta-PDF calculated "
