@@ -9,9 +9,10 @@ import os
 import subprocess
 from pathlib import Path
 
-from nexpy.gui.datadialogs import NXWidget, NXDialog
+from nexpy.gui.datadialogs import NXDialog, NXWidget
 from nexpy.gui.pyqt import QtCore
-from nexpy.gui.utils import confirm_action, format_mtime, report_error
+from nexpy.gui.utils import (confirm_action, format_mtime, get_mtime,
+                             report_error)
 from nexpy.gui.widgets import NXPlainTextEdit, NXScrollArea
 from nexusformat.nexus import NeXusError, nxgetconfig
 from nxrefine.nxserver import NXServer
@@ -174,37 +175,23 @@ class ServerDialog(NXDialog):
         return '/' + name.replace('!!', '/')
 
     def show_locks(self):
-
-        def _getmtime(entry):
-            try:
-                return entry.stat().st_mtime
-            except FileNotFoundError:  # due to a race condition
-                return 0.0
-
         self.reset_buttons()
         self.pushbutton['Server Locks'].setChecked(True)
         self.pushbutton['Clear Locks'].setEnabled(True)
         text = []
-        for f in sorted(os.scandir(self.lockdirectory), key=_getmtime):
+        for f in sorted(os.scandir(self.lockdirectory), key=get_mtime):
             if f.name.endswith('.lock'):
                 name = self.convert_locks(f.name)
-                text.append(f'{format_mtime(f.stat().st_mtime)} {name}')
+                text.append(f'{format_mtime(get_mtime(f))} {name}')
         if text:
             self.text_box.setPlainText('\n'.join(text))
         else:
             self.text_box.setPlainText('No Files')
 
     def clear_locks(self):
-
-        def _getmtime(entry):
-            try:
-                return entry.stat().st_mtime
-            except FileNotFoundError:  # due to a race condition
-                return 0.0
-
         dialog = NXDialog(parent=self)
         locks = []
-        for f in sorted(os.scandir(self.lockdirectory), key=_getmtime):
+        for f in sorted(os.scandir(self.lockdirectory), key=get_mtime):
             if f.name.endswith('.lock'):
                 name = self.convert_locks(f.name)
                 locks.append(self.checkboxes((f.name, name, False),
