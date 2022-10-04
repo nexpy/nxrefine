@@ -43,8 +43,8 @@ class ServerDialog(NXDialog):
                            ('Server Log', self.show_log),
                            ('Server Queue', self.show_queue),
                            ('Server Processes', self.show_processes),
-                           ('Server Nodes', self.show_nodes),
-                           ('Server Locks', self.show_locks))
+                           ('Server Locks', self.show_locks),
+                           ('Server Nodes', self.show_nodes))
         self.text_box = NXPlainTextEdit(wrap=False)
         self.text_box.setReadOnly(True)
         self.log_combo = self.select_box(['nxserver'] + self.server.cpus,
@@ -60,7 +60,7 @@ class ServerDialog(NXDialog):
         self.set_layout(server_layout, text_actions, self.text_box,
                         close_layout)
         for button in ['Server Log', 'Server Queue', 'Server Processes',
-                       'Server Nodes', 'Server Locks']:
+                       'Server Locks', 'Server Nodes']:
             self.pushbutton[button].setCheckable(True)
         if self.server.server_type == 'multicore':
             self.pushbutton['Server Nodes'].setVisible(False)
@@ -104,10 +104,10 @@ class ServerDialog(NXDialog):
             self.show_queue()
         elif self.pushbutton['Server Processes'].isChecked():
             self.show_processes()
-        elif self.pushbutton['Server Nodes'].isChecked():
-            self.show_nodes()
         elif self.pushbutton['Server Locks'].isChecked():
             self.show_locks()
+        elif self.pushbutton['Server Nodes'].isChecked():
+            self.show_nodes()
 
     def reset_buttons(self):
         for button in ['Server Log', 'Server Queue', 'Server Processes',
@@ -170,16 +170,6 @@ class ServerDialog(NXDialog):
             self.text_box.setPlainText(text)
         self.current_text = text
 
-    def show_nodes(self):
-        self.reset_buttons()
-        self.text_box.setReadOnly(False)
-        self.pushbutton['Server Nodes'].setChecked(True)
-        self.pushbutton['Update Nodes'].setEnabled(True)
-        text = '\n'.join(self.server.read_nodes())
-        if text != self.current_text:
-            self.text_box.setPlainText(text)
-            self.current_text = text
-
     def convert_locks(self, name):
         return '/' + name.replace('!!', '/')
 
@@ -231,6 +221,16 @@ class ServerDialog(NXDialog):
                 del self.checkbox[f]
         self.locks_dialog.close()
         self.show_locks()
+
+    def show_nodes(self):
+        self.reset_buttons()
+        self.text_box.setReadOnly(False)
+        self.pushbutton['Server Nodes'].setChecked(True)
+        self.pushbutton['Update Nodes'].setEnabled(True)
+        text = '\n'.join(self.server.read_nodes())
+        if text != self.current_text:
+            self.text_box.setPlainText(text)
+            self.current_text = text
 
     def update_nodes(self):
         if self.pushbutton['Server Nodes'].isChecked():
