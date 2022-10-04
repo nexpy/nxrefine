@@ -115,6 +115,7 @@ class ServerDialog(NXDialog):
             self.pushbutton[button].setChecked(False)
         self.log_combo.setEnabled(False)
         self.pushbutton['Clear Queue'].setEnabled(False)
+        self.pushbutton['Clear Locks'].setEnabled(False)
         self.pushbutton['Update Nodes'].setEnabled(False)
         self.text_box.setReadOnly(True)
 
@@ -189,6 +190,7 @@ class ServerDialog(NXDialog):
 
         self.reset_buttons()
         self.pushbutton['Server Locks'].setChecked(True)
+        self.pushbutton['Clear Locks'].setEnabled(True)
         text = []
         for f in sorted(os.scandir(self.lockdirectory), key=_getmtime):
             if f.name.endswith('.lock'):
