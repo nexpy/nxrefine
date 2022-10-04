@@ -176,7 +176,10 @@ class ServerDialog(NXDialog):
     def show_locks(self):
 
         def _getmtime(entry):
-            return entry.stat().st_mtime
+            try:
+                return entry.stat().st_mtime
+            except FileNotFoundError:  # due to a race condition
+                return 0.0
 
         self.reset_buttons()
         self.pushbutton['Server Locks'].setChecked(True)
@@ -192,8 +195,13 @@ class ServerDialog(NXDialog):
             self.text_box.setPlainText('No Files')
 
     def clear_locks(self):
+
         def _getmtime(entry):
-            return entry.stat().st_mtime
+            try:
+                return entry.stat().st_mtime
+            except FileNotFoundError:  # due to a race condition
+                return 0.0
+
         dialog = NXDialog(parent=self)
         locks = []
         for f in sorted(os.scandir(self.lockdirectory), key=_getmtime):
