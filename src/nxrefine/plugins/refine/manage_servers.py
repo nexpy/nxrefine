@@ -172,7 +172,7 @@ class ServerDialog(NXDialog):
         self.current_text = text
 
     def convert_locks(self, name):
-        return '/' + name.replace('!!', '/')
+        return '/' + name.replace('!!', '/').replace('.lock', '')
 
     def show_locks(self):
         self.reset_buttons()
