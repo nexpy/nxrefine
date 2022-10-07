@@ -1040,6 +1040,31 @@ class NXReduce(QtCore.QObject):
             self.logger.info(str(error))
             return None
 
+    def calculate_transmission(self):
+        if self.norm and self.monitor in self.entry:
+            from scipy.interpolate import interp1d
+            from scipy.ndimage.filters import median_filter
+            monitor = self.read_monitor()
+            x = np.arange(self.nframes)
+            y = self.entry['summed_frames'].nxsignal.nxvalue
+            xmin = x[25::50]
+            ymin = median_filter(np.array([min(y[x-25:x+25]) for x in xmin]),
+                                 size=3)
+            yabs = np.ones(shape=x.shape, dtype=np.float32) / monitor
+            yabs[25:3625] = interp1d(xmin, ymin, kind='cubic')(x[25:3625])
+            yabs[:1800] = yabs[1800:3600]
+            yabs[3600:] = yabs[1800:1800+yabs.shape[0]-3600]
+            return yabs / max(yabs)
+        else:
+            return np.ones(shape=(self.nframes), dtype=np.float32)
+
+    def read_monitor(self):
+        from scipy.signal import savgol_filter
+        monitor_signal = self.entry[self.monitor].nxsignal / self.norm
+        monitor_signal[0] = monitor_signal[1]
+        monitor_signal[-1] = monitor_signal[-2]
+        return savgol_filter(monitor_signal, 501, 2)
+
     def nxfind(self):
         if self.not_processed('nxfind') and self.find:
             if not self.data_exists():
@@ -1359,14 +1384,9 @@ class NXReduce(QtCore.QObject):
                 self.Qh = self.Qk = self.Ql = None
 
     def get_normalization(self):
-        from scipy.signal import savgol_filter
         with self.root.nxfile:
             if self.norm and self.monitor in self.entry:
-                monitor_signal = self.entry[self.monitor].nxsignal / self.norm
-                monitor_signal[0] = monitor_signal[1]
-                monitor_signal[-1] = monitor_signal[-2]
-                self.data['monitor_weight'] = savgol_filter(monitor_signal,
-                                                            501, 2)
+                self.data['monitor_weight'] = self.read_monitor()
                 inst = self.entry['instrument']
                 try:
                     transmission = inst['attenuator/attenuator_transmission']
