@@ -939,16 +939,17 @@ class NXReduce(QtCore.QObject):
                 return
             self.record_start('nxmax')
             try:
-                maximum = self.find_maximum()
+                result = self.find_maximum()
                 if self.gui:
-                    if maximum:
-                        self.result.emit(maximum)
+                    if result:
+                        self.result.emit(result)
                     self.stop.emit()
                 else:
-                    self.write_maximum(maximum)
+                    self.write_maximum()
                     self.write_parameters(first=self.first, last=self.last)
-                    self.record('nxmax', maximum=maximum,
-                                first_frame=self.first, last_frame=self.last)
+                    self.record('nxmax', maximum=self.maximum,
+                                first_frame=self.first, last_frame=self.last,
+                                qmin=self.qmin)
                     self.record_end('nxmax')
             except Exception as error:
                 self.logger.info(str(error))
@@ -983,7 +984,7 @@ class NXReduce(QtCore.QObject):
             mask[np.where(pixel_mean < 100)] = 0
             pixel_mask = pixel_mask | mask
             self.pixel_mask = pixel_mask
-            transmission_mask = self.transmission_coordinates() | pixel_mask
+            transmission_mask = self.transmission_coordinates()
             # Start looping over the data
             tic = self.start_progress(self.first, self.last)
             for i in range(self.first, self.last, chunk_size):
@@ -1002,24 +1003,27 @@ class NXReduce(QtCore.QObject):
                     v = np.ma.masked_array(v)
                     v.mask = pixel_mask
                 fsum[i:i+chunk_size] = v.sum((1, 2))
-                v.mask = transmission_mask
-                psum[i:i+chunk_size] = v.sum((1, 2))
+                psum[i:i+chunk_size] = v[transmission_mask].sum((1, 2))
                 if maximum < v.max():
                     maximum = v.max()
                 del v
         if pixel_mask is not None:
             vsum = np.ma.masked_array(vsum)
             vsum.mask = pixel_mask
+        self.maximum = maximum
         self.summed_data = NXfield(vsum, name='summed_data')
         self.summed_frames = NXfield(fsum, name='summed_frames')
-        self.partial_frames = NXfield(psum, name='partial_sum')
+        self.partial_frames = NXfield(fsum-psum, name='partial_frames')
         toc = self.stop_progress()
         self.logger.info(f"Maximum counts: {maximum} ({(toc-tic):g} seconds)")
-        return maximum
+        result = NXcollection(NXfield(maximum, name='maximum'),
+                              self.summed_data, self.summed_frames,
+                              self.partial_frames)
+        return result
 
-    def write_maximum(self, maximum):
+    def write_maximum(self):
         with self.root.nxfile:
-            self.entry['data'].attrs['maximum'] = maximum
+            self.entry['data'].attrs['maximum'] = self.maximum
             self.entry['data'].attrs['first'] = self.first
             self.entry['data'].attrs['last'] = self.last
             if 'summed_data' in self.entry:
@@ -1030,7 +1034,7 @@ class NXReduce(QtCore.QObject):
                 del self.entry['summed_frames']
             self.entry['summed_frames'] = NXdata(self.summed_frames,
                                                  self.entry['data'].nxaxes[0])
-            self.entry['summed_frames/partial_sum'] = self.partial_frames
+            self.entry['summed_frames/partial_frames'] = self.partial_frames
             self.calculate_radial_sums()
         self.clear_parameters(['first', 'last'])
 
