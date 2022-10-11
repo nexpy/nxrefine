@@ -1003,7 +1003,7 @@ class NXReduce(QtCore.QObject):
                     v.mask = pixel_mask
                 fsum[i:i+chunk_size] = v.sum((1, 2))
                 v.mask = transmission_mask
-                psum[i:i+chunk_size] = v.sum((1,2))
+                psum[i:i+chunk_size] = v.sum((1, 2))
                 if maximum < v.max():
                     maximum = v.max()
                 del v
