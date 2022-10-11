@@ -10,7 +10,7 @@ import os
 
 import numpy as np
 from nexusformat.nexus import (NeXusError, NXdata, NXdetector, NXfield,
-                               NXgoniometer, NXinstrument, NXlink,
+                               NXgoniometer, NXgroup, NXinstrument, NXlink,
                                NXmonochromator, NXsample)
 from numpy.linalg import inv, norm
 from scipy import optimize
@@ -100,6 +100,8 @@ class NXRefine(object):
         Lattice parameters defining the crystallographic unit cell in Å.
     alpha, beta, gamma : float
         Unit cell angles in degrees.
+    transmission : NXdata
+        Transmission of sample as a function of frame number.
     wavelength : float
         Wavelength of the incident x-ray beam in Å.
     distance : float
@@ -181,6 +183,7 @@ class NXRefine(object):
         self.laue_group = ''
         self.symmetry = 'triclinic'
         self.centring = 'P'
+        self.transmission = None
         self.peaks = None
         self.xp = None
         self.yp = None
@@ -258,6 +261,8 @@ class NXRefine(object):
                 entry = self.entry
             if attr:
                 return entry[path].attrs[attr]
+            elif isinstance(entry[path], NXgroup):
+                return entry[path]
             else:
                 return entry[path].nxvalue
         except NeXusError:
@@ -289,6 +294,8 @@ class NXRefine(object):
                 'sample/space_group', self.space_group)
             self.laue_group = self.read_parameter(
                 'sample/laue_group', self.laue_group)
+            self.transmission = self.read_parameter('sample/transmission',
+                                                    self.transmission)
             self.wavelength = self.read_parameter(
                 'instrument/monochromator/wavelength', self.wavelength)
             self.distance = self.read_parameter('instrument/detector/distance',
@@ -385,7 +392,11 @@ class NXRefine(object):
             if attr and path in entry:
                 entry[path].attrs[attr] = value
             elif path in entry:
-                entry[path].replace(value)
+                if isinstance(entry[path], NXgroup):
+                    del entry[path]
+                    entry[path] = value
+                else:
+                    entry[path].replace(value)
             elif attr is None:
                 entry[path] = value
 
@@ -416,6 +427,7 @@ class NXRefine(object):
             self.write_parameter('sample/unitcell_alpha', self.alpha)
             self.write_parameter('sample/unitcell_beta', self.beta)
             self.write_parameter('sample/unitcell_gamma', self.gamma)
+            self.write_parameter('sample/transmission', self.transmission)
             if sample:
                 return
             if 'instrument' not in self.entry:
@@ -491,6 +503,7 @@ class NXRefine(object):
                 other.write_parameter('sample/unitcell_alpha', self.alpha)
                 other.write_parameter('sample/unitcell_beta', self.beta)
                 other.write_parameter('sample/unitcell_gamma', self.gamma)
+                other.write_parameter('sample/transmission', self.transmission)
             if instrument:
                 if 'instrument' not in other.entry:
                     other.entry['instrument'] = NXinstrument()

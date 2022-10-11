@@ -77,10 +77,12 @@ class NXReduce(QtCore.QObject):
             Name of monitor used in normalizations, by default None
         norm : float, optional
             Value used to normalize monitor counts, by default None
-        radius : float, optional
-            Radius used in punching holes in inverse Angstroms, by default None
+        qmin : float, optional
+            Minimum Q used in calculating transmissions, by default None
         qmax : float, optional
             Maximum Q used in PDF taper function, by default None
+        radius : float, optional
+            Radius used in punching holes in inverse Angstroms, by default None
         mask_parameters : dict, optional
             Thresholds and convolution sizes used to prepare 3D masks, by
             default None.
@@ -124,8 +126,8 @@ class NXReduce(QtCore.QObject):
             self, entry=None, directory=None, parent=None, entries=None,
             data='data/data', extension='.h5', path='/entry/data/data',
             threshold=None, min_pixels=None, first=None, last=None,
-            polar_max=None, monitor=None, norm=None, radius=None, qmax=None,
-            mask_parameters=None,
+            polar_max=None, monitor=None, norm=None, qmin=None, qmax=None,
+            radius=None, mask_parameters=None,
             Qh=None, Qk=None, Ql=None,
             link=False, copy=False, maxcount=False, find=False, refine=False,
             prepare=False, transform=False, combine=False, pdf=False,
@@ -197,8 +199,9 @@ class NXReduce(QtCore.QObject):
         self._polar_max = polar_max
         self._monitor = monitor
         self._norm = norm
-        self._radius = radius
+        self._qmin = qmin
         self._qmax = qmax
+        self._radius = radius
         if mask_parameters is None:
             self.mask_parameters = {
                 'threshold_1': 2, 'horizontal_size_1': 11,
@@ -444,10 +447,10 @@ class NXReduce(QtCore.QObject):
         return parameter
 
     def write_parameters(self, threshold=None, first=None, last=None,
-                         polar_max=None, monitor=None, norm=None, radius=None,
-                         qmax=None):
+                         polar_max=None, monitor=None, norm=None,
+                         qmin=None, qmax=None, radius=None):
         if not (threshold or first or last or polar_max or monitor or norm
-                or radius or qmax):
+                or qmin or qmax or radius):
             return
         with self.root.nxfile:
             if 'nxreduce' not in self.root['entry']:
@@ -470,12 +473,15 @@ class NXReduce(QtCore.QObject):
             if norm is not None:
                 self.norm = norm
                 self.root['entry/nxreduce/norm'] = self.norm
-            if radius is not None:
-                self.radius = radius
-                self.root['entry/nxreduce/radius'] = self.radius
+            if qmin is not None:
+                self.qmin = qmin
+                self.root['entry/nxreduce/qmin'] = self.qmin
             if qmax is not None:
                 self.qmax = qmax
                 self.root['entry/nxreduce/qmax'] = self.qmax
+            if radius is not None:
+                self.radius = radius
+                self.root['entry/nxreduce/radius'] = self.radius
 
     def clear_parameters(self, parameters):
         """Remove legacy records of parameters."""
@@ -565,14 +571,14 @@ class NXReduce(QtCore.QObject):
         self._norm = value
 
     @property
-    def radius(self):
-        if self._radius is None:
-            self._radius = float(self.get_parameter('radius'))
-        return self._radius
+    def qmin(self):
+        if self._qmin is None:
+            self._qmin = float(self.get_parameter('qmin'))
+        return self._qmin
 
-    @radius.setter
-    def radius(self, value):
-        self._radius = value
+    @qmin.setter
+    def qmin(self, value):
+        self._qmin = value
 
     @property
     def qmax(self):
@@ -585,11 +591,30 @@ class NXReduce(QtCore.QObject):
         self._qmax = value
 
     @property
+    def radius(self):
+        if self._radius is None:
+            self._radius = float(self.get_parameter('radius'))
+        return self._radius
+
+    @radius.setter
+    def radius(self, value):
+        self._radius = value
+
+    @property
     def maximum(self):
         if self._maximum is None:
             if 'data' in self.entry and 'maximum' in self.entry['data'].attrs:
                 self._maximum = self.entry['data'].attrs['maximum']
         return self._maximum
+
+    @property
+    def transmission(self):
+        if self.parent and 'transmission' in self.parent_root['entry/sample']:
+            return self.parent_root['entry/sample/transmission'].nxsignal
+        elif 'transmission' in self.entry['sample']:
+            return self.entry['sample/transmission'].nxsignal
+        else:
+            return np.ones(shape=(self.nframes,), dtype=np.float32)
 
     def complete(self, task):
         """Check that a task for this entry in the wrapper file are done """
@@ -900,8 +925,9 @@ class NXReduce(QtCore.QObject):
                               polar_max=parent_reduce.polar_max,
                               monitor=parent_reduce.monitor,
                               norm=parent_reduce.norm,
-                              radius=parent_reduce.radius,
-                              qmax=parent_reduce.qmax)
+                              qmin=parent_reduce.qmin,
+                              qmax=parent_reduce.qmax,
+                              radius=parent_reduce.radius)
         self.logger.info(
             f"Parameters for {self.name} copied from "
             f"'{os.path.basename(os.path.realpath(self.parent))}'")
@@ -944,6 +970,7 @@ class NXReduce(QtCore.QObject):
                 self.last = self.nframes
             data = self.field.nxfile[self.path]
             fsum = np.zeros(self.nframes, dtype=np.float64)
+            psum = np.zeros(self.nframes, dtype=np.float64)
             pixel_mask = self.pixel_mask
             # Add constantly firing pixels to the mask
             pixel_max = np.zeros((self.shape[1], self.shape[2]))
@@ -956,6 +983,7 @@ class NXReduce(QtCore.QObject):
             mask[np.where(pixel_mean < 100)] = 0
             pixel_mask = pixel_mask | mask
             self.pixel_mask = pixel_mask
+            transmission_mask = self.transmission_coordinates() | pixel_mask
             # Start looping over the data
             tic = self.start_progress(self.first, self.last)
             for i in range(self.first, self.last, chunk_size):
@@ -974,6 +1002,8 @@ class NXReduce(QtCore.QObject):
                     v = np.ma.masked_array(v)
                     v.mask = pixel_mask
                 fsum[i:i+chunk_size] = v.sum((1, 2))
+                v.mask = transmission_mask
+                psum[i:i+chunk_size] = v.sum((1,2))
                 if maximum < v.max():
                     maximum = v.max()
                 del v
@@ -982,6 +1012,7 @@ class NXReduce(QtCore.QObject):
             vsum.mask = pixel_mask
         self.summed_data = NXfield(vsum, name='summed_data')
         self.summed_frames = NXfield(fsum, name='summed_frames')
+        self.partial_frames = NXfield(psum, name='partial_sum')
         toc = self.stop_progress()
         self.logger.info(f"Maximum counts: {maximum} ({(toc-tic):g} seconds)")
         return maximum
@@ -999,6 +1030,7 @@ class NXReduce(QtCore.QObject):
                 del self.entry['summed_frames']
             self.entry['summed_frames'] = NXdata(self.summed_frames,
                                                  self.entry['data'].nxaxes[0])
+            self.entry['summed_frames/partial_sum'] = self.partial_frames
             self.calculate_radial_sums()
         self.clear_parameters(['first', 'last'])
 
@@ -1056,7 +1088,16 @@ class NXReduce(QtCore.QObject):
             yabs[3600:] = yabs[1800:1800+yabs.shape[0]-3600]
             return yabs / max(yabs)
         else:
-            return np.ones(shape=(self.nframes), dtype=np.float32)
+            return np.ones(shape=(self.nframes,), dtype=np.float32)
+
+    def transmission_coordinates(self):
+        refine = NXRefine(self.entry)
+        pixel_radius = (self.qmin * refine.wavelength * refine.distance
+                        / (2 * np.pi * refine.pixel_size))
+        x = np.arange(self.shape[2])
+        y = np.arange(self.shape[1])
+        return ((x[np.newaxis, :]-refine.xc)**2
+                + (y[:, np.newaxis]-refine.yc)**2 < pixel_radius**2)
 
     def read_monitor(self):
         from scipy.signal import savgol_filter
@@ -1394,6 +1435,10 @@ class NXReduce(QtCore.QObject):
                     transmission = 1.0
                 try:
                     transmission *= inst['filter/transmission'].nxsignal
+                except Exception:
+                    pass
+                try:
+                    transmission *= self.transmission
                 except Exception:
                     pass
                 self.data['monitor_weight'] *= transmission

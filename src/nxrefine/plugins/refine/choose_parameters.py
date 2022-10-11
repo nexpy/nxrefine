@@ -40,8 +40,10 @@ class ParametersDialog(NXDialog):
                             'Normalization Monitor')
         self.parameters['monitor'].value = default['monitor']
         self.parameters.add('norm', default['norm'], 'Normalization Value')
-        self.parameters.add('radius', default['radius'], 'Punch Radius (Å)')
+        self.parameters.add('qmin', default['qmin'],
+                            'Minimum Scattering  Q (Å-1)')
         self.parameters.add('qmax', default['qmax'], 'Maximum Taper Q (Å-1)')
+        self.parameters.add('radius', default['radius'], 'Punch Radius (Å)')
 
         self.set_layout(self.root_layout,
                         self.close_buttons(save=True))
@@ -69,10 +71,12 @@ class ParametersDialog(NXDialog):
                 self.parameters['monitor'].value = reduce['monitor']
             if 'norm' in reduce:
                 self.parameters['norm'].value = reduce['norm']
-            if 'radius' in reduce:
-                self.parameters['radius'].value = reduce['radius']
+            if 'qmin' in reduce:
+                self.parameters['qmin'].value = reduce['qmin']
             if 'qmax' in reduce:
                 self.parameters['qmax'].value = reduce['qmax']
+            if 'radius' in reduce:
+                self.parameters['radius'].value = reduce['radius']
         else:
             try:
                 reduce = NXReduce(self.entries[0])
@@ -88,10 +92,12 @@ class ParametersDialog(NXDialog):
                     self.parameters['monitor'].value = reduce.monitor
                 if reduce.norm:
                     self.parameters['norm'].value = reduce.norm
-                if reduce.radius:
-                    self.parameters['radius'].value = reduce.radius
+                if reduce.qmin:
+                    self.parameters['qmin'].value = reduce.qmin
                 if reduce.qmax:
                     self.parameters['qmax'].value = reduce.qmax
+                if reduce.radius:
+                    self.parameters['radius'].value = reduce.radius
             except Exception:
                 pass
 
@@ -104,8 +110,9 @@ class ParametersDialog(NXDialog):
         self.root['entry/nxreduce/polar_max'] = self.polar_max
         self.root['entry/nxreduce/monitor'] = self.monitor
         self.root['entry/nxreduce/norm'] = self.norm
-        self.root['entry/nxreduce/radius'] = self.radius
+        self.root['entry/nxreduce/qmin'] = self.qmin
         self.root['entry/nxreduce/qmax'] = self.qmax
+        self.root['entry/nxreduce/radius'] = self.radius
 
     @property
     def threshold(self):
@@ -132,12 +139,16 @@ class ParametersDialog(NXDialog):
         return float(self.parameters['norm'].value)
 
     @property
-    def radius(self):
-        return float(self.parameters['radius'].value)
+    def qmin(self):
+        return float(self.parameters['qmin'].value)
 
     @property
     def qmax(self):
         return float(self.parameters['qmax'].value)
+
+    @property
+    def radius(self):
+        return float(self.parameters['radius'].value)
 
     def accept(self):
         try:
