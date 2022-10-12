@@ -11,7 +11,7 @@ from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.plotview import NXPlotView
 from nexpy.gui.pyqt import QtCore
 from nexpy.gui.utils import display_message, is_file_locked, report_error
-from nexpy.gui.widgets import NXLabel
+from nexpy.gui.widgets import NXCheckBox, NXLabel
 from nexusformat.nexus import NeXusError, NXdata, NXfield
 from nxrefine.nxreduce import NXReduce
 
@@ -50,18 +50,25 @@ class MaximumDialog(NXDialog):
             self.parameters.add('first', '', 'First Frame')
             self.parameters.add('last', '', 'Last Frame')
             self.parameters.add('qmin', '', 'Minimum Scattering Q (Ang-1)')
-            self.insert_layout(1, self.make_layout(
-                                    self.action_buttons(('Find Maximum',
+            self.parameters.add('qmax', '', 'Maximum Scattering Q (Ang-1)')
+            self.insert_layout(1, self.parameters.grid())
+            self.insert_layout(
+                2, self.make_layout(self.action_buttons(('Find Maximum',
                                                          self.find_maximum)),
                                     self.output))
-            self.insert_layout(2,
-                               self.action_buttons(('Plot Summed Frames',
-                                                    self.plot_summed_frames),
-                                                   ('Plot Partial Frames',
-                                                    self.plot_partial_frames),
-                                                   ('Plot Summed Data',
-                                                    self.plot_summed_data)))
-            self.insert_layout(3, self.parameters.grid())
+            self.checkbox['over'] = NXCheckBox('Over?')
+            self.insert_layout(
+                3, self.make_layout(self.action_buttons(
+                    ('Plot Summed Data', self.plot_summed_data),
+                    ('Plot Summed Frames', self.plot_summed_frames),
+                    ('Plot Partial Frames', self.plot_partial_frames)),
+                                    self.checkbox['over']))
+            self.checkbox['transmission'] = NXCheckBox('Save Transmission')
+            self.insert_layout(
+                4, self.make_layout(self.action_buttons(
+                    ('Plot Transmission Mask', self.plot_transmission_mask),
+                    ('Plot Transmission', self.plot_transmission),
+                    ('Save Transmission', self.save_transmission))))
         self.maximum = self.reduce.maximum
         if self.reduce.first:
             self.parameters['first'].value = self.reduce.first
@@ -69,6 +76,8 @@ class MaximumDialog(NXDialog):
             self.parameters['last'].value = self.reduce.last
         if self.reduce.qmin:
             self.parameters['qmin'].value = self.reduce.qmin
+        if self.reduce.qmax:
+            self.parameters['qmax'].value = self.reduce.qmax
         if 'summed_frames' in self.entry:
             self.summed_frames = self.entry['summed_frames'].nxsignal
             if 'partial_frames' in self.entry['summed_frames']:
@@ -109,9 +118,20 @@ class MaximumDialog(NXDialog):
     @property
     def qmin(self):
         try:
-            _qmin = np.int32(self.parameters['qmin'].value)
+            _qmin = self.parameters['qmin'].value
             if _qmin > 0:
                 return _qmin
+            else:
+                return None
+        except Exception:
+            return None
+
+    @property
+    def qmax(self):
+        try:
+            _qmax = self.parameters['qmax'].value
+            if _qmax > 0:
+                return _qmax
             else:
                 return None
         except Exception:
@@ -130,9 +150,11 @@ class MaximumDialog(NXDialog):
 
     def find_maximum(self):
         if is_file_locked(self.reduce.data_file):
+            display_message('Data file is locked')
             return
         self.start_thread()
         self.reduce = NXReduce(self.entry, first=self.first, last=self.last,
+                               qmin=self.qmin, qmax=self.qmax,
                                maxcount=True, overwrite=True, gui=True)
         self.reduce.moveToThread(self.thread)
         self.reduce.start.connect(self.start_progress)
@@ -161,25 +183,9 @@ class MaximumDialog(NXDialog):
             self._plotview = NXPlotView('Maximum')
         return self._plotview
 
-    def plot_summed_frames(self):
-        if self.summed_frames:
-            self.pv.plot(NXdata(self.summed_frames,
-                                NXfield(np.arange(self.reduce.nframes),
-                                        name='nframes',
-                                        long_title='Frame No.'),
-                                        title='Summed Frames'))
-        else:
-            display_message('Summed Frames not available')
-
-    def plot_partial_frames(self):
-        if self.partial_frames:
-            self.pv.plot(NXdata(self.partial_frames,
-                                NXfield(np.arange(self.reduce.nframes),
-                                        name='nframes',
-                                        long_title='Frame No.'),
-                                title='Partial Frames'))
-        else:
-            display_message('Partial Frames not available')
+    @property
+    def over(self):
+        return self.checkbox['over'].isChecked()
 
     def plot_summed_data(self):
         if self.summed_data:
@@ -188,16 +194,78 @@ class MaximumDialog(NXDialog):
                                          name='y'),
                                  NXfield(np.arange(self.reduce.shape[2]),
                                          name='x')),
-                                title='Summed Data'))
+                                title='Summed Data'), log=True)
+            self.pv.aspect = 'equal'
+            self.pv.ytab.flipped = True
         else:
             display_message('Summed_data not available')
+
+    def plot_summed_frames(self):
+        if self.summed_frames:
+            if self.over:
+                NXdata(self.summed_frames).oplot(markersize=2)
+            else:
+                self.pv.plot(NXdata(self.summed_frames,
+                                    NXfield(np.arange(self.reduce.nframes),
+                                            name='nframes',
+                                            long_title='Frame No.'),
+                                    title='Summed Frames'),
+                             markersize=2)
+        else:
+            display_message('Summed Frames not available')
+
+    def plot_partial_frames(self):
+        if self.partial_frames:
+            if self.over:
+                NXdata(self.partial_frames).oplot(markersize=2)
+            else:
+                self.pv.plot(NXdata(self.partial_frames,
+                                    NXfield(np.arange(self.reduce.nframes),
+                                            name='nframes',
+                                            long_title='Frame No.'),
+                                    title='Partial Frames'),
+                             markersize=2)
+        else:
+            display_message('Partial Frames not available')
+
+    def plot_transmission_mask(self):
+        self.reduce.qmin = self.qmin
+        self.reduce.qmax = self.qmax
+        self.pv.plot(NXdata(self.reduce.transmission_coordinates(),
+                            (NXfield(np.arange(self.reduce.shape[1]),
+                                     name='y'),
+                             NXfield(np.arange(self.reduce.shape[2]),
+                                     name='x')),
+                            title='Transmission Mask'))
+        self.pv.aspect = 'equal'
+        self.pv.ytab.flipped = True
+
+    def plot_transmission(self):
+        if self.partial_frames:
+            self.reduce.qmin = self.qmin
+            self.reduce.qmax = self.qmax
+            self.transmission = self.reduce.calculate_transmission()
+            if self.over:
+                NXdata(self.transmission).oplot(markersize=2)
+            else:
+                self.pv.plot(NXdata(self.transmission,
+                                    NXfield(np.arange(self.reduce.nframes),
+                                            name='nframes',
+                                            long_title='Frame No.'),
+                                    title='Transmission'),
+                             markersize=2)
+        else:
+            display_message('Partial frames not available')
+
+    def save_transmission(self):
+        self.reduce.write_transmission()
 
     def accept(self):
         try:
             self.reduce.write_maximum()
             self.reduce.record('nxmax', maximum=self.maximum,
                                first_frame=self.first, last_frame=self.last,
-                               qmin=self.qmin)
+                               qmin=self.qmin, qmax=self.qmax)
             self.reduce.record_end('nxmax')
             self.stop()
             super().accept()

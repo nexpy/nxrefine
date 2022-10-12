@@ -234,6 +234,10 @@ class NXReduce(QtCore.QObject):
         self.gui = gui
         self.timer = {}
 
+        self.summed_frames = None
+        self.partial_frames = None
+        self.summed_data = None
+
         self._stopped = False
         self._process_count = None
 
@@ -381,14 +385,14 @@ class NXReduce(QtCore.QObject):
             try:
                 self._pixel_mask = (
                     self.entry['instrument/detector/pixel_mask'].nxvalue)
-            except Exception as error:
-                pass
+            except Exception:
+                self._pixel_mask = np.zeros((self.shape[1], self.shape[2]),
+                                            dtype=np.int8)
         return self._pixel_mask
 
     @pixel_mask.setter
-    def pixel_mask(self, mask):
-        with self.entry.nxfile:
-            self.entry['instrument/detector/pixel_mask'] = mask
+    def pixel_mask(self, value):
+        self._pixel_mask = value
 
     @property
     def parent(self):
@@ -606,6 +610,10 @@ class NXReduce(QtCore.QObject):
             if 'data' in self.entry and 'maximum' in self.entry['data'].attrs:
                 self._maximum = self.entry['data'].attrs['maximum']
         return self._maximum
+
+    @maximum.setter
+    def maximum(self, value):
+        self._maximum = value
 
     @property
     def transmission(self):
@@ -983,7 +991,6 @@ class NXReduce(QtCore.QObject):
             mask[np.where(pixel_max == pixel_mean)] = 1
             mask[np.where(pixel_mean < 100)] = 0
             pixel_mask = pixel_mask | mask
-            self.pixel_mask = pixel_mask
             transmission_mask = self.transmission_coordinates()
             # Start looping over the data
             tic = self.start_progress(self.first, self.last)
@@ -999,21 +1006,21 @@ class NXReduce(QtCore.QObject):
                     vsum = v.sum(0)
                 else:
                     vsum += v.sum(0)
-                if pixel_mask is not None:
-                    v = np.ma.masked_array(v)
-                    v.mask = pixel_mask
+                v = np.ma.masked_array(v)
+                v.mask = pixel_mask
                 fsum[i:i+chunk_size] = v.sum((1, 2))
-                psum[i:i+chunk_size] = v[transmission_mask].sum((1, 2))
+                v.mask = pixel_mask | transmission_mask
+                psum[i:i+chunk_size] = v.sum((1, 2))
                 if maximum < v.max():
                     maximum = v.max()
                 del v
-        if pixel_mask is not None:
-            vsum = np.ma.masked_array(vsum)
-            vsum.mask = pixel_mask
+        self.pixel_mask = pixel_mask
+        vsum = np.ma.masked_array(vsum)
+        vsum.mask = pixel_mask
         self.maximum = maximum
         self.summed_data = NXfield(vsum, name='summed_data')
         self.summed_frames = NXfield(fsum, name='summed_frames')
-        self.partial_frames = NXfield(fsum-psum, name='partial_frames')
+        self.partial_frames = NXfield(psum, name='partial_frames')
         toc = self.stop_progress()
         self.logger.info(f"Maximum counts: {maximum} ({(toc-tic):g} seconds)")
         result = NXcollection(NXfield(maximum, name='maximum'),
@@ -1026,6 +1033,7 @@ class NXReduce(QtCore.QObject):
             self.entry['data'].attrs['maximum'] = self.maximum
             self.entry['data'].attrs['first'] = self.first
             self.entry['data'].attrs['last'] = self.last
+            self.entry['instrument/detector/pixel_mask'] = self.pixel_mask
             if 'summed_data' in self.entry:
                 del self.entry['summed_data']
             self.entry['summed_data'] = NXdata(self.summed_data,
@@ -1077,31 +1085,54 @@ class NXReduce(QtCore.QObject):
             return None
 
     def calculate_transmission(self):
-        if self.norm and self.monitor in self.entry:
+        if ('summed_frames' in self.entry
+                and 'partial_frames' in self.entry['summed_frames']):
             from scipy.interpolate import interp1d
             from scipy.ndimage.filters import median_filter
             monitor = self.read_monitor()
             x = np.arange(self.nframes)
-            y = self.entry['summed_frames'].nxsignal.nxvalue
-            xmin = x[25::50]
-            ymin = median_filter(np.array([min(y[x-25:x+25]) for x in xmin]),
-                                 size=3)
+            if self.partial_frames is not None:
+                y = self.partial_frames.nxvalue
+            else:
+                y = self.entry['summed_frames/partial_frames'].nxvalue
+            dx = 5
+            ms = 50
+            xmin = x[self.first+dx:self.last-dx+1:2*dx]
+            ymin = median_filter(np.array([min(y[x-dx:x+dx]) for x in xmin]),
+                                 size=ms)
             yabs = np.ones(shape=x.shape, dtype=np.float32) / monitor
-            yabs[25:3625] = interp1d(xmin, ymin, kind='cubic')(x[25:3625])
+            yabs[self.first+dx:3600+dx+1] = interp1d(
+                xmin, ymin, kind='cubic')(x[self.first+dx:3600+dx+1])
             yabs[:1800] = yabs[1800:3600]
             yabs[3600:] = yabs[1800:1800+yabs.shape[0]-3600]
             return yabs / max(yabs)
         else:
             return np.ones(shape=(self.nframes,), dtype=np.float32)
 
+    def write_transmission(self):
+        if self.partial_frames:
+            transmission = NXfield(self.calculate_transmission(),
+                                   name='transmission')
+            frames = NXfield(np.arange(self.reduce.nframes), name='nframes',
+                             long_title='Frame No.')
+            transmission_group = NXdata(transmission, frames,
+                                        title='Transmission')
+            refine = NXRefine(self.entry)
+            refine.write_parameter('sample/transmission', transmission_group)
+
     def transmission_coordinates(self):
         refine = NXRefine(self.entry)
-        pixel_radius = (self.qmin * refine.wavelength * refine.distance
-                        / (2 * np.pi * refine.pixel_size))
+        min_radius = (self.qmin * refine.wavelength * refine.distance
+                      / (2 * np.pi * refine.pixel_size))
+        max_radius = (self.qmax * refine.wavelength * refine.distance
+                      / (2 * np.pi * refine.pixel_size))
         x = np.arange(self.shape[2])
         y = np.arange(self.shape[1])
-        return ((x[np.newaxis, :]-refine.xc)**2
-                + (y[:, np.newaxis]-refine.yc)**2 < pixel_radius**2)
+        min_mask = ((x[np.newaxis, :]-refine.xc)**2
+                    + (y[:, np.newaxis]-refine.yc)**2 < min_radius**2)
+        max_mask = ((x[np.newaxis, :]-refine.xc)**2
+                    + (y[:, np.newaxis]-refine.yc)**2 > max_radius**2)
+        return min_mask | max_mask
 
     def read_monitor(self):
         from scipy.signal import savgol_filter
