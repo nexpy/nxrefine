@@ -39,7 +39,6 @@ class MaximumDialog(NXDialog):
         self.summed_data = None
         self.summed_frames = None
         self.partial_frames = None
-        self.transmission = None
         self._plotview = None
 
     def choose_entry(self):
@@ -244,11 +243,13 @@ class MaximumDialog(NXDialog):
         if self.partial_frames:
             self.reduce.qmin = self.qmin
             self.reduce.qmax = self.qmax
-            self.transmission = self.reduce.calculate_transmission()
+            transmission = NXfield(self.reduce.calculate_transmission(),
+                                   name='transmission',
+                                   long_name='Sample Transmission')
             if self.over:
-                NXdata(self.transmission).oplot(markersize=2)
+                NXdata(transmission).oplot(markersize=2)
             else:
-                self.pv.plot(NXdata(self.transmission,
+                self.pv.plot(NXdata(transmission,
                                     NXfield(np.arange(self.reduce.nframes),
                                             name='nframes',
                                             long_title='Frame No.'),
@@ -258,6 +259,9 @@ class MaximumDialog(NXDialog):
             display_message('Partial frames not available')
 
     def save_transmission(self):
+        self.reduce.qmin = self.qmin
+        self.reduce.qmax = self.qmax
+        self.reduce.partial_frames = self.partial_frames
         self.reduce.write_transmission()
 
     def accept(self):

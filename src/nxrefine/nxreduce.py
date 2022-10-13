@@ -25,7 +25,7 @@ from nexusformat.nexus import (NeXusError, NXattenuator, NXcollection, NXdata,
                                NXentry, NXfield, NXfilter, NXinstrument,
                                NXlink, NXLock, NXmonitor, NXnote, NXparameters,
                                NXprocess, NXreflections, NXroot, NXsource,
-                               nxload, nxgetconfig, nxsetconfig)
+                               nxgetconfig, nxload, nxsetconfig)
 from qtpy import QtCore
 
 from . import __version__
@@ -1112,11 +1112,12 @@ class NXReduce(QtCore.QObject):
     def write_transmission(self):
         if self.partial_frames:
             transmission = NXfield(self.calculate_transmission(),
-                                   name='transmission')
-            frames = NXfield(np.arange(self.reduce.nframes), name='nframes',
+                                   name='transmission',
+                                   long_name='Sample Transmission')
+            frames = NXfield(np.arange(self.nframes), name='nframes',
                              long_title='Frame No.')
             transmission_group = NXdata(transmission, frames,
-                                        title='Transmission')
+                                        title='Sample Transmission')
             refine = NXRefine(self.entry)
             refine.write_parameter('sample/transmission', transmission_group)
 
