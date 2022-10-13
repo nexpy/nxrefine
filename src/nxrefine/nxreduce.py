@@ -14,7 +14,6 @@ import platform
 import shutil
 import subprocess
 import timeit
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime
 
 import h5py as h5
@@ -1177,6 +1176,7 @@ class NXReduce(QtCore.QObject):
         tic = self.start_progress(self.first, self.last)
         self.blobs = []
         if self.server.server_type == 'multicore':
+            from concurrent.futures import ProcessPoolExecutor, as_completed
             with ProcessPoolExecutor(
                     max_workers=self.process_count) as executor:
                 futures = []
@@ -1330,6 +1330,7 @@ class NXReduce(QtCore.QObject):
             NXfield(shape=self.shape, dtype=np.int8, fillvalue=0))
 
         if self.server.server_type == 'multicore':
+            from concurrent.futures import ProcessPoolExecutor, as_completed
             with ProcessPoolExecutor(
                     max_workers=self.process_count) as executor:
                 futures = []
