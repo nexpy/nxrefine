@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2015-2021, NeXpy Development Team.
+# Copyright (c) 2015-2022, AXMAS Development Team.
 #
 # Distributed under the terms of the Modified BSD License.
 #
@@ -50,6 +50,8 @@ class MaximumDialog(NXDialog):
             self.parameters.add('last', '', 'Last Frame')
             self.parameters.add('qmin', '', 'Minimum Scattering Q (Ang-1)')
             self.parameters.add('qmax', '', 'Maximum Scattering Q (Ang-1)')
+            self.parameters.add('fw', '5', 'Frame Window')
+            self.parameters.add('fs', '20', 'Filter Size')
             self.insert_layout(1, self.parameters.grid())
             self.insert_layout(
                 2, self.make_layout(self.action_buttons(('Find Maximum',
@@ -117,22 +119,28 @@ class MaximumDialog(NXDialog):
     @property
     def qmin(self):
         try:
-            _qmin = self.parameters['qmin'].value
-            if _qmin > 0:
-                return _qmin
-            else:
-                return None
+            return self.parameters['qmin'].value
         except Exception:
             return None
 
     @property
     def qmax(self):
         try:
-            _qmax = self.parameters['qmax'].value
-            if _qmax > 0:
-                return _qmax
-            else:
-                return None
+            return self.parameters['qmax'].value
+        except Exception:
+            return None
+
+    @property
+    def frame_window(self):
+        try:
+            return int(self.parameters['fw'].value)
+        except Exception:
+            return None
+
+    @property
+    def filter_size(self):
+        try:
+            return int(self.parameters['fs'].value)
         except Exception:
             return None
 
@@ -243,7 +251,9 @@ class MaximumDialog(NXDialog):
         if self.partial_frames:
             self.reduce.qmin = self.qmin
             self.reduce.qmax = self.qmax
-            transmission = NXfield(self.reduce.calculate_transmission(),
+            transmission = NXfield(self.reduce.calculate_transmission(
+                frame_window=self.frame_window, filter_size=self.filter_size,
+                norm=False),
                                    name='transmission',
                                    long_name='Sample Transmission')
             if self.over:
@@ -262,7 +272,8 @@ class MaximumDialog(NXDialog):
         self.reduce.qmin = self.qmin
         self.reduce.qmax = self.qmax
         self.reduce.partial_frames = self.partial_frames
-        self.reduce.write_transmission()
+        self.reduce.write_transmission(frame_window=self.frame_window,
+                                       filter_size=self.filter_size)
 
     def accept(self):
         try:
