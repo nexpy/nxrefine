@@ -364,12 +364,19 @@ class NXReduce(QtCore.QObject):
     @property
     def shape(self):
         if self._shape is None:
-            self._shape = self.field.shape
+            try:
+                self._shape = tuple(
+                    [axis.shape[0] for axis in self.entry['data'].nxaxes])
+            except NeXusError:
+                self._shape = self.field.shape
         return self._shape
 
     @property
     def nframes(self):
-        return self.shape[0]
+        try:
+            return self.entry['data/frame_number'].shape[0]
+        except NeXusError:
+            return self.shape[0]
 
     @property
     def data_file(self):
