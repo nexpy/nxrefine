@@ -1090,7 +1090,8 @@ class NXReduce(QtCore.QObject):
             self.logger.info(str(error))
             return None
 
-    def calculate_transmission(self):
+    def calculate_transmission(self, frame_window=5, filter_size=20,
+                               norm=True):
         if ('summed_frames' in self.entry
                 and 'partial_frames' in self.entry['summed_frames']):
             from scipy.interpolate import interp1d
@@ -1101,31 +1102,36 @@ class NXReduce(QtCore.QObject):
                 y = self.partial_frames.nxvalue
             else:
                 y = self.entry['summed_frames/partial_frames'].nxvalue
-            dx = 5
-            ms = 50
-            xmin = x[self.first+dx:self.last-dx+1:2*dx]
-            ymin = median_filter(np.array([min(y[x-dx:x+dx]) for x in xmin]),
+            dx = frame_window
+            ms = filter_size
+            xmin = x[self.first+dx:self.last-dx:2*dx]
+            ymin = median_filter(np.array([min(y[i-dx:i+dx]) for i in xmin]),
                                  size=ms)
             yabs = np.ones(shape=x.shape, dtype=np.float32) / monitor
-            yabs[self.first+dx:3600+dx+1] = interp1d(
-                xmin, ymin, kind='cubic')(x[self.first+dx:3600+dx+1])
+            yabs[xmin[0]:xmin[-1]] = interp1d(
+                xmin, ymin, kind='cubic')(x[xmin[0]:xmin[-1]])
             yabs[:1800] = yabs[1800:3600]
             yabs[3600:] = yabs[1800:1800+yabs.shape[0]-3600]
-            return yabs / max(yabs)
+            if norm:
+                return yabs / max(yabs)
+            else:
+                return yabs
         else:
             return np.ones(shape=(self.nframes,), dtype=np.float32)
 
-    def write_transmission(self):
+    def write_transmission(self, frame_window=5, filter_size=20):
         if self.partial_frames:
-            transmission = NXfield(self.calculate_transmission(),
+            transmission = NXfield(self.calculate_transmission(
+                frame_window=frame_window, filter_size=filter_size),
                                    name='transmission',
                                    long_name='Sample Transmission')
             frames = NXfield(np.arange(self.nframes), name='nframes',
                              long_title='Frame No.')
-            transmission_group = NXdata(transmission, frames,
-                                        title='Sample Transmission')
+            group = NXdata(transmission, frames, title='Sample Transmission')
+            group.attrs['frame_window'] = frame_window
+            group.attrs['filter_size'] = filter_size
             refine = NXRefine(self.entry)
-            refine.write_parameter('sample/transmission', transmission_group)
+            refine.write_parameter('sample/transmission', group)
 
     def transmission_coordinates(self):
         refine = NXRefine(self.entry)
