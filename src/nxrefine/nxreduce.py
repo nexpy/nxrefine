@@ -622,7 +622,7 @@ class NXReduce(QtCore.QObject):
         self._maximum = value
 
     @property
-    def transmission(self):
+    def sample_transmission(self):
         if self.parent and 'transmission' in self.parent_root['entry/sample']:
             return self.parent_root['entry/sample/transmission'].nxsignal
         elif 'transmission' in self.entry['sample']:
@@ -1111,7 +1111,7 @@ class NXReduce(QtCore.QObject):
             yabs[xmin[0]:xmin[-1]] = interp1d(
                 xmin, ymin, kind='cubic')(x[xmin[0]:xmin[-1]])
             yabs[:1800] = yabs[1800:3600]
-            yabs[3600:] = yabs[1800:1800+yabs.shape[0]-3600]
+            yabs[3600:] = yabs[1800:1800+self.nframes-3600]
             if norm:
                 return yabs / max(yabs)
             else:
@@ -1488,7 +1488,7 @@ class NXReduce(QtCore.QObject):
                 except Exception:
                     pass
                 try:
-                    transmission *= self.transmission
+                    transmission *= self.sample_transmission
                 except Exception:
                     pass
                 self.data['monitor_weight'] *= transmission
