@@ -504,6 +504,8 @@ class NXReduce(QtCore.QObject):
     def first(self):
         if self._first is None:
             self._first = int(self.get_parameter('first', 'first_frame'))
+        if self._first is None or self._first < 0:
+            self._first = 10
         return self._first
 
     @first.setter
@@ -517,16 +519,20 @@ class NXReduce(QtCore.QObject):
     def last(self):
         if self._last is None:
             try:
-                self.default['last'] = self.shape[0]
+                self.default['last'] = self.nframes - 10
             except Exception:
                 pass
             self._last = int(self.get_parameter('last', 'last_frame'))
+        if self._last is None or self._last > self.nframes:
+            self._last = self.nframes - 10
         return self._last
 
     @last.setter
     def last(self, value):
         try:
-            self._last = np.int(value)
+            self._last = int(value)
+            if self._last > self.nframes:
+                self._last = self.nframes - 10
         except ValueError:
             pass
 
@@ -538,7 +544,7 @@ class NXReduce(QtCore.QObject):
 
     @polar_max.setter
     def polar_max(self, value):
-        self._polar_max = np.float(value)
+        self._polar_max = float(value)
 
     @property
     def threshold(self):
@@ -832,7 +838,7 @@ class NXReduce(QtCore.QObject):
             key, value = line.split(', ')
             value = value.strip('\n')
             try:
-                value = np.float(value)
+                value = float(value)
             except Exception:
                 pass
             logs[key] = value
@@ -979,10 +985,6 @@ class NXReduce(QtCore.QObject):
             chunk_size = self.field.chunks[0]
             if chunk_size < 20:
                 chunk_size = 50
-            if self.first is None:
-                self.first = 0
-            if self.last is None:
-                self.last = self.nframes
             data = self.field.nxfile[self.path]
             fsum = np.zeros(self.nframes, dtype=np.float64)
             psum = np.zeros(self.nframes, dtype=np.float64)
@@ -1110,8 +1112,9 @@ class NXReduce(QtCore.QObject):
             yabs = np.ones(shape=x.shape, dtype=np.float32) / monitor
             yabs[xmin[0]:xmin[-1]] = interp1d(
                 xmin, ymin, kind='cubic')(x[xmin[0]:xmin[-1]])
-            yabs[:1800] = yabs[1800:3600]
-            yabs[3600:] = yabs[1800:1800+self.nframes-3600]
+            if self.last >= 3600:
+                yabs[:1800] = yabs[1800:3600]
+                yabs[3600:] = yabs[1800:1800+self.nframes-3600]
             if norm:
                 return yabs / max(yabs)
             else:
@@ -1185,7 +1188,6 @@ class NXReduce(QtCore.QObject):
 
     def find_peaks(self):
         self.logger.info("Finding peaks")
-
         tic = self.start_progress(self.first, self.last)
         self.blobs = []
         if self.server.server_type == 'multicore':
