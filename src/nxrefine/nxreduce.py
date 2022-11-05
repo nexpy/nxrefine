@@ -379,11 +379,13 @@ class NXReduce(QtCore.QObject):
             return self.shape[0]
 
     @property
-    def data_file(self):
+    def raw_file(self):
+        """Absolute file path to the externally linked raw data file."""
         return self.entry[self._data].nxfilename
 
     def data_exists(self):
-        return is_hdf5(self.data_file)
+        """True if the externally linked raw data file exists."""
+        return is_hdf5(self.raw_file)
 
     @property
     def pixel_mask(self):
@@ -786,9 +788,9 @@ class NXReduce(QtCore.QObject):
                     self.entry['data/frame_number'] = frames
                     self.entry['data/frame_time'] = frame_time * frames
                     self.entry['data/frame_time'].attrs['units'] = 's'
-                    data_file = os.path.relpath(
-                        self.data_file, os.path.dirname(self.wrapper_file))
-                    self.entry['data/data'] = NXlink(self.path, data_file)
+                    raw_file = os.path.relpath(
+                        self.raw_file, os.path.dirname(self.wrapper_file))
+                    self.entry['data/data'] = NXlink(self.path, raw_file)
                     self.entry['data'].nxsignal = self.entry['data/data']
                     self.logger.info(
                         'Data group created and linked to external data')
@@ -1527,7 +1529,7 @@ class NXReduce(QtCore.QObject):
                 return None
 
     def nxsum(self, scan_list, update=False):
-        if os.path.exists(self.data_file) and not (self.overwrite or update):
+        if os.path.exists(self.raw_file) and not (self.overwrite or update):
             self.logger.info("Data already summed")
         elif not os.path.exists(self.directory):
             self.logger.info("Sum directory not created")
@@ -1558,8 +1560,8 @@ class NXReduce(QtCore.QObject):
         for i, scan in enumerate(scan_list):
             reduce = NXReduce(self.entry_name,
                               os.path.join(self.base_directory, scan))
-            if not os.path.exists(reduce.data_file):
-                self.logger.info(f"'{reduce.data_file}' does not exist")
+            if not os.path.exists(reduce.raw_file):
+                self.logger.info(f"'{reduce.raw_file}' does not exist")
                 status = False
             elif 'monitor1' not in reduce.entry:
                 self.logger.info(
@@ -1575,13 +1577,13 @@ class NXReduce(QtCore.QObject):
             reduce = NXReduce(self.entry_name,
                               os.path.join(self.base_directory, scan))
             self.logger.info(
-                f"Summing {self.entry_name} in '{reduce.data_file}'")
+                f"Summing {self.entry_name} in '{reduce.raw_file}'")
             if i == 0:
-                shutil.copyfile(reduce.data_file, self.data_file)
-                new_file = h5.File(self.data_file, 'r+')
+                shutil.copyfile(reduce.raw_file, self.raw_file)
+                new_file = h5.File(self.raw_file, 'r+')
                 new_field = new_file[self.path]
             else:
-                scan_file = h5.File(reduce.data_file, 'r')
+                scan_file = h5.File(reduce.raw_file, 'r')
                 scan_field = scan_file[self.path]
                 for i in range(0, nframes, chunk_size):
                     new_slab = new_field[i:i+chunk_size, :, :]

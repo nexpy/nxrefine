@@ -156,7 +156,7 @@ class MaximumDialog(NXDialog):
             self.output.setText('')
 
     def find_maximum(self):
-        if is_file_locked(self.reduce.data_file):
+        if is_file_locked(self.reduce.raw_file):
             display_message('Data file is locked')
             return
         self.start_thread()

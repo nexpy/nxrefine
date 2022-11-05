@@ -1,5 +1,5 @@
 import numpy as np
-from nexusformat.nexus import nxopen, nxsetlock, NXdata
+from nexusformat.nexus import NXdata, nxopen, nxsetlock
 from skimage.feature import peak_local_max
 
 

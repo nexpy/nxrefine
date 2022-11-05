@@ -101,7 +101,7 @@ class FindDialog(NXDialog):
             report_error("Finding Peaks", error)
 
     def find_peaks(self):
-        if is_file_locked(self.reduce.data_file):
+        if is_file_locked(self.reduce.raw_file):
             return
         self.start_thread()
         self.reduce = NXReduce(self.entry, threshold=self.threshold,

@@ -103,7 +103,7 @@ class PrepareDialog(NXDialog):
             report_error("Preparing Mask", error)
 
     def prepare_mask(self):
-        if is_file_locked(self.reduce.data_file):
+        if is_file_locked(self.reduce.raw_file):
             return
         self.start_thread()
         self.reduce = NXReduce(self.entry, prepare=True,
