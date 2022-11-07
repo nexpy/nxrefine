@@ -123,7 +123,6 @@ class ConfigurationDialog(NXDialog):
         entry['instrument/detector/frame_time'] = (
             NXfield(1/float(default['frame_rate']), dtype=float))
         self.scan = GridParameters()
-        self.scan.add('chi', default['chi'], 'Chi (deg)')
         self.scan.add('phi_start', default['phi'], 'Phi Start (deg)')
         self.scan.add('phi_end', default['phi_end'], 'Phi End (deg)')
         self.scan.add('phi_step', default['phi_step'], 'Phi Step (deg)')
@@ -151,9 +150,10 @@ class ConfigurationDialog(NXDialog):
         default = self.settings['nxrefine']
         entry = NXentry()
         self.detectors[position] = GridParameters()
+        self.detectors[position].add('chi', default['chi'], 'Chi (deg)')
+        self.detectors[position].add('omega', default['omega'], 'Omega (deg)')
         self.detectors[position].add('x', default['x'], 'Translation - x (mm)')
         self.detectors[position].add('y', default['y'], 'Translation - y (mm)')
-        self.detectors[position].add('omega', default['omega'], 'Omega (deg)')
         self.configuration_file[f'f{position}'] = entry
 
     def get_detector(self):
@@ -238,7 +238,8 @@ class ConfigurationDialog(NXDialog):
                 self.scan['phi_step'].value)
             entry['instrument/goniometer/phi'].attrs['end'] = (
                 self.scan['phi_end'].value)
-            entry['instrument/goniometer/chi'] = self.scan['chi'].value
+            entry['instrument/goniometer/chi'] = (
+                self.detectors[position]['chi'].value)
             entry['instrument/goniometer/omega'] = (
                 self.detectors[position]['omega'].value)
 
