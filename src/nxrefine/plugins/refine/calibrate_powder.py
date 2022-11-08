@@ -5,12 +5,15 @@
 #
 # The full license is in the file COPYING, distributed with this software.
 # -----------------------------------------------------------------------------
+import os
 
 import numpy as np
 import pyFAI
 from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.plotview import NXPlotView, plotviews
-from nexpy.gui.utils import confirm_action, load_image, report_error
+from nexpy.gui.pyqt import getOpenFileName, getSaveFileName
+from nexpy.gui.utils import (confirm_action, display_message, load_image,
+                             report_error)
 from nexusformat.nexus import (NeXusError, NXcollection, NXdata, NXfield,
                                NXprocess)
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
@@ -39,7 +42,6 @@ class CalibrateDialog(NXDialog):
         self.pattern_geometry = None
         self.cake_geometry = None
         self.polarization = None
-        self.is_calibrated = False
         self.phi_max = -np.pi
 
         cstr = str(ALL_CALIBRANTS)
@@ -60,18 +62,13 @@ class CalibrateDialog(NXDialog):
                         self.progress_layout(close=True))
         self.set_title('Calibrating Powder')
 
-    def choose_file(self):
-        super().choose_file()
-        powder_file = self.get_filename()
-        if powder_file:
-            self.data = load_image(powder_file)
-            self.counts = self.data.nxsignal.nxvalue
-            self.plot_data()
-
     def choose_entry(self):
         if self.layout.count() == 2:
             self.insert_layout(
-                1, self.filebox('Choose Powder Calibration File'))
+                1, self.action_buttons(
+                    ('Import Powder Data', self.import_powder),
+                    ('Import Calibration', self.import_calibration),
+                    ('Export Calibration', self.export_calibration)))
             self.insert_layout(2, self.parameters.grid(header=False))
             self.insert_layout(
                 3, self.action_buttons(('Select Points', self.select),
@@ -102,8 +99,46 @@ class CalibrateDialog(NXDialog):
             self.data = self.entry['instrument/calibration']
             self.counts = self.data.nxsignal.nxvalue
             self.plot_data()
+            if 'refinement' in self.data:
+                parameters = (
+                    self.entry['instrument/calibration/refinement/parameters'])
+            ai = AzimuthalIntegrator(
+                dist=parameters['Distance'].nxvalue,
+                detector=parameters['Detector'].nxvalue,
+                poni1=parameters['Poni1'].nxvalue,
+                poni2=parameters['Poni2'].nxvalue,
+                rot1=parameters['Rot1'].nxvalue,
+                rot2=parameters['Rot2'].nxvalue,
+                rot3=parameters['Rot3'].nxvalue,
+                pixel1=parameters['PixelSize1'].nxvalue,
+                pixel2=parameters['PixelSize2'].nxvalue,
+                wavelength=parameters['Wavelength'].nxvalue)
+
         else:
             self.close_plots()
+
+    def import_powder(self):
+        powder_file = getOpenFileName(self, 'Open Powder Data File')
+        if os.path.exists(powder_file):
+            self.data = load_image(powder_file)
+            self.counts = self.data.nxsignal.nxvalue
+            self.plot_data()
+
+    def import_calibration(self):
+        calibration_file = getOpenFileName(self, 'Open Calibration File')
+        if os.path.exists(calibration_file):
+            self.pattern_geometry = pyFAI.load(calibration_file)
+            self.read_parameters()
+            self.create_cake_geometry()
+
+    def export_calibration(self):
+        if self.pattern_geometry is None:
+            display_message("No calibration available")
+            return
+        calibration_file = getSaveFileName(self, "Choose a Filename",
+                                           'calibration.poni')
+        if calibration_file:
+            self.pattern_geometry.write(calibration_file)
 
     @property
     def search_size(self):
@@ -250,6 +285,9 @@ class CalibrateDialog(NXDialog):
         self.yc = self.parameters['yc'].value
 
     def calibrate(self):
+        if len(self.points) == 0:
+            display_message("No points selected")
+            return
         self.prepare_parameters()
         self.orig_pixel1 = self.pixel_size
         self.orig_pixel2 = self.pixel_size
@@ -275,7 +313,6 @@ class CalibrateDialog(NXDialog):
             fix.append('dist')
         self.pattern_geometry.refine2_wavelength(fix=fix)
         self.read_parameters()
-        self.is_calibrated = True
         self.create_cake_geometry()
         self.pattern_geometry.reset()
 
@@ -298,8 +335,9 @@ class CalibrateDialog(NXDialog):
             plotview = plotviews['Cake Plot']
         else:
             plotview = NXPlotView('Cake Plot')
-        if not self.is_calibrated:
-            raise NeXusError('No refinement performed')
+        if self.pattern_geometry is None:
+            display_message("No refinement performed")
+            return
         res = self.cake_geometry.integrate2d(self.counts,
                                              1024, 1024,
                                              method='csr',
@@ -318,14 +356,14 @@ class CalibrateDialog(NXDialog):
                         linestyle=':', color='r')
 
     def read_parameters(self):
-        pyFAI = self.pattern_geometry.getPyFAI()
+        calib = self.pattern_geometry.getPyFAI()
         fit2d = self.pattern_geometry.getFit2D()
         self.parameters['wavelength'].value = (
             self.pattern_geometry.wavelength * 1e10)
-        self.parameters['distance'].value = pyFAI['dist'] * 1e3
-        self.parameters['yaw'].value = np.degrees(pyFAI['rot1'])
-        self.parameters['pitch'].value = np.degrees(pyFAI['rot2'])
-        self.parameters['roll'].value = np.degrees(pyFAI['rot3'])
+        self.parameters['distance'].value = calib['dist'] * 1e3
+        self.parameters['yaw'].value = np.degrees(calib['rot1'])
+        self.parameters['pitch'].value = np.degrees(calib['rot2'])
+        self.parameters['roll'].value = np.degrees(calib['rot3'])
         self.parameters['xc'].value = fit2d['centerX']
         self.parameters['yc'].value = fit2d['centerY']
 
@@ -333,8 +371,9 @@ class CalibrateDialog(NXDialog):
         self.parameters.restore_parameters()
 
     def save_parameters(self):
-        if not self.is_calibrated:
-            raise NeXusError('No refinement performed')
+        if self.pattern_geometry is None:
+            display_message("No refinement performed")
+            return
         elif 'calibration' in self.entry['instrument']:
             if confirm_action(
                     "Do you want to overwrite existing calibration data?"):
