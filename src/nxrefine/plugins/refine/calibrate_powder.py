@@ -101,6 +101,7 @@ class CalibrateDialog(NXDialog):
             self.data = self.entry['instrument/calibration']
             self.counts = self.data.nxsignal.nxvalue
             self.plot_data()
+            self.parameters['calibrant'].value = self.data['calibrant']
             if 'refinement' in self.data:
                 parameters = (
                     self.entry['instrument/calibration/refinement/parameters'])
@@ -115,7 +116,6 @@ class CalibrateDialog(NXDialog):
                 pixel1=parameters['PixelSize1'].nxvalue,
                 pixel2=parameters['PixelSize2'].nxvalue,
                 wavelength=parameters['Wavelength'].nxvalue)
-
         else:
             self.close_plots()
 
@@ -437,9 +437,8 @@ class CalibrateDialog(NXDialog):
         if 'Cake Plot' in plotviews:
             plotviews['Cake Plot'].close()
 
-    def closeEvent(self, event):
-        self.close_plots()
-        event.accept()
+    def close(self):
+        self.reject()
 
     def accept(self):
         super().accept()
