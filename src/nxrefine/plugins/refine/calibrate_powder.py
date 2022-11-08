@@ -74,6 +74,8 @@ class CalibrateDialog(NXDialog):
                 3, self.action_buttons(('Select Points', self.select),
                                        ('Autogenerate Rings', self.auto),
                                        ('Clear Points', self.clear_points)))
+            self.pushbutton['Select Points'].setCheckable(True)
+            self.pushbutton['Select Points'].setChecked(False)
             self.insert_layout(4, self.make_layout(self.rings_box))
             self.insert_layout(
                 5, self.action_buttons(('Calibrate', self.calibrate),
@@ -186,7 +188,10 @@ class CalibrateDialog(NXDialog):
                         circle.remove()
                     del self.points[i]
                     return
-            self.add_points(x, y)
+            try:
+                self.add_points(x, y)
+            except Exception:
+                return
 
     def circle(self, idx, idy, alpha=1.0):
         return self.plotview.circle(idx, idy, self.search_size,
@@ -194,10 +199,14 @@ class CalibrateDialog(NXDialog):
                                     alpha=alpha)
 
     def select(self):
-        self.plotview.cidpress = self.plotview.mpl_connect(
-            'button_press_event', self.on_button_press)
-        self.plotview.cidrelease = self.plotview.mpl_connect(
-            'button_release_event', self.on_button_release)
+        if self.pushbutton['Select Points'].isChecked():
+            self.plotview.cidpress = self.plotview.canvas.mpl_connect(
+                'button_press_event', self.on_button_press)
+            self.plotview.cidrelease = self.plotview.canvas.mpl_connect(
+                'button_release_event', self.on_button_release)
+        else:
+            self.plotview.canvas.mpl_disconnect(self.plotview.cidpress)
+            self.plotview.canvas.mpl_disconnect(self.plotview.cidrelease)
 
     def auto(self):
         xc, yc = self.parameters['xc'].value, self.parameters['yc'].value
