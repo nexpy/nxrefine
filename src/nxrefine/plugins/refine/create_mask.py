@@ -5,13 +5,15 @@
 #
 # The full license is in the file COPYING, distributed with this software.
 # -----------------------------------------------------------------------------
+import os
 
 import numpy as np
 from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.plotview import NXPlotView, plotviews
-from nexpy.gui.utils import report_error
+from nexpy.gui.pyqt import getOpenFileName
+from nexpy.gui.utils import load_image, report_error
 from nexpy.gui.widgets import NXcircle, NXrectangle
-from nexusformat.nexus import NeXusError
+from nexusformat.nexus import NeXusError, NXdata
 
 
 def show_dialog():
@@ -28,30 +30,52 @@ class MaskDialog(NXDialog):
         super().__init__(parent)
 
         self.plotview = None
+        self.data = self.counts = None
+        self.xc = self.yc = None
+        self.mask = None
+        self.shape = None
         self.shapes = []
         self.parameters = {}
-        self.select_entry(self.choose_entry)
-        self.shape_box = self.select_box(['Rectangle', 'Circle'])
-        self.shape_choice = self.select_box([], slot=self.choose_shape)
-        self.set_layout(self.entry_layout,
-                        self.make_layout(
-                            self.action_buttons(('Add Shape', self.add_shape)),
-                            self.shape_box),
-                        self.shape_choice,
+        
+        self.set_layout(self.select_entry(self.choose_entry),
                         self.close_buttons(save=True))
-        self.shape_choice.setVisible(False)
         self.set_title('Mask Data')
 
     def choose_entry(self):
-        if 'calibration' not in self.entry['instrument']:
-            raise NeXusError('Please load calibration data to this entry')
+        if self.layout.count() == 2:
+            self.shape_box = self.select_box(['Rectangle', 'Circle'])
+            self.shape_choice = self.select_box([])
+            self.insert_layout(1,
+                               self.action_buttons(
+                                   ('Import Mask', self.import_mask),
+                                   ('Plot Mask', self.plot_data)))
+            self.insert_layout(2,
+                               self.make_layout(
+                                   self.action_buttons(
+                                       ('Add Shape', self.add_shape)),
+                                   self.shape_box))
+            self.insert_layout(3, self.shape_choice)
+            self.shape_choice.setVisible(False)
+            self.insert_layout(4,
+                               self.action_buttons(
+                                   ('Remove Shape', self.remove_shape)))
+            self.pushbutton['Add Shape'].setCheckable(True)
+        if 'calibration' in self.entry['instrument']:
+            self.load_calibration()
+        else:
+            self.data = self.counts = None
+        self.pixel_mask = self.entry['instrument/detector/pixel_mask'].nxvalue
+
+    def load_calibration(self):
         self.data = self.entry['instrument/calibration']
         self.counts = self.data.nxsignal.nxvalue
-        self.mask = self.entry['instrument/detector/pixel_mask'].nxvalue
         self.xc = self.entry['instrument/detector/beam_center_x'].nxvalue
         self.yc = self.entry['instrument/detector/beam_center_y'].nxvalue
-        self.plot_data()
-        shape = self.data.nxsignal.shape
+
+    def import_mask(self):
+        mask_file = getOpenFileName(self, 'Open Mask File')
+        if os.path.exists(mask_file):
+            self.pixel_mask = load_image(mask_file)        
 
     def plot_data(self):
         if self.plotview is None:
@@ -59,29 +83,52 @@ class MaskDialog(NXDialog):
                 self.plotview = plotviews['Mask Editor']
             else:
                 self.plotview = NXPlotView('Mask Editor')
-        self.plotview.plot(self.data, log=True)
+        self.create_mask()
+        if self.counts is not None:
+            mask = np.zeros(self.counts.shape, dtype=float)
+            idx = np.where(self.mask == 0)
+            mask[idx] = 0.5 * self.counts[idx] / self.counts.max()
+            mask += self.mask
+            self.plotview.plot(NXdata(mask, axes=self.data.nxaxes), log=True)
+        else:
+            self.plotview.plot(NXdata(self.mask, axes=self.data.nxaxes))
         self.plotview.aspect = 'equal'
         self.plotview.ytab.flipped = True
         self.plotview.draw()
 
     def add_shape(self):
-        if self.shape_box.currentText() == 'Rectangle':
-            self.shapes.append(NXrectangle(self.xc-50, self.yc-50, 100, 100,
-                                           border_tol=0.1,
-                                           plotview=self.plotview,
-                                           resize=True, facecolor='r',
-                                           edgecolor='k',
-                                           linewidth=1, alpha=0.3))
+        if self.pushbutton['Add Shape'].isChecked():
+            if self.shape_box.currentText() == 'Rectangle':
+                self.shape = NXrectangle(self.xc-50, self.yc-50, 100, 100,
+                                         border_tol=0.1,
+                                         plotview=self.plotview,
+                                         resize=True, facecolor='r',
+                                         edgecolor='k',
+                                         linewidth=1, alpha=0.3)
+            else:
+                self.shape = NXcircle(self.xc, self.yc, 50, border_tol=0.1,
+                                      plotview=self.plotview, resize=True,
+                                      facecolor='r', edgecolor='k',
+                                      linewidth=1, alpha=0.3)
+            self.shape.connect()
+            self.plotview.draw()
         else:
-            self.shapes.append(NXcircle(self.xc, self.yc, 50, border_tol=0.1,
-                                        plotview=self.plotview, resize=True,
-                                        facecolor='r', edgecolor='k',
-                                        linewidth=1, alpha=0.3))
-        self.plotview.draw()
-        self.shapes[-1].connect()
-        self.shape_choice.addItem(repr(self.shapes[-1]))
-        self.shape_choice.setVisible(True)
-        self.insert_layout(self.shape_options(self.shapes[-1]))
+            self.shapes.append(self.shape)
+            self.plotview.shapes.append(self.shapes)
+            self.shape_choice.addItem(repr(self.shape))
+            self.shape_choice.setVisible(True)
+            self.insert_layout(self.shape_options(self.shape))
+            self.plot_data()
+
+    def remove_shape(self):
+        current_shape = self.shape_choice.selected
+        for shape in list(self.shapes):
+            if current_shape == repr(shape):
+                self.shapes.remove(shape)
+                self.shape_choice.remove(current_shape)
+        if len(self.shapes) == 0:
+            self.shape_choice.setVisible(False)
+        self.plot_data()
 
     def shape_options(self, shape):
         p = self.parameters[shape] = GridParameters()
@@ -100,11 +147,10 @@ class MaskDialog(NXDialog):
             p.add('r', r, 'Radius')
         return p.grid(header=False)
 
-    def choose_shape(self):
-        pass
-
-    def accept(self):
-        x, y = np.arange(self.mask.shape[1]), np.arange(self.mask.shape[0])
+    def create_mask(self):
+        x = np.arange(self.pixel_mask.shape[1])
+        y = np.arange(self.pixel_mask.shape[0])
+        self.mask = self.pixel_mask.copy()
         for shape in self.shapes:
             if isinstance(shape, NXrectangle):
                 x0, y0 = shape.xy
@@ -115,7 +161,11 @@ class MaskDialog(NXDialog):
                 r = shape.radius
                 inside = (x[None, :]-int(xc))**2+(y[:, None]-int(yc))**2 < r**2
                 self.mask = self.mask | inside
-        self.mask[np.where(self.counts < 0)] = 1
+        if self.counts is not None:
+            self.mask[np.where(self.counts < 0)] = 1
+
+    def accept(self):
+        self.create_mask()
         try:
             self.entry['instrument/detector/pixel_mask'] = self.mask
         except NeXusError as error:
