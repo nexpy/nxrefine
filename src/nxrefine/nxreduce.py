@@ -123,7 +123,6 @@ class NXReduce(QtCore.QObject):
 
     def __init__(
             self, entry=None, directory=None, parent=None, entries=None,
-            data='data/data', extension='.h5', path='/entry/data/data',
             threshold=None, min_pixels=None, first=None, last=None,
             polar_max=None, monitor=None, norm=None, qmin=None, qmax=None,
             radius=None, mask_parameters=None,
@@ -176,20 +175,12 @@ class NXReduce(QtCore.QObject):
         self.name = f"{self.sample}_{self.scan}/{self.entry_name}"
         self.base_directory = os.path.dirname(self.wrapper_file)
 
-        self._data = data
-        self._field_root = None
         self._field = None
         self._shape = None
         self._pixel_mask = None
         self._parent = parent
         self._parent_root = None
         self._entries = entries
-
-        if extension.startswith('.'):
-            self.extension = extension
-        else:
-            self.extension = '.' + extension
-        self.path = path
 
         self._threshold = threshold
         self._min_pixels = min_pixels
@@ -358,17 +349,19 @@ class NXReduce(QtCore.QObject):
     def field(self):
         if self._field is None:
             self._field = self.data.nxsignal
-            self._shape = self._field.shape
         return self._field
 
     @property
     def shape(self):
         if self._shape is None:
-            try:
-                self._shape = tuple(
-                    [axis.shape[0] for axis in self.entry['data'].nxaxes])
-            except NeXusError:
+            if self.raw_data_exists():
                 self._shape = self.field.shape
+            else:
+                try:
+                    self._shape = tuple(
+                        [axis.shape[0] for axis in self.entry['data'].nxaxes])
+                except NeXusError:
+                    self._shape = None
         return self._shape
 
     @property
@@ -381,9 +374,14 @@ class NXReduce(QtCore.QObject):
     @property
     def raw_file(self):
         """Absolute file path to the externally linked raw data file."""
-        return self.entry[self._data].nxfilename
+        return self.entry['data/data'].nxfilename
 
-    def data_exists(self):
+    @property
+    def raw_path(self):
+        """Path to the raw data in the externally linked raw data file."""
+        return self.entry['data/data'].nxtarget
+
+    def raw_data_exists(self):
         """True if the externally linked raw data file exists."""
         return is_hdf5(self.raw_file)
 
@@ -750,7 +748,7 @@ class NXReduce(QtCore.QObject):
 
     def nxlink(self):
         if self.not_processed('nxlink') and self.link:
-            if not self.data_exists():
+            if not self.raw_data_exists():
                 self.logger.info("Data file not available")
                 return
             self.record_start('nxlink')
@@ -790,7 +788,7 @@ class NXReduce(QtCore.QObject):
                     self.entry['data/frame_time'].attrs['units'] = 's'
                     raw_file = os.path.relpath(
                         self.raw_file, os.path.dirname(self.wrapper_file))
-                    self.entry['data/data'] = NXlink(self.path, raw_file)
+                    self.entry['data/data'] = NXlink(self.raw_path, raw_file)
                     self.entry['data'].nxsignal = self.entry['data/data']
                     self.logger.info(
                         'Data group created and linked to external data')
@@ -956,7 +954,7 @@ class NXReduce(QtCore.QObject):
 
     def nxmax(self):
         if self.not_processed('nxmax') and self.maxcount:
-            if not self.data_exists():
+            if not self.raw_data_exists():
                 self.logger.info("Data file not available")
                 return
             self.record_start('nxmax')
@@ -987,7 +985,7 @@ class NXReduce(QtCore.QObject):
             chunk_size = self.field.chunks[0]
             if chunk_size < 20:
                 chunk_size = 50
-            data = self.field.nxfile[self.path]
+            data = self.field.nxfile[self.raw_path]
             fsum = np.zeros(self.nframes, dtype=np.float64)
             psum = np.zeros(self.nframes, dtype=np.float64)
             pixel_mask = self.pixel_mask
@@ -1161,7 +1159,7 @@ class NXReduce(QtCore.QObject):
 
     def nxfind(self):
         if self.not_processed('nxfind') and self.find:
-            if not self.data_exists():
+            if not self.raw_data_exists():
                 self.logger.info("Data file not available")
                 return
             self.record_start('nxfind')
@@ -1581,10 +1579,10 @@ class NXReduce(QtCore.QObject):
             if i == 0:
                 shutil.copyfile(reduce.raw_file, self.raw_file)
                 new_file = h5.File(self.raw_file, 'r+')
-                new_field = new_file[self.path]
+                new_field = new_file[self.raw_path]
             else:
                 scan_file = h5.File(reduce.raw_file, 'r')
-                scan_field = scan_file[self.path]
+                scan_field = scan_file[reduce.raw_path]
                 for i in range(0, nframes, chunk_size):
                     new_slab = new_field[i:i+chunk_size, :, :]
                     scan_slab = scan_field[i:i+chunk_size, :, :]
