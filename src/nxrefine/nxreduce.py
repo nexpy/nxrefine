@@ -41,9 +41,9 @@ class NXReduce(QtCore.QObject):
 
     All the components of the workflow required to reduce data from single
     crystals measured with high-energy synchrotron x-rays on a fast-area
-    detector are defined as separate functions. The class is instantiated
-    by the entry in the experimental NeXus file corresponding to a single
-    360° rotation of the crystal.
+    detector are defined as separate functions that start with 'nx'. The class
+    is instantiated by the entry in the experimental NeXus file corresponding
+    to a single 360° rotation of the crystal.
 
         Parameters
         ----------
@@ -55,12 +55,6 @@ class NXReduce(QtCore.QObject):
             File path to the parent NeXus file, by default None
         entries : list of str, optional
             List of all the rotation scan entries in the file, by default None
-        data : str, optional
-            Path to the data field in the entry, by default 'data/data'
-        extension : str, optional
-            Extension of the raw data file, by default '.h5'
-        path : str, optional
-            Path to the raw data, by default '/entry/data/data'
         threshold : float, optional
             Threshold used to in Bragg peak searches, by default None
         min_pixels : int, optional
@@ -248,6 +242,7 @@ class NXReduce(QtCore.QObject):
 
     @property
     def task_directory(self):
+        """Directory containing log files and the reduction database."""
         _directory = os.path.join(self.root_directory, 'tasks')
         if not os.path.exists(_directory):
             os.mkdir(_directory)
@@ -255,6 +250,7 @@ class NXReduce(QtCore.QObject):
 
     @property
     def logger(self):
+        """Log file handler."""
         if self._logger is None:
             self._logger = logging.getLogger(
                 f"{self.label}/{self.sample}_{self.scan}['{self.entry_name}']")
@@ -282,6 +278,7 @@ class NXReduce(QtCore.QObject):
 
     @property
     def default(self):
+        """Dictionary containing default reduction parameters."""
         if self._default is None:
             try:
                 self._default = NXSettings().settings['nxreduce']
@@ -291,6 +288,7 @@ class NXReduce(QtCore.QObject):
 
     @property
     def server(self):
+        """Front-end to interface with the reduction workflow server."""
         if self._server is None:
             try:
                 self._server = NXServer()
@@ -300,6 +298,7 @@ class NXReduce(QtCore.QObject):
 
     @property
     def db(self):
+        """Database for recording the data reduction status."""
         if self._db is None:
             try:
                 self._db = NXDatabase(os.path.join(self.task_directory,
@@ -310,12 +309,14 @@ class NXReduce(QtCore.QObject):
 
     @property
     def root(self):
+        """NXroot group containing the complete wrapper file tree."""
         if self._root is None:
             self._root = nxload(self.wrapper_file, 'rw')
         return self._root
 
     @property
     def entry(self):
+        """NXentry group containing the current entry being reduced."""
         if self.entry_name in self.root:
             return self.root[self.entry_name]
         else:
@@ -323,6 +324,7 @@ class NXReduce(QtCore.QObject):
 
     @property
     def entries(self):
+        """List of entries in the wrapper file excluding 'entry'."""
         if self._entries:
             return self._entries
         else:
@@ -330,6 +332,10 @@ class NXReduce(QtCore.QObject):
 
     @property
     def first_entry(self):
+        """True if the current entry is the first containing raw data.
+
+        The lattice parameters are only refined for the first entry.
+        """
         if self.entries:
             return self.entry_name == self.entries[0]
         else:
@@ -337,6 +343,7 @@ class NXReduce(QtCore.QObject):
 
     @property
     def data(self):
+        """NXdata group containing the raw data for the current entry."""
         if 'data' in self.entry:
             return self.entry['data']
         elif (self.entry_name == 'entry'
@@ -347,12 +354,14 @@ class NXReduce(QtCore.QObject):
 
     @property
     def field(self):
+        """NXfield containing the raw data."""
         if self._field is None:
             self._field = self.data.nxsignal
         return self._field
 
     @property
     def shape(self):
+        """Shape of the raw data."""
         if self._shape is None:
             if self.raw_data_exists():
                 self._shape = self.field.shape
@@ -366,6 +375,7 @@ class NXReduce(QtCore.QObject):
 
     @property
     def nframes(self):
+        """Number of frames stored in the raw data."""
         try:
             return self.entry['data/frame_number'].shape[0]
         except NeXusError:
@@ -387,6 +397,7 @@ class NXReduce(QtCore.QObject):
 
     @property
     def pixel_mask(self):
+        """Detector pixel mask defined in the current entry."""
         if self._pixel_mask is None:
             try:
                 self._pixel_mask = (
@@ -402,6 +413,12 @@ class NXReduce(QtCore.QObject):
 
     @property
     def parent(self):
+        """Wrapper file selected to be the parent.
+
+        Data reduction parameters are copied from the parent unless they
+        are explicitly set as keyword arguments when initializing the
+        NXReduce instance.
+        """
         if self._parent is None:
             if os.path.exists(self.parent_file) and not self.is_parent():
                 self._parent = self.parent_file
@@ -411,15 +428,18 @@ class NXReduce(QtCore.QObject):
 
     @property
     def parent_root(self):
+        """NXroot group of the parent file."""
         if self._parent_root is None and self.parent:
             self._parent_root = nxload(self.parent, 'r')
         return self._parent_root
 
     @property
     def parent_file(self):
+        """Absolute file path to the parent file."""
         return os.path.join(self.base_directory, self.sample+'_parent.nxs')
 
     def is_parent(self):
+        """True if the current entry is in the selected parent."""
         if (os.path.exists(self.parent_file)
                 and os.path.realpath(self.parent_file) == self.wrapper_file):
             return True
@@ -427,6 +447,7 @@ class NXReduce(QtCore.QObject):
             return False
 
     def make_parent(self):
+        """Set the current wrapper file as the parent."""
         if self.is_parent():
             self.logger.info(f"'{self.wrapper_file}' already set as parent")
             return
@@ -445,6 +466,26 @@ class NXReduce(QtCore.QObject):
             f"'{os.path.realpath(self.parent_file)}' set as parent")
 
     def get_parameter(self, name, field_name=None):
+        """Return the requested data reduction parameter.
+
+        If a parent has been selected, the parameter is read from the
+        '/entry/nxreduce' group stored in the parent. Otherwise, the
+        parameter is read from the current wrapper file.
+
+        Parameters
+        ----------
+        name : str
+            Name of the requested parameter.
+        field_name : str, optional
+            Name of the field containing the requested parameter,
+            by default None. In most cases, this is the same as the
+            name of the requested parameter.
+
+        Returns
+        -------
+        int, float, or str
+            Value of the requested parameter.
+        """
         parameter = self.default[name]
         if field_name is None:
             field_name = name
@@ -459,9 +500,12 @@ class NXReduce(QtCore.QObject):
     def write_parameters(self, threshold=None, first=None, last=None,
                          polar_max=None, monitor=None, norm=None,
                          qmin=None, qmax=None, radius=None):
-        if not (threshold or first or last or polar_max or monitor or norm
-                or qmin or qmax or radius):
-            return
+        """Store the specified data reduction parameters.
+
+        If the parameter was read from the parent, this updates the
+        local copy in the current wrapper file's '/entry/nxreduce'
+        group.
+        """
         with self.root.nxfile:
             if 'nxreduce' not in self.root['entry']:
                 self.root['entry/nxreduce'] = NXparameters()
@@ -494,7 +538,7 @@ class NXReduce(QtCore.QObject):
                 self.root['entry/nxreduce/radius'] = self.radius
 
     def clear_parameters(self, parameters):
-        """Remove legacy records of parameters."""
+        """Remove legacy records of parameters in the 'peaks' group."""
         parameters.append('width')
         for p in parameters:
             if 'peaks' in self.entry and p in self.entry['peaks'].attrs:
@@ -502,6 +546,7 @@ class NXReduce(QtCore.QObject):
 
     @property
     def first(self):
+        """First frame of the raw data to be used in the reduction."""
         if self._first is None:
             self._first = int(self.get_parameter('first', 'first_frame'))
         if self._first is None or self._first < 0:
@@ -517,6 +562,7 @@ class NXReduce(QtCore.QObject):
 
     @property
     def last(self):
+        """Last frame of the raw data to be used in the reduction."""
         if self._last is None:
             try:
                 self.default['last'] = self.nframes - 10
@@ -538,6 +584,7 @@ class NXReduce(QtCore.QObject):
 
     @property
     def polar_max(self):
+        """Maximum polar angle of peaks to be used in refinements."""
         if self._polar_max is None:
             self._polar_max = float(self.get_parameter('polar_max'))
         return self._polar_max
@@ -548,6 +595,11 @@ class NXReduce(QtCore.QObject):
 
     @property
     def threshold(self):
+        """Threshold for selecting peaks for refinements.
+
+        If all the pixels within a peak fall below this threshold, the
+        peak will not be used in refinements.
+        """
         if self._threshold is None:
             self._threshold = float(self.get_parameter('threshold'))
         return self._threshold
@@ -558,6 +610,7 @@ class NXReduce(QtCore.QObject):
 
     @property
     def min_pixels(self):
+        """Minimum number of pixels separating different peaks."""
         if self._min_pixels is None:
             self._min_pixels = int(self.get_parameter('min_pixels'))
         return self._min_pixels
@@ -568,6 +621,7 @@ class NXReduce(QtCore.QObject):
 
     @property
     def monitor(self):
+        """Name of the field to be used to correct for the incident flux."""
         if self._monitor is None:
             self._monitor = str(self.get_parameter('monitor'))
         return self._monitor
@@ -578,6 +632,7 @@ class NXReduce(QtCore.QObject):
 
     @property
     def norm(self):
+        """Factor used to normalize the monitor counts."""
         if self._norm is None:
             self._norm = float(self.get_parameter('norm'))
         return self._norm
@@ -588,6 +643,7 @@ class NXReduce(QtCore.QObject):
 
     @property
     def qmin(self):
+        """Minimum Q used in estimating the sample transmission."""
         if self._qmin is None:
             self._qmin = float(self.get_parameter('qmin'))
         return self._qmin
@@ -598,6 +654,11 @@ class NXReduce(QtCore.QObject):
 
     @property
     def qmax(self):
+        """Maximum Q used in the PDF taper function.
+
+        This parameter is also used define the maximum Q used in
+        estimating the sample transmission.
+        """
         if self._qmax is None:
             self._qmax = float(self.get_parameter('qmax'))
         return self._qmax
@@ -608,6 +669,7 @@ class NXReduce(QtCore.QObject):
 
     @property
     def radius(self):
+        """Q-radius used to define the punch size."""
         if self._radius is None:
             self._radius = float(self.get_parameter('radius'))
         return self._radius
@@ -629,6 +691,7 @@ class NXReduce(QtCore.QObject):
 
     @property
     def sample_transmission(self):
+        """Field containing the estimated sample transmission."""
         if self.parent and 'transmission' in self.parent_root['entry/sample']:
             return self.parent_root['entry/sample/transmission'].nxsignal
         elif 'transmission' in self.entry['sample']:
@@ -637,23 +700,43 @@ class NXReduce(QtCore.QObject):
             return np.ones(shape=(self.nframes,), dtype=np.float32)
 
     def complete(self, task):
-        """Check that a task for this entry in the wrapper file are done """
+        """True if the task for this entry in the wrapper file is done """
         return self.db.task_complete(self.wrapper_file, task, self.entry_name)
 
     def all_complete(self, task):
-        """Check that a task for all entries in this wrapper file are done."""
+        """True if the task for all entries in this wrapper file are done."""
         return self.db.task_complete(self.wrapper_file, task)
 
     def not_processed(self, task):
+        """True if the NXprocess group for this task has not been created.
+
+        This is used to prevent existing analyses from being overwritten,
+        unless `overwrite` is set to True.
+        """
         return task not in self.entry or self.overwrite
 
     @property
     def oriented(self):
+        """True if an orientation matrix has been determined."""
         return ('instrument' in self.entry and
                 'detector' in self.entry['instrument'] and
                 'orientation_matrix' in self.entry['instrument/detector'])
 
     def start_progress(self, start, stop):
+        """Initialize a counter to monitor progress completing a task.
+
+        Parameters
+        ----------
+        start : int
+            Start value of the counter.
+        stop : int
+            Stop value of the counter.
+
+        Returns
+        -------
+        float
+            Timer value for calculating the completion time.
+        """
         self._start = start
         if self.gui:
             self._step = (stop - start) / 100
@@ -665,6 +748,7 @@ class NXReduce(QtCore.QObject):
         return timeit.default_timer()
 
     def update_progress(self, i):
+        """Update the progress counter."""
         if self.gui:
             _value = int(i/self._step)
             if _value > self._value:
@@ -674,6 +758,7 @@ class NXReduce(QtCore.QObject):
             print(f"\rFrame {i}", end="")
 
     def stop_progress(self):
+        """Stop the progress counter and return the timer value."""
         if self.monitor_progress:
             print('')
         self.stopped = True
@@ -681,10 +766,16 @@ class NXReduce(QtCore.QObject):
 
     @property
     def stopped(self):
+        """True if the progress counter has stopped."""
         return self._stopped
+
+    @stopped.setter
+    def stopped(self, value):
+        self._stopped = value
 
     @property
     def process_count(self):
+        """Number of CPUs to be used in concurrent tasks."""
         if self._process_count is None:
             pc = os.cpu_count()
             if pc <= 12:
@@ -695,12 +786,19 @@ class NXReduce(QtCore.QObject):
                 self._process_count = int(float(pc)/4)
         return self._process_count
 
-    @stopped.setter
-    def stopped(self, value):
-        self._stopped = value
-
     def record(self, task, **kwargs):
-        """ Record that a task has finished. Update NeXus file and database """
+        """Record the completion of a task in the current entry.
+
+        A NXprocess group is created to record the results of the task,
+        along with the reduction parameters.
+
+        Parameters
+        ----------
+        task : str
+            Name of the task.
+        kwargs : dict
+            Parameters used in the task.
+        """
         process = kwargs.pop('process', task)
         parameters = '\n'.join(
             [f"{k.replace('_', ' ').capitalize()}: {v}"
@@ -719,7 +817,7 @@ class NXReduce(QtCore.QObject):
                 self.entry[process][key] = kwargs[key]
 
     def record_start(self, task):
-        """ Record that a task has started. Update database """
+        """ Record that a task has started in the database """
         try:
             self.db.start_task(self.wrapper_file, task, self.entry_name)
             self.timer[task] = timeit.default_timer()
@@ -728,7 +826,7 @@ class NXReduce(QtCore.QObject):
             self.logger.info(str(error))
 
     def record_end(self, task):
-        """ Record that a task has ended. Update database """
+        """ Record that a task has ended in the database """
         try:
             self.db.end_task(self.wrapper_file, task, self.entry_name)
             elapsed_time = timeit.default_timer() - self.timer[task]
@@ -738,7 +836,7 @@ class NXReduce(QtCore.QObject):
             self.logger.info(str(error))
 
     def record_fail(self, task):
-        """ Record that a task has failed. Update database """
+        """ Record that a task has failed in the database """
         try:
             self.db.fail_task(self.wrapper_file, task, self.entry_name)
             elapsed_time = timeit.default_timer() - self.timer[task]
@@ -747,6 +845,10 @@ class NXReduce(QtCore.QObject):
             self.logger.info(str(error))
 
     def nxlink(self):
+        """Perform nxlink operation in the workflow.
+
+        This  external metadata into the current entry.
+        """
         if self.not_processed('nxlink') and self.link:
             if not self.raw_data_exists():
                 self.logger.info("Data file not available")
@@ -1200,7 +1302,7 @@ class NXReduce(QtCore.QObject):
                     futures.append(executor.submit(
                         peak_search,
                         self.field.nxfilename, self.field.nxfilepath,
-                        i, j, k, self.threshold))
+                        i, j, k, self.threshold, min_pixels=self.min_pixels))
                 for future in as_completed(futures):
                     z, blobs = future.result()
                     self.blobs += [b for b in blobs if b.z >= z
@@ -1212,7 +1314,7 @@ class NXReduce(QtCore.QObject):
                 j, k = i - min(5, i), min(i+55, self.last+5, self.nframes)
                 z, blobs = peak_search(
                     self.field.nxfilename, self.field.nxfilepath,
-                    i, j, k, self.threshold)
+                    i, j, k, self.threshold, min_pixels=self.min_pixels)
                 self.blobs += [b for b in blobs if b.z >= z
                                and b.z < min(z+50, self.last)]
                 self.update_progress(z)

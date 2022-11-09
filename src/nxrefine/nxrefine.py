@@ -1232,8 +1232,11 @@ class NXRefine(object):
     def Omat(self):
         """Return the matrix that rotates detector axes into lab axes.
 
-        When all angles are zero,
+        When all goniometer angles are zero, the standard
+        transformations are as follows:
+
             +X(det) = -y(lab), +Y(det) = +z(lab), and +Z(det) = -x(lab)
+
         """
         if self.standard:
             return np.matrix(((0, -1, 0), (0, 0, 1), (-1, 0, 0)))
