@@ -688,7 +688,7 @@ class NXRefine(object):
         try:
             peaks = list(zip(self.xp,  self.yp, self.zp, self.intensity))
             self.peaks = dict(zip(range(len(peaks)),
-                                  [NXPeak(*p) for p in peaks]))
+                                  [NXPeak(*p, parent=self) for p in peaks]))
         except Exception:
             self.peaks = None
 
@@ -1463,7 +1463,7 @@ class NXRefine(object):
             elif z > 3625:
                 z = z - 3600
             if x > 0 and x < self.shape[1] and y > 0 and y < self.shape[0]:
-                peaks.append(NXPeak(x, y, z, H=H, K=K, L=L))
+                peaks.append(NXPeak(x, y, z, H=H, K=K, L=L, parent=self))
 
         peaks = [peak for peak in peaks if peak.z > 0 and peak.z < 3648]
 
@@ -1478,7 +1478,6 @@ class NXRefine(object):
             except Exception as error:
                 raise NeXusError(str(error))
         import pkg_resources
-
         from julia import Main, Pkg
         Pkg.add("Roots")
         Main.Gmat0 = np.array(self.Gmat(0.0))
@@ -1503,7 +1502,7 @@ class NXRefine(object):
             try:
                 H, K, L = p[3], p[4], p[5]
                 if not self.absent(H, K, L):
-                    peaks.append(NXPeak(*p[0:3], H=H, K=K, L=L))
+                    peaks.append(NXPeak(*p[0:3], H=H, K=K, L=L, parent=self))
             except Exception:
                 pass
         return peaks
@@ -1881,25 +1880,73 @@ class NXPeak(object):
         Peak azimuthal angle, by default None
     rotation_angle : float, optional
         Peak rotation angle, by default None
+    parent: NXRefine
+        Parent NXRefine instance
     """
 
     def __init__(self, x, y, z, intensity=None, pixel_count=None,
                  H=None, K=None, L=None, radius=None,
-                 polar_angle=None, azimuthal_angle=None, rotation_angle=None):
+                 polar_angle=None, azimuthal_angle=None, rotation_angle=None,
+                 parent=None):
         self.x = x
         self.y = y
         self.z = z
         self.intensity = intensity
         self.pixel_count = pixel_count
-        self.H = H
-        self.K = K
-        self.L = L
+        self._Qh = H
+        self._Qk = K
+        self._Ql = L
         self.radius = radius
         self.polar_angle = polar_angle
         self.azimuthal_angle = azimuthal_angle
         self.rotation_angle = rotation_angle
         self.ring = None
         self.Umat = None
+        self.parent = parent
 
     def __repr__(self):
         return f"NXPeak(x={self.x:.2f}, y={self.y:.2f}, z={self.z:.2f})"
+
+    def get_hkl(self):
+        if self.parent:
+            return self.parent.get_hkl(self.x, self.y, self.z)
+        else:
+            return self.H, self.K, self.L
+
+    @property
+    def Qh(self):
+        if self._Qh is None:
+            self._Qh = self.get_hkl()[0]
+        return self._Qh
+
+    @property
+    def Qk(self):
+        if self._Qk is None:
+            self._Qk = self.get_hkl()[1]
+        return self._Qk
+
+    @property
+    def Ql(self):
+        if self._Ql is None:
+            self._Ql = self.get_hkl()[2]
+        return self._Ql
+
+    @property
+    def Q(self):
+        return self.Qh, self.Qk, self.Ql
+
+    @property
+    def H(self):
+        return int(np.rint(self.Qh))
+
+    @property
+    def K(self):
+        return int(np.rint(self.Qk))
+
+    @property
+    def L(self):
+        return int(np.rint(self.Ql))
+
+    @property
+    def HKL(self):
+        return self.H, self.K, self.L

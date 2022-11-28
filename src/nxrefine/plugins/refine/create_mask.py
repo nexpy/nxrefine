@@ -36,7 +36,7 @@ class MaskDialog(NXDialog):
         self.shape = None
         self.shapes = []
         self.parameters = {}
-        
+
         self.set_layout(self.select_entry(self.choose_entry),
                         self.close_buttons(save=True))
         self.set_title('Mask Data')
