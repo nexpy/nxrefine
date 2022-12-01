@@ -75,7 +75,7 @@ class MaskDialog(NXDialog):
     def import_mask(self):
         mask_file = getOpenFileName(self, 'Open Mask File')
         if os.path.exists(mask_file):
-            self.pixel_mask = load_image(mask_file)        
+            self.pixel_mask = load_image(mask_file)
 
     def plot_data(self):
         if self.plotview is None:

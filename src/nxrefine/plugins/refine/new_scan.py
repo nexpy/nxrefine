@@ -257,7 +257,6 @@ class ScanDialog(NXDialog):
     def make_scan(self):
         home_directory = self.get_directory()
         self.mainwindow.default_directory = home_directory
-        sample_directory = os.path.join(home_directory, self.sample)
         label_directory = os.path.join(home_directory, self.sample, self.label)
         scan_directory = os.path.join(
             label_directory, str(self.scan['scan'].value))

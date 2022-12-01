@@ -174,6 +174,7 @@ class NXReduce(QtCore.QObject):
         self._pixel_mask = None
         self._parent = parent
         self._parent_root = None
+        self._parent_entry = None
         self._entries = entries
 
         self._threshold = threshold
@@ -434,6 +435,13 @@ class NXReduce(QtCore.QObject):
         return self._parent_root
 
     @property
+    def parent_entry(self):
+        """NXentry group of the parent file."""
+        if self._parent_entry is None and self.parent:
+            self._parent_entry = self.parent_root[self.entry_name]
+        return self._parent_entry
+
+    @property
     def parent_file(self):
         """Absolute file path to the parent file."""
         return os.path.join(self.base_directory, self.sample+'_parent.nxs')
@@ -692,10 +700,11 @@ class NXReduce(QtCore.QObject):
     @property
     def sample_transmission(self):
         """Field containing the estimated sample transmission."""
-        if self.parent and 'transmission' in self.parent_root['entry/sample']:
-            return self.parent_root['entry/sample/transmission'].nxsignal
-        elif 'transmission' in self.entry['sample']:
-            return self.entry['sample/transmission'].nxsignal
+        path = 'instrument/sample/transmission'
+        if (self.parent and path in self.parent_entry):
+            return self.parent_entry[path].nxsignal
+        elif path in self.entry:
+            return self.entry[path].nxsignal
         else:
             return np.ones(shape=(self.nframes,), dtype=np.float32)
 
@@ -1236,7 +1245,7 @@ class NXReduce(QtCore.QObject):
             group.attrs['frame_window'] = frame_window
             group.attrs['filter_size'] = filter_size
             refine = NXRefine(self.entry)
-            refine.write_parameter('sample/transmission', group)
+            refine.write_parameter('instrument/sample/transmission', group)
 
     def transmission_coordinates(self):
         refine = NXRefine(self.entry)

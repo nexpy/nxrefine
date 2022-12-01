@@ -294,8 +294,6 @@ class NXRefine(object):
                 'sample/space_group', self.space_group)
             self.laue_group = self.read_parameter(
                 'sample/laue_group', self.laue_group)
-            self.transmission = self.read_parameter('sample/transmission',
-                                                    self.transmission)
             self.wavelength = self.read_parameter(
                 'instrument/monochromator/wavelength', self.wavelength)
             self.distance = self.read_parameter('instrument/detector/distance',
@@ -357,6 +355,8 @@ class NXRefine(object):
             self.secondary = self.read_parameter('peaks/secondary_reflection')
             self.Umat = self.read_parameter(
                 'instrument/detector/orientation_matrix')
+            self.transmission = self.read_parameter(
+                'instrument/sample/transmission', self.transmission)
             if isinstance(self.polar_angle, np.ndarray):
                 try:
                     self.set_polar_max(np.sort(self.polar_angle)[200] + 0.1)
@@ -427,17 +427,20 @@ class NXRefine(object):
             self.write_parameter('sample/unitcell_alpha', self.alpha)
             self.write_parameter('sample/unitcell_beta', self.beta)
             self.write_parameter('sample/unitcell_gamma', self.gamma)
-            self.write_parameter('sample/transmission', self.transmission)
             if sample:
                 return
+
             if 'instrument' not in self.entry:
                 self.entry['instrument'] = NXinstrument()
             if 'detector' not in self.entry['instrument']:
                 self.entry['instrument/detector'] = NXdetector()
-            if 'monochromator' not in self.entry['instrument']:
-                self.entry['instrument/monochromator'] = NXmonochromator()
             if 'goniometer' not in self.entry['instrument']:
                 self.entry['instrument/goniometer'] = NXgoniometer()
+            if 'monochromator' not in self.entry['instrument']:
+                self.entry['instrument/monochromator'] = NXmonochromator()
+            if 'sample' not in self.entry['instrument']:
+                self.entry['instrument/sample'] = NXsample()
+
             self.write_parameter('instrument/monochromator/wavelength',
                                  self.wavelength)
             self.write_parameter('instrument/detector/distance', self.distance)
@@ -468,6 +471,8 @@ class NXRefine(object):
                 'instrument/goniometer/two_theta', self.twotheta)
             self.write_parameter('instrument/goniometer/goniometer_pitch',
                                  self.gonpitch)
+            self.write_parameter('instrument/sample/transmission',
+                                 self.transmission)
             self.write_parameter('peaks/primary_reflection', self.primary)
             self.write_parameter('peaks/secondary_reflection', self.secondary)
             if isinstance(self.z, np.ndarray):
@@ -503,30 +508,21 @@ class NXRefine(object):
                 other.write_parameter('sample/unitcell_alpha', self.alpha)
                 other.write_parameter('sample/unitcell_beta', self.beta)
                 other.write_parameter('sample/unitcell_gamma', self.gamma)
-                other.write_parameter('sample/transmission', self.transmission)
             if instrument:
+
                 if 'instrument' not in other.entry:
                     other.entry['instrument'] = NXinstrument()
                 if 'detector' not in other.entry['instrument']:
                     other.entry['instrument/detector'] = NXdetector()
                 if 'monochromator' not in other.entry['instrument']:
                     other.entry['instrument/monochromator'] = NXmonochromator()
-                if 'goniometer' not in other.entry['instrument']:
-                    other.entry['instrument/goniometer'] = NXgoniometer()
-                other.write_parameter('instrument/monochromator/wavelength',
-                                      self.wavelength)
-                other.write_parameter('instrument/goniometer/phi', self.phi)
-                other.write_parameter(
-                    'instrument/goniometer/phi', self.phi_step, attr='step')
-                other.write_parameter('instrument/goniometer/chi', self.chi)
-                other.write_parameter(
-                    'instrument/goniometer/omega', self.omega)
-                other.write_parameter(
-                    'instrument/goniometer/two_theta', self.twotheta)
-                other.write_parameter('instrument/goniometer/goniometer_pitch',
-                                      self.gonpitch)
                 other.write_parameter(
                     'instrument/detector/distance', self.distance)
+                if 'goniometer' not in other.entry['instrument']:
+                    other.entry['instrument/goniometer'] = NXgoniometer()
+                if 'sample' not in other.entry['instrument']:
+                    other.entry['instrument/sample'] = NXsample()
+
                 other.write_parameter('instrument/detector/yaw', self.yaw)
                 other.write_parameter('instrument/detector/pitch', self.pitch)
                 other.write_parameter('instrument/detector/roll', self.roll)
@@ -550,6 +546,23 @@ class NXRefine(object):
                     other.write_parameter(
                         'instrument/detector/orientation_matrix',
                         np.array(self.Umat))
+
+                other.write_parameter('instrument/monochromator/wavelength',
+                                      self.wavelength)
+
+                other.write_parameter('instrument/goniometer/phi', self.phi)
+                other.write_parameter(
+                    'instrument/goniometer/phi', self.phi_step, attr='step')
+                other.write_parameter('instrument/goniometer/chi', self.chi)
+                other.write_parameter(
+                    'instrument/goniometer/omega', self.omega)
+                other.write_parameter(
+                    'instrument/goniometer/two_theta', self.twotheta)
+                other.write_parameter('instrument/goniometer/goniometer_pitch',
+                                      self.gonpitch)
+
+                other.write_parameter('instrument/sample/transmission',
+                                      self.transmission)
 
     def link_sample(self, other):
         """Link the sample group of this entry to another entry.
