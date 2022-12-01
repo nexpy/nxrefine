@@ -23,8 +23,8 @@ from h5py import is_hdf5
 from nexusformat.nexus import (NeXusError, NXattenuator, NXcollection, NXdata,
                                NXentry, NXfield, NXfilter, NXinstrument,
                                NXlink, NXLock, NXmonitor, NXnote, NXparameters,
-                               NXprocess, NXreflections, NXroot, NXsource,
-                               nxgetconfig, nxload, nxsetconfig)
+                               NXprocess, NXreflections, NXroot, NXsample,
+                               NXsource, nxgetconfig, nxload, nxsetconfig)
 from qtpy import QtCore
 
 from . import __version__
@@ -1244,6 +1244,10 @@ class NXReduce(QtCore.QObject):
             group = NXdata(transmission, frames, title='Sample Transmission')
             group.attrs['frame_window'] = frame_window
             group.attrs['filter_size'] = filter_size
+            if 'instrument' not in self.entry:
+                self.entry['instrument'] = NXinstrument()
+            if 'sample' not in self.entry['instrument']:
+                self.entry['instrument/sample'] = NXsample()
             refine = NXRefine(self.entry)
             refine.write_parameter('instrument/sample/transmission', group)
 
