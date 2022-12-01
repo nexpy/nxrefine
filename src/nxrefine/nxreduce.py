@@ -1233,24 +1233,6 @@ class NXReduce(QtCore.QObject):
         else:
             return np.ones(shape=(self.nframes,), dtype=np.float32)
 
-    def write_transmission(self, frame_window=5, filter_size=20):
-        if self.partial_frames:
-            transmission = NXfield(self.calculate_transmission(
-                frame_window=frame_window, filter_size=filter_size),
-                                   name='transmission',
-                                   long_name='Sample Transmission')
-            frames = NXfield(np.arange(self.nframes), name='nframes',
-                             long_title='Frame No.')
-            group = NXdata(transmission, frames, title='Sample Transmission')
-            group.attrs['frame_window'] = frame_window
-            group.attrs['filter_size'] = filter_size
-            if 'instrument' not in self.entry:
-                self.entry['instrument'] = NXinstrument()
-            if 'sample' not in self.entry['instrument']:
-                self.entry['instrument/sample'] = NXsample()
-            refine = NXRefine(self.entry)
-            refine.write_parameter('instrument/sample/transmission', group)
-
     def transmission_coordinates(self):
         refine = NXRefine(self.entry)
         min_radius = (self.qmin * refine.wavelength * refine.distance
