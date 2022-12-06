@@ -333,14 +333,15 @@ class NXReduce(QtCore.QObject):
 
     @property
     def first_entry(self):
-        """True if the current entry is the first containing raw data.
+        """NXentry group containing the first raw data scan.
 
         The lattice parameters are only refined for the first entry.
         """
-        if self.entries:
-            return self.entry_name == self.entries[0]
-        else:
-            return None
+        return self.root[self.entries[0]]
+
+    def is_first_entry(self):
+        """True if the current entry is the first in the file."""
+        return self.entry_name == self.entries[0]
 
     @property
     def data(self):
@@ -696,17 +697,6 @@ class NXReduce(QtCore.QObject):
     @maximum.setter
     def maximum(self, value):
         self._maximum = value
-
-    @property
-    def sample_transmission(self):
-        """Field containing the estimated sample transmission."""
-        path = 'instrument/sample/transmission'
-        if (self.parent and path in self.parent_entry):
-            return self.parent_entry[path].nxsignal
-        elif path in self.entry:
-            return self.entry[path].nxsignal
-        else:
-            return np.ones(shape=(self.nframes,), dtype=np.float32)
 
     def complete(self, task):
         """True if the task for this entry in the wrapper file is done """
@@ -1203,8 +1193,28 @@ class NXReduce(QtCore.QObject):
             self.logger.info(str(error))
             return None
 
-    def calculate_transmission(self, frame_window=5, filter_size=20,
-                               norm=True):
+    def sample_transmission(self):
+        """Field containing the estimated sample transmission."""
+        path = 'instrument/sample/transmission'
+        if (self.parent and path in self.parent_entry):
+            transmission = self.parent_entry[path].nxsignal
+        elif path in self.entry:
+            transmission = self.entry[path].nxsignal
+        else:
+            return np.ones(shape=(self.nframes,), dtype=np.float32)
+        if self.is_first_entry():
+            return transmission
+        else:
+            first_reduce = NXReduce(self.first_entry)
+            first_transmission = first_reduce.sample_transmission()
+            if ('maximum' in transmission.attrs and
+                    'maximum' in first_transmission.attrs):
+                correction = (transmission.attrs['maximum'] /
+                              first_transmission.attrs['maximum'])
+                transmission *= correction
+            return transmission
+
+    def calculate_transmission(self, frame_window=5, filter_size=20):
         if ('summed_frames' in self.entry
                 and 'partial_frames' in self.entry['summed_frames']):
             from scipy.interpolate import interp1d
@@ -1223,15 +1233,19 @@ class NXReduce(QtCore.QObject):
             yabs = np.ones(shape=x.shape, dtype=np.float32) / monitor
             yabs[xmin[0]:xmin[-1]] = interp1d(
                 xmin, ymin, kind='cubic')(x[xmin[0]:xmin[-1]])
-            if self.last >= 3600:
-                yabs[:1800] = yabs[1800:3600]
-                yabs[3600:] = yabs[1800:1800+self.nframes-3600]
-            if norm:
-                return yabs / max(yabs)
-            else:
-                return yabs
+            yabs[0:self.first+dx] = yabs[self.first+dx]
+            yabs[self.last-dx:] = yabs[self.last-dx]
         else:
-            return np.ones(shape=(self.nframes,), dtype=np.float32)
+            yabs = np.ones(shape=(self.nframes,), dtype=np.float32)
+        transmission = NXfield(yabs / yabs.max(), name='transmission',
+                               long_name='Sample Transmission')
+        transmission.attrs['maximum'] = yabs.max()
+        frames = NXfield(np.arange(self.nframes), name='nframes',
+                         long_title='Frame No.')
+        group = NXdata(transmission, frames, title='Sample Transmission')
+        group.attrs['frame_window'] = self.frame_window
+        group.attrs['filter_size'] = self.filter_size
+        return group
 
     def transmission_coordinates(self):
         refine = NXRefine(self.entry)
@@ -1352,7 +1366,7 @@ class NXReduce(QtCore.QObject):
             self.record_start('nxrefine')
             try:
                 self.logger.info("Refining orientation")
-                if self.lattice or self.first_entry:
+                if self.lattice or self.is_first_entry():
                     lattice = True
                 else:
                     lattice = False
@@ -1587,7 +1601,7 @@ class NXReduce(QtCore.QObject):
                 except Exception:
                     pass
                 try:
-                    transmission *= self.sample_transmission
+                    transmission *= self.sample_transmission()
                 except Exception:
                     pass
                 self.data['monitor_weight'] *= transmission
@@ -1845,10 +1859,8 @@ class NXMultiReduce(NXReduce):
             entry = directory['entry']
         else:
             entry = 'entry'
-        super(
-            NXMultiReduce, self).__init__(
-            entry=entry, directory=directory, entries=entries,
-            overwrite=overwrite)
+        super().__init__(entry=entry, directory=directory, entries=entries,
+                         overwrite=overwrite)
         self.refine = NXRefine(self.root[self.entries[0]])
 
         if laue:
