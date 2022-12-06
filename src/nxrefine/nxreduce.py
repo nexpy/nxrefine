@@ -1233,8 +1233,8 @@ class NXReduce(QtCore.QObject):
             yabs = np.ones(shape=x.shape, dtype=np.float32) / monitor
             yabs[xmin[0]:xmin[-1]] = interp1d(
                 xmin, ymin, kind='cubic')(x[xmin[0]:xmin[-1]])
-            yabs[0:self.first+dx] = yabs[self.first+dx]
-            yabs[self.last-dx:] = yabs[self.last-dx]
+            yabs[0:xmin[0]] = yabs[xmin[0]]
+            yabs[xmin[-1]:] = yabs[xmin[-1]-1]
         else:
             yabs = np.ones(shape=(self.nframes,), dtype=np.float32)
         transmission = NXfield(yabs / yabs.max(), name='transmission',
