@@ -10,7 +10,8 @@ import numpy as np
 from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.plotview import NXPlotView
 from nexpy.gui.pyqt import QtCore
-from nexpy.gui.utils import display_message, is_file_locked, report_error
+from nexpy.gui.utils import (confirm_action, display_message, is_file_locked,
+                             report_error)
 from nexpy.gui.widgets import NXCheckBox, NXLabel
 from nexusformat.nexus import (NeXusError, NXdata, NXfield, NXinstrument,
                                NXsample)
@@ -266,6 +267,8 @@ class MaximumDialog(NXDialog):
             self.reduce.qmin = self.qmin
             self.reduce.qmax = self.qmax
             transmission = self.calculate_transmission()
+            if 'maximum' in transmission.nxsignal.attrs:
+                transmission *= transmission.nxsignal.attrs['maximum']
             if self.over:
                 transmission.oplot(markersize=2)
             else:
@@ -280,6 +283,11 @@ class MaximumDialog(NXDialog):
                 self.entry['instrument'] = NXinstrument()
             if 'sample' not in self.entry['instrument']:
                 self.entry['instrument/sample'] = NXsample()
+            if 'transmission' in self.entry['instrument/sample']:
+                if confirm_action(f"Overwrite transmission?"):
+                    del self.entry['instrument/sample/transmission']
+                else:
+                    return
             self.entry['instrument/sample/transmission'] = transmission
             if self.copy:
                 for entry in [self.root[e] for e in self.root if
