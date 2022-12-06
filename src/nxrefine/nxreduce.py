@@ -1243,8 +1243,8 @@ class NXReduce(QtCore.QObject):
         frames = NXfield(np.arange(self.nframes), name='nframes',
                          long_title='Frame No.')
         group = NXdata(transmission, frames, title='Sample Transmission')
-        group.attrs['frame_window'] = self.frame_window
-        group.attrs['filter_size'] = self.filter_size
+        group.attrs['frame_window'] = frame_window
+        group.attrs['filter_size'] = filter_size
         return group
 
     def transmission_coordinates(self):
