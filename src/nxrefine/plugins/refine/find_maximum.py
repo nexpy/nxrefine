@@ -15,7 +15,6 @@ from nexpy.gui.widgets import NXCheckBox, NXLabel
 from nexusformat.nexus import (NeXusError, NXdata, NXfield, NXinstrument,
                                NXsample)
 from nxrefine.nxreduce import NXReduce
-from nxrefine.nxrefine import NXRefine
 
 
 def show_dialog():
@@ -260,55 +259,36 @@ class MaximumDialog(NXDialog):
 
     def calculate_transmission(self):
         return self.reduce.calculate_transmission(
-            frame_window=self.frame_window, filter_size=self.filter_size,
-            norm=False)
+            frame_window=self.frame_window, filter_size=self.filter_size)
 
     def plot_transmission(self):
         if self.partial_frames:
             self.reduce.qmin = self.qmin
             self.reduce.qmax = self.qmax
-            transmission = NXfield(self.calculate_transmission(),
-                                   name='transmission',
-                                   long_name='Sample Transmission')
+            transmission = self.calculate_transmission()
             if self.over:
-                NXdata(transmission).oplot(markersize=2)
+                transmission.oplot(markersize=2)
             else:
-                self.pv.plot(NXdata(transmission,
-                                    NXfield(np.arange(self.reduce.nframes),
-                                            name='nframes',
-                                            long_title='Frame No.'),
-                                    title='Transmission'),
-                             markersize=2)
+                self.pv.plot(transmission, markersize=2)
         else:
             display_message('Partial frames not available')
 
     def save_transmission(self):
         if self.partial_frames:
-            transmission = NXfield(self.calculate_transmission(),
-                                   name='transmission',
-                                   long_name='Sample Transmission')
-            frames = NXfield(np.arange(self.nframes), name='nframes',
-                             long_title='Frame No.')
-            group = NXdata(transmission, frames, title='Sample Transmission')
-            group.attrs['frame_window'] = self.frame_window
-            group.attrs['filter_size'] = self.filter_size
+            transmission = self.calculate_transmission()
             if 'instrument' not in self.entry:
                 self.entry['instrument'] = NXinstrument()
             if 'sample' not in self.entry['instrument']:
                 self.entry['instrument/sample'] = NXsample()
-            refine = NXRefine(self.entry)
-            refine.write_parameter('instrument/sample/transmission', group)
-
-        if self.copy:
-            for entry in [e for e in self.reduce.entries
-                          if e != self.reduce.entry_name]:
-                refine = NXRefine(self.root[entry])
-                if 'instrument' not in self.root[entry]:
-                    self.root[entry]['instrument'] = NXinstrument()
-                if 'sample' not in self.root[entry]['instrument']:
-                    self.root[entry]['instrument/sample'] = NXsample()
-                refine = NXRefine(self.root[entry])
-                refine.write_parameter('instrument/sample/transmission', group)
+            self.entry['instrument/sample/transmission'] = transmission
+            if self.copy:
+                for entry in [self.root[e] for e in self.root if
+                              e != self.entry.nxname and e != 'entry']:
+                    if 'instrument' not in entry:
+                        entry['instrument'] = NXinstrument()
+                    if 'sample' not in entry['instrument']:
+                        entry['instrument/sample'] = NXsample()
+                    entry['instrument/sample/transmission'] = transmission
 
     def accept(self):
         try:
