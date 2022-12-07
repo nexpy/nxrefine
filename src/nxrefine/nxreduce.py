@@ -33,7 +33,7 @@ from .nxrefine import NXRefine
 from .nxserver import NXServer
 from .nxsettings import NXSettings
 from .nxsymmetry import NXSymmetry
-from .nxutils import mask_volume, peak_search
+from .nxutils import init_julia, load_julia, mask_volume, peak_search
 
 
 class NXReduce(QtCore.QObject):
@@ -2019,9 +2019,14 @@ class NXMultiReduce(NXReduce):
                 self.logger.info(
                     "Need to define a valid Laue group before PDF calculation")
                 return
-            self.init_julia()
             if self.julia is None:
-                return
+                try:
+                    self.julia = init_julia()
+                except Exception as error:
+                    self.logger.info(f"Cannot initialize Julia: {error}")
+                    self.julia = None
+                    return
+            load_julia(['julia/LaplaceInterpolation.jl'])
             self.record_start(task)
             self.init_pdf(mask)
             try:
@@ -2039,25 +2044,6 @@ class NXMultiReduce(NXReduce):
                 raise
         else:
             self.logger.info(f"{self.title} already calculated")
-
-    def init_julia(self):
-        if self.julia is None:
-            try:
-                import pkg_resources
-                from julia import Julia
-                try:
-                    jl = Julia(compiled_modules=False)
-                except ArgumentError:
-                    import julia
-                    julia.install()
-                    jl = Julia(compile_modules=False)
-                from julia import Main
-                Main.include(pkg_resources.resource_filename(
-                    'nxrefine', 'julia/LaplaceInterpolation.jl'))
-                self.julia = jl
-            except Exception as error:
-                self.logger.info(f"Cannot initialize Julia: {error}")
-                self.julia = None
 
     def init_pdf(self, mask=False):
         if mask:

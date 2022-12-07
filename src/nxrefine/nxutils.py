@@ -292,3 +292,22 @@ def mask_volume(data_file, data_path, mask_file, mask_path, i, j, k,
         mask_root[mask_path][j+1:k-1] = (
             np.maximum(vol_smoothed[0:-1], vol_smoothed[1:]))
     return i
+
+
+def init_julia():
+    from julia.core import JuliaError
+    from julia.api import Julia
+    try:
+        jl = Julia(compiled_modules=False)
+    except JuliaError:
+        import julia
+        julia.install()
+        jl = Julia(compile_modules=False)
+    return jl
+
+
+def load_julia(resources):
+    from julia import Main
+    import pkg_resources
+    for resource in resources:
+        Main.include(pkg_resources.resource_filename('nxrefine', resource))

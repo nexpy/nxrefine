@@ -15,6 +15,8 @@ from nexusformat.nexus import (NeXusError, NXdata, NXdetector, NXfield,
 from numpy.linalg import inv, norm
 from scipy import optimize
 
+from .nxutils import init_julia, load_julia
+
 degrees = 180.0 / np.pi
 radians = np.pi / 180.0
 
@@ -217,7 +219,7 @@ class NXRefine(object):
                                rotmat(3, self.yaw))
         self._Gmat_cache = (rotmat(2, self.gonpitch) * rotmat(3, self.omega) *
                             rotmat(1, self.chi))
-        self._julia = None
+        self.julia = None
 
         self.parameters = None
 
@@ -1483,14 +1485,12 @@ class NXRefine(object):
         return peaks
 
     def get_xyzs(self, Qh=None, Qk=None, Ql=None):
-        if self._julia is None:
+        if self.julia is None:
             try:
-                from julia import Julia
-                self._julia = Julia(compiled_modules=False)
-                self._julia.eval("@eval Main import Base.MainInclude: include")
+                self.julia = init_julia()
             except Exception as error:
                 raise NeXusError(str(error))
-        import pkg_resources
+        load_julia(['julia/get_xyzs.jl'])
         from julia import Main, Pkg
         Pkg.add("Roots")
         Main.Gmat0 = np.array(self.Gmat(0.0))
@@ -1501,15 +1501,13 @@ class NXRefine(object):
         Main.Dvec = list(np.array(self.Dvec.T).reshape((3)))
         Main.Evec = list(np.array(self.Evec.T).reshape((3)))
         Main.shape = self.shape
-        Main.include(pkg_resources.resource_filename('nxrefine',
-                                                     'julia/get_xyzs.jl'))
         if Qh is None:
             Qh = int(self.Qh[-1])
         if Qk is None:
             Qk = int(self.Qk[-1])
         if Ql is None:
             Ql = int(self.Ql[-1])
-        ps = self._julia.get_xyzs(Qh, Qk, Ql)
+        ps = self.julia.get_xyzs(Qh, Qk, Ql)
         peaks = []
         for p in ps:
             try:
