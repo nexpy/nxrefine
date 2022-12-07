@@ -296,6 +296,8 @@ class MaximumDialog(NXDialog):
                         entry['instrument'] = NXinstrument()
                     if 'sample' not in entry['instrument']:
                         entry['instrument/sample'] = NXsample()
+                    if 'transmission' in entry['instrument/sample']:
+                        del entry['instrument/sample/transmission']
                     entry['instrument/sample/transmission'] = transmission
 
     def accept(self):
