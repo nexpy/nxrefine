@@ -57,7 +57,7 @@ def peak_search(data_file, data_path, i, j, k, threshold, min_pixels=10):
     return i, saved_blobs
 
 
-class NXBlob(object):
+class NXBlob:
 
     def __init__(self, x, y, z, max_value=0.0, intensity=0.0,
                  sigx=0.0, sigy=0.0, sigz=0.0, min_pixels=10):

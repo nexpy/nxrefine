@@ -66,7 +66,7 @@ def norm_vec(vec):
     return vec / norm(vec)
 
 
-class NXRefine(object):
+class NXRefine:
     """Crystallographic parameters and methods for single crystal diffraction.
 
     The parameters are loaded from a NeXus file containing data collected on a
@@ -1868,7 +1868,7 @@ class NXRefine(object):
             return 1
 
 
-class NXPeak(object):
+class NXPeak:
     """Parameters defining Bragg peaks identified in the data volumes.
 
     Parameters

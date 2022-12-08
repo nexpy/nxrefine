@@ -120,7 +120,7 @@ class Task(Base):
 File.tasks = relationship('Task', back_populates='file', order_by=Task.id)
 
 
-class NXDatabase(object):
+class NXDatabase:
 
     task_names = ('data', 'nxlink', 'nxmax', 'nxfind', 'nxcopy', 'nxrefine',
                   'nxprepare', 'nxtransform', 'nxmasked_transform',

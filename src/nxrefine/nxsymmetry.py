@@ -129,7 +129,7 @@ laue_functions = {'-1': triclinic,
                   'm-3m': cubic}
 
 
-class NXSymmetry(object):
+class NXSymmetry:
 
     def __init__(self, data, laue_group=None):
         if laue_group and laue_group in laue_functions:

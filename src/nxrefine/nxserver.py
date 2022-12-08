@@ -114,7 +114,7 @@ class NXWorker(Thread):
                     str(message) + '\n')
 
 
-class NXTask(object):
+class NXTask:
     """Class for submitting tasks to different cpus."""
 
     def __init__(self, command, server_type):
