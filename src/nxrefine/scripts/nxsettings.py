@@ -8,7 +8,6 @@
 # -----------------------------------------------------------------------------
 
 import argparse
-import os
 
 from nxrefine.nxsettings import NXSettings
 
@@ -25,7 +24,7 @@ def main():
     args = parser.parse_args()
 
     if args.directory:
-        settings = NXSettings(directory=os.path.realpath(args.directory))
+        settings = NXSettings(directory=args.directory)
     else:
         settings = NXSettings()
     print(f'Default settings stored in {settings.directory}')

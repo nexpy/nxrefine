@@ -136,7 +136,7 @@ class NXReduce(QtCore.QObject):
             self.label = self.wrapper_file.parent.name
             self.scan = self.wrapper_file.stem.replace(self.sample+'_', '')
             self.directory = self.wrapper_file.parent.joinpath(self.scan)
-            self.root_directory = self.wrapper_file.parent.parent
+            self.root_directory = self.wrapper_file.parent.parent.parent
             self._root = entry.nxroot
         elif directory is None:
             raise NeXusError('Directory not specified')
@@ -446,7 +446,7 @@ class NXReduce(QtCore.QObject):
             return
         elif self.parent_file.exists():
             if self.overwrite:
-                os.remove(self.parent_file)
+                self.parent_file.unlink()
             else:
                 raise NeXusError(f"'{self.parent_file.resolve()}' "
                                  "already set as parent")
@@ -1669,7 +1669,7 @@ class NXReduce(QtCore.QObject):
             self.logger.info(
                 f"Summing {self.entry_name} in '{reduce.raw_file}'")
             if i == 0:
-                shutil.copyfile(reduce.raw_file, self.raw_file)
+                shutil.copyfile(str(reduce.raw_file), str(self.raw_file))
                 new_file = h5.File(self.raw_file, 'r+')
                 new_field = new_file[self.raw_path]
             else:
@@ -2324,9 +2324,8 @@ class NXMultiReduce(NXReduce):
             self.logger.info("Sum file already exists")
 
     def configure_sum_file(self, scan_list):
-        shutil.copyfile(os.path.join(self.base_directory,
-                                     self.sample+'_'+scan_list[0]+'.nxs'),
-                        self.wrapper_file)
+        shutil.copyfile(str(self.base_directory.joinpath(
+            self.sample+'_'+scan_list[0]+'.nxs'), self.wrapper_file))
         with self.root.nxfile:
             if 'nxcombine' in self.root['entry']:
                 del self.root['entry/nxcombine']
@@ -2339,10 +2338,10 @@ class NXMultiReduce(NXReduce):
                         del entry['data/data']
                     entry['data/data'] = NXlink(
                         '/entry/data/data',
-                        os.path.join(self.directory, entry.nxname+'.h5'))
+                        self.directory.joinpath(entry.nxname+'.h5'))
                     if 'data_mask' in entry['data']:
-                        mask_file = os.path.join(self.directory,
-                                                 entry.nxname+'_mask.nxs')
+                        mask_file = self.directory.joinpath(
+                            entry.nxname+'_mask.nxs')
                         del entry['data/data_mask']
                         entry['data/data_mask'] = NXlink('/entry/mask',
                                                          mask_file)

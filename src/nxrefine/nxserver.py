@@ -286,7 +286,7 @@ class NXServer(NXDaemon):
     def clear(self):
         if self.queue_directory.exists():
             import shutil
-            shutil.rmtree(self.queue_directory, ignore_errors=True)
+            shutil.rmtree(str(self.queue_directory), ignore_errors=True)
         self.task_queue = NXFileQueue(self.queue_directory)
 
     def kill(self):
