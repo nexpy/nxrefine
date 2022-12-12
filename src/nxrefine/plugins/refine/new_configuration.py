@@ -13,7 +13,7 @@ from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.utils import report_error
 from nexusformat.nexus import (NXdetector, NXentry, NXfield, NXgoniometer,
                                NXinstrument, NXmonochromator, NXparameters,
-                               NXroot)
+                               NXsource, NXroot)
 from nxrefine.nxsettings import NXSettings
 from pyFAI.detectors import ALL_DETECTORS
 
@@ -56,11 +56,15 @@ class ConfigurationDialog(NXDialog):
         entry = self.configuration_file['entry']
         entry['nxreduce'] = NXparameters()
         entry['instrument'] = NXinstrument()
+        entry['source'] = NXsource()
         entry['instrument/monochromator'] = NXmonochromator()
         entry['instrument/goniometer'] = NXgoniometer()
         entry['instrument/detector'] = NXdetector()
 
     def setup_configuration(self):
+        default = self.settings['instrument']
+        entry['instrument/name'] = default['instrument']
+        entry['instrument/source/name'] = default['source']
         default = self.settings['nxrefine']
         entry = self.configuration_file['entry']
         entry['instrument/monochromator/wavelength'] = NXfield(
@@ -75,6 +79,10 @@ class ConfigurationDialog(NXDialog):
         self.configuration = GridParameters()
         self.configuration.add('configuration', 'configuration',
                                'Configuration Filename')
+        self.configuration.add('source', entry['instrument/source/name'],
+                               'Name of Facility')
+        self.configuration.add('instrument', entry['instrument/name'],
+                               'Instrument Name')
         self.configuration.add('wavelength',
                                entry['instrument/monochromator/wavelength'],
                                'Wavelength (Å)')
@@ -110,6 +118,7 @@ class ConfigurationDialog(NXDialog):
     def setup_scan(self):
         default = self.settings['nxrefine']
         entry = self.configuration_file['entry']
+        entry['instrument/goniometer/geometry'] = 'default'
         entry['instrument/goniometer/chi'] = (
             NXfield(default['chi'], dtype=float))
         entry['instrument/goniometer/chi'].attrs['units'] = 'degree'
@@ -203,6 +212,8 @@ class ConfigurationDialog(NXDialog):
         entry['nxreduce/monitor'] = self.analysis['monitor'].value
         entry['nxreduce/norm'] = self.analysis['norm'].value
         entry['nxreduce/radius'] = self.analysis['radius'].value
+        entry['instrument/source/name'] = self.configuration['source'].value
+        entry['instrument/name'] = self.configuration['instrument'].value
         entry['instrument/monochromator/wavelength'] = (
             self.configuration['wavelength'].value)
         entry['instrument/monochromator/energy'] = (

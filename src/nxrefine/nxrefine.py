@@ -211,7 +211,7 @@ class NXRefine:
         self.grid_basis = None
         self.grid_shape = None
         self.grid_step = None
-        self.standard = True
+        self.geometry = 'default'
 
         self.name = ""
         self._idx = None
@@ -1247,14 +1247,17 @@ class NXRefine:
     def Omat(self):
         """Return the matrix that rotates detector axes into lab axes.
 
-        When all goniometer angles are zero, the standard
-        transformations are as follows:
+        When all goniometer angles are zero, there are two
+        transformations that are currently supported.
+        The default transformations are as follows:
 
             +X(det) = -y(lab), +Y(det) = +z(lab), and +Z(det) = -x(lab)
 
         """
-        if self.standard:
+        if self.geometry == 'default':
             return np.matrix(((0, -1, 0), (0, 0, 1), (-1, 0, 0)))
+        elif self.geometry == 'CHESS':
+            return np.matrix(((0, 0, -1), (0, -1, 0), (-1, 0, 0)))
         else:
             return np.matrix(((0, 0, 1), (0, 1, 0), (-1, 0, 0)))
 

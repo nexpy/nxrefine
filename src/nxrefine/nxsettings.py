@@ -23,6 +23,8 @@ class NXSettings(ConfigParser):
         sections = self.sections()
         if 'setup' not in sections:
             self.add_section('setup')
+        if 'instrument' not in sections:
+            self.add_section('instrument')
         if 'nxrefine' not in sections:
             self.add_section('nxrefine')
         if 'nxreduce' not in sections:
@@ -39,6 +41,7 @@ class NXSettings(ConfigParser):
         if 'setup' not in self.home_settings.sections():
             self.home_settings.add_section('setup')
         if server_directory:
+            server_directory = str(Path(server_directory).resolve())
             self.home_settings.set('setup', 'directory', server_directory)
             with open(self.home_file, 'w') as f:
                 self.home_settings.write(f)
@@ -58,6 +61,10 @@ class NXSettings(ConfigParser):
     def add_defaults(self):
         if not self.has_option('setup', 'type'):
             self.set('setup', 'type', 'multicore')
+        default = {'source': 'APS', 'instrument': '6-ID-D'}
+        for p in default:
+            if not self.has_option('instrument', p):
+                self.set('instrument', p, default[p])
         default = {'wavelength': 0.141, 'distance': 650,
                    'phi': -5.0, 'phi_end': 360.0, 'phi_step': 0.1,
                    'chi': -90.0, 'omega': 0.0, 'x': 0.0, 'y': 0.0,
@@ -65,7 +72,8 @@ class NXSettings(ConfigParser):
         for p in default:
             if not self.has_option('nxrefine', p):
                 self.set('nxrefine', p, default[p])
-        default = {'threshold': 50000, 'min_pixels': 10,
+        default = {'geometry': 'default',
+                   'threshold': 50000, 'min_pixels': 10,
                    'first': 10, 'last': 3640, 'polar_max': 10.0,
                    'monitor': 'monitor2', 'norm': 30000,
                    'qmin': 6.0, 'qmax': 16.0, 'radius': 0.2}
@@ -75,7 +83,7 @@ class NXSettings(ConfigParser):
         self.save()
 
     def input_defaults(self):
-        for s in ['NXRefine', 'NXReduce']:
+        for s in ['Instrument', 'NXRefine', 'NXReduce']:
             print(f'\n{s} Parameters\n-------------------')
             s = s.lower()
             for p in self.options(s):
