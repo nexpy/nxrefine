@@ -158,7 +158,7 @@ class NXDatabase:
     def get_filename(self, filename):
         """Return the relative path of the requested filename."""
         root = self.database.parent.parent
-        return Path(filename).relative_to(root)
+        return str(Path(filename).relative_to(root))
 
     def get_file(self, filename):
         """Return the File object (and associated tasks) matching filename.
@@ -173,12 +173,12 @@ class NXDatabase:
         File
             File object.
         """
+        filename = str(filename)
         self.check_tasks()
         f = self.query(filename)
 
         if f is None:
-            filename = Path(filename).resolve()
-            if not filename.exists():
+            if not Path(filename).exists():
                 raise NeXusError(f"'{filename}' does not exist")
             self.session.add(File(filename=self.get_filename(filename)))
             self.session.commit()
