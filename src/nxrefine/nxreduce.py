@@ -15,6 +15,7 @@ import shutil
 import subprocess
 import timeit
 from datetime import datetime
+from pathlib import Path
 
 import h5py as h5
 import numpy as np
@@ -130,44 +131,30 @@ class NXReduce(QtCore.QObject):
 
         if isinstance(entry, NXentry):
             self.entry_name = entry.nxname
-            self.wrapper_file = entry.nxfilename
-            self.sample = os.path.basename(
-                os.path.dirname(
-                    os.path.dirname(self.wrapper_file)))
-            self.label = os.path.basename(os.path.dirname(self.wrapper_file))
-            base_name = os.path.basename(
-                os.path.splitext(self.wrapper_file)[0])
-            self.scan = base_name.replace(self.sample+'_', '')
-            self.directory = os.path.realpath(
-                os.path.join(
-                    os.path.dirname(self.wrapper_file), self.scan))
-            self.root_directory = os.path.realpath(
-                os.path.dirname(
-                    os.path.dirname(
-                        os.path.dirname(self.directory))))
+            self.wrapper_file = Path(entry.nxfilename).resolve()
+            self.sample = self.wrapper_file.parent.parent.name
+            self.label = self.wrapper_file.parent.name
+            self.scan = self.wrapper_file.stem.replace(self.sample+'_', '')
+            self.directory = self.wrapper_file.parent.joinpath(self.scan)
+            self.root_directory = self.wrapper_file.parent.parent
             self._root = entry.nxroot
         elif directory is None:
             raise NeXusError('Directory not specified')
         else:
-            self.directory = os.path.realpath(directory.rstrip('/'))
-            self.root_directory = os.path.dirname(
-                os.path.dirname(
-                    os.path.dirname(self.directory)))
-            self.sample = os.path.basename(
-                os.path.dirname(
-                    os.path.dirname(self.directory)))
-            self.label = os.path.basename(os.path.dirname(self.directory))
-            self.scan = os.path.basename(self.directory)
-            self.wrapper_file = os.path.join(self.root_directory,
-                                             self.sample, self.label,
-                                             f"{self.sample}_{self.scan}.nxs")
+            self.directory = Path(directory).resolve()
+            self.root_directory = self.directory.parent.parent.parent
+            self.sample = self.directory.parent.parent.name
+            self.label = self.directory.parent.name
+            self.scan = self.directory.name
+            self.wrapper_file = self.directory.parent.joinpath(
+                f"{self.sample}_{self.scan}.nxs")
             if entry is None:
                 self.entry_name = 'entry'
             else:
                 self.entry_name = entry
             self._root = None
         self.name = f"{self.sample}_{self.scan}/{self.entry_name}"
-        self.base_directory = os.path.dirname(self.wrapper_file)
+        self.base_directory = self.wrapper_file.parent
 
         self._field = None
         self._shape = None
@@ -244,9 +231,8 @@ class NXReduce(QtCore.QObject):
     @property
     def task_directory(self):
         """Directory containing log files and the reduction database."""
-        _directory = os.path.join(self.root_directory, 'tasks')
-        if not os.path.exists(_directory):
-            os.mkdir(_directory)
+        _directory = self.root_directory.joinpath('tasks')
+        _directory.mkdir(exist_ok=True)
         return _directory
 
     @property
@@ -261,15 +247,13 @@ class NXReduce(QtCore.QObject):
                 datefmt='%Y-%m-%d %H:%M:%S')
             for handler in self._logger.handlers:
                 self._logger.removeHandler(handler)
-            if os.path.exists(
-                    os.path.join(self.task_directory, 'nxlogger.pid')):
+            if self.task_directory.joinpath('nxlogger.pid').exists():
                 socketHandler = logging.handlers.SocketHandler(
                     'localhost', logging.handlers.DEFAULT_TCP_LOGGING_PORT)
                 self._logger.addHandler(socketHandler)
             else:
-                fileHandler = logging.FileHandler(os.path.join(
-                    self.task_directory,
-                    'nxlogger.log'))
+                fileHandler = logging.FileHandler(
+                    self.task_directory.joinpath('nxlogger.log'))
                 fileHandler.setFormatter(formatter)
                 self._logger.addHandler(fileHandler)
             if not self.gui:
@@ -302,8 +286,8 @@ class NXReduce(QtCore.QObject):
         """Database for recording the data reduction status."""
         if self._db is None:
             try:
-                self._db = NXDatabase(os.path.join(self.task_directory,
-                                                   'nxdatabase.db'))
+                self._db = NXDatabase(
+                    self.task_directory.joinpath('nxdatabase.db'))
             except Exception as error:
                 self.logger.info(str(error))
         return self._db
@@ -386,7 +370,7 @@ class NXReduce(QtCore.QObject):
     @property
     def raw_file(self):
         """Absolute file path to the externally linked raw data file."""
-        return self.entry['data/data'].nxfilename
+        return Path(self.entry['data/data'].nxfilename)
 
     @property
     def raw_path(self):
@@ -422,7 +406,7 @@ class NXReduce(QtCore.QObject):
         NXReduce instance.
         """
         if self._parent is None:
-            if os.path.exists(self.parent_file) and not self.is_parent():
+            if self.parent_file.exists() and not self.is_parent():
                 self._parent = self.parent_file
             else:
                 self._parent = None
@@ -445,12 +429,12 @@ class NXReduce(QtCore.QObject):
     @property
     def parent_file(self):
         """Absolute file path to the parent file."""
-        return os.path.join(self.base_directory, self.sample+'_parent.nxs')
+        return self.base_directory.joinpath(self.sample+'_parent.nxs')
 
     def is_parent(self):
         """True if the current entry is in the selected parent."""
-        if (os.path.exists(self.parent_file)
-                and os.path.realpath(self.parent_file) == self.wrapper_file):
+        if (self.parent_file.exists()
+                and self.parent_file.resolve() == self.wrapper_file):
             return True
         else:
             return False
@@ -460,19 +444,19 @@ class NXReduce(QtCore.QObject):
         if self.is_parent():
             self.logger.info(f"'{self.wrapper_file}' already set as parent")
             return
-        elif os.path.exists(self.parent_file):
+        elif self.parent_file.exists():
             if self.overwrite:
                 os.remove(self.parent_file)
             else:
-                raise NeXusError(f"'{os.path.realpath(self.parent_file)}' "
+                raise NeXusError(f"'{self.parent_file.resolve()}' "
                                  "already set as parent")
         self.record_start('nxcopy')
-        os.symlink(os.path.basename(self.wrapper_file), self.parent_file)
+        self.parent_file.symlink_to(self.wrapper_file)
         self.record('nxcopy', parent=self.wrapper_file)
         self.record_end('nxcopy')
         self._parent = None
         self.logger.info(
-            f"'{os.path.realpath(self.parent_file)}' set as parent")
+            f"'{self.parent_file.resolve()}' set as parent")
 
     def get_parameter(self, name, field_name=None):
         """Return the requested data reduction parameter.
@@ -887,8 +871,8 @@ class NXReduce(QtCore.QObject):
                     self.entry['data/frame_number'] = frames
                     self.entry['data/frame_time'] = frame_time * frames
                     self.entry['data/frame_time'].attrs['units'] = 's'
-                    raw_file = os.path.relpath(
-                        self.raw_file, os.path.dirname(self.wrapper_file))
+                    raw_file = self.raw_file.relative_to(
+                        self.wrapper_file.parent)
                     self.entry['data/data'] = NXlink(self.raw_path, raw_file)
                     self.entry['data'].nxsignal = self.entry['data/data']
                     self.logger.info(
@@ -921,17 +905,15 @@ class NXReduce(QtCore.QObject):
             self.logger.info("No raw data loaded")
 
     def read_logs(self):
-        head_file = os.path.join(self.directory, self.entry_name+'_head.txt')
-        meta_file = os.path.join(self.directory, self.entry_name+'_meta.txt')
-        if os.path.exists(head_file) and os.path.exists(meta_file):
+        head_file = self.directory.joinpath(self.entry_name+'_head.txt')
+        meta_file = self.directory.joinpath(self.entry_name+'_meta.txt')
+        if head_file.exists() and meta_file.exists():
             logs = NXcollection()
         else:
-            if not os.path.exists(head_file):
-                self.logger.info(
-                    f"'{self.entry_name}_head.txt' does not exist")
-            if not os.path.exists(meta_file):
-                self.logger.info(
-                    f"'{self.entry_name}_meta.txt' does not exist")
+            if not head_file.exists():
+                self.logger.info(f"'{head_file}' does not exist")
+            if not meta_file.exists():
+                self.logger.info(f"'{meta_file}' does not exist")
             return None
         with open(head_file) as f:
             lines = f.readlines()
@@ -1050,8 +1032,7 @@ class NXReduce(QtCore.QObject):
                               qmax=parent_reduce.qmax,
                               radius=parent_reduce.radius)
         self.logger.info(
-            f"Parameters for {self.name} copied from "
-            f"'{os.path.basename(os.path.realpath(self.parent))}'")
+            f"Parameters for {self.name} copied from '{self.parent.name}'")
 
     def nxmax(self):
         if self.not_processed('nxmax') and self.maxcount:
@@ -1414,8 +1395,8 @@ class NXReduce(QtCore.QObject):
             try:
                 self.record_start('nxprepare')
                 self.logger.info("Preparing 3D mask")
-                self.mask_file = os.path.join(self.directory,
-                                              self.entry_name+'_mask.nxs')
+                self.mask_file = self.directory.joinpath(
+                    self.entry_name+'_mask.nxs')
                 mask = self.prepare_mask()
                 if self.gui:
                     if mask:
@@ -1492,15 +1473,15 @@ class NXReduce(QtCore.QObject):
 
     def write_mask(self, mask):
         """Write mask to file."""
-        if os.path.exists(self.mask_file):
-            os.remove(self.mask_file)
-        shutil.move(mask.nxfilename, self.mask_file)
+        if self.mask_file.exists():
+            self.mask_file.unlink()
+        shutil.move(mask.nxfilename, str(self.mask_file))
 
         if ('data_mask' in self.data
-                and self.data['data_mask'].nxfilename != self.mask_file):
+                and self.data['data_mask'].nxfilename != str(self.mask_file)):
             del self.data['data_mask']
         if 'data_mask' not in self.data:
-            self.data['data_mask'] = NXlink('entry/mask', self.mask_file)
+            self.data['data_mask'] = NXlink('entry/mask', str(self.mask_file))
 
         self.logger.info(f"3D Mask written to '{self.mask_file}'")
 
@@ -1508,13 +1489,13 @@ class NXReduce(QtCore.QObject):
         if mask:
             task = 'nxmasked_transform'
             task_name = 'Masked transform'
-            self.transform_file = os.path.join(
-                self.directory, self.entry_name+'_masked_transform.nxs')
+            self.transform_file = self.directory.joinpath(
+                self.entry_name+'_masked_transform.nxs')
         else:
             task = 'nxtransform'
             task_name = 'Transform'
-            self.transform_file = os.path.join(
-                self.directory, self.entry_name+'_transform.nxs')
+            self.transform_file = self.directory.joinpath(
+                self.entry_name+'_transform.nxs')
         if self.not_processed(task) and self.transform:
             if not self.oriented:
                 self.logger.info(
@@ -1613,8 +1594,8 @@ class NXReduce(QtCore.QObject):
             self.data['monitor_weight'].attrs['axes'] = 'frame_number'
 
     def prepare_transform(self, mask=False):
-        settings_file = os.path.join(self.directory,
-                                     self.entry_name+'_transform.pars')
+        settings_file = self.directory.joinpath(
+            self.entry_name+'_transform.pars')
         with self.root.nxfile:
             self.get_transform_grid(mask=mask)
             if self.norm:
@@ -1629,18 +1610,18 @@ class NXReduce(QtCore.QObject):
                 refine.prepare_transform(self.transform_file, mask=mask)
                 refine.write_settings(settings_file)
                 command = refine.cctw_command(mask)
-                if command and os.path.exists(self.transform_file):
+                if command and self.transform_file.exists():
                     with NXLock(self.transform_file):
-                        os.remove(self.transform_file)
+                        self.transform_file.unlink()
                 return command
             else:
                 self.logger.info("Invalid HKL grid")
                 return None
 
     def nxsum(self, scan_list, update=False):
-        if os.path.exists(self.raw_file) and not (self.overwrite or update):
+        if self.raw_file.exists() and not (self.overwrite or update):
             self.logger.info("Data already summed")
-        elif not os.path.exists(self.directory):
+        elif not self.directory.exists():
             self.logger.info("Sum directory not created")
         else:
             self.record_start('nxsum')
@@ -1668,8 +1649,8 @@ class NXReduce(QtCore.QObject):
         status = True
         for i, scan in enumerate(scan_list):
             reduce = NXReduce(self.entry_name,
-                              os.path.join(self.base_directory, scan))
-            if not os.path.exists(reduce.raw_file):
+                              self.base_directory.joinpath(scan))
+            if not reduce.raw_file.exists():
                 self.logger.info(f"'{reduce.raw_file}' does not exist")
                 status = False
             elif 'monitor1' not in reduce.entry:
@@ -1684,7 +1665,7 @@ class NXReduce(QtCore.QObject):
         chunk_size = 500
         for i, scan in enumerate(scan_list):
             reduce = NXReduce(self.entry_name,
-                              os.path.join(self.base_directory, scan))
+                              self.base_directory.joinpath(scan))
             self.logger.info(
                 f"Summing {self.entry_name} in '{reduce.raw_file}'")
             if i == 0:
@@ -1704,7 +1685,7 @@ class NXReduce(QtCore.QObject):
 
         for i, scan in enumerate(scan_list):
             reduce = NXReduce(self.entry_name,
-                              os.path.join(self.base_directory, scan))
+                              self.base_directory.joinpath(scan))
             self.logger.info(
                 f"Adding {self.entry_name} monitors in "
                 f"'{reduce.wrapper_file}'")
@@ -1714,8 +1695,8 @@ class NXReduce(QtCore.QObject):
                 if 'monitor_weight' not in reduce.entry['data']:
                     reduce.get_normalization()
                 monitor_weight = reduce.entry['data/monitor_weight'].nxvalue
-                if os.path.exists(reduce.mask_file):
-                    shutil.copyfile(reduce.mask_file, self.mask_file)
+                if reduce.mask_file.exists():
+                    shutil.copyfile(str(reduce.mask_file), str(self.mask_file))
             else:
                 monitor1 += reduce.entry['monitor1/MCS1'].nxvalue
                 monitor2 += reduce.entry['monitor2/MCS2'].nxvalue
@@ -1836,7 +1817,7 @@ class NXReduce(QtCore.QObject):
 
         if args:
             if 'directory' in args:
-                args.directory = os.path.realpath(args.directory)
+                args.directory = str(args.directory.resolve())
             self.server.add_task(f"{command} {switches(args)}")
         else:
             self.server.add_task(
@@ -1891,14 +1872,14 @@ class NXMultiReduce(NXReduce):
             transform_task = 'nxmasked_transform'
             self.title = 'Masked Combine'
             self.transform_path = 'masked_transform'
-            self.transform_file = os.path.join(self.directory,
-                                               'masked_transform.nxs')
+            self.transform_file = self.directory.joinpath(
+                'masked_transform.nxs')
         else:
             task = 'nxcombine'
             transform_task = 'nxtransform'
             self.title = 'Combine'
             self.transform_path = 'transform'
-            self.transform_file = os.path.join(self.directory, 'transform.nxs')
+            self.transform_file = self.directory.joinpath('transform.nxs')
         if self.not_processed(task) and self.combine:
             if not self.complete(transform_task):
                 self.logger.info(
@@ -1918,8 +1899,8 @@ class NXMultiReduce(NXReduce):
                         transform_data = 'transform/data'
                     tic = timeit.default_timer()
                     with NXLock(self.transform_file):
-                        if os.path.exists(self.transform_file):
-                            os.remove(self.transform_file)
+                        if self.transform_file.exists():
+                            self.transform_file.unlink()
                         data_lock = {}
                         for entry in self.entries:
                             data_lock[entry] = NXLock(
@@ -1974,12 +1955,11 @@ class NXMultiReduce(NXReduce):
             self.logger.info("Unable to initialize transform group")
             self.logger.info(str(error))
             return None
-        input = ' '.join([os.path.join(
-            self.directory,
+        input = ' '.join([self.directory.joinpath(
             fr'{entry}_{self.transform_path}.nxs\#/entry/data')
             for entry in self.entries])
-        output = os.path.join(self.directory,
-                              fr'{self.transform_path}.nxs\#/entry/data/v')
+        output = self.directory.joinpath(
+            fr'{self.transform_path}.nxs\#/entry/data/v')
         return f"cctw merge {input} -o {output}"
 
     def add_title(self, data):
@@ -2052,11 +2032,11 @@ class NXMultiReduce(NXReduce):
             self.symm_data = 'symm_masked_transform'
             self.total_pdf_data = 'total_masked_pdf'
             self.pdf_data = 'masked_pdf'
-            self.symm_file = os.path.join(self.directory,
-                                          'masked_symm_transform.nxs')
-            self.total_pdf_file = os.path.join(self.directory,
-                                               'masked_total_pdf.nxs')
-            self.pdf_file = os.path.join(self.directory, 'masked_pdf.nxs')
+            self.symm_file = self.directory.joinpath(
+                'masked_symm_transform.nxs')
+            self.total_pdf_file = self.directory.joinpath(
+                'masked_total_pdf.nxs')
+            self.pdf_file = self.directory.joinpath('masked_pdf.nxs')
             self.Qh, self.Qk, self.Ql = (self.entry['masked_transform/Qh'],
                                          self.entry['masked_transform/Qk'],
                                          self.entry['masked_transform/Ql'])
@@ -2066,9 +2046,9 @@ class NXMultiReduce(NXReduce):
             self.symm_data = 'symm_transform'
             self.total_pdf_data = 'total_pdf'
             self.pdf_data = 'pdf'
-            self.symm_file = os.path.join(self.directory, 'symm_transform.nxs')
-            self.total_pdf_file = os.path.join(self.directory, 'total_pdf.nxs')
-            self.pdf_file = os.path.join(self.directory, 'pdf.nxs')
+            self.symm_file = self.directory.joinpath('symm_transform.nxs')
+            self.total_pdf_file = self.directory.joinpath('total_pdf.nxs')
+            self.pdf_file = self.directory.joinpath('pdf.nxs')
             self.Qh, self.Qk, self.Ql = (self.entry['transform/Qh'],
                                          self.entry['transform/Qk'],
                                          self.entry['transform/Ql'])
@@ -2146,9 +2126,9 @@ class NXMultiReduce(NXReduce):
         return taper
 
     def total_pdf(self):
-        if os.path.exists(self.total_pdf_file):
+        if self.total_pdf_file.exists():
             if self.overwrite:
-                os.remove(self.total_pdf_file)
+                self.total_pdf_file.unlink()
             else:
                 self.logger.info(
                     f"{self.title}: Total PDF file already exists")
@@ -2219,7 +2199,7 @@ class NXMultiReduce(NXReduce):
             symmetry = NXSymmetry(root['data'],
                                   laue_group=self.refine.laue_group)
             result = symmetry.symmetrize()
-            os.remove(root.nxfilename)
+            root.nxfilename.unlink()
             return result
         else:
             return data
@@ -2289,9 +2269,9 @@ class NXMultiReduce(NXReduce):
 
     def delta_pdf(self):
         self.logger.info(f"{self.title}: Calculating Delta-PDF")
-        if os.path.exists(self.pdf_file):
+        if self.pdf_file.exists():
             if self.overwrite:
-                os.remove(self.pdf_file)
+                self.pdf_file.unlink()
             else:
                 self.logger.info(
                     f"{self.title}: Delta-PDF file already exists")
@@ -2330,14 +2310,13 @@ class NXMultiReduce(NXReduce):
                          f"({toc - tic:g} seconds)")
 
     def nxsum(self, scan_list):
-        if not os.path.exists(self.wrapper_file) or self.overwrite:
+        if not self.wrapper_file.exists() or self.overwrite:
             for e in self.entries:
                 reduce = NXReduce(self.root[e])
                 status = reduce.check_sum_files(scan_list)
                 if not status:
                     return status
-            if not os.path.exists(self.directory):
-                os.mkdir(self.directory)
+            self.directory.mkdir(exist_ok=True)
             self.logger.info("Creating sum file")
             self.configure_sum_file(scan_list)
             self.logger.info("Sum file created")
@@ -2420,7 +2399,7 @@ class NXMultiReduce(NXReduce):
 
         if args:
             if 'directory' in args:
-                args.directory = os.path.realpath(args.directory)
+                args.directory = str(args.directory.resolve())
             self.server.add_task(f"{command} {switches(args)}")
         else:
             self.server.add_task(

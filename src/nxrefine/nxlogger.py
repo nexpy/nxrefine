@@ -8,9 +8,9 @@
 
 import logging
 import logging.handlers
-import os
 import pickle
 import struct
+from pathlib import Path
 from socketserver import StreamRequestHandler, ThreadingTCPServer
 
 from .nxdaemon import NXDaemon
@@ -76,12 +76,11 @@ class NXLogger(ThreadingTCPServer, NXDaemon):
                  port=logging.handlers.DEFAULT_TCP_LOGGING_PORT,
                  handler=LogRecordStreamHandler):
         self.pid_name = 'nxlogger'
-        self.directory = directory
-        self.task_directory = os.path.join(directory, 'tasks')
-        if 'tasks' not in os.listdir(directory):
-            os.mkdir(self.task_directory)
-        self.log_file = os.path.join(self.task_directory, 'nxlogger.log')
-        self.pid_file = os.path.join(self.task_directory, 'nxlogger.pid')
+        self.directory = Path(directory)
+        self.task_directory = self.directory.joinpath('tasks')
+        self.task_directory.mkdir(exist_ok=True)
+        self.log_file = self.task_directory.joinpath('nxlogger.log')
+        self.pid_file = self.task_directory.joinpath('nxlogger.pid')
         NXDaemon.__init__(self, self.pid_name, self.pid_file)
 
         self.host = host

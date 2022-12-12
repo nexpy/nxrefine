@@ -158,7 +158,7 @@ class NXDatabase:
     def get_filename(self, filename):
         """Return the relative path of the requested filename."""
         root = self.database.parent.parent
-        return os.path.relpath(Path(filename).resolve(), root)
+        return Path(filename).relative_to(root)
 
     def get_file(self, filename):
         """Return the File object (and associated tasks) matching filename.
@@ -277,7 +277,7 @@ class NXDatabase:
             entries = f.get_entries()
             data = 0
             for e in entries:
-                if os.path.exists(os.path.join(scan_dir, e+'.h5')):
+                if scan_dir.joinpath(e+'.h5').exists():
                     data += 1
             if data == 0:
                 f.data = NOT_STARTED
@@ -494,20 +494,21 @@ class NXDatabase:
         with NXLock(self.database):
             self.sync_file(filename)
 
-    def sync_db(self, sample_dir):
+    def sync_db(self, scan_dir):
         """ Populate the database based on local files.
 
         Parameters
         ----------
-        sample_dir : str
+        scan_dir : str or Path
             Directory containing the NeXus wrapper files.
         """
         # Get a list of all the .nxs wrapper files
-        wrapper_files = [
-            os.path.join(sample_dir, filename)
-            for filename in os.listdir(sample_dir)
-            if filename.endswith('.nxs') and
-            all(x not in filename for x in ('parent', 'mask'))]
+        scan_dir = Path(scan_dir)
+        wrapper_files = [scan_dir.joinpath(filename)
+                         for filename in scan_dir.iterdir()
+                         if filename.suffix == '.nxs' and
+                         all(x not in filename.name
+                             for x in ('parent', 'mask'))]
         with NXLock(self.database):
             for wrapper_file in wrapper_files:
                 self.sync_file(self.get_file(wrapper_file))

@@ -8,7 +8,6 @@
 # -----------------------------------------------------------------------------
 
 import argparse
-import os
 
 from nxrefine.nxserver import NXServer
 
@@ -33,8 +32,7 @@ def main():
     args = parser.parse_args()
 
     if args.directory:
-        server = NXServer(directory=os.path.realpath(args.directory),
-                          server_type=args.type)
+        server = NXServer(directory=args.directory, server_type=args.type)
     elif args.type:
         server = NXServer(server_type=args.type)
     else:

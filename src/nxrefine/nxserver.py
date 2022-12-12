@@ -10,8 +10,9 @@ import os
 import subprocess
 import time
 from datetime import datetime
-from threading import Thread
+from pathlib import Path
 from queue import Queue
+from threading import Thread
 
 import psutil
 from nexusformat.nexus import NeXusError, NXLock
@@ -43,15 +44,17 @@ class NXFileQueue(FileQueue):
     """A file-based queue with locked access"""
 
     def __init__(self, directory, autosave=True):
-        self.directory = directory
-        tempdir = os.path.join(directory, 'tempdir')
-        self.lockfile = os.path.join(directory, 'filequeue')
-        if not os.path.exists(tempdir):
-            os.makedirs(tempdir)
+        self.directory = Path(directory)
+        tempdir = directory.joinpath('tempdir')
+        tempdir.mkdir(exist_ok=True)
+        self.lockfile = self.directory.joinpath('filequeue')
         with NXLock(self.lockfile):
             super().__init__(directory, serializer=json, autosave=autosave,
                              tempdir=tempdir)
             self.fix_access()
+
+    def __repr__(self):
+        return f"NXFileQueue(directory='{self.directory}')"
 
     def put(self, item, block=True, timeout=None):
         with NXLock(self.lockfile):
@@ -73,7 +76,7 @@ class NXFileQueue(FileQueue):
 
     def fix_access(self):
         try:
-            os.chmod(os.path.join(self.directory, 'info'), 0o664)
+            self.directory.joinpath('info').chmod(0o664)
         except Exception:
             pass
 
@@ -85,9 +88,8 @@ class NXWorker(Thread):
         super().__init__()
         self.cpu = cpu
         self.worker_queue = worker_queue
-        self.server_log = server_log
-        self.cpu_log = os.path.join(os.path.dirname(self.server_log),
-                                    self.cpu + '.log')
+        self.server_log = Path(server_log)
+        self.cpu_log = self.server_log.parent.joinpath(self.cpu + '.log')
 
     def __repr__(self):
         return f"NXWorker(cpu={self.cpu})"
@@ -151,11 +153,11 @@ class NXServer(NXDaemon):
 
     def __repr__(self):
         return (f"NXServer(directory='{self.directory}', "
-                "type='{self.server_type}')")
+                f"type='{self.server_type}')")
 
     def initialize(self, directory, server_type, nodes):
         self.server_settings = NXSettings(directory=directory)
-        self.directory = self.server_settings.directory
+        self.directory = Path(self.server_settings.directory)
         if server_type:
             self.server_type = server_type
             self.server_settings.set('setup', 'type', server_type)
@@ -178,9 +180,9 @@ class NXServer(NXDaemon):
                 cpu_count = psutil.cpu_count()
             self.cpus = ['cpu'+str(cpu) for cpu in range(1, cpu_count+1)]
         self.server_settings.save()
-        self.log_file = os.path.join(self.directory, 'nxserver.log')
-        self.pid_file = os.path.join(self.directory, 'nxserver.pid')
-        self.queue_directory = os.path.join(self.directory, 'task_list')
+        self.log_file = self.directory.joinpath('nxserver.log')
+        self.pid_file = self.directory.joinpath('nxserver.pid')
+        self.queue_directory = self.directory.joinpath('task_list')
         self.task_queue = NXFileQueue(self.queue_directory)
 
     def read_nodes(self):
@@ -282,7 +284,7 @@ class NXServer(NXDaemon):
             self.add_task('stop')
 
     def clear(self):
-        if os.path.exists(self.queue_directory):
+        if self.queue_directory.exists():
             import shutil
             shutil.rmtree(self.queue_directory, ignore_errors=True)
         self.task_queue = NXFileQueue(self.queue_directory)

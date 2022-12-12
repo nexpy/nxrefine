@@ -9,6 +9,7 @@
 
 import argparse
 import os
+from pathlib import Path
 
 from nxrefine.nxdatabase import NXDatabase
 
@@ -21,10 +22,9 @@ def main():
 
     args = parser.parse_args()
 
-    dir = os.path.realpath(args.directory)
-    print('Looking in directory {}'.format(dir))
-    db_path = os.path.join(os.path.dirname(os.path.dirname(dir)), 'tasks',
-                           'nxdatabase.db')
+    dir = Path(args.directory)
+    print(f'Looking in directory {dir}')
+    db_path = dir.parent.parent.joinpath('tasks', 'nxdatabase.db')
     nxdb = NXDatabase(db_path)
     nxdb.sync_db(args.directory)
 

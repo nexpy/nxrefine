@@ -6,7 +6,7 @@
 # The full license is in the file COPYING, distributed with this software.
 # -----------------------------------------------------------------------------
 
-import os
+from pathlib import Path
 
 import numpy as np
 from nexusformat.nexus import (NeXusError, NXdata, NXdetector, NXfield,
@@ -817,9 +817,9 @@ class NXRefine:
             name = entry + '_masked_transform'
         else:
             name = entry + '_transform'
-        dir = os.path.dirname(self.entry['data'].nxsignal.nxfilename)
+        dir = Path(self.entry['data'].nxsignal.nxfilename).parent
         filename = self.entry.nxfilename
-        parfile = os.path.join(dir, entry+'_transform.pars')
+        parfile = dir.joinpath(entry+'_transform.pars')
         command = [f'cctw transform --script {parfile}']
         if 'pixel_mask' in self.entry['instrument/detector']:
             command.append(
