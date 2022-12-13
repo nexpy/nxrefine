@@ -829,6 +829,10 @@ class NXRefine:
         if 'monitor_weight' in self.entry['data']:
             command.append(
                 fr'--weights {filename}\#/{entry}/data/monitor_weight')
+        if 'polarization' in self.entry['instrument/detector']:
+            command.append(
+                fr'--weights {filename}\#/{entry}'
+                '/instrument/detector/polarization')
         command.append(fr'{filename}\#/{entry}/data/data')
         command.append(fr'--output {dir}/{name}.nxs\#/entry/data')
         command.append('--normalization 0')
