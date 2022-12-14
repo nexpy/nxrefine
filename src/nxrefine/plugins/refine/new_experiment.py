@@ -6,7 +6,7 @@
 # The full license is in the file COPYING, distributed with this software.
 # -----------------------------------------------------------------------------
 
-import os
+from pathlib import Path
 
 from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.utils import report_error
@@ -37,27 +37,22 @@ class ExperimentDialog(NXDialog):
 
     def accept(self):
         try:
-            home_directory = self.get_directory()
-            experiment_directory = os.path.join(
-                home_directory, self.parameters['experiment'].value)
-            if not os.path.exists(experiment_directory):
-                os.makedirs(experiment_directory)
+            home_directory = Path(self.get_directory())
+            experiment_directory = home_directory.joinpath(
+                self.parameters['experiment'].value)
+            experiment_directory.mkdir(exist_ok=True)
             self.mainwindow.default_directory = experiment_directory
-            configuration_directory = os.path.join(experiment_directory,
-                                                   'configurations')
-            if not os.path.exists(configuration_directory):
-                os.makedirs(configuration_directory)
-            task_directory = os.path.join(experiment_directory, 'tasks')
-            if not os.path.exists(task_directory):
-                os.makedirs(task_directory)
-            nxdb = NXDatabase(os.path.join(task_directory, 'nxdatabase.db'))
-            calibration_directory = os.path.join(experiment_directory,
-                                                 'calibrations')
-            if not os.path.exists(calibration_directory):
-                os.makedirs(calibration_directory)
-            script_directory = os.path.join(experiment_directory, 'scripts')
-            if not os.path.exists(script_directory):
-                os.makedirs(script_directory)
+            configuration_directory = experiment_directory.joinpath(
+                'configurations')
+            configuration_directory.mkdir(exist_ok=True)
+            task_directory = experiment_directory.joinpath('tasks')
+            task_directory.mkdir(exist_ok=True)
+            _ = NXDatabase(task_directory.joinpath('nxdatabase.db'))
+            calibration_directory = experiment_directory.joinpath(
+                'calibrations')
+            calibration_directory.mkdir(exist_ok=True)
+            script_directory = experiment_directory.joinpath('scripts')
+            script_directory.mkdir(exist_ok=True)
             super().accept()
         except Exception as error:
             report_error("Defining New Experiment", error)
