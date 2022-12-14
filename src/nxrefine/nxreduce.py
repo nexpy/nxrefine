@@ -1222,19 +1222,26 @@ class NXReduce(QtCore.QObject):
             monitor = self.read_monitor()
             x = np.arange(self.nframes)
             if self.partial_frames is not None:
-                y = self.partial_frames.nxvalue
+                y = self.partial_frames.nxvalue / monitor
             else:
-                y = self.entry['summed_frames/partial_frames'].nxvalue
+                y = (self.entry['summed_frames/partial_frames'].nxvalue
+                     / monitor)
             dx = frame_window
             ms = filter_size
             xmin = x[self.first+dx:self.last-dx:2*dx]
             ymin = median_filter(np.array([min(y[i-dx:i+dx]) for i in xmin]),
                                  size=ms)
-            yabs = np.ones(shape=x.shape, dtype=np.float32) / monitor
+            yabs = np.ones(shape=x.shape, dtype=np.float32)
             yabs[xmin[0]:xmin[-1]] = interp1d(
                 xmin, ymin, kind='cubic')(x[xmin[0]:xmin[-1]])
             yabs[0:xmin[0]] = yabs[xmin[0]]
             yabs[xmin[-1]:] = yabs[xmin[-1]-1]
+            xout = list(x[::100])
+            yout = list(yabs[::100])
+            if max(xout) < x.max():
+                xout = xout + [x[-1]]
+                yout = yout + [y[-1]]
+            yabs = interp1d(xout, yout, kind='cubic')(x)
         else:
             yabs = np.ones(shape=(self.nframes,), dtype=np.float32)
         transmission = NXfield(yabs / yabs.max(), name='transmission',
