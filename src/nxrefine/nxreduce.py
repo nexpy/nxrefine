@@ -1215,35 +1215,36 @@ class NXReduce(QtCore.QObject):
             return transmission
 
     def calculate_transmission(self, frame_window=5, filter_size=20):
-        if ('summed_frames' in self.entry
-                and 'partial_frames' in self.entry['summed_frames']):
-            from scipy.interpolate import interp1d
-            from scipy.ndimage.filters import median_filter
-            monitor = self.read_monitor()
-            x = np.arange(self.nframes)
-            if self.partial_frames is not None:
-                y = self.partial_frames.nxvalue / monitor
+        if self.partial_frames is None:
+            if ('summed_frames' in self.entry
+                    and 'partial_frames' in self.entry['summed_frames']):
+                y = self.entry['summed_frames/partial_frames'].nxvalue
             else:
-                y = (self.entry['summed_frames/partial_frames'].nxvalue
-                     / monitor)
-            dx = frame_window
-            ms = filter_size
-            xmin = x[self.first+dx:self.last-dx:2*dx]
-            ymin = median_filter(np.array([min(y[i-dx:i+dx]) for i in xmin]),
-                                 size=ms)
-            yabs = np.ones(shape=x.shape, dtype=np.float32)
-            yabs[xmin[0]:xmin[-1]] = interp1d(
-                xmin, ymin, kind='cubic')(x[xmin[0]:xmin[-1]])
-            yabs[0:xmin[0]] = yabs[xmin[0]]
-            yabs[xmin[-1]:] = yabs[xmin[-1]-1]
-            xout = list(x[::100])
-            yout = list(yabs[::100])
-            if max(xout) < x.max():
-                xout = xout + [x[-1]]
-                yout = yout + [y[-1]]
-            yabs = interp1d(xout, yout, kind='cubic')(x)
+                raise NeXusError('Partial frames not available')
         else:
-            yabs = np.ones(shape=(self.nframes,), dtype=np.float32)
+            y = self.partial_frames.nxvalue
+
+        from scipy.interpolate import interp1d
+        from scipy.ndimage.filters import median_filter
+
+        y = y / self.read_monitor()
+        x = np.arange(self.nframes)
+        dx = frame_window
+        ms = filter_size
+        xmin = x[self.first+dx:self.last-dx:2*dx]
+        ymin = median_filter(np.array([min(y[i-dx:i+dx]) for i in xmin]),
+                             size=ms)
+        yabs = np.ones(shape=x.shape, dtype=np.float32)
+        yabs[xmin[0]:xmin[-1]] = interp1d(
+            xmin, ymin, kind='cubic')(x[xmin[0]:xmin[-1]])
+        yabs[0:xmin[0]] = yabs[xmin[0]]
+        yabs[xmin[-1]:] = yabs[xmin[-1]-1]
+        xout = list(x[::100])
+        yout = list(yabs[::100])
+        if max(xout) < x.max():
+            xout = xout + [x[-1]]
+            yout = yout + [yabs[-1]]
+        yabs = interp1d(xout, yout, kind='cubic')(x)
         transmission = NXfield(yabs / yabs.max(), name='transmission',
                                long_name='Sample Transmission')
         transmission.attrs['maximum'] = yabs.max()

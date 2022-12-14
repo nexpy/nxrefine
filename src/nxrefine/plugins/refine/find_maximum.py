@@ -100,6 +100,7 @@ class MaximumDialog(NXDialog):
             self.summed_data = self.entry['summed_data'].nxsignal
         else:
             self.summed_data = None
+        self.monitor = self.reduce.read_monitor()
 
     @property
     def first(self):
@@ -221,9 +222,9 @@ class MaximumDialog(NXDialog):
     def plot_summed_frames(self):
         if self.summed_frames:
             if self.over:
-                NXdata(self.summed_frames).oplot(markersize=2)
+                NXdata(self.summed_frames / self.monitor).oplot(markersize=2)
             else:
-                self.pv.plot(NXdata(self.summed_frames,
+                self.pv.plot(NXdata(self.summed_frames / self.monitor,
                                     NXfield(np.arange(self.reduce.nframes),
                                             name='nframes',
                                             long_title='Frame No.'),
@@ -235,9 +236,9 @@ class MaximumDialog(NXDialog):
     def plot_partial_frames(self):
         if self.partial_frames:
             if self.over:
-                NXdata(self.partial_frames).oplot(markersize=2)
+                NXdata(self.partial_frames / self.monitor).oplot(markersize=2)
             else:
-                self.pv.plot(NXdata(self.partial_frames,
+                self.pv.plot(NXdata(self.partial_frames / self.monitor,
                                     NXfield(np.arange(self.reduce.nframes),
                                             name='nframes',
                                             long_title='Frame No.'),
@@ -259,6 +260,7 @@ class MaximumDialog(NXDialog):
         self.pv.ytab.flipped = True
 
     def calculate_transmission(self):
+        self.reduce.partial_frames = self.partial_frames
         return self.reduce.calculate_transmission(
             frame_window=self.frame_window, filter_size=self.filter_size)
 
