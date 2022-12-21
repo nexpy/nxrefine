@@ -1,3 +1,10 @@
+# -----------------------------------------------------------------------------
+# Copyright (c) 2015-2022, AXMAS Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING, distributed with this software.
+# -----------------------------------------------------------------------------
 import numpy as np
 from nexusformat.nexus import NXdata, nxopen, nxsetlock
 from skimage.feature import peak_local_max
@@ -295,8 +302,8 @@ def mask_volume(data_file, data_path, mask_file, mask_path, i, j, k,
 
 
 def init_julia():
-    from julia.core import JuliaError
     from julia.api import Julia
+    from julia.core import JuliaError
     try:
         jl = Julia(compiled_modules=False)
     except JuliaError:
@@ -307,7 +314,8 @@ def init_julia():
 
 
 def load_julia(resources):
+    import importlib
+
     from julia import Main
-    import pkg_resources
     for resource in resources:
-        Main.include(pkg_resources.resource_filename('nxrefine', resource))
+        Main.include(str(importlib.resources.path('nxrefine.julia', resource)))
