@@ -47,6 +47,10 @@ class SettingsDialog(NXDialog):
         self.define_parameters()
 
     def define_parameters(self):
+        self.instrument_parameters = GridParameters()
+        defaults = self.settings.settings['instrument']
+        for p in defaults:
+            self.instrument_parameters.add(p, defaults[p], p)
         self.refine_parameters = GridParameters()
         defaults = self.settings.settings['nxrefine']
         for p in defaults:
@@ -57,12 +61,18 @@ class SettingsDialog(NXDialog):
             self.reduce_parameters.add(p, defaults[p], p)
         if self.layout.count() == 2:
             self.layout.insertLayout(
-                1, self.refine_parameters.grid(header=False, title='NXRefine'))
+                1, self.instrument_parameters.grid(header=False,
+                                                   title='Instrument'))
             self.layout.insertLayout(
-                2, self.reduce_parameters.grid(header=False, title='NXReduce'))
+                2, self.refine_parameters.grid(header=False, title='NXRefine'))
+            self.layout.insertLayout(
+                3, self.reduce_parameters.grid(header=False, title='NXReduce'))
 
     def accept(self):
         try:
+            for p in self.refine_parameters:
+                self.settings.set('instrument', p,
+                                  self.refine_parameters[p].value)
             for p in self.refine_parameters:
                 self.settings.set('nxrefine', p,
                                   self.refine_parameters[p].value)
