@@ -161,6 +161,8 @@ class ConfigurationDialog(NXDialog):
         self.detectors[position] = GridParameters()
         self.detectors[position].add('chi', default['chi'], 'Chi (deg)')
         self.detectors[position].add('omega', default['omega'], 'Omega (deg)')
+        self.detectors[position].add('gonpitch', default['gonpitch'],
+                                     'Goniometer Pitch (deg)')
         self.detectors[position].add('x', default['x'], 'Translation - x (mm)')
         self.detectors[position].add('y', default['y'], 'Translation - y (mm)')
         self.configuration_file[f'f{position}'] = entry
@@ -253,6 +255,8 @@ class ConfigurationDialog(NXDialog):
                 self.detectors[position]['chi'].value)
             entry['instrument/goniometer/omega'] = (
                 self.detectors[position]['omega'].value)
+            entry['instrument/goniometer/gonpitch'] = (
+                self.detectors[position]['gonpitch'].value)
 
     def accept(self):
         try:

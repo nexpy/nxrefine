@@ -64,8 +64,10 @@ class NXSettings(ConfigParser):
         for p in default:
             if not self.has_option('instrument', p):
                 self.set('instrument', p, default[p])
+        default = {'wavelength': 0.141, 'distance': 650, 'geometry': 'default',
                    'phi': -5.0, 'phi_end': 360.0, 'phi_step': 0.1,
-                   'chi': -90.0, 'omega': 0.0, 'x': 0.0, 'y': 0.0,
+                   'chi': -90.0, 'omega': 0.0, 'gonpitch': 0.0,
+                   'x': 0.0, 'y': 0.0,
                    'nsteps': 3, 'frame_rate': 10}
         for p in default:
             if not self.has_option('nxrefine', p):
