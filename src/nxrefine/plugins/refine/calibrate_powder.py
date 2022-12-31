@@ -38,7 +38,7 @@ class CalibrateDialog(NXDialog):
         self.data = None
         self.counts = None
         self.points = []
-        self.pattern_geometry = None
+        self.ai = None
         self.cake_geometry = None
         self.polarization = None
         self.phi_max = -np.pi
@@ -97,24 +97,27 @@ class CalibrateDialog(NXDialog):
         self.pixel_mask = self.entry['instrument/detector/pixel_mask'].nxvalue
         self.ring = self.selected_ring
         if 'calibration' in self.entry['instrument']:
-            self.data = self.entry['instrument/calibration']
-            self.counts = self.data.nxsignal.nxvalue
+            signal = self.entry['instrument/calibration'].nxsignal
+            axes = self.entry['instrument/calibration'].nxaxes
+            self.counts = signal.nxvalue
+            self.data = NXdata(signal, axes)
             self.plot_data()
-            self.parameters['calibrant'].value = self.data['calibrant']
-            if 'refinement' in self.data:
+            self.parameters['calibrant'].value = (
+                self.entry['instrument/calibration/calibrant'])
+            if 'refinement' in self.entry['instrument/calibration']:
                 parameters = (
                     self.entry['instrument/calibration/refinement/parameters'])
-            ai = AzimuthalIntegrator(
-                dist=parameters['Distance'].nxvalue,
-                detector=parameters['Detector'].nxvalue,
-                poni1=parameters['Poni1'].nxvalue,
-                poni2=parameters['Poni2'].nxvalue,
-                rot1=parameters['Rot1'].nxvalue,
-                rot2=parameters['Rot2'].nxvalue,
-                rot3=parameters['Rot3'].nxvalue,
-                pixel1=parameters['PixelSize1'].nxvalue,
-                pixel2=parameters['PixelSize2'].nxvalue,
-                wavelength=parameters['Wavelength'].nxvalue)
+                self.ai = AzimuthalIntegrator(
+                    dist=parameters['Distance'].nxvalue,
+                    detector=parameters['Detector'].nxvalue,
+                    poni1=parameters['Poni1'].nxvalue,
+                    poni2=parameters['Poni2'].nxvalue,
+                    rot1=parameters['Rot1'].nxvalue,
+                    rot2=parameters['Rot2'].nxvalue,
+                    rot3=parameters['Rot3'].nxvalue,
+                    pixel1=parameters['PixelSize1'].nxvalue,
+                    pixel2=parameters['PixelSize2'].nxvalue,
+                    wavelength=parameters['Wavelength'].nxvalue)
         else:
             self.close_plots()
 
@@ -128,18 +131,17 @@ class CalibrateDialog(NXDialog):
     def import_calibration(self):
         calibration_file = getOpenFileName(self, 'Open Calibration File')
         if os.path.exists(calibration_file):
-            self.pattern_geometry = pyFAI.load(calibration_file)
+            self.ai = pyFAI.load(calibration_file)
             self.read_parameters()
-            self.create_cake_geometry()
 
     def export_calibration(self):
-        if self.pattern_geometry is None:
+        if self.ai is None:
             display_message("No calibration available")
             return
         calibration_file = getSaveFileName(self, "Choose a Filename",
                                            'calibration.poni')
         if calibration_file:
-            self.pattern_geometry.write(calibration_file)
+            self.ai.write(calibration_file)
 
     @property
     def search_size(self):
@@ -301,58 +303,39 @@ class CalibrateDialog(NXDialog):
         self.prepare_parameters()
         self.orig_pixel1 = self.pixel_size
         self.orig_pixel2 = self.pixel_size
-        self.pattern_geometry = GeometryRefinement(self.point_array,
-                                                   dist=self.distance,
-                                                   wavelength=self.wavelength,
-                                                   pixel1=self.pixel_size,
-                                                   pixel2=self.pixel_size,
-                                                   calibrant=self.calibrant)
+        self.ai = GeometryRefinement(self.point_array,
+                                     dist=self.distance,
+                                     wavelength=self.wavelength,
+                                     pixel1=self.pixel_size,
+                                     pixel2=self.pixel_size,
+                                     calibrant=self.calibrant)
         self.refine()
-        self.create_cake_geometry()
-        self.pattern_geometry.reset()
+        self.ai.reset()
 
     def refine(self):
-        self.pattern_geometry.data = self.point_array
+        self.ai.data = self.point_array
 
         if self.parameters['wavelength'].vary:
-            self.pattern_geometry.refine2()
+            self.ai.refine2()
             fix = []
         else:
             fix = ['wavelength']
         if not self.parameters['distance'].vary:
             fix.append('dist')
-        self.pattern_geometry.refine2_wavelength(fix=fix)
+        self.ai.refine2_wavelength(fix=fix)
         self.read_parameters()
-        self.create_cake_geometry()
-        self.pattern_geometry.reset()
-
-    def create_cake_geometry(self):
-        self.cake_geometry = AzimuthalIntegrator()
-        pyFAI_parameter = self.pattern_geometry.getPyFAI()
-        pyFAI_parameter['wavelength'] = self.pattern_geometry.wavelength
-        self.cake_geometry.setPyFAI(dist=pyFAI_parameter['dist'],
-                                    poni1=pyFAI_parameter['poni1'],
-                                    poni2=pyFAI_parameter['poni2'],
-                                    rot1=pyFAI_parameter['rot1'],
-                                    rot2=pyFAI_parameter['rot2'],
-                                    rot3=pyFAI_parameter['rot3'],
-                                    pixel1=pyFAI_parameter['pixel1'],
-                                    pixel2=pyFAI_parameter['pixel2'])
-        self.cake_geometry.wavelength = pyFAI_parameter['wavelength']
+        self.ai.reset()
 
     def plot_cake(self):
         if 'Cake Plot' in plotviews:
             plotview = plotviews['Cake Plot']
         else:
             plotview = NXPlotView('Cake Plot')
-        if self.pattern_geometry is None:
+        if self.ai is None:
             display_message("No refinement performed")
             return
-        res = self.cake_geometry.integrate2d(self.counts,
-                                             1024, 1024,
-                                             method='csr',
-                                             unit='2th_deg',
-                                             correctSolidAngle=True)
+        res = self.ai.integrate2d(self.counts, 1024, 1024, method='csr',
+                                  unit='2th_deg', correctSolidAngle=True)
         self.cake_data = NXdata(res[0],
                                 (NXfield(res[2], name='azimumthal_angle'),
                                  NXfield(res[1], name='polar_angle')))
@@ -381,7 +364,7 @@ class CalibrateDialog(NXDialog):
         self.parameters.restore_parameters()
 
     def save_parameters(self):
-        if self.pattern_geometry is None:
+        if self.ai is None:
             display_message("No refinement performed")
             return
         elif 'calibration' in self.entry['instrument']:
@@ -399,16 +382,15 @@ class CalibrateDialog(NXDialog):
         process.version = pyFAI.version
         process.parameters = NXcollection()
         process.parameters['Detector'] = instrument['detector/description']
-        pyFAI_parameter = self.pattern_geometry.getPyFAI()
-        process.parameters['PixelSize1'] = pyFAI_parameter['pixel1']
-        process.parameters['PixelSize2'] = pyFAI_parameter['pixel2']
-        process.parameters['Distance'] = pyFAI_parameter['dist']
-        process.parameters['Poni1'] = pyFAI_parameter['poni1']
-        process.parameters['Poni2'] = pyFAI_parameter['poni2']
-        process.parameters['Rot1'] = pyFAI_parameter['rot1']
-        process.parameters['Rot2'] = pyFAI_parameter['rot2']
-        process.parameters['Rot3'] = pyFAI_parameter['rot3']
-        process.parameters['Wavelength'] = pyFAI_parameter['wavelength']
+        process.parameters['PixelSize1'] = self.ai.pixel1
+        process.parameters['PixelSize2'] = self.ai.pixel2
+        process.parameters['Distance'] = self.ai.dist
+        process.parameters['Poni1'] = self.ai.poni1
+        process.parameters['Poni2'] = self.ai.poni2
+        process.parameters['Rot1'] = self.ai.rot1
+        process.parameters['Rot2'] = self.ai.rot2
+        process.parameters['Rot3'] = self.ai.rot3
+        process.parameters['Wavelength'] = self.ai.wavelength
         instrument['calibration/refinement'] = process
         monochromator = instrument['monochromator']
         monochromator['wavelength'] = self.parameters['wavelength'].value
@@ -422,7 +404,7 @@ class CalibrateDialog(NXDialog):
         detector['beam_center_x'] = self.parameters['xc'].value
         detector['beam_center_y'] = self.parameters['yc'].value
         try:
-            detector['polarization'] = self.pattern_geometry.polarization(
+            detector['polarization'] = self.ai.polarization(
                 factor=0.99, shape=detector['pixel_mask'].shape)
         except Exception:
             pass
