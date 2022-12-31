@@ -349,14 +349,12 @@ class CalibrateDialog(NXDialog):
                         linestyle=':', color='r')
 
     def read_parameters(self):
-        calib = self.pattern_geometry.getPyFAI()
-        fit2d = self.pattern_geometry.getFit2D()
-        self.parameters['wavelength'].value = (
-            self.pattern_geometry.wavelength * 1e10)
-        self.parameters['distance'].value = calib['dist'] * 1e3
-        self.parameters['yaw'].value = np.degrees(calib['rot1'])
-        self.parameters['pitch'].value = np.degrees(calib['rot2'])
-        self.parameters['roll'].value = np.degrees(calib['rot3'])
+        self.parameters['wavelength'].value = self.ai.wavelength * 1e10
+        self.parameters['yaw'].value = np.degrees(self.ai.rot1)
+        self.parameters['pitch'].value = np.degrees(self.ai.rot2)
+        self.parameters['roll'].value = np.degrees(self.ai.rot3)
+        fit2d = self.ai.getFit2D()
+        self.parameters['distance'].value = fit2d['directDist']
         self.parameters['xc'].value = fit2d['centerX']
         self.parameters['yc'].value = fit2d['centerY']
 
