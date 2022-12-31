@@ -13,7 +13,7 @@ from nexpy.gui.plotview import NXPlotView, plotviews
 from nexpy.gui.pyqt import getOpenFileName
 from nexpy.gui.utils import load_image, report_error
 from nexpy.gui.widgets import NXcircle, NXrectangle
-from nexusformat.nexus import NeXusError, NXdata
+from nexusformat.nexus import NeXusError, NXdata, NXfield
 
 
 def show_dialog():
@@ -29,7 +29,6 @@ class MaskDialog(NXDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.plotview = None
         self.data = self.counts = None
         self.xc = self.yc = None
         self.mask = None
@@ -60,61 +59,69 @@ class MaskDialog(NXDialog):
                                self.action_buttons(
                                    ('Remove Shape', self.remove_shape)))
             self.pushbutton['Add Shape'].setCheckable(True)
-        if 'calibration' in self.entry['instrument']:
-            self.load_calibration()
-        else:
-            self.data = self.counts = None
         self.pixel_mask = self.entry['instrument/detector/pixel_mask'].nxvalue
+        self.shape = self.pixel_mask.shape
+        self.load_calibration()
 
     def load_calibration(self):
-        self.data = self.entry['instrument/calibration']
-        self.counts = self.data.nxsignal.nxvalue
-        self.xc = self.entry['instrument/detector/beam_center_x'].nxvalue
-        self.yc = self.entry['instrument/detector/beam_center_y'].nxvalue
+        if 'calibration' in self.entry['instrument']:
+            self.data = self.entry['instrument/calibration']
+            self.counts = self.data.nxsignal.nxvalue
+            self.xc = self.entry['instrument/detector/beam_center_x'].nxvalue
+            self.yc = self.entry['instrument/detector/beam_center_y'].nxvalue
+        else:
+            self.counts = np.zeros(self.shape)
+            x = NXfield(np.arange(self.shape[1], dtype=int), name='x')
+            y = NXfield(np.arange(self.shape[0], dtype=int), name='y')
+            z = NXfield(self.counts, name='z')
+            self.data = NXdata(z, (y, x))
+            self.xc, self.yc = self.shape[1] / 2, self.shape[0] / 2
 
     def import_mask(self):
         mask_file = getOpenFileName(self, 'Open Mask File')
         if os.path.exists(mask_file):
-            self.pixel_mask = load_image(mask_file)
+            self.pixel_mask = load_image(mask_file).nxsignal.nxvalue
+
+    @property
+    def pv(self):
+        try:
+            return plotviews['Mask Editor']
+        except Exception:
+            return NXPlotView('Mask Editor')
 
     def plot_data(self):
-        if self.plotview is None:
-            if 'Mask Editor' in plotviews:
-                self.plotview = plotviews['Mask Editor']
-            else:
-                self.plotview = NXPlotView('Mask Editor')
         self.create_mask()
-        if self.counts is not None:
+        if self.counts.max() > 0.0:
             mask = np.zeros(self.counts.shape, dtype=float)
             idx = np.where(self.mask == 0)
             mask[idx] = 0.5 * self.counts[idx] / self.counts.max()
             mask += self.mask
-            self.plotview.plot(NXdata(mask, axes=self.data.nxaxes), log=True)
+            self.pv.plot(NXdata(mask, axes=self.data.nxaxes), log=True)
         else:
-            self.plotview.plot(NXdata(self.mask, axes=self.data.nxaxes))
-        self.plotview.aspect = 'equal'
-        self.plotview.ytab.flipped = True
-        self.plotview.draw()
+            self.pv.plot(NXdata(self.mask, axes=self.data.nxaxes))
+        self.pv.aspect = 'equal'
+        self.pv.ytab.flipped = True
+        self.pv.draw()
 
     def add_shape(self):
         if self.pushbutton['Add Shape'].isChecked():
             if self.shape_box.currentText() == 'Rectangle':
                 self.shape = NXrectangle(self.xc-50, self.yc-50, 100, 100,
                                          border_tol=0.1,
-                                         plotview=self.plotview,
+                                         plotview=self.pv,
                                          resize=True, facecolor='r',
                                          edgecolor='k',
                                          linewidth=1, alpha=0.3)
             else:
                 self.shape = NXcircle(self.xc, self.yc, 50, border_tol=0.1,
-                                      plotview=self.plotview, resize=True,
+                                      plotview=self.pv, resize=True,
                                       facecolor='r', edgecolor='k',
                                       linewidth=1, alpha=0.3)
             self.shape.connect()
-            self.plotview.draw()
+            self.pv.draw()
         else:
             self.shapes.append(self.shape)
-            self.plotview.shapes.append(self.shapes)
+            self.pv.shapes.append(self.shapes)
             self.shape_choice.addItem(repr(self.shape))
             self.shape_choice.setVisible(True)
             self.insert_layout(self.shape_options(self.shape))
