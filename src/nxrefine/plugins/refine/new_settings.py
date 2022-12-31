@@ -70,9 +70,9 @@ class SettingsDialog(NXDialog):
 
     def accept(self):
         try:
-            for p in self.refine_parameters:
+            for p in self.instrument_parameters:
                 self.settings.set('instrument', p,
-                                  self.refine_parameters[p].value)
+                                  self.instrument_parameters[p].value)
             for p in self.refine_parameters:
                 self.settings.set('nxrefine', p,
                                   self.refine_parameters[p].value)
