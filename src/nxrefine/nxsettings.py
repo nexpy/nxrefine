@@ -23,6 +23,8 @@ class NXSettings(ConfigParser):
         sections = self.sections()
         if 'setup' not in sections:
             self.add_section('setup')
+        if 'instrument' not in sections:
+            self.add_section('instrument')
         if 'nxrefine' not in sections:
             self.add_section('nxrefine')
         if 'nxreduce' not in sections:
@@ -58,9 +60,14 @@ class NXSettings(ConfigParser):
     def add_defaults(self):
         if not self.has_option('setup', 'type'):
             self.set('setup', 'type', 'multicore')
-        default = {'wavelength': 0.141, 'distance': 650,
+        default = {'source': 'APS', 'instrument': '6-ID-D'}
+        for p in default:
+            if not self.has_option('instrument', p):
+                self.set('instrument', p, default[p])
+        default = {'wavelength': 0.141, 'distance': 650, 'geometry': 'default',
                    'phi': -5.0, 'phi_end': 360.0, 'phi_step': 0.1,
-                   'chi': -90.0, 'omega': 0.0, 'x': 0.0, 'y': 0.0,
+                   'chi': -90.0, 'omega': 0.0, 'gonpitch': 0.0,
+                   'x': 0.0, 'y': 0.0,
                    'nsteps': 3, 'frame_rate': 10}
         for p in default:
             if not self.has_option('nxrefine', p):
@@ -75,7 +82,7 @@ class NXSettings(ConfigParser):
         self.save()
 
     def input_defaults(self):
-        for s in ['NXRefine', 'NXReduce']:
+        for s in ['instrument', 'NXRefine', 'NXReduce']:
             print(f'\n{s} Parameters\n-------------------')
             s = s.lower()
             for p in self.options(s):
@@ -87,6 +94,7 @@ class NXSettings(ConfigParser):
     @property
     def settings(self):
         _settings = {}
+        _settings['instrument'] = {k: v for (k, v) in self.items('instrument')}
         _settings['nxrefine'] = {k: v for (k, v) in self.items('nxrefine')}
         _settings['nxreduce'] = {k: v for (k, v) in self.items('nxreduce')}
         return _settings
