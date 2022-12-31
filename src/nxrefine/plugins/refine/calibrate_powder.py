@@ -35,7 +35,6 @@ class CalibrateDialog(NXDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.plotview = None
         self.data = None
         self.counts = None
         self.points = []
@@ -155,19 +154,21 @@ class CalibrateDialog(NXDialog):
         colors = ['r', 'b', 'g', 'c', 'm'] * 4
         return colors[self.ring]
 
+    @property
+    def pv(self):
+        try:
+            return plotviews['Powder Calibration']
+        except Exception:
+            return NXPlotView('Powder Calibration')
+
     def plot_data(self):
-        if self.plotview is None:
-            if 'Powder Calibration' in plotviews:
-                self.plotview = plotviews['Powder Calibration']
-            else:
-                self.plotview = NXPlotView('Powder Calibration')
-        self.plotview.plot(self.data, log=True)
-        self.plotview.aspect = 'equal'
-        self.plotview.ytab.flipped = True
+        self.pv.plot(self.data, log=True)
+        self.pv.aspect = 'equal'
+        self.pv.ytab.flipped = True
         self.clear_points()
 
     def on_button_press(self, event):
-        self.plotview.make_active()
+        self.pv.make_active()
         if event.inaxes:
             self.xp, self.yp = event.x, event.y
         else:
@@ -178,11 +179,11 @@ class CalibrateDialog(NXDialog):
         if event.inaxes:
             if abs(event.x - self.xp) > 5 or abs(event.y - self.yp) > 5:
                 return
-            x, y = self.plotview.inverse_transform(event.xdata, event.ydata)
+            x, y = self.pv.inverse_transform(event.xdata, event.ydata)
             for i, point in enumerate(self.points):
                 circle = point[0]
                 if circle.shape.contains_point(
-                        self.plotview.ax.transData.transform((x, y))):
+                        self.pv.ax.transData.transform((x, y))):
                     circle.remove()
                     for circle in point[2]:
                         circle.remove()
@@ -194,19 +195,19 @@ class CalibrateDialog(NXDialog):
                 return
 
     def circle(self, idx, idy, alpha=1.0):
-        return self.plotview.circle(idx, idy, self.search_size,
-                                    facecolor=self.ring_color, edgecolor='k',
-                                    alpha=alpha)
+        return self.pv.circle(idx, idy, self.search_size,
+                              facecolor=self.ring_color, edgecolor='k',
+                              alpha=alpha)
 
     def select(self):
         if self.pushbutton['Select Points'].isChecked():
-            self.plotview.cidpress = self.plotview.canvas.mpl_connect(
+            self.pv.cidpress = self.pv.canvas.mpl_connect(
                 'button_press_event', self.on_button_press)
-            self.plotview.cidrelease = self.plotview.canvas.mpl_connect(
+            self.pv.cidrelease = self.pv.canvas.mpl_connect(
                 'button_release_event', self.on_button_release)
         else:
-            self.plotview.canvas.mpl_disconnect(self.plotview.cidpress)
-            self.plotview.canvas.mpl_disconnect(self.plotview.cidrelease)
+            self.pv.canvas.mpl_disconnect(self.pv.cidpress)
+            self.pv.canvas.mpl_disconnect(self.pv.cidrelease)
 
     def auto(self):
         xc, yc = self.parameters['xc'].value, self.parameters['yc'].value
@@ -389,20 +390,15 @@ class CalibrateDialog(NXDialog):
                 del self.entry['instrument/calibration']
             else:
                 return
-        self.entry['instrument/calibration'] = self.data
-        if 'refinement' in self.entry['instrument/calibration']:
-            if confirm_action('Overwrite previous refinement?'):
-                del self.entry['instrument/calibration/refinement']
-            else:
-                return
-        self.entry['instrument/calibration/calibrant'] = (
+        instrument = self.entry['instrument']
+        instrument['calibration'] = self.data
+        instrument['calibration/calibrant'] = (
             self.parameters['calibrant'].value)
         process = NXprocess()
         process.program = 'pyFAI'
         process.version = pyFAI.version
         process.parameters = NXcollection()
-        process.parameters['Detector'] = (
-            self.entry['instrument/detector/description'])
+        process.parameters['Detector'] = instrument['detector/description']
         pyFAI_parameter = self.pattern_geometry.getPyFAI()
         process.parameters['PixelSize1'] = pyFAI_parameter['pixel1']
         process.parameters['PixelSize2'] = pyFAI_parameter['pixel2']
@@ -413,12 +409,12 @@ class CalibrateDialog(NXDialog):
         process.parameters['Rot2'] = pyFAI_parameter['rot2']
         process.parameters['Rot3'] = pyFAI_parameter['rot3']
         process.parameters['Wavelength'] = pyFAI_parameter['wavelength']
-        self.entry['instrument/calibration/refinement'] = process
-        self.entry['instrument/monochromator/wavelength'] = (
-            self.parameters['wavelength'].value)
-        self.entry['instrument/monochromator/energy'] = (
+        instrument['calibration/refinement'] = process
+        monochromator = instrument['monochromator']
+        monochromator['wavelength'] = self.parameters['wavelength'].value
+        monochromator['energy'] = (
             12.398419739640717 / self.parameters['wavelength'].value)
-        detector = self.entry['instrument/detector']
+        detector = instrument['detector']
         detector['distance'] = self.parameters['distance'].value
         detector['yaw'] = self.parameters['yaw'].value
         detector['pitch'] = self.parameters['pitch'].value
@@ -427,9 +423,33 @@ class CalibrateDialog(NXDialog):
         detector['beam_center_y'] = self.parameters['yc'].value
         try:
             detector['polarization'] = self.pattern_geometry.polarization(
-                factor=0.99, shape=detector['mask'].shape)
+                factor=0.99, shape=detector['pixel_mask'].shape)
         except Exception:
             pass
+        entries = [entry for entry in self.root.entries
+                   if entry != 'entry' and entry != self.entry.nxname]
+        if entries and self.confirm_action(
+            f'Copy mask to other entries? ({", ".join(entries)})',
+                answer='yes'):
+            for entry in [self.root[e]for e in entries]:
+                other_instrument = entry['instrument']
+                if 'calibration' in other_instrument:
+                    del other_instrument['calibration']
+                other_instrument['calibration'] = instrument['calibration']
+                other_monochromator = entry['instrument/monochromator']
+                other_monochromator['wavelength'] = monochromator['wavelength']
+                other_monochromator['energy'] = monochromator['energy']
+                other_detector = entry['instrument/detector']
+                other_detector['distance'] = detector['distance']
+                other_detector['yaw'] = detector['yaw']
+                other_detector['pitch'] = detector['pitch']
+                other_detector['roll'] = detector['roll']
+                other_detector['beam_center_x'] = detector['beam_center_x']
+                other_detector['beam_center_y'] = detector['beam_center_y']
+                try:
+                    other_detector['polarization'] = detector['polarization']
+                except Exception:
+                    pass
 
     def close_plots(self):
         if 'Powder Calibration' in plotviews:

@@ -56,17 +56,17 @@ class ConfigurationDialog(NXDialog):
         entry = self.configuration_file['entry']
         entry['nxreduce'] = NXparameters()
         entry['instrument'] = NXinstrument()
-        entry['source'] = NXsource()
+        entry['instrument/source'] = NXsource()
         entry['instrument/monochromator'] = NXmonochromator()
         entry['instrument/goniometer'] = NXgoniometer()
         entry['instrument/detector'] = NXdetector()
 
     def setup_configuration(self):
         default = self.settings['instrument']
+        entry = self.configuration_file['entry']
         entry['instrument/name'] = default['instrument']
         entry['instrument/source/name'] = default['source']
         default = self.settings['nxrefine']
-        entry = self.configuration_file['entry']
         entry['instrument/monochromator/wavelength'] = NXfield(
             default['wavelength'], dtype=np.float32)
         entry['instrument/monochromator/wavelength'].attrs['units'] = (
