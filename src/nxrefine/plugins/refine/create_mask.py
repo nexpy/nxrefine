@@ -174,7 +174,15 @@ class MaskDialog(NXDialog):
     def accept(self):
         self.create_mask()
         try:
-            self.entry['instrument/detector/pixel_mask'] = self.mask
+            mask_path = 'instrument/detector/pixel_mask'
+            self.entry[mask_path] = self.mask
+            entries = [entry for entry in self.root.entries
+                       if entry != 'entry' and entry != self.entry.nxname]
+            if entries and self.confirm_action(
+                f'Copy mask to other entries? ({", ".join(entries)})',
+                    answer='yes'):
+                for entry in entries:
+                    self.root[entry][mask_path] = self.mask
         except NeXusError as error:
             report_error("Creating Mask", error)
             return
