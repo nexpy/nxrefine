@@ -20,6 +20,8 @@ def main():
                         help='scan directory')
     parser.add_argument('-e', '--entries', nargs='+',
                         help='names of entries to be processed')
+    parser.add_argument('-L', '--load', action='store_true',
+                        help='load raw data')
     parser.add_argument('-l', '--link', action='store_true',
                         help='link wrapper file to raw data')
     parser.add_argument('-m', '--max', action='store_true',
@@ -56,8 +58,8 @@ def main():
 
     for entry in entries:
         reduce = NXReduce(entry=entry, directory=args.directory,
-                          link=args.link, maxcount=args.max, find=args.find,
-                          copy=args.copy, refine=args.refine,
+                          load=args.load, link=args.link, maxcount=args.max,
+                          find=args.find, copy=args.copy, refine=args.refine,
                           prepare=args.prepare, transform=args.transform,
                           combine=args.combine, pdf=args.pdf,
                           regular=args.regular, mask=args.mask,

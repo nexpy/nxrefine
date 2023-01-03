@@ -23,7 +23,7 @@ from h5py import is_hdf5
 from nexusformat.nexus import (NeXusError, NXcollection, NXdata, NXentry,
                                NXfield, NXlink, NXLock, NXnote, NXparameters,
                                NXprocess, NXreflections, NXroot, nxgetconfig,
-                               nxload, nxsetconfig)
+                               nxopen, nxsetconfig)
 from qtpy import QtCore
 
 from . import __version__
@@ -85,6 +85,8 @@ class NXReduce(QtCore.QObject):
             Minimum, step size, and maximum value of Qk array, by default None
         Ql : tuple of floats, optional
             Minimum, step size, and maximum value of Ql array, by default None
+        load : bool, optional
+            Load raw data files, by default False
         link : bool, optional
             Link metadata, by default False
         copy : bool, optional
@@ -120,9 +122,9 @@ class NXReduce(QtCore.QObject):
             threshold=None, min_pixels=None, first=None, last=None,
             polar_max=None, monitor=None, norm=None, qmin=None, qmax=None,
             radius=None, mask_parameters=None,
-            Qh=None, Qk=None, Ql=None,
-            link=False, copy=False, maxcount=False, find=False, refine=False,
-            prepare=False, transform=False, combine=False, pdf=False,
+            Qh=None, Qk=None, Ql=None, load=False, link=False, copy=False,
+            maxcount=False, find=False, refine=False, prepare=False,
+            transform=False, combine=False, pdf=False,
             lattice=False, regular=False, mask=False, overwrite=False,
             monitor_progress=False, gui=False):
 
@@ -201,6 +203,7 @@ class NXReduce(QtCore.QObject):
         self.Qk = Qk
         self.Ql = Ql
 
+        self.load = load
         self.link = link
         self.copy = copy
         self.maxcount = maxcount
@@ -330,7 +333,7 @@ class NXReduce(QtCore.QObject):
     def root(self):
         """NXroot group containing the complete wrapper file tree."""
         if self._root is None:
-            self._root = nxload(self.wrapper_file, 'rw')
+            self._root = nxopen(self.wrapper_file, 'rw')
         return self._root
 
     @property
@@ -450,7 +453,7 @@ class NXReduce(QtCore.QObject):
     def parent_root(self):
         """NXroot group of the parent file."""
         if self._parent_root is None and self.parent:
-            self._parent_root = nxload(self.parent, 'r')
+            self._parent_root = nxopen(self.parent, 'r')
         return self._parent_root
 
     @property
@@ -861,10 +864,34 @@ class NXReduce(QtCore.QObject):
         except Exception as error:
             self.logger.info(str(error))
 
+    def nxload(self):
+        """Perform nxload operation in the workflow.
+
+        This checks for the presence of raw data files and, on some beamlines,
+        loads them if necessary.
+        """
+        if not self.raw_data_exists():
+            self.record_start('nxload')
+            try:
+                status = self.beamline.load_data()
+                if status:
+                    self.logger.info("Raw data file loaded")
+                    self.record('nxload', logs='Loaded')
+                    self.record_end('nxload')
+                else:
+                    self.logger.info("Raw data file not loaded")
+                    self.record_fail('nxload')
+            except Exception as error:
+                self.logger.info(str(error))
+                self.record_fail('nxload')
+                raise
+        else:
+            self.logger.info("Raw data file already exists")
+
     def nxlink(self):
         """Perform nxlink operation in the workflow.
 
-        This  external metadata into the current entry.
+        This reads external metadata from the beamline into the current entry.
         """
         if self.not_processed('nxlink') and self.link:
             if not self.raw_data_exists():
@@ -874,12 +901,12 @@ class NXReduce(QtCore.QObject):
             try:
                 self.link_data()
                 self.logger.info("Entry linked to raw data")
-                status = self.beamline.read_logs()
-                if status:
+                try:
+                    self.beamline.read_logs()
                     self.logger.info("Scan logs imported")
                     self.record('nxlink', logs='Transferred')
                     self.record_end('nxlink')
-                else:
+                except NeXusError:
                     self.logger.info("Scan logs not imported")
                     self.record_fail('nxlink')
             except Exception as error:
@@ -925,17 +952,6 @@ class NXReduce(QtCore.QObject):
                 self.entry['data'].nxaxes = [self.entry['data/frame_number'],
                                              self.entry['data/y_pixel'],
                                              self.entry['data/x_pixel']]
-                with self.field.nxfile as f:
-                    time_path = (
-                        'entry/instrument/NDAttributes/NDArrayTimeStamp')
-                    if time_path in f:
-                        start = datetime.fromtimestamp(f[time_path][0])
-                        # In EPICS, the epoch started in 1990, not 1970
-                        start_time = start.replace(
-                            year=start.year+20).isoformat()
-                        self.entry['start_time'] = start_time
-                        self.entry['data/frame_time'].attrs['start'] = (
-                            start_time)
         else:
             self.logger.info("No raw data loaded")
 
@@ -1386,7 +1402,7 @@ class NXReduce(QtCore.QObject):
         t2 = self.mask_parameters['threshold_2']
         h2 = self.mask_parameters['horizontal_size_2']
 
-        mask_root = nxload(self.mask_file+'.h5', 'w')
+        mask_root = nxopen(self.mask_file+'.h5', 'w')
         mask_root['entry'] = NXentry()
         mask_root['entry/mask'] = (
             NXfield(shape=self.shape, dtype=np.int8, fillvalue=0))
@@ -1528,10 +1544,11 @@ class NXReduce(QtCore.QObject):
             if self.norm and self.monitor in self.entry:
                 self.data['monitor_weight'] = self.read_monitor()
                 inst = self.entry['instrument']
+                transmission = np.ones(self.nframes, dtype=np.float32)
                 try:
-                    transmission = inst['attenuator/attenuator_transmission']
+                    transmission *= inst['attenuator/attenuator_transmission']
                 except Exception:
-                    transmission = 1.0
+                    pass
                 try:
                     transmission *= inst['filter/transmission'].nxsignal
                 except Exception:
@@ -1664,6 +1681,8 @@ class NXReduce(QtCore.QObject):
             self.entry['data/monitor_weight'] = monitor_weight
 
     def nxreduce(self):
+        if self.load:
+            self.nxload()
         if self.link:
             self.nxlink()
         if self.copy:
@@ -1715,6 +1734,9 @@ class NXReduce(QtCore.QObject):
             raise NeXusError("NXServer not configured")
 
         tasks = []
+        if self.load:
+            tasks.append('load')
+            self.queue_task('nxload')
         if self.link:
             tasks.append('link')
             self.queue_task('nxlink')
@@ -2016,7 +2038,7 @@ class NXMultiReduce(NXReduce):
     def symmetrize_transform(self):
         self.logger.info(f"{self.title}: Transform being symmetrized")
         tic = timeit.default_timer()
-        symm_root = nxload(self.symm_file, 'w')
+        symm_root = nxopen(self.symm_file, 'w')
         symm_root['entry'] = NXentry()
         symm_root['entry/data'] = NXdata()
         symmetry = NXSymmetry(self.entry[self.transform_path],
@@ -2098,7 +2120,7 @@ class NXMultiReduce(NXReduce):
                            workers=self.process_count)))
         fft *= (1.0 / np.prod(fft.shape))
 
-        root = nxload(self.total_pdf_file, 'a')
+        root = nxopen(self.total_pdf_file, 'a')
         root['entry'] = NXentry()
         root['entry/pdf'] = NXdata(NXfield(fft, name='pdf'))
 
@@ -2150,7 +2172,7 @@ class NXMultiReduce(NXReduce):
     def symmetrize(self, data):
         if self.refine.laue_group not in ['-3', '-3m', '6/m', '6/mmm']:
             import tempfile
-            root = nxload(tempfile.mkstemp(suffix='.nxs')[1], mode='w')
+            root = nxopen(tempfile.mkstemp(suffix='.nxs')[1], mode='w')
             root['data'] = data
             symmetry = NXSymmetry(root['data'],
                                   laue_group=self.refine.laue_group)
@@ -2170,7 +2192,7 @@ class NXMultiReduce(NXReduce):
         symm_group = self.entry[self.symm_data]
         Qh, Qk, Ql = (symm_group['Qh'], symm_group['Qk'], symm_group['Ql'])
 
-        symm_root = nxload(self.symm_file, 'rw')
+        symm_root = nxopen(self.symm_file, 'rw')
         symm_data = symm_root['entry/data/data']
 
         mask, mask_indices = self.hole_mask()
@@ -2240,7 +2262,7 @@ class NXMultiReduce(NXReduce):
                            workers=self.process_count)))
         fft *= (1.0 / np.prod(fft.shape))
 
-        root = nxload(self.pdf_file, 'a')
+        root = nxopen(self.pdf_file, 'a')
         root['entry'] = NXentry()
         root['entry/pdf'] = NXdata(NXfield(fft, name='pdf'))
 
