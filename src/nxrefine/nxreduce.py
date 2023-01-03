@@ -20,14 +20,14 @@ import h5py as h5
 import numpy as np
 import scipy.fft
 from h5py import is_hdf5
-from nexusformat.nexus import (NeXusError, NXattenuator, NXcollection, NXdata,
-                               NXentry, NXfield, NXfilter, NXinstrument,
-                               NXlink, NXLock, NXmonitor, NXnote, NXparameters,
-                               NXprocess, NXreflections, NXroot, NXsample,
-                               NXsource, nxgetconfig, nxload, nxsetconfig)
+from nexusformat.nexus import (NeXusError, NXcollection, NXdata, NXentry,
+                               NXfield, NXlink, NXLock, NXnote, NXparameters,
+                               NXprocess, NXreflections, NXroot, nxgetconfig,
+                               nxload, nxsetconfig)
 from qtpy import QtCore
 
 from . import __version__
+from .nxbeamline import get_beamline
 from .nxdatabase import NXDatabase
 from .nxrefine import NXRefine
 from .nxserver import NXServer
@@ -169,6 +169,7 @@ class NXReduce(QtCore.QObject):
         self.name = f"{self.sample}_{self.scan}/{self.entry_name}"
         self.base_directory = os.path.dirname(self.wrapper_file)
 
+        self._beamline = None
         self._field = None
         self._shape = None
         self._pixel_mask = None
@@ -278,11 +279,17 @@ class NXReduce(QtCore.QObject):
         return self._logger
 
     @property
+    def settings(self):
+        if self._settings is None:
+            self._settings = NXSettings().settings
+        return self._settings
+
+    @property
     def default(self):
         """Dictionary containing default reduction parameters."""
         if self._default is None:
             try:
-                self._default = NXSettings().settings['nxreduce']
+                self._default = self.settings['nxreduce']
             except Exception as error:
                 self.logger.info(str(error))
         return self._default
@@ -307,6 +314,17 @@ class NXReduce(QtCore.QObject):
             except Exception as error:
                 self.logger.info(str(error))
         return self._db
+
+    @property
+    def beamline(self):
+        """NXBeamLine class for importing data and logs."""
+        if self._beamline is None:
+            try:
+                beamline = self.settings['instrument']['instrument']
+            except KeyError:
+                beamline = '6-ID-D'
+            self._beamline = get_beamline(beamline, self)
+        return self._beamline
 
     @property
     def root(self):
@@ -855,13 +873,14 @@ class NXReduce(QtCore.QObject):
             self.record_start('nxlink')
             try:
                 self.link_data()
-                logs = self.read_logs()
-                if logs:
-                    self.transfer_logs(logs)
+                self.logger.info("Entry linked to raw data")
+                status = self.beamline.read_logs()
+                if status:
+                    self.logger.info("Scan logs imported")
                     self.record('nxlink', logs='Transferred')
-                    self.logger.info("Entry linked to raw data")
                     self.record_end('nxlink')
                 else:
+                    self.logger.info("Scan logs not imported")
                     self.record_fail('nxlink')
             except Exception as error:
                 self.logger.info(str(error))
@@ -919,97 +938,6 @@ class NXReduce(QtCore.QObject):
                             start_time)
         else:
             self.logger.info("No raw data loaded")
-
-    def read_logs(self):
-        head_file = os.path.join(self.directory, self.entry_name+'_head.txt')
-        meta_file = os.path.join(self.directory, self.entry_name+'_meta.txt')
-        if os.path.exists(head_file) and os.path.exists(meta_file):
-            logs = NXcollection()
-        else:
-            if not os.path.exists(head_file):
-                self.logger.info(
-                    f"'{self.entry_name}_head.txt' does not exist")
-            if not os.path.exists(meta_file):
-                self.logger.info(
-                    f"'{self.entry_name}_meta.txt' does not exist")
-            return None
-        with open(head_file) as f:
-            lines = f.readlines()
-        for line in lines:
-            key, value = line.split(', ')
-            value = value.strip('\n')
-            try:
-                value = float(value)
-            except Exception:
-                pass
-            logs[key] = value
-        meta_input = np.genfromtxt(meta_file, delimiter=',', names=True)
-        for i, key in enumerate(meta_input.dtype.names):
-            logs[key] = [array[i] for array in meta_input]
-        return logs
-
-    def transfer_logs(self, logs):
-        with self.root.nxfile:
-            if 'instrument' not in self.entry:
-                self.entry['instrument'] = NXinstrument()
-            if 'logs' in self.entry['instrument']:
-                del self.entry['instrument/logs']
-            self.entry['instrument/logs'] = logs
-            frame_number = self.entry['data/frame_number']
-            frames = frame_number.size
-            if 'MCS1' in logs:
-                if 'monitor1' in self.entry:
-                    del self.entry['monitor1']
-                data = logs['MCS1'][:frames]
-                # Remove outliers at beginning and end of frames
-                data[0] = data[1]
-                data[-1] = data[-2]
-                self.entry['monitor1'] = NXmonitor(NXfield(data, name='MCS1'),
-                                                   frame_number)
-                if 'data/frame_time' in self.entry:
-                    self.entry['monitor1/frame_time'] = (
-                        self.entry['data/frame_time'])
-            if 'MCS2' in logs:
-                if 'monitor2' in self.entry:
-                    del self.entry['monitor2']
-                data = logs['MCS2'][:frames]
-                # Remove outliers at beginning and end of frames
-                data[0] = data[1]
-                data[-1] = data[-2]
-                self.entry['monitor2'] = NXmonitor(NXfield(data, name='MCS2'),
-                                                   frame_number)
-                if 'data/frame_time' in self.entry:
-                    self.entry['monitor2/frame_time'] = (
-                        self.entry['data/frame_time'])
-            if 'source' not in self.entry['instrument']:
-                self.entry['instrument/source'] = NXsource()
-            self.entry['instrument/source/name'] = 'Advanced Photon Source'
-            self.entry['instrument/source/type'] = 'Synchrotron X-ray Source'
-            self.entry['instrument/source/probe'] = 'x-ray'
-            if 'Storage_Ring_Current' in logs:
-                self.entry['instrument/source/current'] = (
-                    logs['Storage_Ring_Current'])
-            if 'SCU_Current' in logs:
-                self.entry['instrument/source/undulator_current'] = (
-                    logs['SCU_Current'])
-            if 'UndulatorA_gap' in logs:
-                self.entry['instrument/source/undulator_gap'] = (
-                    logs['UndulatorA_gap'])
-            if 'Calculated_filter_transmission' in logs:
-                if 'attenuator' not in self.entry['instrument']:
-                    self.entry['instrument/attenuator'] = NXattenuator()
-                self.entry['instrument/attenuator/attenuator_transmission'] = (
-                    logs['Calculated_filter_transmission'])
-            if 'Shutter' in logs:
-                if 'filter' not in self.entry['instrument']:
-                    self.entry['instrument/filter'] = NXfilter()
-                transmission = NXfield(1.0 - logs['Shutter'][:frames],
-                                       name='transmission')
-                frames = NXfield(np.array(range(frames)), name='frame_number')
-                if 'transmission' in self.entry['instrument/filter']:
-                    del self.entry['instrument/filter/transmission']
-                self.entry['instrument/filter/transmission'] = (
-                    NXdata(transmission, frames))
 
     def nxcopy(self):
         if not self.copy:
