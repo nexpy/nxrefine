@@ -49,10 +49,13 @@ class NXBeamLine:
     def __repr__(self):
         return f"NXBeamLine('{self.beamline}')"
 
-    def import_data(self):
+    def import_data(self, *args, **kwargs):
         pass
 
-    def read_logs(self):
+    def load_data(self, *args, **kwargs):
+        pass
+
+    def read_logs(self, *args, **kwargs):
         pass
 
 
@@ -187,7 +190,7 @@ class QM2Beamline(NXBeamLine):
             self.cycle_path = Path(parts[-5], parts[-4])
         self.raw_directory = Path('/nfs/chess/id4b/') / self.cycle_path
 
-    def import_scans(self, config_file):
+    def import_data(self, config_file):
         self.config_file = nxopen(config_file)
         scans = self.raw_directory / 'raw6M' / self.sample / self.label
         x_size, y_size = self.config_file['f1/instrument/detector/shape']
