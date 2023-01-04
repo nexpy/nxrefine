@@ -14,14 +14,15 @@ import fabio
 import numpy as np
 from nexusformat.nexus import (NeXusError, NXattenuator, NXcollection, NXdata,
                                NXentry, NXfield, NXfilter, NXgoniometer,
-                               NXinstrument, NXmonitor, NXsource, NXsubentry,
-                               nxopen)
+                               NXinstrument, NXlink, NXmonitor, NXsource,
+                               NXsubentry, nxopen)
 from nexusformat.nexus.tree import natural_sort
 
 from .nxutils import SpecParser
 
 prefix_pattern = re.compile(r'^([^.]+)(?:(?<!\d)|(?=_))')
-index_pattern = re.compile(r'^(.*?)([0-9]*)[.](.*)$')
+file_index_pattern = re.compile(r'^(.*?)([0-9]*)[.](.*)$')
+directory_index_pattern = re.compile(r'^(.*?)([0-9]*)$')
 
 
 def get_beamline(beamline, reduce=None):
@@ -42,7 +43,7 @@ class NXBeamLine:
             self.entry = self.reduce.entry
             self.scan = self.reduce.scan
             self.sample = self.reduce.sample
-            self.label = self.reduce.LabelEntry
+            self.label = self.reduce.label
         self.probe = 'xrays'
 
     def __repr__(self):
@@ -170,14 +171,53 @@ class Sector6Beamline(NXBeamLine):
 
 class QM2Beamline(NXBeamLine):
 
-    def __init__(self, reduce=None):
+    def __init__(self, reduce=None, base_directory=None):
         super().__init__(reduce)
         self.beamline = 'QM2'
         self.source = 'CHESS'
         self.source_name = 'Cornell High-Energy Synchrotron'
-        parts = self.directory.parts
-        self.cycle_path = Path(parts[-6], parts[-5])
+        self.base_directory = Path(base_directory)
+        if reduce:
+            parts = self.directory.parts
+            self.cycle_path = Path(parts[-6], parts[-5])
+        elif base_directory:
+            self.label = self.base_directory.parent.name
+            self.sample = self.base_directory.parent.name
+            parts = self.base_directory.parts
+            self.cycle_path = Path(parts[-5], parts[-4])
         self.raw_directory = Path('/nfs/chess/id4b/') / self.cycle_path
+
+    def import_scans(self, config_file):
+        self.config_file = nxopen(config_file)
+        scans = self.raw_directory / 'raw6M' / self.sample / self.label
+        x_size, y_size = self.config_file['f1/instrument/detector/shape']
+        for scan in [s for s in scans.iterdir() if s.is_dir()]:
+            scan_directory = self.base_directory / scan.name
+            scan_directory.mkdir(exist_ok=True)
+            scan_file = self.base_directory / self.sample+'_'+scan.name+'.nxs'
+            with nxopen(scan_file) as root:
+                root['entry'] = self.config_file['entry']
+                i = 0
+                for s in [s.name for s in scan.iterdir() if s.is_dir()]:
+                    scan_number = self.get_index(s, directory=True)
+                    if scan_number:
+                        i += 1
+                        entry_name = f"f{i}"
+                        entry = root[entry_name] = self.config_file['f1']
+                        entry['scan_number'] = scan_number
+                        entry['data'] = NXdata()
+                        linkpath = '/entry/data/data'
+                        linkfile = scan_directory / f'f{i:d}.h5'
+                        entry['data'].nxsignal = NXlink(linkpath, linkfile)
+                        entry['data/x_pixel'] = np.arange(x_size, dtype=int)
+                        entry['data/y_pixel'] = np.arange(y_size, dtype=int)
+                        self.image_directory = scan / s
+                        frame_number = len(self.get_files())
+                        entry['data/frame_number'] = np.arange(frame_number,
+                                                               dtype=int)
+                        entry['data'].nxaxes = [entry['data/frame_number'],
+                                                entry['data/y_pixel'],
+                                                entry['data/x_pixel']]
 
     def load_data(self):
         if self.reduce.raw_data_exists():
@@ -197,8 +237,14 @@ class QM2Beamline(NXBeamLine):
                 prefixes.append(match.group(1).strip('-').strip('_'))
         return max(prefixes, key=prefixes.count)
 
-    def get_index(self, filename):
-        return int(index_pattern.match(str(filename)).group(2))
+    def get_index(self, name, directory=False):
+        try:
+            if directory:
+                return int(directory_index_pattern.match(str(name)).group(2))
+            else:
+                return int(file_index_pattern.match(str(name)).group(2))
+        except Exception:
+            return None
 
     def get_files(self):
         prefix = self.get_prefix()
@@ -243,7 +289,7 @@ class QM2Beamline(NXBeamLine):
     def write_data(self):
         filenames = self.get_files()
         with nxopen(self.raw_file, 'w') as root:
-            root['entry'] = self.initialize_entry()
+            root['entry'] = self.initialize_entry(filenames)
             z_size = root['entry/data/data'].shape[0]
             image_shape = root['entry/data/data'].shape[1:3]
             chunk_size = root['entry/data/data'].chunks[0]
@@ -312,9 +358,17 @@ class QM2Beamline(NXBeamLine):
             self.entry['instrument/source/probe'] = 'x-ray'
             if 'goniometer' not in self.entry['instrument']:
                 self.entry['instrument/goniometer'] = NXgoniometer()
+            if 'phi' in logs['data']:
+                phi = self.entry['instrument/goniometer/phi'] = (
+                    logs['data/phi'][0])
+                phi.attrs['end'] = logs['data/phi'][-1]
+                phi.attrs['step'] = logs['data/phi'][1] - logs['data/phi'][0]
             if 'chi' in logs['positioners']:
                 self.entry['instrument/goniometer/chi'] = (
                     logs['positioners/chi'] - 90.0)
-            if 'th' in log['positioners']:
+            if 'th' in logs['positioners']:
                 self.entry['instrument/goniometer/gonpitch'] = (
                     logs['positioners/th'])
+            if 'sampleT' in logs['data']:
+                self.root['entry/sample/temperature'] = (
+                    logs['data/sampleT'].average())
