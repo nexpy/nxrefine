@@ -326,7 +326,7 @@ class NXReduce(QtCore.QObject):
                 beamline = self.settings['instrument']['instrument']
             except KeyError:
                 beamline = '6-ID-D'
-            self._beamline = get_beamline(beamline, self)
+            self._beamline = get_beamline(beamline)(self)
         return self._beamline
 
     @property

@@ -18,6 +18,7 @@ from nexusformat.nexus import (NeXusError, NXattenuator, NXcollection, NXdata,
                                NXsubentry, nxopen)
 from nexusformat.nexus.tree import natural_sort
 
+from .nxsettings import NXSettings
 from .nxutils import SpecParser
 
 prefix_pattern = re.compile(r'^([^.]+)(?:(?<!\d)|(?=_))')
@@ -25,17 +26,20 @@ file_index_pattern = re.compile(r'^(.*?)([0-9]*)[.](.*)$')
 directory_index_pattern = re.compile(r'^(.*?)([0-9]*)$')
 
 
-def get_beamline(beamline, reduce=None):
+def get_beamline():
+    beamline = NXSettings().settings['instrument']['instrument']
     if beamline == 'Sector6':
-        return Sector6Beamline(reduce)
+        return Sector6Beamline
     elif beamline == 'QM2':
-        return QM2Beamline(reduce)
+        return QM2Beamline
 
 
 class NXBeamLine:
     """Generic class containing facility-specific information"""
 
-    def __init__(self, reduce=None):
+    name = 'Unknown'
+
+    def __init__(self, reduce=None, *args, **kwargs):
         self.reduce = reduce
         if self.reduce:
             self.directory = Path(self.reduce.directory)
@@ -61,9 +65,11 @@ class NXBeamLine:
 
 class Sector6Beamline(NXBeamLine):
 
-    def __init__(self, reduce=None):
+    name = '6-ID-D'
+
+    def __init__(self, reduce=None, *args, **kwargs):
         super().__init__(reduce)
-        self.beamline = '6-ID-D'
+        self.name = '6-ID-D'
         self.source = 'APS'
         self.source_name = 'Advanced Photon Source'
         self.source_type = 'Synchrotron X-Ray Source'
@@ -174,21 +180,26 @@ class Sector6Beamline(NXBeamLine):
 
 class QM2Beamline(NXBeamLine):
 
-    def __init__(self, reduce=None, base_directory=None):
+    name = 'QM2'
+    raw_home = Path('/nfs/chess/id4b/')
+    experiment_home = Path('/nfs/chess/id4baux')
+
+    def __init__(self, reduce=None, directory=None):
         super().__init__(reduce)
-        self.beamline = 'QM2'
         self.source = 'CHESS'
         self.source_name = 'Cornell High-Energy Synchrotron'
-        self.base_directory = Path(base_directory)
+        self.source_type = 'Synchrotron X-Ray Source'
         if reduce:
             parts = self.directory.parts
             self.cycle_path = Path(parts[-6], parts[-5])
-        elif base_directory:
-            self.label = self.base_directory.parent.name
+        elif directory:
+            self.base_directory = Path(directory)
+            self.label = self.base_directory.name
             self.sample = self.base_directory.parent.name
             parts = self.base_directory.parts
             self.cycle_path = Path(parts[-5], parts[-4])
-        self.raw_directory = Path('/nfs/chess/id4b/') / self.cycle_path
+        self.raw_directory = self.raw_home / self.cycle_path
+        self.experiment_directory = self.experiment_home / self.cycle_path
 
     def import_data(self, config_file):
         self.config_file = nxopen(config_file)
@@ -312,7 +323,7 @@ class QM2Beamline(NXBeamLine):
                     self.read_images(files, image_shape))
 
     def read_logs(self):
-        spec_file = Path('/nfs/chess/id4b') / self.cycle_path / self.sample
+        spec_file = self.raw_directory / self.sample
         if not spec_file.exists():
             self.reduce.logger.info(f"'{spec_file}' does not exist")
             raise NeXusError('SPEC file not found')
