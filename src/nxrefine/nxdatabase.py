@@ -60,7 +60,7 @@ class File(Base):
 
     filename = Column(String(255), nullable=False, primary_key=True)
     entries = Column(String(128), nullable=True)
-    data = Column(Integer, default=NOT_STARTED)
+    nxload = Column(Integer, default=NOT_STARTED)
     nxlink = Column(Integer, default=NOT_STARTED)
     nxmax = Column(Integer, default=NOT_STARTED)
     nxfind = Column(Integer, default=NOT_STARTED)
@@ -122,7 +122,7 @@ File.tasks = relationship('Task', back_populates='file', order_by=Task.id)
 
 class NXDatabase:
 
-    task_names = ('data', 'nxlink', 'nxmax', 'nxfind', 'nxcopy', 'nxrefine',
+    task_names = ('nxload', 'nxlink', 'nxmax', 'nxfind', 'nxcopy', 'nxrefine',
                   'nxprepare', 'nxtransform', 'nxmasked_transform',
                   'nxcombine', 'nxmasked_combine', 'nxpdf', 'nxmasked_pdf')
     NOT_STARTED, QUEUED, IN_PROGRESS, DONE, FAILED = 0, 1, 2, 3, -1
@@ -280,11 +280,11 @@ class NXDatabase:
                 if os.path.exists(os.path.join(scan_dir, e+'.h5')):
                     data += 1
             if data == 0:
-                f.data = NOT_STARTED
+                f.nxload = NOT_STARTED
             elif data == len(entries):
-                f.data = DONE
+                f.nxload = DONE
             else:
-                f.data = IN_PROGRESS
+                f.nxload = IN_PROGRESS
             self.session.commit()
         return f
 
@@ -523,6 +523,8 @@ class NXDatabase:
         """Check that all tasks are present, adding a column if necessary."""
         inspector = inspect(self.engine)
         tasks = [task['name'] for task in inspector.get_columns('files')]
+        if 'data' in tasks:
+            self.rename_column('data', 'nxload')
         for task in self.task_names:
             if task not in tasks:
                 self.add_column(task)
@@ -535,26 +537,35 @@ class NXDatabase:
         ret = False
         if default is not None:
             try:
-                ddl = ("ALTER TABLE '{table_name}' "
-                       "ADD COLUMN '{column_name}' '{data_type}' "
-                       "DEFAULT {default}")
+                command = (f"ALTER TABLE '{table_name}' "
+                           f"ADD COLUMN '{column_name}' "
+                           f"'{data_type.__name__}' "
+                           f"DEFAULT {default}")
             except Exception:
-                ddl = ("ALTER TABLE '{table_name}' "
-                       "ADD COLUMN '{column_name}' '{data_type}' "
-                       "DEFAULT '{default}'")
+                command = (f"ALTER TABLE '{table_name}' "
+                           f"ADD COLUMN '{column_name}' "
+                           f"'{data_type.__name__}' "
+                           f"DEFAULT '{default}'")
         else:
-            ddl = ("ALTER TABLE '{table_name}' "
-                   "ADD column '{column_name}' '{data_type}'")
-
-        sql_command = ddl.format(
-            table_name=table_name, column_name=column_name,
-            data_type=data_type.__name__, default=default)
+            command = (f"ALTER TABLE '{table_name}' "
+                       f"ADD column '{column_name}' '{data_type.__name__}'")
         try:
-            import sqlite3
-            connection = sqlite3.connect(self.database)
-            cursor = connection.cursor()
-            cursor.execute(sql_command)
-            connection.commit()
+            connection = self.engine.connect()
+            connection.execute(command)
+            connection.close()
+            ret = True
+        except Exception as e:
+            print(e)
+            ret = False
+        return ret
+
+    def rename_column(self, old_column_name, new_column_name,
+                      table_name='files'):
+        command = (f"ALTER TABLE {table_name} RENAME {old_column_name} TO "
+                   f"{new_column_name};")
+        try:
+            connection = self.engine.connect()
+            connection.execute(command)
             connection.close()
             ret = True
         except Exception as e:

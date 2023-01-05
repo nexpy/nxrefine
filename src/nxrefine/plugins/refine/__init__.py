@@ -8,7 +8,7 @@
 
 from . import new_settings, new_experiment, new_configuration
 from . import choose_parameters, calibrate_powder, create_mask
-from . import new_sample, new_scan, make_scans, sum_scans
+from . import new_sample, new_scan, make_scans, import_scans, sum_scans
 from . import find_maximum, find_peaks, prepare_mask
 from . import calculate_angles, copy_parameters
 from . import define_lattice, refine_lattice
@@ -28,6 +28,7 @@ def plugin_menu():
     actions.append(('New Sample', new_sample.show_dialog))
     actions.append(('New Scan', new_scan.show_dialog))
     actions.append(('Make Scans', make_scans.show_dialog))
+    actions.append(('Import Scans', import_scans.show_dialog))
     actions.append(('Sum Scans', sum_scans.show_dialog))
     actions.append(('Find Maximum', find_maximum.show_dialog))
     actions.append(('Find Peaks', find_peaks.show_dialog))

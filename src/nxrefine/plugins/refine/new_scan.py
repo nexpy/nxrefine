@@ -6,7 +6,7 @@
 # The full license is in the file COPYING, distributed with this software.
 # -----------------------------------------------------------------------------
 
-import os
+from pathlib import Path
 
 import numpy as np
 from nexpy.gui.datadialogs import GridParameters, NXDialog
@@ -38,22 +38,14 @@ class ScanDialog(NXDialog):
         self.directory_box = self.directorybox('Choose Experiment Directory',
                                                self.choose_directory,
                                                default=False)
-        self.sample_box = self.select_sample()
-        self.sample_layout = self.make_layout(
-            self.action_buttons(('Choose Sample', self.choose_sample)),
-            self.sample_box)
-        self.configuration_box = self.select_configuration()
-        self.configuration_layout = self.make_layout(
-            self.action_buttons(('Choose Experiment Configuration',
-                                 self.choose_configuration)),
-            self.configuration_box)
-        self.scan_box = self.select_box(['1'], slot=self.choose_position)
-        self.scan_layout = self.make_layout(
-            self.labels('Position', header=True), self.scan_box)
         self.set_layout(self.directory_box,
                         self.close_buttons(close=True))
 
         self.set_title('New Scan')
+
+    @property
+    def home_directory(self):
+        return Path(self.get_directory())
 
     @property
     def configuration(self):
@@ -61,11 +53,11 @@ class ScanDialog(NXDialog):
 
     @property
     def sample(self):
-        return self.sample_box.currentText().split('/')[0]
+        return Path(self.sample_box.currentText()).parent.name
 
     @property
     def label(self):
-        return self.sample_box.currentText().split('/')[1]
+        return Path(self.sample_box.currentText()).name
 
     @property
     def position(self):
@@ -76,68 +68,53 @@ class ScanDialog(NXDialog):
 
     def choose_directory(self):
         super().choose_directory()
-        self.mainwindow.default_directory = self.get_directory()
+        self.mainwindow.default_directory = str(self.home_directory)
         self.setup_directory()
         self.insert_layout(1, self.sample_layout)
 
     def setup_directory(self):
-        self.sample_box.clear()
-        samples = self.get_samples()
-        for sample in samples:
-            self.sample_box.addItem(sample)
-        self.sample_box.adjustSize()
-        configurations = self.get_configurations()
-        self.configuration_box.clear()
-        for configuration in configurations:
-            self.configuration_box.addItem(configuration)
-
-    def select_sample(self):
-        return self.select_box(self.get_samples())
+        self.sample_box = self.select_box(self.get_samples())
+        self.sample_layout = self.make_layout(
+            self.action_buttons(('Choose Sample', self.choose_sample)),
+            self.sample_box)
+        self.configuration_box = self.select_box(self.get_configurations())
+        self.configuration_layout = self.make_layout(
+            self.action_buttons(('Choose Experiment Configuration',
+                                 self.choose_configuration)),
+            self.configuration_box)
 
     def get_samples(self):
-        home_directory = self.get_directory()
-        if os.path.exists(home_directory):
-            sample_directories = [f for f in os.listdir(home_directory)
-                                  if (not f.startswith('.') and
-                                      os.path.isdir(
-                                      os.path.join(home_directory, f)))]
+        if self.home_directory.exists():
+            sample_directories = [f for f in self.home_directory.iterdir()
+                                  if f.is_dir()]
         else:
             return []
         samples = []
         for sample_directory in sample_directories:
-            label_directories = [
-                f
-                for f in os.listdir(
-                    os.path.join(home_directory, sample_directory))
-                if os.path.isdir(
-                    os.path.join(home_directory, sample_directory, f))]
+            label_directories = [f for f in sample_directory.iterdir()
+                                 if f.is_dir()]
             for label_directory in label_directories:
-                samples.append(os.path.join(sample_directory, label_directory))
-        return [sample.strip() for sample in samples]
+                samples.append(
+                    label_directory.relative_to(self.home_directory))
+        return [str(sample) for sample in samples]
 
     def choose_sample(self):
         self.insert_layout(2, self.configuration_layout)
 
-    def select_configuration(self):
-        return self.select_box(self.get_configurations())
-
     def get_configurations(self):
-        home_directory = self.get_directory()
-        if (os.path.exists(home_directory) and
-                'configurations' in os.listdir(home_directory)):
-            return sorted(
-                [f
-                 for f in os.listdir(
-                     os.path.join(home_directory, 'configurations'))
-                 if f.endswith('.nxs')])
+        directory = self.home_directory / 'configurations'
+        if directory.exists():
+            return sorted([str(f.name) for f in directory.glob('*.nxs')])
         else:
             return []
 
     def choose_configuration(self):
-        home_directory = self.get_directory()
-        config_file = os.path.join(home_directory, 'configurations',
-                                   self.configuration)
-        if os.path.exists(config_file):
+        config_file = (self.home_directory / 'configurations' /
+                       self.configuration)
+        self.scan_box = self.select_box(['1'], slot=self.choose_position)
+        self.scan_layout = self.make_layout(
+            self.labels('Position', header=True), self.scan_box)
+        if config_file.exists():
             self.config_file = nxload(config_file)
             self.positions = len(self.config_file.entries) - 1
             self.scan_box.clear()
@@ -250,8 +227,7 @@ class ScanDialog(NXDialog):
             if frame_rate > 0.0:
                 entry['instrument/detector/frame_time'] = 1.0 / frame_rate
             linkpath = self.entries[position]['linkpath'].value
-            linkfile = os.path.join(
-                scan, self.entries[position]['linkfile'].value)
+            linkfile = Path(scan) / self.entries[position]['linkfile'].value
             entry['data'] = NXdata()
             entry['data'].nxsignal = NXlink(linkpath, linkfile)
             entry['data/x_pixel'] = np.arange(x_size, dtype=np.int32)
@@ -263,17 +239,12 @@ class ScanDialog(NXDialog):
                                     entry['data/x_pixel']]
 
     def make_scan(self):
-        home_directory = self.get_directory()
-        self.mainwindow.default_directory = home_directory
-        label_directory = os.path.join(home_directory, self.sample, self.label)
-        scan_directory = os.path.join(
-            label_directory, str(self.scan['scan'].value))
-        scan_name = self.sample+'_'+self.scan['scan'].value
-        try:
-            os.makedirs(scan_directory)
-        except Exception:
-            pass
+        self.mainwindow.default_directory = str(self.home_directory)
+        label_directory = self.home_directory / self.sample / self.label
+        scan_directory = label_directory / str(self.scan['scan'].value)
+        scan_name = self.sample + '_' + self.scan['scan'].value + '.nxs'
+        scan_directory.mkdir(exist_ok=True)
         self.copy_configuration()
         self.get_parameters()
-        self.scan_file.save(os.path.join(label_directory, scan_name+'.nxs'))
+        self.scan_file.save(label_directory / scan_name)
         self.treeview.tree.load(self.scan_file.nxfilename, 'r')
