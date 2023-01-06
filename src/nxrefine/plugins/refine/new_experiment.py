@@ -9,7 +9,7 @@
 from pathlib import Path
 
 from nexpy.gui.datadialogs import GridParameters, NXDialog
-from nexpy.gui.utils import report_error
+from nexpy.gui.utils import display_message, report_error
 from nexusformat.nexus import NeXusError
 from nxrefine.nxbeamline import get_beamline
 from nxrefine.nxdatabase import NXDatabase
@@ -41,13 +41,32 @@ class ExperimentDialog(NXDialog):
                 self.close_layout(save=True))
         self.set_title('New Experiment')
 
-    def accept(self):
-        try:
-            home_directory = Path(self.get_directory())
-            if self.beamline.name == 'QM2':
-                experiment_directory = home_directory / 'nxrefine'
+    def choose_directory(self):
+        super().choose_directory()
+        self.directory = Path(self.get_directory())
+        self.is_valid_directory()
+
+    def is_valid_directory(self):
+        if self.beamline.name == 'QM2':
+            if self.directory.is_relative_to(self.beamline.experiment_home):
+                return True
             else:
-                experiment_directory = (home_directory /
+                display_message("Importing Data",
+                                "Home directory must be relative to "
+                                f"{self.beamline.experiment_home}")
+                return False
+        else:
+            return True
+
+    def accept(self):
+        if not self.is_valid_directory():
+            return
+        try:
+            if (self.beamline.name == 'QM2'
+                    and self.directory.name != 'nxrefine'):
+                experiment_directory = self.directory / 'nxrefine'
+            else:
+                experiment_directory = (self.directory /
                                         self.parameters['experiment'].value)
             experiment_directory.mkdir(exist_ok=True)
             self.mainwindow.default_directory = str(experiment_directory)
