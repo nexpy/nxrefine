@@ -171,6 +171,7 @@ class NXReduce(QtCore.QObject):
         self.name = f"{self.sample}_{self.scan}/{self.entry_name}"
         self.base_directory = os.path.dirname(self.wrapper_file)
 
+        self._settings = None
         self._beamline = None
         self._field = None
         self._shape = None
@@ -322,11 +323,7 @@ class NXReduce(QtCore.QObject):
     def beamline(self):
         """NXBeamLine class for importing data and logs."""
         if self._beamline is None:
-            try:
-                beamline = self.settings['instrument']['instrument']
-            except KeyError:
-                beamline = '6-ID-D'
-            self._beamline = get_beamline(beamline)(self)
+            self._beamline = get_beamline()(self)
         return self._beamline
 
     @property
@@ -870,10 +867,10 @@ class NXReduce(QtCore.QObject):
         This checks for the presence of raw data files and, on some beamlines,
         loads them if necessary.
         """
-        if not self.raw_data_exists():
+        if not self.raw_data_exists() or self.overwrite:
             self.record_start('nxload')
             try:
-                status = self.beamline.load_data()
+                status = self.beamline.load_data(overwrite=self.overwrite)
                 if status:
                     self.logger.info("Raw data file loaded")
                     self.record('nxload', logs='Loaded')

@@ -32,7 +32,7 @@ class ExperimentDialog(NXDialog):
             self.set_layout(
                 self.directorybox('Choose Home Directory', default=False),
                 self.close_layout(save=True))
-        else:        
+        else:
             self.parameters = GridParameters()
             self.parameters.add('experiment', 'experiment', 'Experiment')
             self.set_layout(
