@@ -395,6 +395,12 @@ class QM2Beamline(NXBeamLine):
                     logs['positioners/th'])
             if 'sample' not in self.root['entry']:
                 self.root['entry/sample'] = NXsample()
+            self.root['entry/sample/name'] = self.sample
+            self.root['entry/sample/label'] = self.label
             if 'sampleT' in logs['data']:
                 self.root['entry/sample/temperature'] = (
                     logs['data/sampleT'].average())
+                self.entry['sample/temperature'].attrs['units'] = 'K'
+            if 'sample' not in self.entry:
+                self.entry.makelink(self.root['entry/sample'])
+
