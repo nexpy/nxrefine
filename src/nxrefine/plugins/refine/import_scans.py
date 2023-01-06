@@ -36,7 +36,7 @@ class ImportDialog(NXDialog):
         self.directory_box = self.directorybox('Choose Experiment Directory',
                                                self.choose_directory,
                                                default=False)
-        self.set_layout(self.directory_box, self.close_buttons(close=True))
+        self.set_layout(self.directory_box, self.close_buttons(save=True))
         self.set_title('Import Scans')
 
     def choose_directory(self):
@@ -49,6 +49,9 @@ class ImportDialog(NXDialog):
         self.configuration_layout = self.make_layout(
             NXLabel("Configuration: "), self.configuration_box)
         self.insert_layout(2, self.configuration_layout)
+        self.insert_layout(
+            3, self.checkboxes(('overwrite', 'Overwrite Existing Files',
+                                False)))
 
     @property
     def home_directory(self):
@@ -66,11 +69,15 @@ class ImportDialog(NXDialog):
     def label(self):
         return Path(self.sample_box.currentText()).name
 
+    @property
+    def overwrite(self):
+        return self.checkbox['overwrite'].isChecked()
+
     def get_samples(self):
         raw_directory = (
             self.beamline.raw_home /
-            self.beamline.experiment_home.relative_to(
-                self.home_directory.parent) / 'raw6M'
+            self.home_directory.parent.relative_to(
+                self.beamline.experiment_home) / 'raw6M'
             )
         if raw_directory.exists():
             sample_directories = [f for f in raw_directory.iterdir()
@@ -86,7 +93,7 @@ class ImportDialog(NXDialog):
         return [str(sample) for sample in samples]
 
     def get_configurations(self):
-        directory = self.home_directory() / 'configurations'
+        directory = self.home_directory / 'configurations'
         if directory.exists():
             return sorted([str(f.name) for f in directory.glob('*.nxs')])
         else:
@@ -97,8 +104,12 @@ class ImportDialog(NXDialog):
         return (self.home_directory / 'configurations' /
                 self.configuration_box.currentText())
 
-    def import_data(self):
-        self.sample_directory = self.home_directory / self.sample / self.label
-        self.sample_directory.mkdir(exist_ok=True)
-        self.beamline(directory=self.sample_directory).import_data(
-            self.configuration_file)
+    def accept(self):
+        sample_directory = self.home_directory / self.sample / self.label
+        sample_directory.mkdir(exist_ok=True)
+        try:
+            self.beamline(directory=sample_directory).import_data(
+                self.configuration_file, overwrite=self.overwrite)
+            super().accept()
+        except NeXusError as error:
+            report_error("Importing Data", error)
