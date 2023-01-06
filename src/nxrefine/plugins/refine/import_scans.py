@@ -9,7 +9,7 @@
 from pathlib import Path
 
 from nexpy.gui.datadialogs import NXDialog
-from nexpy.gui.utils import report_error
+from nexpy.gui.utils import display_message, report_error
 from nexpy.gui.widgets import NXLabel
 from nexusformat.nexus import NeXusError
 from nxrefine.nxbeamline import get_beamline
@@ -29,7 +29,7 @@ class ImportDialog(NXDialog):
         super().__init__(parent)
         self.beamline = get_beamline()
         if self.beamline.name != 'QM2':
-            report_error(
+            display_message(
                 "Importing Data",
                 f"Importing data not implemented for {self.beamline.name}")
             return
