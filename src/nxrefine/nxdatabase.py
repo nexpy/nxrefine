@@ -222,7 +222,7 @@ class NXDatabase:
                 nxentry = root[e]
                 if e in root and 'data' in nxentry and 'instrument' in nxentry:
                     if e+'.h5' in scan_files or e+'.nxs' in scan_files:
-                        tasks['data'] += 1
+                        tasks['nxload'] += 1
                     if 'nxlink' in nxentry:
                         tasks['nxlink'] += 1
                     if 'nxmax' in nxentry:
