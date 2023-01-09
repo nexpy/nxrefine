@@ -28,16 +28,23 @@ directory_index_pattern = re.compile(r'^(.*?)([0-9]*)$')
 
 def get_beamline():
     beamline = NXSettings().settings['instrument']['instrument']
-    if beamline == 'Sector6':
+    if beamline == 'Sector6' or beamline == '6-ID-D':
         return Sector6Beamline
     elif beamline == 'QM2':
         return QM2Beamline
+    else:
+        return NXBeamLine
 
 
 class NXBeamLine:
     """Generic class containing facility-specific information"""
 
     name = 'Unknown'
+    raw_home = Path('/')
+    experiment_home = Path('/')
+    experiment_directory_exists = False
+    make_scans_enabled = True
+    import_data_enabled = False
 
     def __init__(self, reduce=None, *args, **kwargs):
         self.reduce = reduce
@@ -53,8 +60,13 @@ class NXBeamLine:
     def __repr__(self):
         return f"NXBeamLine('{self.name}')"
 
+    def make_scans(self, *args, **kwargs):
+        raise NeXusError(
+            f"Making scan macros not implemented for {self.beamline.name}")
+
     def import_data(self, *args, **kwargs):
-        pass
+        raise NeXusError(
+            f"Importing data not implemented for {self.beamline.name}")
 
     def load_data(self, *args, **kwargs):
         if self.reduce:
@@ -69,6 +81,11 @@ class NXBeamLine:
 class Sector6Beamline(NXBeamLine):
 
     name = '6-ID-D'
+    raw_home = Path('/data/user6idd/dm/')
+    experiment_home = Path('/data/user6idd/dm/')
+    experiment_directory_exists = False
+    make_scans_enabled = True
+    import_data_enabled = False
 
     def __init__(self, reduce=None, *args, **kwargs):
         super().__init__(reduce)
@@ -76,6 +93,50 @@ class Sector6Beamline(NXBeamLine):
         self.source = 'APS'
         self.source_name = 'Advanced Photon Source'
         self.source_type = 'Synchrotron X-Ray Source'
+
+    def make_scans(self, scan_files, command='Pil2Mscan'):
+        command = self.textbox['Scan Command'].text()
+        parameters = ['#command path filename temperature detx dety '
+                      'phi_start phi_step phi_end chi omega frame_rate']
+        for scan_file in [Path(f) for f in scan_files]:
+            root = nxopen(scan_file)
+            temperature = root.entry.sample.temperature
+            scan_dir = scan_file.stem.replace(self.sample+'_', '')
+            for entry in [root[e] for e in root if e != 'entry']:
+                if 'phi_set' in entry['instrument/goniometer']:
+                    phi_start = entry['instrument/goniometer/phi_set']
+                else:
+                    phi_start = entry['instrument/goniometer/phi']
+                phi_step = entry['instrument/goniometer/phi'].attrs['step']
+                phi_end = entry['instrument/goniometer/phi'].attrs['end']
+                if 'chi_set' in entry['instrument/goniometer']:
+                    chi = entry['instrument/goniometer/chi_set']
+                else:
+                    chi = entry['instrument/goniometer/chi']
+                if 'omega_set' in entry['instrument/goniometer']:
+                    omega = entry['instrument/goniometer/omega_set']
+                else:
+                    omega = entry['instrument/goniometer/omega']
+                dx = entry['instrument/detector/translation_x']
+                dy = entry['instrument/detector/translation_y']
+                if ('frame_time' in entry['instrument/detector'] and
+                        entry['instrument/detector/frame_time'] > 0.0):
+                    frame_rate = 1.0 / entry['instrument/detector/frame_time']
+                else:
+                    frame_rate = 10.0
+                scan_file = entry.nxname
+                if command == 'Pil2Mscan':
+                    parameters.append(
+                        f'{command} '
+                        f'{scan_file.parent.joinpath(scan_dir)} '
+                        f'{scan_file} {temperature:.6g} {dx:.6g} {dy:.6g} '
+                        f'{phi_start:.6g} {phi_step:.6g} {phi_end:.6g} '
+                        f'{chi:.6g} {omega:.6g} {frame_rate:.6g}')
+            if command == 'Pil2Mstring':
+                parameters.append(f'Pil2Mstring("{scan_dir}")')
+            elif command != 'Pil2Mscan':
+                parameters.append(f'{command} {temperature}')
+        return parameters
 
     def read_logs(self):
         """Read metadata from experimental scans."""
@@ -180,6 +241,9 @@ class QM2Beamline(NXBeamLine):
     name = 'QM2'
     raw_home = Path('/nfs/chess/id4b/')
     experiment_home = Path('/nfs/chess/id4baux')
+    experiment_directory_exists = False
+    make_scans_enabled = False
+    import_data_enabled = True
 
     def __init__(self, reduce=None, directory=None):
         super().__init__(reduce)
@@ -403,4 +467,3 @@ class QM2Beamline(NXBeamLine):
                 self.entry['sample/temperature'].attrs['units'] = 'K'
             if 'sample' not in self.entry:
                 self.entry.makelink(self.root['entry/sample'])
-

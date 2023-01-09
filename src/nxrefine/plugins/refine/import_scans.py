@@ -28,11 +28,11 @@ class ImportDialog(NXDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.beamline = get_beamline()
-        if self.beamline.name != 'QM2':
+        if not self.beamline.import_data_enabled:
             display_message(
                 "Importing Data",
                 f"Importing data not implemented for {self.beamline.name}")
-            return
+            self.reject()
         self.directory_box = self.directorybox('Choose Experiment Directory',
                                                self.choose_directory,
                                                default=False)

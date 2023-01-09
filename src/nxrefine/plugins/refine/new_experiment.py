@@ -28,7 +28,7 @@ class ExperimentDialog(NXDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.beamline = get_beamline()
-        if self.beamline.name == 'QM2':
+        if self.beamline.experiment_directory_exists:
             self.set_layout(
                 self.directorybox('Choose Home Directory', default=False),
                 self.close_layout(save=True))
@@ -47,22 +47,19 @@ class ExperimentDialog(NXDialog):
         self.is_valid_directory()
 
     def is_valid_directory(self):
-        if self.beamline.name == 'QM2':
-            if self.directory.is_relative_to(self.beamline.experiment_home):
-                return True
-            else:
-                display_message("Importing Data",
-                                "Home directory must be relative to "
-                                f"{self.beamline.experiment_home}")
-                return False
-        else:
+        if self.directory.is_relative_to(self.beamline.experiment_home):
             return True
+        else:
+            display_message("Importing Data",
+                            "Home directory must be relative to "
+                            f"{self.beamline.experiment_home}")
+            return False
 
     def accept(self):
         if not self.is_valid_directory():
             return
         try:
-            if (self.beamline.name == 'QM2'
+            if (self.beamline.experiment_directory_exists
                     and self.directory.name != 'nxrefine'):
                 experiment_directory = self.directory / 'nxrefine'
             else:
