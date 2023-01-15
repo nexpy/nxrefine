@@ -28,8 +28,6 @@ def main():
                         help='monitor to use in normalizations')
     parser.add_argument('-n', '--norm', type=float,
                         help='normalization to monitor')
-    parser.add_argument('-r', '--radius', type=float,
-                        help='radius of punched holes in Å-1')
     parser.add_argument('-q', '--Qmin', type=float,
                         help='minimum Q in Å-1 used in transmission estimates')
     parser.add_argument('-Q', '--Qmax', type=float,
