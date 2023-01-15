@@ -64,7 +64,7 @@ class NXReduce(QtCore.QObject):
             First frame included in the data reduction, by default None
         last : int, optional
             Last frame included in the data reduction, by default None
-        polar_max : str, optional
+        polar_max : float, optional
             Maximum polar angle in peak refinements, by default None
         monitor : str, optional
             Name of monitor used in normalizations, by default None

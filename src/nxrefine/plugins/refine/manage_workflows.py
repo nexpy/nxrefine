@@ -308,7 +308,7 @@ class WorkflowDialog(NXDialog):
                     checkbox.setEnabled(True)
                     checkbox.setStyleSheet("color: red")
             if status['load'].checkState() == QtCore.Qt.Unchecked:
-                for task in ['load', 'link', 'max', 'find', 'prepare',
+                for task in ['link', 'max', 'find', 'prepare',
                              'transform', 'masked_transform']:
                     status[task].setEnabled(False)
             self.update_progress(i)

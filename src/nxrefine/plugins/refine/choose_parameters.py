@@ -155,4 +155,4 @@ class ParametersDialog(NXDialog):
             self.write_parameters()
             super().accept()
         except NeXusError as error:
-            report_error(error)
+            report_error("Choosing Parameters", error)

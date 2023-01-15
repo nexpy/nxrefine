@@ -464,6 +464,6 @@ class QM2Beamline(NXBeamLine):
             if 'sampleT' in logs['data']:
                 self.root['entry/sample/temperature'] = (
                     logs['data/sampleT'].average())
-                self.entry['sample/temperature'].attrs['units'] = 'K'
+                self.root['entry/sample/temperature'].attrs['units'] = 'K'
             if 'sample' not in self.entry:
                 self.entry.makelink(self.root['entry/sample'])

@@ -22,7 +22,7 @@ def main():
                         help='names of entries to be processed')
     parser.add_argument('-l', '--lattice', action='store_true',
                         help='refine lattice parameters')
-    parser.add_argument('-p', '--polar_max',
+    parser.add_argument('-p', '--polar_max', type=float,
                         help='maximum polar angle in degrees')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing maximum')
