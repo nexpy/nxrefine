@@ -22,7 +22,7 @@ def main():
                         help='peak threshold')
     parser.add_argument('-f', '--first', type=int, help='first frame')
     parser.add_argument('-l', '--last', type=int, help='last frame')
-    parser.add_argument('-p', '--polar_max',
+    parser.add_argument('-p', '--polar_max', type=float,
                         help='maximum polar angle in degrees')
     parser.add_argument('-m', '--monitor',
                         help='monitor to use in normalizations')
