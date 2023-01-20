@@ -15,20 +15,25 @@ from nexusformat.nexus import NeXusError
 class NXSettings(ConfigParser):
     """A ConfigParser subclass that preserves the case of option names"""
 
-    def __init__(self, directory=None):
+    def __init__(self, directory=None, **kwargs):
         super().__init__(allow_no_value=True)
         self.directory = self.get_directory(server_directory=directory)
         self.file = Path(self.directory).joinpath('settings.ini')
         super().read(self.file)
         sections = self.sections()
-        if 'setup' not in sections:
-            self.add_section('setup')
+        if 'server' not in sections:
+            self.add_section('server')
         if 'instrument' not in sections:
             self.add_section('instrument')
         if 'nxrefine' not in sections:
             self.add_section('nxrefine')
         if 'nxreduce' not in sections:
             self.add_section('nxreduce')
+        if 'setup' in sections:
+            for option in self.options('setup'):
+                self.set('server', option, self.get('setup', option))
+            self.remove_section('setup')
+            self.save()
         self.add_defaults()
 
     def get_directory(self, server_directory=None):
@@ -58,8 +63,11 @@ class NXSettings(ConfigParser):
         return server_directory
 
     def add_defaults(self):
-        if not self.has_option('setup', 'type'):
-            self.set('setup', 'type', 'multicore')
+        default = {'type': 'multicore', 'cores': 4, 'concurrent': True,
+                   'prefix': None}
+        for p in default:
+            if not self.has_option('server', p):
+                self.set('server', p, default[p])
         default = {'source': 'APS', 'instrument': '6-ID-D'}
         for p in default:
             if not self.has_option('instrument', p):
@@ -82,7 +90,7 @@ class NXSettings(ConfigParser):
         self.save()
 
     def input_defaults(self):
-        for s in ['instrument', 'NXRefine', 'NXReduce']:
+        for s in ['server', 'instrument', 'NXRefine', 'NXReduce']:
             print(f'\n{s} Parameters\n-------------------')
             s = s.lower()
             for p in self.options(s):
@@ -98,6 +106,24 @@ class NXSettings(ConfigParser):
         _settings['nxrefine'] = {k: v for (k, v) in self.items('nxrefine')}
         _settings['nxreduce'] = {k: v for (k, v) in self.items('nxreduce')}
         return _settings
+
+    def get(self, section, option):
+        value = super().get(section, option, raw=True)
+        if value in [None, 'None', 'none', '']:
+            return None
+        elif value in ['True', 'true', 'Yes', 'yes', 'Y', 'y']:
+            return True
+        elif value in ['False', 'false', 'No', 'no', 'N', 'n']:
+            return False
+        else:
+            try:
+                v = float(value)
+                if v.is_integer():
+                    return int(v)
+                else:
+                    return v
+            except ValueError:
+                return value
 
     def set(self, section, option, value=None):
         if isinstance(value, int) or isinstance(value, float):
