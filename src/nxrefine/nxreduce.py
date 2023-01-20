@@ -800,7 +800,7 @@ class NXReduce(QtCore.QObject):
             elif pc <= 24:
                 self._process_count = pc - 4
             else:
-                self._process_count = int(float(pc)/4)
+                self._process_count = pc // 4
         return self._process_count
 
     def record(self, task, **kwargs):
@@ -1250,7 +1250,7 @@ class NXReduce(QtCore.QObject):
         self.logger.info("Finding peaks")
         tic = self.start_progress(self.first, self.last)
         self.blobs = []
-        if self.server.server_type == 'multicore':
+        if self.server.concurrent:
             from concurrent.futures import ProcessPoolExecutor, as_completed
             with ProcessPoolExecutor(
                     max_workers=self.process_count) as executor:
@@ -1404,7 +1404,7 @@ class NXReduce(QtCore.QObject):
         mask_root['entry/mask'] = (
             NXfield(shape=self.shape, dtype=np.int8, fillvalue=0))
 
-        if self.server.server_type == 'multicore':
+        if self.server.concurrent:
             from concurrent.futures import ProcessPoolExecutor, as_completed
             with ProcessPoolExecutor(
                     max_workers=self.process_count) as executor:
