@@ -117,16 +117,16 @@ class NXWorker(Thread):
 class NXTask:
     """Class for submitting tasks to different cpus."""
 
-    def __init__(self, command, server_type):
+    def __init__(self, command, server):
         self.command = command
-        self.server_type = server_type
+        self.server = server
 
     def executable_command(self, cpu):
         """Wrap command according to the server type."""
-        if self.server_type == 'multinode':
-            return f"{self.prefix} {cpu} '{self.command}'"
-        elif self.prefix:
-            return f"{self.prefix} '{self.command}'"
+        if self.server.server_type == 'multinode':
+            return f"{self.server.prefix} {cpu} {self.command}"
+        elif self.server.prefix:
+            return f"{self.server.prefix} {self.command}"
         else:
             return self.command
 
@@ -254,7 +254,7 @@ class NXServer(NXDaemon):
                 if command == 'stop':
                     break
                 elif command:
-                    self.worker_queue.put(NXTask(command, self.server_type))
+                    self.worker_queue.put(NXTask(command, self))
         for worker in self.workers:
             self.worker_queue.put(None)
         self.worker_queue.join()
