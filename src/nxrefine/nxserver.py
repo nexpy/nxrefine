@@ -123,10 +123,12 @@ class NXTask:
 
     def executable_command(self, cpu):
         """Wrap command according to the server type."""
-        if self.server_type == 'multicore':
-            return self.command
+        if self.server_type == 'multinode':
+            return f"{self.prefix} {cpu} '{self.command}'"
+        elif self.prefix:
+            return f"{self.prefix} '{self.command}'"
         else:
-            return f"pdsh -w {cpu} '{self.command}'"
+            return self.command
 
     def execute(self, cpu, log_file):
         with open(log_file, 'a') as f:
@@ -142,9 +144,10 @@ class NXTask:
 
 class NXServer(NXDaemon):
 
-    def __init__(self, directory=None, server_type=None, nodes=None):
+    def __init__(self, directory=None, server_type=None, nodes=None,
+                 concurrent=None, prefix=None):
         self.pid_name = 'NXServer'
-        self.initialize(directory, server_type, nodes)
+        self.initialize(directory, server_type, nodes, concurrent, prefix)
         self.worker_queue = None
         self.workers = []
         super(NXServer, self).__init__(self.pid_name, self.pid_file)
@@ -153,31 +156,41 @@ class NXServer(NXDaemon):
         return (f"NXServer(directory='{self.directory}', "
                 "type='{self.server_type}')")
 
-    def initialize(self, directory, server_type, nodes):
-        self.server_settings = NXSettings(directory=directory)
-        self.directory = self.server_settings.directory
+    def initialize(self, directory, server_type, nodes, concurrent, prefix):
+        self.settings = NXSettings(directory=directory)
+        self.directory = self.settings.directory
         if server_type:
             self.server_type = server_type
-            self.server_settings.set('setup', 'type', server_type)
-        elif self.server_settings.has_option('setup', 'type'):
-            self.server_type = self.server_settings.get('setup', 'type')
+            self.settings.set('server', 'type', server_type)
+        elif self.settings.has_option('server', 'type'):
+            self.server_type = self.settings.get('server', 'type')
         else:
             raise NeXusError('Server type not specified')
         if self.server_type == 'multinode':
-            if 'nodes' not in self.server_settings.sections():
-                self.server_settings.add_section('nodes')
+            if 'nodes' not in self.settings.sections():
+                self.settings.add_section('nodes')
             if nodes:
                 self.write_nodes(nodes)
             self.cpus = self.read_nodes()
         else:
-            if self.server_settings.has_option('setup', 'cores'):
-                cpu_count = int(self.server_settings.get('setup', 'cores'))
+            if self.settings.has_option('server', 'cores'):
+                cpu_count = int(self.settings.get('server', 'cores'))
                 if cpu_count > psutil.cpu_count():
                     cpu_count = psutil.cpu_count()
             else:
                 cpu_count = psutil.cpu_count()
             self.cpus = ['cpu'+str(cpu) for cpu in range(1, cpu_count+1)]
-        self.server_settings.save()
+        if concurrent:
+            self.concurrent = concurrent
+            self.settings.set('server', 'concurrent', concurrent)
+        else:
+            self.concurrent = self.settings.get('server', 'concurrent')
+        if prefix:
+            self.prefix = prefix
+            self.settings.set('server', 'prefix', prefix)
+        else:
+            self.prefix = self.settings.get('server', 'prefix')
+        self.settings.save()
         self.log_file = os.path.join(self.directory, 'nxserver.log')
         self.pid_file = os.path.join(self.directory, 'nxserver.pid')
         self.queue_directory = os.path.join(self.directory, 'task_list')
@@ -185,8 +198,8 @@ class NXServer(NXDaemon):
 
     def read_nodes(self):
         """Read available nodes"""
-        if 'nodes' in self.server_settings.sections():
-            nodes = self.server_settings.options('nodes')
+        if 'nodes' in self.settings.sections():
+            nodes = self.settings.options('nodes')
         else:
             nodes = []
         return sorted(nodes)
@@ -195,15 +208,15 @@ class NXServer(NXDaemon):
         """Write additional nodes"""
         current_nodes = self.read_nodes()
         for node in [cpu for cpu in nodes if cpu not in current_nodes]:
-            self.server_settings.set('nodes', node)
-        self.server_settings.save()
+            self.settings.set('nodes', node)
+        self.settings.save()
         self.cpus = self.read_nodes()
 
     def remove_nodes(self, nodes):
         """Remove specified nodes"""
         for node in nodes:
-            self.server_settings.remove_option('nodes', node)
-        self.server_settings.save()
+            self.settings.remove_option('nodes', node)
+        self.settings.save()
         self.cpus = self.read_nodes()
 
     def set_cores(self, cpu_count):
@@ -212,8 +225,8 @@ class NXServer(NXDaemon):
             cpu_count = int(cpu_count)
         except ValueError:
             raise NeXusError('Number of cores must be a valid integer')
-        self.server_settings.set('setup', 'cores', str(cpu_count))
-        self.server_settings.save()
+        self.settings.set('server', 'cores', cpu_count)
+        self.settings.save()
         self.cpus = ['cpu'+str(cpu) for cpu in range(1, cpu_count+1)]
 
     def log(self, message):
