@@ -221,7 +221,9 @@ class NXDatabase:
             for e in entries:
                 nxentry = root[e]
                 if e in root and 'data' in nxentry and 'instrument' in nxentry:
-                    if e+'.h5' in scan_files or e+'.nxs' in scan_files:
+                    if 'nxload' in nxentry:
+                        tasks['nxload'] += 1
+                    elif e+'.h5' in scan_files or e+'.nxs' in scan_files:
                         tasks['nxload'] += 1
                     if 'nxlink' in nxentry:
                         tasks['nxlink'] += 1
