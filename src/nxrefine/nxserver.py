@@ -135,11 +135,11 @@ class NXTask:
         else:
             self.script = None
             command = self.command
-        if self.run_command == 'pdsh':
+        if self.server.run_command == 'pdsh':
             command = f"pdsh -w {cpu} {command}"
-        elif self.run_command == 'qsub':
-            command = (f"qsub -q all.q -j y -o {log_file} -S /bin/bash "
-                       f"{command}")
+        elif self.server.run_command == 'qsub':
+            command = (f"qsub -q all.q -j y -o {log_file} "
+                       f"-N {command.split()[0]} -S /bin/bash {command}")
         return command
 
     def execute(self, cpu, log_file):
@@ -168,8 +168,7 @@ class NXServer(NXDaemon):
         super(NXServer, self).__init__(self.pid_name, self.pid_file)
 
     def __repr__(self):
-        return (f"NXServer(directory='{self.directory}', "
-                "type='{self.server_type}')")
+        return f"NXServer(directory='{self.directory}')"
 
     def initialize(self, directory, server_type, nodes, concurrent,
                    run_command, template):
