@@ -64,7 +64,7 @@ class NXSettings(ConfigParser):
 
     def add_defaults(self):
         default = {'type': 'multicore', 'cores': 4, 'concurrent': True,
-                   'prefix': None}
+                   'run_command': None, 'template': None}
         for p in default:
             if not self.has_option('server', p):
                 self.set('server', p, default[p])
@@ -107,8 +107,8 @@ class NXSettings(ConfigParser):
         _settings['nxreduce'] = {k: v for (k, v) in self.items('nxreduce')}
         return _settings
 
-    def get(self, section, option):
-        value = super().get(section, option, raw=True)
+    def get(self, section, option, **kwargs):
+        value = super().get(section, option, **kwargs)
         if value in [None, 'None', 'none', '']:
             return None
         elif value in ['True', 'true', 'Yes', 'yes', 'Y', 'y']:
