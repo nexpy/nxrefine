@@ -18,6 +18,7 @@ from threading import Thread
 import psutil
 from nexusformat.nexus import NeXusError, NXLock
 from persistqueue import Queue as FileQueue
+from persistqueue.exceptions import Empty
 from persistqueue.serializers import json
 
 from .nxdaemon import NXDaemon
@@ -27,7 +28,7 @@ from .nxsettings import NXSettings
 class NXFileQueue(FileQueue):
     """A file-based queue with locked access"""
 
-    def __init__(self, directory, autosave=True):
+    def __init__(self, directory, autosave=False):
         self.directory = Path(directory)
         self.directory.mkdir(exist_ok=True)
         self.directory.chmod(0o775)
@@ -39,13 +40,18 @@ class NXFileQueue(FileQueue):
                              tempdir=tempdir)
             self.fix_access()
 
+    def __repr__(self):
+        return f"NXFileQueue('{self.directory}')"
+
     def put(self, item, block=True, timeout=None):
         with NXLock(self.lockfile):
+            self.info = self._loadinfo()
             super().put(item, block=block, timeout=timeout)
             self.fix_access()
 
     def get(self, block=True, timeout=None):
         with NXLock(self.lockfile):
+            self.info = self._loadinfo()
             item = super().get(block=block, timeout=timeout)
             self.fix_access()
         return item
@@ -76,7 +82,7 @@ class NXWorker(Thread):
         self.cpu_log = Path(self.server_log).parent / cpu_log
 
     def __repr__(self):
-        return f"NXWorker(cpu={self.cpu})"
+        return f"NXWorker(cpu='{self.cpu}')"
 
     def run(self):
         self.log(f"Starting worker on {self.cpu} (pid={os.getpid()})")
@@ -250,6 +256,7 @@ class NXServer(NXDaemon):
         queue, and add an NXTask for each command to a Queue.
         """
         self.log(f'Starting server (pid={os.getpid()})')
+        self.task_queue = NXFileQueue(self.queue_directory, autosave=True)
         self.worker_queue = Queue(maxsize=len(self.cpus))
         self.workers = [NXWorker(cpu, self.worker_queue, self.log_file)
                         for cpu in self.cpus]
@@ -275,15 +282,16 @@ class NXServer(NXDaemon):
         if isinstance(tasks, str):
             tasks = tasks.split('\n')
         for task in tasks:
-            if task not in self.queued_tasks():
+            if task == 'stop':
+                self.task_queue.put(task)
+            elif task not in self.queued_tasks():
                 self.task_queue.put(task)
 
     def read_task(self):
         """Read the next task from the server queue"""
-        if self.task_queue.qsize() > 0:
+        try:
             return self.task_queue.get(block=False)
-        else:
-            self.task_queue = NXFileQueue(self.queue_directory)
+        except Empty:
             return None
 
     def remove_task(self, task):
