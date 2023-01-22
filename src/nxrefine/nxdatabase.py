@@ -278,15 +278,18 @@ class NXDatabase:
             scan_dir = get_directory(filename)
             entries = f.get_entries()
             data = 0
-            for e in entries:
-                if os.path.exists(os.path.join(scan_dir, e+'.h5')):
-                    data += 1
-            if data == 0:
-                f.nxload = NOT_STARTED
-            elif data == len(entries):
-                f.nxload = DONE
+            if 'nxload' in [t.name for t in f.tasks]:
+                self.update_status(f, 'nxload')
             else:
-                f.nxload = IN_PROGRESS
+                for e in entries:
+                    if os.path.exists(os.path.join(scan_dir, e+'.h5')):
+                        data += 1
+                if data == 0:
+                    f.nxload = NOT_STARTED
+                elif data == len(entries):
+                    f.nxload = DONE
+                else:
+                    f.nxload = IN_PROGRESS
             self.session.commit()
         return f
 
