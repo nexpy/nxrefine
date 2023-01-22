@@ -556,7 +556,7 @@ class NXRefine:
                         'transmission' in self.entry['instrument/sample']):
                     if 'transmission' in other.entry['instrument/sample']:
                         del other.entry['instrument/sample/transmission']
-                    other['instrument/sample/transmission'] = (
+                    other.entry['instrument/sample/transmission'] = (
                         self.entry['instrument/sample/transmission'])
 
     def link_sample(self, other):
