@@ -111,7 +111,7 @@ class NXTask:
 
     def __init__(self, command, server):
         self.command = command
-        self.name = command
+        self.name = command.split()[0]
         self.server = server
 
     def __repr__(self):
