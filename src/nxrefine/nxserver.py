@@ -18,50 +18,40 @@ from threading import Thread
 import psutil
 from nexusformat.nexus import NeXusError, NXLock
 from persistqueue import Queue as FileQueue
+from persistqueue.exceptions import Empty
 from persistqueue.serializers import json
 
 from .nxdaemon import NXDaemon
 from .nxsettings import NXSettings
 
 
-class NXQueue(Queue):
-    """Queue class that records when a task is done."""
-
-    def __init__(self, maxsize=0):
-        super().__init__(maxsize=maxsize)
-        self.active_workers = 0
-
-    def get(self, block=True, timeout=None):
-        task = super().get(block=block, timeout=timeout)
-        self.active_workers += 1
-        return task
-
-    def task_done(self):
-        super().task_done()
-        self.active_workers -= 1
-
-
 class NXFileQueue(FileQueue):
     """A file-based queue with locked access"""
 
-    def __init__(self, directory, autosave=True):
+    def __init__(self, directory, autosave=False):
         self.directory = Path(directory)
+        self.directory.mkdir(exist_ok=True)
+        self.directory.chmod(0o775)
         tempdir = self.directory / 'tempdir'
-        self.lockfile = self.directory / 'filequeue'
         tempdir.mkdir(exist_ok=True)
-        os.chmod(tempdir, 0o775)
+        self.lockfile = self.directory / 'filequeue'
         with NXLock(self.lockfile):
             super().__init__(directory, serializer=json, autosave=autosave,
                              tempdir=tempdir)
             self.fix_access()
 
+    def __repr__(self):
+        return f"NXFileQueue('{self.directory}')"
+
     def put(self, item, block=True, timeout=None):
         with NXLock(self.lockfile):
+            self.info = self._loadinfo()
             super().put(item, block=block, timeout=timeout)
             self.fix_access()
 
     def get(self, block=True, timeout=None):
         with NXLock(self.lockfile):
+            self.info = self._loadinfo()
             item = super().get(block=block, timeout=timeout)
             self.fix_access()
         return item
@@ -75,7 +65,7 @@ class NXFileQueue(FileQueue):
 
     def fix_access(self):
         try:
-            os.chmod(self.directory.joinpath('info'), 0o664)
+            self.directory.joinpath('info').chmod(0o664)
         except Exception:
             pass
 
@@ -92,7 +82,7 @@ class NXWorker(Thread):
         self.cpu_log = Path(self.server_log).parent / cpu_log
 
     def __repr__(self):
-        return f"NXWorker(cpu={self.cpu})"
+        return f"NXWorker(cpu='{self.cpu}')"
 
     def run(self):
         self.log(f"Starting worker on {self.cpu} (pid={os.getpid()})")
@@ -121,39 +111,43 @@ class NXTask:
 
     def __init__(self, command, server):
         self.command = command
+        self.name = command.split()[0]
         self.server = server
 
-    def executable_command(self, cpu, log_file):
+    def __repr__(self):
+        return f"NXTask('{self.name}')"
+
+    def executable_command(self, cpu, cpu_log):
         """Wrap command according to the server type."""
         if self.server.template:
             with open(self.server.template) as f:
                 text = f.read()
-            self.script = tempfile.mkstemp(suffix='.sh')[1]
+            self.script = Path(tempfile.mkstemp(suffix='.sh')[1])
             with open(self.script, 'w') as f:
                 f.write(text.replace('<NXSERVER>', self.command))
-            command = self.script
+            command = str(self.script)
         else:
             self.script = None
             command = self.command
         if self.server.run_command == 'pdsh':
             command = f"pdsh -w {cpu} {command}"
         elif self.server.run_command == 'qsub':
-            command = (f"qsub -q all.q -j y -o {log_file} "
-                       f"-N {command.split()[0]} -S /bin/bash {command}")
+            command = (f"qsub -q all.q -j y -o {cpu_log} "
+                       f"-N {self.name} -S /bin/bash {command}")
         return command
 
-    def execute(self, cpu, log_file):
-        with open(log_file, 'a') as f:
+    def execute(self, cpu, cpu_log):
+        with open(cpu_log, 'a') as f:
             f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' +
                     self.command + '\n')
-        process = subprocess.run(self.executable_command(cpu, log_file),
+        process = subprocess.run(self.executable_command(cpu, cpu_log),
                                  shell=True,
                                  stdout=subprocess.PIPE,
                                  stderr=subprocess.STDOUT)
-        with open(log_file, 'a') as f:
+        with open(cpu_log, 'a') as f:
             f.write(process.stdout.decode() + '\n')
-        if self.script:
-            os.remove(self.script)
+        if self.script and self.script.exists():
+            self.script.unlink()
 
 
 class NXServer(NXDaemon):
@@ -262,19 +256,19 @@ class NXServer(NXDaemon):
         queue, and add an NXTask for each command to a Queue.
         """
         self.log(f'Starting server (pid={os.getpid()})')
-        self.worker_queue = NXQueue()
+        self.task_queue = NXFileQueue(self.queue_directory, autosave=True)
+        self.worker_queue = Queue(maxsize=len(self.cpus))
         self.workers = [NXWorker(cpu, self.worker_queue, self.log_file)
                         for cpu in self.cpus]
         for worker in self.workers:
             worker.start()
         while True:
             time.sleep(5)
-            if self.worker_queue.active_workers < len(self.cpus):
-                command = self.read_task()
-                if command == 'stop':
-                    break
-                elif command:
-                    self.worker_queue.put(NXTask(command, self))
+            command = self.read_task()
+            if command == 'stop':
+                break
+            elif command:
+                self.worker_queue.put(NXTask(command, self))
         for worker in self.workers:
             self.worker_queue.put(None)
         self.worker_queue.join()
@@ -284,21 +278,24 @@ class NXServer(NXDaemon):
         super(NXServer, self).stop()
 
     def add_task(self, tasks):
-        """Add a task to the server queue"""
+        """Add a task to the server queue."""
         if isinstance(tasks, str):
             tasks = tasks.split('\n')
         for task in tasks:
-            if task not in self.queued_tasks():
+            if task == 'stop':
+                self.task_queue.put(task)
+            elif task not in self.queued_tasks():
                 self.task_queue.put(task)
 
     def read_task(self):
-        if self.task_queue.qsize() > 0:
+        """Read the next task from the server queue"""
+        try:
             return self.task_queue.get(block=False)
-        else:
-            self.task_queue = NXFileQueue(self.queue_directory)
+        except Empty:
             return None
 
     def remove_task(self, task):
+        """Remove task from the server queue."""
         tasks = self.queued_tasks()
         if task in tasks:
             tasks.remove(task)
@@ -307,14 +304,17 @@ class NXServer(NXDaemon):
             self.add_task(task)
 
     def queued_tasks(self):
+        """List tasks remaining on the server queue."""
         queue = NXFileQueue(self.queue_directory, autosave=False)
         return queue.queued_items()
 
     def stop(self):
+        """Stop the server when active tasks are completed."""
         if self.is_running():
             self.add_task('stop')
 
     def clear(self):
+        """Clear the server queue."""
         if self.queue_directory.exists():
             import shutil
             shutil.rmtree(self.queue_directory, ignore_errors=True)
@@ -323,7 +323,7 @@ class NXServer(NXDaemon):
     def kill(self):
         """Kill the server process.
 
-        This provides a backup mechanism for terminating the server if adding
-        'stop' to the task list does not work.
+        This provides a backup mechanism for terminating the server if
+        adding 'stop' to the task list does not work.
         """
         super(NXServer, self).stop()
