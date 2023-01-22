@@ -139,7 +139,7 @@ class NXTask:
             command = f"pdsh -w {cpu} {command}"
         elif self.server.run_command == 'qsub':
             command = (f"qsub -q all.q -j y -o {log_file} "
-                       f"-N {command.split()[0]} -S /bin/bash {command}")
+                       f"-N {self.command.split()[0]} -S /bin/bash {command}")
         return command
 
     def execute(self, cpu, log_file):
