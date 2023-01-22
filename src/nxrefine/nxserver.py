@@ -49,7 +49,7 @@ class NXFileQueue(FileQueue):
         tempdir = self.directory / 'tempdir'
         self.lockfile = self.directory / 'filequeue'
         tempdir.mkdir(exist_ok=True)
-        os.chmod(tempdir, 0o775)
+        tempdir.chmod(0o775)
         with NXLock(self.lockfile):
             super().__init__(directory, serializer=json, autosave=autosave,
                              tempdir=tempdir)
@@ -75,7 +75,7 @@ class NXFileQueue(FileQueue):
 
     def fix_access(self):
         try:
-            os.chmod(self.directory.joinpath('info'), 0o664)
+            self.directory.joinpath('info').chmod(0o664)
         except Exception:
             pass
 
@@ -123,37 +123,37 @@ class NXTask:
         self.command = command
         self.server = server
 
-    def executable_command(self, cpu, log_file):
+    def executable_command(self, cpu, cpu_log):
         """Wrap command according to the server type."""
         if self.server.template:
             with open(self.server.template) as f:
                 text = f.read()
-            self.script = tempfile.mkstemp(suffix='.sh')[1]
+            self.script = Path(tempfile.mkstemp(suffix='.sh')[1])
             with open(self.script, 'w') as f:
                 f.write(text.replace('<NXSERVER>', self.command))
-            command = self.script
+            command = str(self.script)
         else:
             self.script = None
             command = self.command
         if self.server.run_command == 'pdsh':
             command = f"pdsh -w {cpu} {command}"
         elif self.server.run_command == 'qsub':
-            command = (f"qsub -q all.q -j y -o {log_file} "
+            command = (f"qsub -q all.q -j y -o {cpu_log} "
                        f"-N {self.command.split()[0]} -S /bin/bash {command}")
         return command
 
-    def execute(self, cpu, log_file):
-        with open(log_file, 'a') as f:
+    def execute(self, cpu, cpu_log):
+        with open(cpu_log, 'a') as f:
             f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' +
                     self.command + '\n')
-        process = subprocess.run(self.executable_command(cpu, log_file),
+        process = subprocess.run(self.executable_command(cpu, cpu_log),
                                  shell=True,
                                  stdout=subprocess.PIPE,
                                  stderr=subprocess.STDOUT)
-        with open(log_file, 'a') as f:
+        with open(cpu_log, 'a') as f:
             f.write(process.stdout.decode() + '\n')
-        if self.script:
-            os.remove(self.script)
+        if self.script and self.script.exists():
+            self.script.unlink()
 
 
 class NXServer(NXDaemon):
@@ -323,7 +323,7 @@ class NXServer(NXDaemon):
     def kill(self):
         """Kill the server process.
 
-        This provides a backup mechanism for terminating the server if adding
-        'stop' to the task list does not work.
+        This provides a backup mechanism for terminating the server if
+        adding 'stop' to the task list does not work.
         """
         super(NXServer, self).stop()
