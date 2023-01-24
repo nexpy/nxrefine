@@ -31,7 +31,6 @@ class NXFileQueue(FileQueue):
     def __init__(self, directory, autosave=False):
         self.directory = Path(directory)
         self.directory.mkdir(exist_ok=True)
-        self.directory.chmod(0o775)
         tempdir = self.directory / 'tempdir'
         tempdir.mkdir(exist_ok=True)
         self.lockfile = self.directory / 'filequeue'
