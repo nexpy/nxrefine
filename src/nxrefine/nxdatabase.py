@@ -131,11 +131,14 @@ class NXDatabase:
         echo : bool, optional
             True if SQL statements are echoed to `stdout`, by default False.
         """
+        if Path(db_file).resolve().parent.name != 'tasks':
+            raise NeXusError("Database should be in 'tasks' subdirectory")
         with NXLock(db_file):
             connection = 'sqlite:///' + db_file
             self.engine = create_engine(connection, echo=echo)
             Base.metadata.create_all(self.engine)
         self.database = Path(self.engine.url.database).resolve()
+        self.experiment_directory = self.database.parent.parent
         try:
             self.database.chmod(0o775)
         except Exception:
@@ -153,12 +156,15 @@ class NXDatabase:
 
     def get_filepath(self, filename):
         """Return the absolute path of the requested filename."""
-        return Path(filename).resolve()
+        if Path(filename).is_absolute():
+            return Path(filename)
+        else:
+            return self.experiment_directory / Path(filename)
 
     def get_filename(self, filename):
         """Return the relative path of the requested filename."""
         return str(self.get_filepath(filename).relative_to(
-            self.database.parent.parent))
+            self.experiment_directory))
 
     def get_file(self, filename):
         """Return the File object (and associated tasks) matching filename.
@@ -213,7 +219,7 @@ class NXDatabase:
         f = self.get_file(filename)
         if f:
             try:
-                scan_files = get_directory(filename).iterdir()
+                scan_files = self.get_directory(filename).iterdir()
             except OSError:
                 scan_files = []
             root = nxload(filename)
@@ -232,7 +238,7 @@ class NXDatabase:
                         tasks['nxmax'] += 1
                     if 'nxfind' in nxentry:
                         tasks['nxfind'] += 1
-                    if 'nxcopy' in nxentry or is_parent(filename):
+                    if 'nxcopy' in nxentry or self.is_parent(filename):
                         tasks['nxcopy'] += 1
                     if 'nxrefine' in nxentry:
                         tasks['nxrefine'] += 1
@@ -276,7 +282,7 @@ class NXDatabase:
         """
         f = self.query(filename)
         if f:
-            scan_dir = get_directory(filename)
+            scan_dir = self.get_directory(filename)
             entries = f.get_entries()
             data = 0
             if 'nxload' in [t.name for t in f.tasks]:
@@ -454,7 +460,7 @@ class NXDatabase:
             Task being updated.
         """
         status = {}
-        if task == 'nxcopy' and is_parent(f.filename):
+        if task == 'nxcopy' and self.is_parent(f.filename):
             setattr(f, task, DONE)
         else:
             if (task == 'nxcombine' or task == 'nxmasked_combine' or
@@ -579,20 +585,18 @@ class NXDatabase:
             ret = False
         return ret
 
+    def get_directory(self, filename):
+        """Return the directory path containing the raw data."""
+        filepath = self.get_filepath(filename)
+        sample_dir = filepath.parent
+        sample = sample_dir.parent.name
+        scan_label = filepath.stem.replace(sample+'_', '')
+        return sample_dir / scan_label
 
-def get_directory(filename):
-    """Return the directory path containing the raw data."""
-    filepath = Path(filename).resolve()
-    sample_dir = filepath.parent
-    sample = sample_dir.parent.name
-    scan_label = filepath.stem.replace(sample+'_', '')
-    return sample_dir / scan_label
-
-
-def is_parent(filename):
-    """True if the wrapper file is set as the parent."""
-    filepath = Path(filename).resolve()
-    sample_dir = filepath.parent
-    sample = sample_dir.parent.name
-    parent_file = Path(sample_dir).joinpath(sample + '_parent.nxs').resolve()
-    return filepath == parent_file
+    def is_parent(self, filename):
+        """True if the wrapper file is set as the parent."""
+        filepath = self.get_filepath(filename)
+        sample_dir = filepath.parent
+        sample = sample_dir.parent.name
+        parent_file = Path(sample_dir).joinpath(sample + '_parent.nxs')
+        return filepath == parent_file
