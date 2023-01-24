@@ -40,6 +40,7 @@ wrapper file) will be queued or running at the same time
 
 import datetime
 import os
+from pathlib import Path
 
 from nexusformat.nexus import NeXusError, NXLock, nxload
 from sqlalchemy import (Column, ForeignKey, Integer, String, create_engine,
@@ -75,14 +76,7 @@ class File(Base):
     nxmasked_pdf = Column(Integer, default=NOT_STARTED)
 
     def __repr__(self):
-        not_started = [k for k, v in vars(self).items() if v == NOT_STARTED]
-        queued = [k for k, v in vars(self).items() if v == QUEUED]
-        in_progress = [k for k, v in vars(self).items() if v == IN_PROGRESS]
-        done = [k for k, v in vars(self).items() if v == DONE]
-
-        return "File path='{}',\n\tnot started={}\n\tqueued={}\n\t" \
-            "in_progress={}\n\tdone={}".format(
-                self.filename, not_started, queued, in_progress, done)
+        return f"File(filename='{self.filename}')"
 
     def get_entries(self):
         if self.entries:
@@ -113,8 +107,8 @@ class Task(Base):
     file = relationship('File', back_populates='tasks')
 
     def __repr__(self):
-        return "<Task {} on {}, entry {}, pid={}>".format(
-            self.name, self.filename, self.entry, self.pid)
+        return (f"Task('{self.name}', filename='{self.filename}', "
+                f"entry='{self.entry}', pid={self.pid})")
 
 
 File.tasks = relationship('Task', back_populates='file', order_by=Task.id)
@@ -141,12 +135,15 @@ class NXDatabase:
             connection = 'sqlite:///' + db_file
             self.engine = create_engine(connection, echo=echo)
             Base.metadata.create_all(self.engine)
-        self.database = os.path.realpath(self.engine.url.database)
+        self.database = Path(self.engine.url.database).resolve()
         try:
-            os.chmod(self.database, 0o775)
+            self.database.chmod(0o775)
         except Exception:
             pass
         self._session = None
+
+    def __repr__(self):
+        return f"NXDatabase('{self.database}')"
 
     @property
     def session(self):
@@ -154,10 +151,14 @@ class NXDatabase:
             self._session = sessionmaker(bind=self.engine)()
         return self._session
 
+    def get_filepath(self, filename):
+        """Return the absolute path of the requested filename."""
+        return Path(filename).resolve()
+
     def get_filename(self, filename):
         """Return the relative path of the requested filename."""
-        root = os.path.dirname(os.path.dirname(self.database))
-        return os.path.relpath(os.path.realpath(filename), root)
+        return str(self.get_filepath(filename).relative_to(
+            self.database.parent.parent))
 
     def get_file(self, filename):
         """Return the File object (and associated tasks) matching filename.
@@ -173,19 +174,20 @@ class NXDatabase:
             File object.
         """
         self.check_tasks()
+        filepath = self.get_filepath(filename)
+        filename = self.get_filename(filename)
         f = self.query(filename)
 
         if f is None:
-            filename = os.path.realpath(filename)
-            if not os.path.exists(filename):
-                raise NeXusError(f"'{filename}' does not exist")
-            self.session.add(File(filename=self.get_filename(filename)))
+            if not filepath.exists():
+                raise NeXusError(f"'{filepath}' does not exist")
+            self.session.add(File(filename=filename))
             self.session.commit()
             f = self.sync_file(filename)
         else:
             if (f.entries is None or f.entries == ''
                     or isinstance(f.entries, int)):
-                root = nxload(filename)
+                root = nxload(filepath)
                 f.set_entries([e for e in root.entries if e != 'entry'])
             f = self.sync_data(filename)
         return f
@@ -209,10 +211,9 @@ class NXDatabase:
             Updated File object.
         """
         f = self.get_file(filename)
-        sample_dir = os.path.dirname(filename)
         if f:
             try:
-                scan_files = os.listdir(get_directory(filename))
+                scan_files = get_directory(filename).iterdir()
             except OSError:
                 scan_files = []
             root = nxload(filename)
@@ -231,7 +232,7 @@ class NXDatabase:
                         tasks['nxmax'] += 1
                     if 'nxfind' in nxentry:
                         tasks['nxfind'] += 1
-                    if 'nxcopy' in nxentry or is_parent(filename, sample_dir):
+                    if 'nxcopy' in nxentry or is_parent(filename):
                         tasks['nxcopy'] += 1
                     if 'nxrefine' in nxentry:
                         tasks['nxrefine'] += 1
@@ -282,7 +283,7 @@ class NXDatabase:
                 self.update_status(f, 'nxload')
             else:
                 for e in entries:
-                    if os.path.exists(os.path.join(scan_dir, e+'.h5')):
+                    if scan_dir.joinpath(e+'.h5').exists():
                         data += 1
                 if data == 0:
                     f.nxload = NOT_STARTED
@@ -452,9 +453,8 @@ class NXDatabase:
         task : str
             Task being updated.
         """
-        sample_dir = os.path.dirname(f.filename)
         status = {}
-        if task == 'nxcopy' and is_parent(f.filename, sample_dir):
+        if task == 'nxcopy' and is_parent(f.filename):
             setattr(f, task, DONE)
         else:
             if (task == 'nxcombine' or task == 'nxmasked_combine' or
@@ -530,6 +530,7 @@ class NXDatabase:
         tasks = [task['name'] for task in inspector.get_columns('files')]
         if 'data' in tasks:
             self.rename_column('data', 'nxload')
+            tasks[tasks.index('data')] = 'nxload'
         for task in self.task_names:
             if task not in tasks:
                 self.add_column(task)
@@ -581,19 +582,17 @@ class NXDatabase:
 
 def get_directory(filename):
     """Return the directory path containing the raw data."""
-    base_name = os.path.basename(os.path.splitext(filename)[0])
-    sample_dir = os.path.dirname(filename)
-    sample = os.path.basename(os.path.dirname(sample_dir))
-    scan_label = base_name.replace(sample+'_', '')
-    return os.path.join(sample_dir, scan_label)
+    filepath = Path(filename).resolve()
+    sample_dir = filepath.parent
+    sample = sample_dir.parent.name
+    scan_label = filepath.stem.replace(sample+'_', '')
+    return sample_dir / scan_label
 
 
-def is_parent(wrapper_file, sample_dir):
+def is_parent(filename):
     """True if the wrapper file is set as the parent."""
-    parent_file = os.path.join(sample_dir,
-                               os.path.basename(os.path.dirname(sample_dir) +
-                                                '_parent.nxs'))
-    if os.path.exists(parent_file):
-        return wrapper_file == os.path.realpath(parent_file)
-    else:
-        return False
+    filepath = Path(filename).resolve()
+    sample_dir = filepath.parent
+    sample = sample_dir.parent.name
+    parent_file = Path(sample_dir).joinpath(sample + '_parent.nxs').resolve()
+    return filepath == parent_file
