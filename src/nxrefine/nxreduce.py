@@ -1916,13 +1916,21 @@ class NXMultiReduce(NXReduce):
                 Qh, Qk, Ql = (self.root[entry][self.transform_path]['Qh'],
                               self.root[entry][self.transform_path]['Qk'],
                               self.root[entry][self.transform_path]['Ql'])
+                if 'scaling_factor' not in Qh.attrs:
+                    Qh.attrs['scaling_factor'] = self.refine.astar
+                if 'scaling_factor' not in Qk.attrs:
+                    Qk.attrs['scaling_factor'] = self.refine.bstar
+                if 'scaling_factor' not in Ql.attrs:
+                    Ql.attrs['scaling_factor'] = self.refine.cstar
                 data = NXlink('/entry/data/v', self.transform_file,
                               name='data')
                 if self.transform_path in self.entry:
                     del self.entry[self.transform_path]
                 self.entry[self.transform_path] = NXdata(data, [Ql, Qk, Qh])
                 self.entry[self.transform_path].attrs['angles'] = (
-                    self.root[entry][self.transform_path].attrs['angles'])
+                    self.refine.gamma_star,
+                    self.refine.beta_star,
+                    self.refine.alpha_star)
                 self.add_title(self.entry[self.transform_path])
                 self.entry[self.transform_path].set_default(over=True)
         except Exception as error:
