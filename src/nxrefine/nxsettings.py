@@ -63,15 +63,18 @@ class NXSettings(ConfigParser):
         return server_directory
 
     def add_defaults(self):
+        settings_changed = False
         default = {'type': 'multicore', 'cores': 4, 'concurrent': True,
-                   'run_command': None, 'template': None}
+                   'run_command': None, 'template': None, 'cctw': 'cctw'}
         for p in default:
             if not self.has_option('server', p):
                 self.set('server', p, default[p])
+                settings_changed = True
         default = {'source': 'APS', 'instrument': '6-ID-D'}
         for p in default:
             if not self.has_option('instrument', p):
                 self.set('instrument', p, default[p])
+                settings_changed = True
         default = {'wavelength': 0.141, 'distance': 650, 'geometry': 'default',
                    'phi': -5.0, 'phi_end': 360.0, 'phi_step': 0.1,
                    'chi': -90.0, 'omega': 0.0, 'gonpitch': 0.0,
@@ -80,6 +83,7 @@ class NXSettings(ConfigParser):
         for p in default:
             if not self.has_option('nxrefine', p):
                 self.set('nxrefine', p, default[p])
+                settings_changed = True
         default = {'threshold': 50000, 'min_pixels': 10,
                    'first': 10, 'last': 3640, 'polar_max': 10.0,
                    'monitor': 'monitor2', 'norm': 30000,
@@ -87,7 +91,9 @@ class NXSettings(ConfigParser):
         for p in default:
             if not self.has_option('nxreduce', p):
                 self.set('nxreduce', p, default[p])
-        self.save()
+                settings_changed = True
+        if settings_changed:
+            self.save()
 
     def input_defaults(self):
         for s in ['server', 'instrument', 'NXRefine', 'NXReduce']:
@@ -102,6 +108,7 @@ class NXSettings(ConfigParser):
     @property
     def settings(self):
         _settings = {}
+        _settings['server'] = {k: v for (k, v) in self.items('server')}
         _settings['instrument'] = {k: v for (k, v) in self.items('instrument')}
         _settings['nxrefine'] = {k: v for (k, v) in self.items('nxrefine')}
         _settings['nxreduce'] = {k: v for (k, v) in self.items('nxreduce')}

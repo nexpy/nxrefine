@@ -186,7 +186,7 @@ class ServerDialog(NXDialog):
         if text:
             self.text_box.setPlainText('\n'.join(text))
         else:
-            self.text_box.setPlainText('No Files')
+            self.text_box.setPlainText('No Locks')
 
     def clear_locks(self):
         dialog = NXDialog(parent=self)

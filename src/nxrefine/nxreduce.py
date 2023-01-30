@@ -1480,6 +1480,11 @@ class NXReduce(QtCore.QObject):
                             process = subprocess.run(cctw_command, shell=True,
                                                      stdout=subprocess.PIPE,
                                                      stderr=subprocess.PIPE)
+                    cctw_output = process.stdout.decode()
+                    cctw_errors = process.stderr.decode()
+                    self.logger.info('CCTW Output\n' + cctw_output)
+                    if cctw_errors:
+                        self.logger.info('CCTW Errors\n' + cctw_errors)
                     toc = timeit.default_timer()
                     if process.returncode == 0:
                         self.logger.info(
@@ -1488,8 +1493,8 @@ class NXReduce(QtCore.QObject):
                                               norm=self.norm)
                         self.record(task, monitor=self.monitor, norm=self.norm,
                                     command=cctw_command,
-                                    output=process.stdout.decode(),
-                                    errors=process.stderr.decode())
+                                    output=cctw_output,
+                                    errors=cctw_errors)
                         self.record_end(task)
                         self.clear_parameters(['monitor', 'norm'])
                     else:
@@ -1582,6 +1587,9 @@ class NXReduce(QtCore.QObject):
                 if command and os.path.exists(self.transform_file):
                     with NXLock(self.transform_file):
                         os.remove(self.transform_file)
+                if 'cctw' in self.settings['server']:
+                    command = command.replace('cctw',
+                                              self.settings['server']['cctw'])
                 return command
             else:
                 self.logger.info("Invalid HKL grid")
@@ -1943,7 +1951,11 @@ class NXMultiReduce(NXReduce):
             for entry in self.entries])
         output = os.path.join(self.directory,
                               fr'{self.transform_path}.nxs\#/entry/data/v')
-        return f"cctw merge {input} -o {output}"
+        if 'cctw' in self.settings['server']:
+            cctw = self.settings['nxserver']
+        else:
+            cctw = 'cctw'
+        return f"{cctw} merge {input} -o {output}"
 
     def add_title(self, data):
         title = []

@@ -92,7 +92,8 @@ class ConfigurationDialog(NXDialog):
         entry = self.configuration_file['entry']
         entry['nxreduce/threshold'] = NXfield(default['threshold'],
                                               dtype=float)
-        entry['nxreduce/polar_max'] = NXfield(default['polar_max'])
+        entry['nxreduce/polar_max'] = NXfield(default['polar_max'],
+                                              dtype=float)
         entry['nxreduce/monitor'] = NXfield(default['monitor'])
         entry['nxreduce/norm'] = NXfield(default['norm'], dtype=float)
         entry['nxreduce/first_frame'] = NXfield(default['first'], dtype=int)
