@@ -64,7 +64,7 @@ class NXSettings(ConfigParser):
 
     def add_defaults(self):
         default = {'type': 'multicore', 'cores': 4, 'concurrent': True,
-                   'run_command': None, 'template': None}
+                   'run_command': None, 'template': None, 'cctw': 'cctw'}
         for p in default:
             if not self.has_option('server', p):
                 self.set('server', p, default[p])
@@ -102,6 +102,7 @@ class NXSettings(ConfigParser):
     @property
     def settings(self):
         _settings = {}
+        _settings['server'] = {k: v for (k, v) in self.items('server')}
         _settings['instrument'] = {k: v for (k, v) in self.items('instrument')}
         _settings['nxrefine'] = {k: v for (k, v) in self.items('nxrefine')}
         _settings['nxreduce'] = {k: v for (k, v) in self.items('nxreduce')}
