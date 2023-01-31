@@ -66,6 +66,7 @@ class NXFileQueue(FileQueue):
         return items
 
     def fix_access(self):
+        """Ensure that the file queue pointer is readable."""
         try:
             self.directory.joinpath('info').chmod(0o664)
         except Exception:
