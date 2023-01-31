@@ -43,12 +43,14 @@ class NXFileQueue(FileQueue):
         return f"NXFileQueue('{self.directory}')"
 
     def put(self, item, block=True, timeout=None):
+        """Add an item to the queue."""
         with NXLock(self.lockfile):
             self.info = self._loadinfo()
             super().put(item, block=block, timeout=timeout)
             self.fix_access()
 
     def get(self, block=True, timeout=None):
+        """Get the next item in the queue."""
         with NXLock(self.lockfile):
             self.info = self._loadinfo()
             item = super().get(block=block, timeout=timeout)
@@ -56,6 +58,7 @@ class NXFileQueue(FileQueue):
         return item
 
     def queued_items(self):
+        """Return a list of items still remaining in the queue."""
         with NXLock(self.lockfile):
             items = []
             while self.qsize() > 0:
@@ -63,6 +66,7 @@ class NXFileQueue(FileQueue):
         return items
 
     def fix_access(self):
+        """Ensure that the file queue pointer is readable."""
         try:
             self.directory.joinpath('info').chmod(0o664)
         except Exception:
@@ -128,10 +132,10 @@ class NXTask:
         else:
             self.script = None
             command = self.command
-        if self.server.run_command == 'pdsh':
-            command = f"pdsh -w {cpu} {command}"
-        elif self.server.run_command == 'qsub':
-            command = (f"qsub -q all.q -j y -o {cpu_log} "
+        if self.server.run_command.startswith('pdsh'):
+            command = f"{self.server.run_command} -w {cpu} {command}"
+        elif self.server.run_command.startswith('qsub'):
+            command = (f"{self.server.run_command} -j y -o {cpu_log} "
                        f"-N {self.name} -S /bin/bash {command}")
         return command
 
