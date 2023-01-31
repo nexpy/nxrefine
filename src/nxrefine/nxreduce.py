@@ -1952,7 +1952,7 @@ class NXMultiReduce(NXReduce):
         output = os.path.join(self.directory,
                               fr'{self.transform_path}.nxs\#/entry/data/v')
         if 'cctw' in self.settings['server']:
-            cctw = self.settings['nxserver']
+            cctw = self.settings['server']
         else:
             cctw = 'cctw'
         return f"{cctw} merge {input} -o {output}"
