@@ -1893,14 +1893,19 @@ class NXMultiReduce(NXReduce):
                                                  stderr=subprocess.PIPE)
                         for entry in self.entries:
                             data_lock[entry].release()
+                    cctw_output = process.stdout.decode()
+                    cctw_errors = process.stderr.decode()
+                    self.logger.info('CCTW Output\n' + cctw_output)
+                    if cctw_errors:
+                        self.logger.info('CCTW Errors\n' + cctw_errors)
                     toc = timeit.default_timer()
                     if process.returncode == 0:
                         self.logger.info(
                             f"{self.title} ({', '.join(self.entries)}) "
                             f"completed ({toc-tic:g} seconds)")
                         self.record(task, command=cctw_command,
-                                    output=process.stdout.decode(),
-                                    errors=process.stderr.decode())
+                                    output=cctw_output,
+                                    errors=cctw_errors)
                         self.record_end(task)
                     else:
                         self.logger.info(
@@ -1952,7 +1957,7 @@ class NXMultiReduce(NXReduce):
         output = os.path.join(self.directory,
                               fr'{self.transform_path}.nxs\#/entry/data/v')
         if 'cctw' in self.settings['server']:
-            cctw = self.settings['server']
+            cctw = self.settings['server']['cctw']
         else:
             cctw = 'cctw'
         return f"{cctw} merge {input} -o {output}"
