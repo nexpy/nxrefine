@@ -795,12 +795,10 @@ class NXReduce(QtCore.QObject):
         """Number of CPUs to be used in concurrent tasks."""
         if self._process_count is None:
             pc = os.cpu_count()
-            if pc <= 12:
-                self._process_count = pc - 2
-            elif pc <= 24:
-                self._process_count = pc - 4
+            if pc < 8:
+                self._process_count = pc // 2
             else:
-                self._process_count = pc // 4
+                self._process_count = 4
         return self._process_count
 
     def record(self, task, **kwargs):
