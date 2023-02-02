@@ -1519,16 +1519,16 @@ class NXReduce(QtCore.QObject):
             except Exception:
                 self.Qh = self.Qk = self.Ql = None
         else:
-            if mask and 'masked_transform' in self.entry:
-                transform = self.entry['masked_transform']
-            elif 'transform' in self.entry:
-                transform = self.entry['transform']
-            elif self.parent:
+            if self.parent:
                 root = self.parent_root
                 if mask and 'masked_transform' in root[self.entry_name]:
                     transform = root[self.entry_name]['masked_transform']
                 elif 'transform' in root[self.entry_name]:
                     transform = root[self.entry_name]['transform']
+            elif mask and 'masked_transform' in self.entry:
+                transform = self.entry['masked_transform']
+            elif 'transform' in self.entry:
+                transform = self.entry['transform']
             try:
                 Qh, Qk, Ql = (transform['Qh'].nxvalue,
                               transform['Qk'].nxvalue,
