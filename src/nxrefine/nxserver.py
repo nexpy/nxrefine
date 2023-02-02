@@ -30,9 +30,9 @@ class NXFileQueue(FileQueue):
 
     def __init__(self, directory, autosave=False):
         self.directory = Path(directory)
-        self.directory.mkdir(exist_ok=True)
+        self.directory.mkdir(mode=0o777, exist_ok=True)
         tempdir = self.directory / 'tempdir'
-        tempdir.mkdir(exist_ok=True)
+        tempdir.mkdir(mode=0o777, exist_ok=True)
         self.lockfile = self.directory / 'filequeue'
         with NXLock(self.lockfile):
             super().__init__(directory, serializer=json, autosave=autosave,
@@ -68,7 +68,8 @@ class NXFileQueue(FileQueue):
     def fix_access(self):
         """Ensure that the file queue pointer is readable."""
         try:
-            self.directory.joinpath('info').chmod(0o664)
+            for f in [f for f in self.directory.iterdir() if f.is_file()]:
+                self.directory.joinpath(f).chmod(0o664)
         except Exception:
             pass
 
