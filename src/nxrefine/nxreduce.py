@@ -795,12 +795,10 @@ class NXReduce(QtCore.QObject):
         """Number of CPUs to be used in concurrent tasks."""
         if self._process_count is None:
             pc = os.cpu_count()
-            if pc <= 12:
-                self._process_count = pc - 2
-            elif pc <= 24:
-                self._process_count = pc - 4
+            if pc < 8:
+                self._process_count = pc // 2
             else:
-                self._process_count = pc // 4
+                self._process_count = 4
         return self._process_count
 
     def record(self, task, **kwargs):
@@ -1521,16 +1519,16 @@ class NXReduce(QtCore.QObject):
             except Exception:
                 self.Qh = self.Qk = self.Ql = None
         else:
-            if mask and 'masked_transform' in self.entry:
-                transform = self.entry['masked_transform']
-            elif 'transform' in self.entry:
-                transform = self.entry['transform']
-            elif self.parent:
+            if self.parent:
                 root = self.parent_root
                 if mask and 'masked_transform' in root[self.entry_name]:
                     transform = root[self.entry_name]['masked_transform']
                 elif 'transform' in root[self.entry_name]:
                     transform = root[self.entry_name]['transform']
+            elif mask and 'masked_transform' in self.entry:
+                transform = self.entry['masked_transform']
+            elif 'transform' in self.entry:
+                transform = self.entry['transform']
             try:
                 Qh, Qk, Ql = (transform['Qh'].nxvalue,
                               transform['Qk'].nxvalue,
@@ -1893,14 +1891,19 @@ class NXMultiReduce(NXReduce):
                                                  stderr=subprocess.PIPE)
                         for entry in self.entries:
                             data_lock[entry].release()
+                    cctw_output = process.stdout.decode()
+                    cctw_errors = process.stderr.decode()
+                    self.logger.info('CCTW Output\n' + cctw_output)
+                    if cctw_errors:
+                        self.logger.info('CCTW Errors\n' + cctw_errors)
                     toc = timeit.default_timer()
                     if process.returncode == 0:
                         self.logger.info(
                             f"{self.title} ({', '.join(self.entries)}) "
                             f"completed ({toc-tic:g} seconds)")
                         self.record(task, command=cctw_command,
-                                    output=process.stdout.decode(),
-                                    errors=process.stderr.decode())
+                                    output=cctw_output,
+                                    errors=cctw_errors)
                         self.record_end(task)
                     else:
                         self.logger.info(
@@ -1952,7 +1955,7 @@ class NXMultiReduce(NXReduce):
         output = os.path.join(self.directory,
                               fr'{self.transform_path}.nxs\#/entry/data/v')
         if 'cctw' in self.settings['server']:
-            cctw = self.settings['server']
+            cctw = self.settings['server']['cctw']
         else:
             cctw = 'cctw'
         return f"{cctw} merge {input} -o {output}"

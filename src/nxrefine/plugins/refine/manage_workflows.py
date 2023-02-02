@@ -37,12 +37,6 @@ class WorkflowDialog(NXDialog):
 
         self.set_layout(
             self.directorybox('Choose Sample Directory', default=False),
-            self.filebox('Choose Parent File'),
-            self.action_buttons(
-                ('Update Status', self.update),
-                ('Add to Queue', self.add_tasks),
-                ('View Logs', self.view_logs),
-                ('Sync Database', self.sync_db)),
             self.progress_layout(close=True))
         self.progress_bar.setVisible(False)
         self.set_title('Manage Workflows')
@@ -53,6 +47,13 @@ class WorkflowDialog(NXDialog):
 
     def choose_directory(self):
         super().choose_directory()
+        if self.layout.count() == 2:
+            self.insert_layout(1, self.filebox('Choose Parent File'))
+            self.insert_layout(2, self.action_buttons(
+                ('Update Status', self.update),
+                ('Add to Queue', self.add_tasks),
+                ('View Logs', self.view_logs),
+                ('Sync Database', self.sync_db)))
         if self.scroll_area is None:
             self.add_grid_headers()
         self.sample_directory = self.get_directory()
