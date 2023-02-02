@@ -137,7 +137,7 @@ class NXTask:
             command = f"{self.server.run_command} -w {cpu} '{command}'"
         elif self.server.run_command.startswith('qsub'):
             command = (f"{self.server.run_command} -j y -o {cpu_log} "
-                       f"-N {self.name} -S /bin/bash {command}")
+                       f"-N {cpu} -hold_jid {cpu} -S /bin/bash {command}")
         return command
 
     def execute(self, cpu, cpu_log):
