@@ -217,12 +217,13 @@ class NXDatabase:
             Updated File object.
         """
         f = self.get_file(filename)
+        filepath = self.get_filepath(filename)
         if f:
             try:
                 scan_files = self.get_directory(filename).iterdir()
             except OSError:
                 scan_files = []
-            root = nxload(filename)
+            root = nxload(filepath)
             entries = [e for e in root.entries if e != 'entry']
             tasks = {t: 0 for t in self.task_names}
             for e in entries:
