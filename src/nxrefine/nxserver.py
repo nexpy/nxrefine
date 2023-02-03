@@ -67,11 +67,16 @@ class NXFileQueue(FileQueue):
 
     def fix_access(self):
         """Ensure that the file queue pointer is readable."""
-        try:
-            for f in [f for f in self.directory.iterdir() if f.is_file()]:
-                self.directory.joinpath(f).chmod(0o664)
-        except Exception:
-            pass
+        for f in [f for f in self.directory.iterdir() if f.is_file()]:
+            try:
+                self.directory.joinpath(f).chmod(0o666)
+            except Exception:
+                pass
+        for f in [f for f in self.directory.iterdir() if f.is_dir()]:
+            try:
+                self.directory.joinpath(f).chmod(0o777)
+            except Exception:
+                pass
 
 
 class NXWorker(Thread):
