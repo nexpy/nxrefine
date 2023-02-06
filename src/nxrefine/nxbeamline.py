@@ -241,7 +241,7 @@ class QM2Beamline(NXBeamLine):
     name = 'QM2'
     raw_home = Path('/nfs/chess/id4b/')
     experiment_home = Path('/nfs/chess/id4baux')
-    experiment_directory_exists = False
+    experiment_directory_exists = True
     make_scans_enabled = False
     import_data_enabled = True
 
