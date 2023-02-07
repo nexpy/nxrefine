@@ -38,7 +38,7 @@ class MaskDialog(NXDialog):
 
         self.set_layout(self.select_entry(self.choose_entry),
                         self.close_buttons(save=True))
-        self.set_title('Mask Data')
+        self.set_title('Create Mask')
 
     def choose_entry(self):
         if self.layout.count() == 2:

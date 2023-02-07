@@ -59,7 +59,7 @@ class CalibrateDialog(NXDialog):
         self.rings_box = self.select_box([f'Ring{i}' for i in range(1, 21)])
         self.set_layout(self.select_entry(self.choose_entry),
                         self.progress_layout(close=True))
-        self.set_title('Calibrating Powder')
+        self.set_title('Calibrate Powder')
 
     def choose_entry(self):
         if self.layout.count() == 2:
