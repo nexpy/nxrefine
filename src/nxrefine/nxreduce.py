@@ -2004,7 +2004,7 @@ class NXMultiReduce(NXReduce):
                     self.logger.info(f"Cannot initialize Julia: {error}")
                     self.julia = None
                     return
-            load_julia(['julia/LaplaceInterpolation.jl'])
+            load_julia(['LaplaceInterpolation.jl'])
             self.record_start(task)
             self.init_pdf(mask)
             try:

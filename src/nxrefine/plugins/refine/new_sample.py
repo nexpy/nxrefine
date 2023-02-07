@@ -42,4 +42,4 @@ class SampleDialog(NXDialog):
         self.sample_directory = (Path(self.get_directory()) /
                                  self.sample['sample'].value /
                                  self.sample['label'].value)
-        self.sample_directory.mkdir(exist_ok=True)
+        self.sample_directory.mkdir(parents=True, exist_ok=True)
