@@ -133,6 +133,7 @@ class NXDatabase:
         """
         if Path(db_file).resolve().parent.name != 'tasks':
             raise NeXusError("Database should be in 'tasks' subdirectory")
+        db_file = str(db_file)
         with NXLock(db_file):
             connection = 'sqlite:///' + db_file
             self.engine = create_engine(connection, echo=echo)

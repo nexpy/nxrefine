@@ -71,7 +71,7 @@ class ExperimentDialog(NXDialog):
             configuration_directory.mkdir(exist_ok=True)
             task_directory = experiment_directory / 'tasks'
             task_directory.mkdir(exist_ok=True)
-            _ = NXDatabase(str(task_directory / 'nxdatabase.db'))
+            _ = NXDatabase(task_directory / 'nxdatabase.db')
             calibration_directory = experiment_directory / 'calibrations'
             calibration_directory.mkdir(exist_ok=True)
             script_directory = experiment_directory / 'scripts'
