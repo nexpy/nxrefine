@@ -106,7 +106,7 @@ class ImportDialog(NXDialog):
 
     def accept(self):
         sample_directory = self.home_directory / self.sample / self.label
-        sample_directory.mkdir(exist_ok=True)
+        sample_directory.mkdir(parents=True, exist_ok=True)
         try:
             self.beamline(directory=sample_directory).import_data(
                 self.configuration_file, overwrite=self.overwrite)
