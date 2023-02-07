@@ -315,7 +315,7 @@ def init_julia():
 
 
 def load_julia(resources):
-    import importlib
+    import importlib.resources
 
     from julia import Main
     for resource in resources:
