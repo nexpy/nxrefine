@@ -319,7 +319,8 @@ def load_julia(resources):
 
     from julia import Main
     for resource in resources:
-        Main.include(str(importlib.resources.path('nxrefine.julia', resource)))
+        Main.include(
+            str(importlib.resources.files('nxrefine.julia') / resource))
 
 
 class SpecParser:
