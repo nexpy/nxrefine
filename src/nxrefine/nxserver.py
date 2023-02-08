@@ -138,11 +138,12 @@ class NXTask:
         else:
             self.script = None
             command = self.command
-        if self.server.run_command.startswith('pdsh'):
-            command = f"{self.server.run_command} -w {cpu} '{command}'"
-        elif self.server.run_command.startswith('qsub'):
-            command = (f"{self.server.run_command} -j y -o {cpu_log} "
-                       f"-N {cpu} -hold_jid {cpu} -S /bin/bash {command}")
+        if self.server.run_command:
+            if self.server.run_command.startswith('pdsh'):
+                command = f"{self.server.run_command} -w {cpu} '{command}'"
+            elif self.server.run_command.startswith('qsub'):
+                command = (f"{self.server.run_command} -j y -o {cpu_log} "
+                           f"-N {cpu} -hold_jid {cpu} -S /bin/bash {command}")
         return command
 
     def execute(self, cpu, cpu_log):
