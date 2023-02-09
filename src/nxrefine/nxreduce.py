@@ -2236,7 +2236,7 @@ class NXMultiReduce(NXReduce):
                 v = symm_data[(lslice, kslice, hslice)].nxvalue
                 if v.max() > 0.0:
                     w = LaplaceInterpolation.matern_3d_grid(v, idx)
-                    fill_data[(lslice, kslice, hslice)] = w * mask
+                    fill_data[(lslice, kslice, hslice)] += np.where(mask, w, 0)
             except Exception:
                 pass
 
