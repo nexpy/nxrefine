@@ -1586,8 +1586,9 @@ class NXReduce(QtCore.QObject):
                     with NXLock(self.transform_file):
                         os.remove(self.transform_file)
                 if 'cctw' in self.settings['server']:
-                    command = command.replace('cctw',
-                                              self.settings['server']['cctw'])
+                    if self.settings['server']['cctw']:
+                        command = command.replace(
+                            'cctw', self.settings['server']['cctw'])
                 return command
             else:
                 self.logger.info("Invalid HKL grid")
@@ -1954,7 +1955,8 @@ class NXMultiReduce(NXReduce):
             for entry in self.entries])
         output = os.path.join(self.directory,
                               fr'{self.transform_path}.nxs\#/entry/data/v')
-        if 'cctw' in self.settings['server']:
+        if ('cctw' in self.settings['server'] and
+                self.settings['server']['cctw']):
             cctw = self.settings['server']['cctw']
         else:
             cctw = 'cctw'
