@@ -267,16 +267,20 @@ class QM2Beamline(NXBeamLine):
         scans = self.raw_directory / 'raw6M' / self.sample / self.label
         y_size, x_size = self.config_file['f1/instrument/detector/shape']
         for scan in [s for s in scans.iterdir() if s.is_dir()]:
-            scan_directory = self.base_directory / scan.name
-            scan_directory.mkdir(exist_ok=True)
-            scan_name = self.sample+'_'+scan.name+'.nxs'
             scan_file = self.base_directory / scan_name
             if scan_file.exists() and not overwrite:
                 continue
+            scan_directories = [s.name for s in scan.glob(f'{self.sample}_*')
+                                if s.is_dir()]
+            if len(scan_directories) == 0:
+                continue
+            scan_directory = self.base_directory / scan.name
+            scan_directory.mkdir(exist_ok=True)
+            scan_name = self.sample+'_'+scan.name+'.nxs'
             with nxopen(scan_file, 'w') as root:
                 root['entry'] = self.config_file['entry']
                 i = 0
-                for s in [s.name for s in scan.iterdir() if s.is_dir()]:
+                for s in scan_directories:
                     scan_number = self.get_index(s, directory=True)
                     if scan_number:
                         i += 1
