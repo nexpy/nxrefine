@@ -44,8 +44,6 @@ class LogRecordStreamHandler(StreamRequestHandler):
         return pickle.loads(data)
 
     def handleLogRecord(self, record):
-        # if a name is specified, we use the named logger rather than the one
-        # implied by the record.
         if self.server.logname is not None:
             name = self.server.logname
         else:
@@ -58,10 +56,6 @@ class LogRecordStreamHandler(StreamRequestHandler):
                             datefmt='%Y-%m-%d %H:%M:%S')
             handler.setFormatter(formatter)
             logger.addHandler(handler)
-        # N.B. EVERY record gets logged. This is because Logger.handle
-        # is normally called AFTER logger-level filtering. If you want
-        # to do filtering, do it at the client end to save wasting
-        # cycles and network bandwidth!
         logger.handle(record)
 
 

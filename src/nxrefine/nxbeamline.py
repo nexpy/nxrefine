@@ -46,15 +46,20 @@ class NXBeamLine:
     make_scans_enabled = True
     import_data_enabled = False
 
-    def __init__(self, reduce=None, *args, **kwargs):
+    def __init__(self, reduce=None, directory=None, *args, **kwargs):
         self.reduce = reduce
         if self.reduce:
             self.directory = Path(self.reduce.directory)
+            self.base_directory = self.directory.parent
             self.root = self.reduce.root
             self.entry = self.reduce.entry
             self.scan = self.reduce.scan
             self.sample = self.reduce.sample
             self.label = self.reduce.label
+        elif directory:
+            self.base_directory = Path(directory)
+            self.label = self.base_directory.name
+            self.sample = self.base_directory.parent.name
         self.probe = 'xrays'
 
     def __repr__(self):
@@ -246,21 +251,18 @@ class QM2Beamline(NXBeamLine):
     import_data_enabled = True
 
     def __init__(self, reduce=None, directory=None):
-        super().__init__(reduce)
+        super().__init__(reduce=reduce, directory=directory)
         self.source = 'CHESS'
         self.source_name = 'Cornell High-Energy Synchrotron'
         self.source_type = 'Synchrotron X-Ray Source'
         if reduce:
             parts = self.directory.parts
-            self.cycle_path = Path(parts[-6], parts[-5])
+            experiment_path = Path(parts[-6], parts[-5])
         elif directory:
-            self.base_directory = Path(directory)
-            self.label = self.base_directory.name
-            self.sample = self.base_directory.parent.name
             parts = self.base_directory.parts
-            self.cycle_path = Path(parts[-5], parts[-4])
-        self.raw_directory = self.raw_home / self.cycle_path
-        self.experiment_directory = self.experiment_home / self.cycle_path
+            experiment_path = Path(parts[-5], parts[-4])
+        self.raw_directory = self.raw_home / experiment_path
+        self.experiment_directory = self.experiment_home / experiment_path
 
     def import_data(self, config_file, overwrite=False):
         self.config_file = nxopen(config_file)
@@ -457,7 +459,7 @@ class QM2Beamline(NXBeamLine):
                 phi.attrs['step'] = logs['data/phi'][1] - logs['data/phi'][0]
             if 'chi' in logs['positioners']:
                 self.entry['instrument/goniometer/chi'] = (
-                    logs['positioners/chi'] - 90.0)
+                    90.0 - logs['positioners/chi'])
             if 'th' in logs['positioners']:
                 self.entry['instrument/goniometer/gonpitch'] = (
                     logs['positioners/th'])
