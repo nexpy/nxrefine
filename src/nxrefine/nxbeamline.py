@@ -459,7 +459,7 @@ class QM2Beamline(NXBeamLine):
                 phi.attrs['step'] = logs['data/phi'][1] - logs['data/phi'][0]
             if 'chi' in logs['positioners']:
                 self.entry['instrument/goniometer/chi'] = (
-                    logs['positioners/chi'] - 90.0)
+                    90.0 - logs['positioners/chi'])
             if 'th' in logs['positioners']:
                 self.entry['instrument/goniometer/gonpitch'] = (
                     logs['positioners/th'])
