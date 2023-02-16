@@ -457,7 +457,6 @@ class RefineLatticeDialog(NXDialog):
         self.mainwindow.app.app.processEvents()
         self.parameters['phi'].vary = False
         self.transfer_parameters()
-        self.set_lattice_parameters()
         try:
             self.refine.refine_angles(**self.refined)
         except NeXusError as error:
