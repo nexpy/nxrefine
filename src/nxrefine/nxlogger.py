@@ -19,8 +19,8 @@ from .nxdaemon import NXDaemon
 class LogRecordStreamHandler(StreamRequestHandler):
     """Handler for a streaming logging request.
 
-    This basically logs the record using whatever logging policy is
-    configured locally.
+    This logs the record using whatever logging policy is configured
+    locally.
     """
     def handle(self):
         """
