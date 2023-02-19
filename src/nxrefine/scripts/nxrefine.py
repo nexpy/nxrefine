@@ -24,7 +24,7 @@ def main():
                         help='refine lattice parameters')
     parser.add_argument('-p', '--polar_max', type=float,
                         help='maximum polar angle in degrees')
-    parser.add_argument('-h', '--hkl_tolerance', type=float,
+    parser.add_argument('-T', '--hkl_tolerance', type=float,
                         help='tolerance for including peak in Å-1')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing maximum')
