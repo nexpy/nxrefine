@@ -94,6 +94,8 @@ class ConfigurationDialog(NXDialog):
                                               dtype=float)
         entry['nxreduce/polar_max'] = NXfield(default['polar_max'],
                                               dtype=float)
+        entry['nxreduce/hkl_tolerance'] = NXfield(default['hkl_tolerance'],
+                                                  dtype=float)
         entry['nxreduce/monitor'] = NXfield(default['monitor'])
         entry['nxreduce/norm'] = NXfield(default['norm'], dtype=float)
         entry['nxreduce/first_frame'] = NXfield(default['first'], dtype=int)
@@ -108,6 +110,8 @@ class ConfigurationDialog(NXDialog):
                           'Last Frame')
         self.analysis.add('polar_max', entry['nxreduce/polar_max'],
                           'Maximum Polar Angle')
+        self.analysis.add('hkl_tolerance', entry['nxreduce/hkl_tolerance'],
+                          'HKL Tolerance (Å-1)')
         self.analysis.add('monitor', ['monitor1', 'monitor2'],
                           'Normalization Monitor')
         self.analysis['monitor'].value = default['monitor']
@@ -212,6 +216,7 @@ class ConfigurationDialog(NXDialog):
         entry['nxreduce/first_frame'] = self.analysis['first'].value
         entry['nxreduce/last_frame'] = self.analysis['last'].value
         entry['nxreduce/polar_max'] = self.analysis['polar_max'].value
+        entry['nxreduce/hkl_tolerance'] = self.analysis['hkl_tolerance'].value
         entry['nxreduce/monitor'] = self.analysis['monitor'].value
         entry['nxreduce/norm'] = self.analysis['norm'].value
         entry['nxreduce/radius'] = self.analysis['radius'].value
