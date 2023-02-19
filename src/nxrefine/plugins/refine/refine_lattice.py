@@ -60,6 +60,7 @@ class RefineLatticeDialog(NXDialog):
         self.table_model = None
         self.orient_box = None
         self.update_box = None
+        self.tolerance_box = None
         self.fit_report = []
 
     def define_parameters(self):
@@ -103,6 +104,8 @@ class RefineLatticeDialog(NXDialog):
                             'Polar Angle Tolerance')
         self.parameters.add('peak_tolerance', self.refine.peak_tolerance,
                             'Peak Angle Tolerance')
+        self.parameters.add('hkl_tolerance', self.reduce.hkl_tolerance,
+                            'HKL Tolerance (Å-1)', slot=self.set_hkl_tolerance)
 
         self.parameters.grid()
         self.parameters.grid_layout.setVerticalSpacing(1)
@@ -159,6 +162,7 @@ class RefineLatticeDialog(NXDialog):
         self.parameters['gonpitch'].value = self.refine.gonpitch
         self.parameters['polar_tolerance'].value = self.refine.polar_tolerance
         self.parameters['peak_tolerance'].value = self.refine.peak_tolerance
+        self.parameters['hkl_tolerance'].value = self.refine.hkl_tolerance
         self.parameters['symmetry'].value = self.refine.symmetry
         try:
             self.refine.polar_angles, self.refine.azimuthal_angles = \
@@ -182,6 +186,7 @@ class RefineLatticeDialog(NXDialog):
         self.refine.polar_max = self.get_polar_max()
         self.refine.polar_tolerance = self.get_polar_tolerance()
         self.refine.peak_tolerance = self.get_peak_tolerance()
+        self.refine.hkl_tolerance = self.get_hkl_tolerance()
 
     def write_parameters(self):
         if self.entry.nxfilemode == 'r':
@@ -196,9 +201,11 @@ class RefineLatticeDialog(NXDialog):
             self.refine.xp, self.refine.yp)
         self.refine.write_angles(polar_angles, azimuthal_angles)
         self.refine.write_parameters()
-        self.reduce.write_parameters(polar_max=self.refine.polar_max)
+        self.reduce.write_parameters(polar_max=self.refine.polar_max,
+                                     hkl_tolerance=self.hkl_tolerance)
         self.reduce.record_start('nxrefine')
         self.reduce.record('nxrefine', polar_max=self.reduce.polar_max,
+                           hkl_tolerance=self.reduce.hkl_tolerance,
                            fit_report='\n'.join(self.fit_report))
         self.reduce.logger.info('Orientation refined in NeXpy')
         self.reduce.record_end('nxrefine')
@@ -408,9 +415,18 @@ class RefineLatticeDialog(NXDialog):
 
     def get_hkl_tolerance(self):
         try:
-            return np.float32(self.tolerance_box.text())
+            value = float(self.tolerance_box.text())
+            self.parameters['hkl_tolerance'].value = value
+            return value
         except Exception:
-            return self.refine.hkl_tolerance
+            return self.parameters['hkl_tolerance'].value
+
+    def set_hkl_tolerance(self):
+        try:
+            self.tolerance_box.setText(self.parameters['hkl_tolerance'].value)
+            self.update_table()
+        except Exception:
+            pass
 
     def plot_lattice(self):
         self.transfer_parameters()
@@ -567,7 +583,7 @@ class RefineLatticeDialog(NXDialog):
         save_button = NXPushButton('Save', self.save_orientation)
         close_button = NXPushButton('Close', self.close_peaks_box)
         close_layout = self.make_layout(self.status_text, 'stretch',
-                                        NXLabel('Threshold'),
+                                        NXLabel('HKL Tolerance'),
                                         self.tolerance_box, 'stretch',
                                         export_button, save_button,
                                         close_button)
