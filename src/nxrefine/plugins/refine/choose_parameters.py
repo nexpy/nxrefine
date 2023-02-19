@@ -36,6 +36,8 @@ class ParametersDialog(NXDialog):
         self.parameters.add('last', default['last'], 'Last Frame')
         self.parameters.add('polar_max', default['polar_max'],
                             'Max. Polar Angle')
+        self.parameters.add('hkl_tolerance', default['hkl_tolerance'],
+                            'HKL Tolerance (Å-1)')
         self.parameters.add('monitor', ['monitor1', 'monitor2'],
                             'Normalization Monitor')
         self.parameters['monitor'].value = default['monitor']
@@ -67,6 +69,9 @@ class ParametersDialog(NXDialog):
                 self.parameters['last'].value = reduce['last_frame']
             if 'polar_max' in reduce:
                 self.parameters['polar_max'].value = reduce['polar_max']
+            if 'hkl_tolerance' in reduce:
+                self.parameters['hkl_tolerance'].value = (
+                    reduce['hkl_tolerance'])
             if 'monitor' in reduce:
                 self.parameters['monitor'].value = reduce['monitor']
             if 'norm' in reduce:
@@ -88,6 +93,9 @@ class ParametersDialog(NXDialog):
                     self.parameters['last'].value = reduce.last
                 if reduce.polar_max:
                     self.parameters['polar_max'].value = reduce.polar_max
+                if reduce.hkl_tolerance:
+                    self.parameters['hkl_tolerance'].value = (
+                        reduce.hkl_tolerance)
                 if reduce.monitor:
                     self.parameters['monitor'].value = reduce.monitor
                 if reduce.norm:
@@ -108,6 +116,7 @@ class ParametersDialog(NXDialog):
         self.root['entry/nxreduce/first_frame'] = self.first
         self.root['entry/nxreduce/last_frame'] = self.last
         self.root['entry/nxreduce/polar_max'] = self.polar_max
+        self.root['entry/nxreduce/hkl_tolerance'] = self.hkl_tolerance
         self.root['entry/nxreduce/monitor'] = self.monitor
         self.root['entry/nxreduce/norm'] = self.norm
         self.root['entry/nxreduce/qmin'] = self.qmin
@@ -129,6 +138,10 @@ class ParametersDialog(NXDialog):
     @property
     def polar_max(self):
         return float(self.parameters['polar_max'].value)
+
+    @property
+    def hkl_tolerance(self):
+        return float(self.parameters['hkl_tolerance'].value)
 
     @property
     def monitor(self):

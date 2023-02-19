@@ -66,6 +66,9 @@ class NXReduce(QtCore.QObject):
             Last frame included in the data reduction, by default None
         polar_max : float, optional
             Maximum polar angle in peak refinements, by default None
+        hkl_tolerance : float, optional
+            Q-tolerance in Å-1 for including a peak in a refinement,
+            by default None
         monitor : str, optional
             Name of monitor used in normalizations, by default None
         norm : float, optional
@@ -120,8 +123,8 @@ class NXReduce(QtCore.QObject):
     def __init__(
             self, entry=None, directory=None, parent=None, entries=None,
             threshold=None, min_pixels=None, first=None, last=None,
-            polar_max=None, monitor=None, norm=None, qmin=None, qmax=None,
-            radius=None, mask_parameters=None,
+            polar_max=None, hkl_tolerance=None, monitor=None, norm=None,
+            qmin=None, qmax=None, radius=None, mask_parameters=None,
             Qh=None, Qk=None, Ql=None, load=False, link=False, copy=False,
             maxcount=False, find=False, refine=False, prepare=False,
             transform=False, combine=False, pdf=False,
@@ -186,6 +189,7 @@ class NXReduce(QtCore.QObject):
         self._first = first
         self._last = last
         self._polar_max = polar_max
+        self._hkl_tolerance = hkl_tolerance
         self._monitor = monitor
         self._norm = norm
         self._qmin = qmin
@@ -525,7 +529,8 @@ class NXReduce(QtCore.QObject):
         return parameter
 
     def write_parameters(self, threshold=None, first=None, last=None,
-                         polar_max=None, monitor=None, norm=None,
+                         polar_max=None, hkl_tolerance=None,
+                         monitor=None, norm=None,
                          qmin=None, qmax=None, radius=None):
         """Store the specified data reduction parameters.
 
@@ -548,6 +553,9 @@ class NXReduce(QtCore.QObject):
             if polar_max is not None:
                 self.polar_max = polar_max
                 self.root['entry/nxreduce/polar_max'] = self.polar_max
+            if hkl_tolerance is not None:
+                self.hkl_tolerance = hkl_tolerance
+                self.root['entry/nxreduce/hkl_tolerance'] = self.hkl_tolerance
             if monitor is not None:
                 self.monitor = monitor
                 self.root['entry/nxreduce/monitor'] = self.monitor
@@ -619,6 +627,17 @@ class NXReduce(QtCore.QObject):
     @polar_max.setter
     def polar_max(self, value):
         self._polar_max = float(value)
+
+    @property
+    def hkl_tolerance(self):
+        """Q-tolerance for peaks to be used in refinements."""
+        if self._hkl_tolerance is None:
+            self._hkl_tolerance = float(self.get_parameter('hkl_tolerance'))
+        return self._hkl_tolerance
+
+    @hkl_tolerance.setter
+    def hkl_tolerance(self, value):
+        self._hkl_tolerance = float(value)
 
     @property
     def threshold(self):
@@ -983,6 +1002,7 @@ class NXReduce(QtCore.QObject):
                               first=parent_reduce.first,
                               last=parent_reduce.last,
                               polar_max=parent_reduce.polar_max,
+                              hkl_tolerance=parent_reduce.hkl_tolerance,
                               monitor=parent_reduce.monitor,
                               norm=parent_reduce.norm,
                               qmin=parent_reduce.qmin,
@@ -1321,8 +1341,10 @@ class NXReduce(QtCore.QObject):
                 if result:
                     if not self.gui:
                         self.write_refinement(result)
-                    self.write_parameters(polar_max=self.polar_max)
+                    self.write_parameters(polar_max=self.polar_max,
+                                          hkl_tolerance=self.hkl_tolerance)
                     self.record('nxrefine', polar_max=self.polar_max,
+                                hkl_tolerance=self.hkl_tolerance,
                                 fit_report=result.fit_report)
                     self.record_end('nxrefine')
                 else:
@@ -1338,6 +1360,7 @@ class NXReduce(QtCore.QObject):
         with self.root.nxfile:
             refine = NXRefine(self.entry)
             refine.polar_max = self.polar_max
+            refine.hkl_tolerance = self.hkl_tolerance
             refine.refine_hkls(lattice=lattice, chi=True, omega=True)
             fit_report = refine.fit_report
             refine.refine_hkls(chi=True, omega=True)
