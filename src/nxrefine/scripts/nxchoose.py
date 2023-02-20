@@ -24,6 +24,8 @@ def main():
     parser.add_argument('-l', '--last', type=int, help='last frame')
     parser.add_argument('-p', '--polar_max', type=float,
                         help='maximum polar angle in degrees')
+    parser.add_argument('-T', '--hkl_tolerance', type=float,
+                        help='tolerance for including peak in Å-1')
     parser.add_argument('-m', '--monitor',
                         help='monitor to use in normalizations')
     parser.add_argument('-n', '--norm', type=float,
@@ -46,6 +48,7 @@ def main():
         print(f"First Frame = {reduce.first}")
         print(f"Last Frame = {reduce.last}")
         print(f"Maximum Polar Angle = {reduce.polar_max:g}")
+        print(f"HKL Toleracne = {reduce.hkl_tolerance:g}")
         print(f"Monitor = {reduce.monitor}")
         print(f"Normalization = {reduce.norm:g}")
         print(f"Qmin = {reduce.qmin:g}")
@@ -55,6 +58,7 @@ def main():
         reduce.write_parameters(threshold=args.threshold,
                                 first=args.first, last=args.last,
                                 polar_max=args.polar_max,
+                                hkl_tolerance=args.hkl_tolerance,
                                 monitor=args.monitor, norm=args.norm,
                                 qmin=args.Qmin, qmax=args.Qmax,
                                 radius=args.radius)
