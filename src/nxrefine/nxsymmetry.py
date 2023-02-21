@@ -24,7 +24,7 @@ def monoclinic(data):
     """Laue group: 2/m"""
     outarr = np.nan_to_num(data)
     outarr += np.rot90(outarr, 2, (0, 2))
-    outarr += np.flip(outarr, 0)
+    outarr += np.flip(outarr, 1)
     return outarr
 
 
