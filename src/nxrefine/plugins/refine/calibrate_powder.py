@@ -226,7 +226,7 @@ class CalibrateDialog(NXDialog):
             r = distance * np.tan(theta) / self.pixel_size
             phi = self.phi_max = -np.pi
             while phi < np.pi:
-                x, y = np.int(xc + r*np.cos(phi)), np.int(yc + r*np.sin(phi))
+                x, y = int(xc + r*np.cos(phi)), int(yc + r*np.sin(phi))
                 if ((x > 0 and x < self.data.x.max()) and
                     (y > 0 and y < self.data.y.max()) and
                         not self.pixel_mask[y, x]):
