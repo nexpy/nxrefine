@@ -154,7 +154,7 @@ class MaximumDialog(NXDialog):
 
     @property
     def maximum(self):
-        return np.float(self.output.text().split()[-1])
+        return float(self.output.text().split()[-1])
 
     @maximum.setter
     def maximum(self, value):
