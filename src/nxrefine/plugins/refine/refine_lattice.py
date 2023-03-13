@@ -202,7 +202,7 @@ class RefineLatticeDialog(NXDialog):
         self.refine.write_angles(polar_angles, azimuthal_angles)
         self.refine.write_parameters()
         self.reduce.write_parameters(polar_max=self.refine.polar_max,
-                                     hkl_tolerance=self.hkl_tolerance)
+                                     hkl_tolerance=self.reduce.hkl_tolerance)
         self.reduce.record_start('nxrefine')
         self.reduce.record('nxrefine', polar_max=self.reduce.polar_max,
                            hkl_tolerance=self.reduce.hkl_tolerance,
