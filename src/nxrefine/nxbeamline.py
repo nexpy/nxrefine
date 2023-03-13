@@ -145,8 +145,8 @@ class Sector6Beamline(NXBeamLine):
 
     def read_logs(self):
         """Read metadata from experimental scans."""
-        head_file = self.directory / self.entry.nxname+'_head.txt'
-        meta_file = self.directory / self.entry.nxname+'_meta.txt'
+        head_file = self.directory / f"{self.entry.nxname}_head.txt"
+        meta_file = self.directory / f"{self.entry.nxname}_meta.txt"
         if head_file.exists() and meta_file.exists():
             logs = NXcollection()
         else:
