@@ -220,9 +220,10 @@ class NXDatabase:
         f = self.get_file(filename)
         filepath = self.get_filepath(filename)
         if f:
-            try:
-                scan_files = self.get_directory(filename).iterdir()
-            except OSError:
+            scan_dir = self.get_directory(filename)
+            if scan_dir.exists():
+                scan_files = scan_dir.iterdir()
+            else:
                 scan_files = []
             root = nxload(filepath)
             entries = [e for e in root.entries if e != 'entry']
