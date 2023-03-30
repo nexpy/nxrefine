@@ -1235,7 +1235,7 @@ class NXReduce(QtCore.QObject):
         monitor_signal[-1] = monitor_signal[-2]
         if monitor_signal.size > 1000:
             filter_size = 501
-        elif monitor_signal > 200:
+        elif monitor_signal.size > 200:
             filter_size = 101
         else:
             filter_size = monitor_signal.size
