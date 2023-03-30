@@ -1233,7 +1233,13 @@ class NXReduce(QtCore.QObject):
         monitor_signal = self.entry[self.monitor].nxsignal / self.norm
         monitor_signal[0] = monitor_signal[1]
         monitor_signal[-1] = monitor_signal[-2]
-        return savgol_filter(monitor_signal, 501, 2)
+        if monitor_signal.size > 1000:
+            filter_size = 501
+        elif monitor_signal > 200:
+            filter_size = 101
+        else:
+            filter_size = monitor_signal.size
+        return savgol_filter(monitor_signal, filter_size, 2)
 
     def nxfind(self):
         if self.not_processed('nxfind') and self.find:
