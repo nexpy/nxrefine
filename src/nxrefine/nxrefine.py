@@ -816,7 +816,8 @@ class NXRefine:
         dir = os.path.dirname(self.entry['data'].nxsignal.nxfilename)
         filename = self.entry.nxfilename
         parfile = os.path.join(dir, entry+'_transform.pars')
-        command = [f'cctw transform --script {parfile}']
+        command = ['cctw transform']
+        command.append(f'--parameters {parfile}')
         if 'pixel_mask' in self.entry['instrument/detector']:
             command.append(
                 fr'--mask {filename}\#/{entry}/instrument/detector/pixel_mask')
@@ -829,7 +830,9 @@ class NXRefine:
         #     command.append(
         #         fr'--weights {filename}\#/{entry}'
         #         '/instrument/detector/polarization')
-        command.append(fr'{filename}\#/{entry}/data/data')
+        raw_filename = self.entry['data/data'].nxfilename
+        raw_filepath = self.entry['data/data'].nxfilepath
+        command.append(fr'{raw_filename}\#/{raw_filepath}')
         command.append(fr'--output {dir}/{name}.nxs\#/entry/data')
         command.append('--normalization 0')
         return ' '.join(command)
