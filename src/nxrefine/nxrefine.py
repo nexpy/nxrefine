@@ -826,10 +826,10 @@ class NXRefine:
         if 'monitor_weight' in self.entry['data']:
             command.append(
                 fr'--weights {filename}\#/{entry}/data/monitor_weight')
-        # if 'polarization' in self.entry['instrument/detector']:
-        #     command.append(
-        #         fr'--weights {filename}\#/{entry}'
-        #         '/instrument/detector/polarization')
+        if 'polarization' in self.entry['instrument/detector']:
+            command.append(
+                fr'--weights {filename}\#/{entry}'
+                '/instrument/detector/polarization')
         raw_filename = self.entry['data/data'].nxfilename
         raw_filepath = self.entry['data/data'].nxfilepath
         command.append(fr'{raw_filename}\#/{raw_filepath}')
