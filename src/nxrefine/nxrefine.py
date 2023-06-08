@@ -645,10 +645,13 @@ class NXRefine:
             f'parameters.orientErrorGonPitch = {self.gonpitch * radians};')
         lines.append('parameters.twoThetaCorrection = 0;')
         lines.append(f'parameters.twoThetaNom = {self.twotheta * radians};')
+        lines.append(f'parameters.twoThetaStep = 0;')
         lines.append('parameters.omegaCorrection = 0;')
         lines.append(f'parameters.omegaNom = {self.omega * radians};')
+        lines.append(f'parameters.omegaStep = 0;')
         lines.append('parameters.chiCorrection = 0;')
         lines.append(f'parameters.chiNom = {self.chi * radians};')
+        lines.append(f'parameters.chiStep = 0;')
         lines.append('parameters.phiCorrection = 0;')
         lines.append(f'parameters.phiNom = {self.phi * radians};')
         lines.append(f'parameters.phiStep = {self.phi_step * radians};')
@@ -813,7 +816,8 @@ class NXRefine:
         dir = os.path.dirname(self.entry['data'].nxsignal.nxfilename)
         filename = self.entry.nxfilename
         parfile = os.path.join(dir, entry+'_transform.pars')
-        command = [f'cctw transform --script {parfile}']
+        command = ['cctw transform']
+        command.append(f'--parameters {parfile}')
         if 'pixel_mask' in self.entry['instrument/detector']:
             command.append(
                 fr'--mask {filename}\#/{entry}/instrument/detector/pixel_mask')
@@ -822,11 +826,13 @@ class NXRefine:
         if 'monitor_weight' in self.entry['data']:
             command.append(
                 fr'--weights {filename}\#/{entry}/data/monitor_weight')
-        # if 'polarization' in self.entry['instrument/detector']:
-        #     command.append(
-        #         fr'--weights {filename}\#/{entry}'
-        #         '/instrument/detector/polarization')
-        command.append(fr'{filename}\#/{entry}/data/data')
+        if 'polarization' in self.entry['instrument/detector']:
+            command.append(
+                fr'--weights {filename}\#/{entry}'
+                '/instrument/detector/polarization')
+        raw_filename = self.entry['data/data'].nxfilename
+        raw_filepath = self.entry['data/data'].nxfilepath
+        command.append(fr'{raw_filename}\#/{raw_filepath}')
         command.append(fr'--output {dir}/{name}.nxs\#/entry/data')
         command.append('--normalization 0')
         return ' '.join(command)
