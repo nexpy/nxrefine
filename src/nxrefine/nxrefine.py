@@ -1753,7 +1753,7 @@ class NXRefine:
         """
         self.set_idx()
         from lmfit import fit_report, minimize
-        p0 = self.define_parameters(lattice=True, **opts)
+        p0 = self.define_parameters(**opts)
         self.result = minimize(self.angle_residuals, p0, method=method)
         self.fit_report = fit_report(self.result)
         if self.result.success:

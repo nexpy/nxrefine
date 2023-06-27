@@ -168,6 +168,7 @@ class RefineLatticeDialog(NXDialog):
         self.report_score()
 
     def transfer_parameters(self):
+        self.refine.symmetry = self.get_symmetry()
         self.refine.a, self.refine.b, self.refine.c, \
             self.refine.alpha, self.refine.beta, self.refine.gamma = \
             self.get_lattice_parameters()
