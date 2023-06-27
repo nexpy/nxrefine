@@ -73,6 +73,8 @@ class NXReduce(QtCore.QObject):
             Name of monitor used in normalizations, by default None
         norm : float, optional
             Value used to normalize monitor counts, by default None
+        polarization : float, optional
+            Value of beam polarization, by default None
         qmin : float, optional
             Minimum Q used in calculating transmissions, by default None
         qmax : float, optional
@@ -124,8 +126,10 @@ class NXReduce(QtCore.QObject):
             self, entry=None, directory=None, parent=None, entries=None,
             threshold=None, min_pixels=None, first=None, last=None,
             polar_max=None, hkl_tolerance=None, monitor=None, norm=None,
-            qmin=None, qmax=None, radius=None, mask_parameters=None,
-            Qh=None, Qk=None, Ql=None, load=False, link=False, copy=False,
+            polarization=None, qmin=None, qmax=None,
+            radius=None, mask_parameters=None,
+            Qh=None, Qk=None, Ql=None,
+            load=False, link=False, copy=False,
             maxcount=False, find=False, refine=False, prepare=False,
             transform=False, combine=False, pdf=False,
             lattice=False, regular=False, mask=False, overwrite=False,
@@ -192,6 +196,7 @@ class NXReduce(QtCore.QObject):
         self._hkl_tolerance = hkl_tolerance
         self._monitor = monitor
         self._norm = norm
+        self._polarization = polarization
         self._qmin = qmin
         self._qmax = qmax
         self._radius = radius
@@ -688,6 +693,17 @@ class NXReduce(QtCore.QObject):
         self._norm = value
 
     @property
+    def polarization(self):
+        """Beam polarization."""
+        if self._polarization is None:
+            self._polarization = float(self.get_parameter('polarization'))
+        return self._polarization
+
+    @polarization.setter
+    def polarization(self, value):
+        self._polarization = value
+
+    @property
     def qmin(self):
         """Minimum Q used in estimating the sample transmission."""
         if self._qmin is None:
@@ -1130,7 +1146,7 @@ class NXReduce(QtCore.QObject):
                 pixel1=parameters['PixelSize1'].nxvalue,
                 pixel2=parameters['PixelSize2'].nxvalue,
                 wavelength=parameters['Wavelength'].nxvalue)
-            polarization = ai.polarization(factor=0.99)
+            polarization = ai.polarization(factor=self.polarization)
             counts = (self.summed_data.nxvalue.filled(fill_value=0)
                       / polarization)
             polar_angle, intensity = ai.integrate1d(
@@ -1367,9 +1383,10 @@ class NXReduce(QtCore.QObject):
             refine = NXRefine(self.entry)
             refine.polar_max = self.polar_max
             refine.hkl_tolerance = self.hkl_tolerance
-            refine.refine_hkls(lattice=lattice, chi=True, omega=True)
+            refine.refine_hkls(lattice=lattice, chi=True, omega=True,
+                               theta=True)
             fit_report = refine.fit_report
-            refine.refine_hkls(chi=True, omega=True)
+            refine.refine_hkls(chi=True, omega=True, theta=True)
             fit_report = fit_report + '\n' + refine.fit_report
             refine.refine_orientation_matrix()
             fit_report = fit_report + '\n' + refine.fit_report

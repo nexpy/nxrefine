@@ -88,7 +88,8 @@ class NXSettings(ConfigParser):
                    'first': 10, 'last': 3640,
                    'polar_max': 10.0, 'hkl_tolerance': 0.05,
                    'monitor': 'monitor2', 'norm': 30000,
-                   'qmin': 6.0, 'qmax': 16.0, 'radius': 0.2}
+                   'polarization': 0.99, 'qmin': 6.0, 'qmax': 16.0,
+                   'radius': 0.2}
         for p in default:
             if not self.has_option('nxreduce', p):
                 self.set('nxreduce', p, default[p])
