@@ -1989,7 +1989,7 @@ class NXMultiReduce(NXReduce):
             cctw = self.settings['server']['cctw']
         else:
             cctw = 'cctw'
-        return f"{cctw} merge {input} -o {output}"
+        return f"{cctw} merge {input} --normalization 1 -o {output}"
 
     def add_title(self, data):
         title = []
