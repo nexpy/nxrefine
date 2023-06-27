@@ -10,7 +10,7 @@ import operator
 
 import numpy as np
 from nexpy.gui.datadialogs import ExportDialog, GridParameters, NXDialog
-from nexpy.gui.plotview import NXPlotView, get_plotview
+from nexpy.gui.plotview import NXPlotView
 from nexpy.gui.pyqt import QtCore, QtGui, QtWidgets
 from nexpy.gui.utils import display_message, report_error
 from nexpy.gui.widgets import NXLabel, NXLineEdit, NXPushButton
@@ -62,6 +62,7 @@ class RefineLatticeDialog(NXDialog):
         self.update_box = None
         self.tolerance_box = None
         self.fit_report = []
+        self.ringview = None
 
     def define_parameters(self):
         self.parameters = GridParameters()
@@ -94,10 +95,7 @@ class RefineLatticeDialog(NXDialog):
         self.parameters.add('phi_step', self.refine.phi_step, 'Phi Step (deg)')
         self.parameters.add('chi', self.refine.chi, 'Chi (deg)', False)
         self.parameters.add('omega', self.refine.omega, 'Omega (deg)', False)
-        self.parameters.add(
-            'twotheta', self.refine.twotheta, 'Two Theta (deg)')
-        self.parameters.add('gonpitch', self.refine.gonpitch,
-                            'Goniometer Pitch (deg)', False)
+        self.parameters.add('theta', self.refine.theta, 'Theta (deg)', False)
         self.parameters.add('polar', self.reduce.polar_max,
                             'Max. Polar Angle (deg)', None, self.set_polar_max)
         self.parameters.add('polar_tolerance', self.refine.polar_tolerance,
@@ -158,8 +156,7 @@ class RefineLatticeDialog(NXDialog):
         self.parameters['phi_step'].value = self.refine.phi_step
         self.parameters['chi'].value = self.refine.chi
         self.parameters['omega'].value = self.refine.omega
-        self.parameters['twotheta'].value = self.refine.twotheta
-        self.parameters['gonpitch'].value = self.refine.gonpitch
+        self.parameters['theta'].value = self.refine.theta
         self.parameters['polar_tolerance'].value = self.refine.polar_tolerance
         self.parameters['peak_tolerance'].value = self.refine.peak_tolerance
         self.parameters['hkl_tolerance'].value = self.refine.hkl_tolerance
@@ -172,6 +169,7 @@ class RefineLatticeDialog(NXDialog):
         self.report_score()
 
     def transfer_parameters(self):
+        self.refine.symmetry = self.get_symmetry()
         self.refine.a, self.refine.b, self.refine.c, \
             self.refine.alpha, self.refine.beta, self.refine.gamma = \
             self.get_lattice_parameters()
@@ -181,8 +179,8 @@ class RefineLatticeDialog(NXDialog):
         self.refine.yaw, self.refine.pitch, self.refine.roll = self.get_tilts()
         self.refine.xc, self.refine.yc = self.get_centers()
         self.refine.phi, self.refine.phi_step = self.get_phi()
-        self.refine.chi, self.refine.omega, self.refine.twotheta, \
-            self.refine.gonpitch = self.get_angles()
+        self.refine.chi, self.refine.omega, self.refine.theta = (
+            self.get_angles())
         self.refine.polar_max = self.get_polar_max()
         self.refine.polar_tolerance = self.get_polar_tolerance()
         self.refine.peak_tolerance = self.get_peak_tolerance()
@@ -398,8 +396,7 @@ class RefineLatticeDialog(NXDialog):
     def get_angles(self):
         return (self.parameters['chi'].value,
                 self.parameters['omega'].value,
-                self.parameters['twotheta'].value,
-                self.parameters['gonpitch'].value)
+                self.parameters['theta'].value)
 
     def get_polar_max(self):
         return self.parameters['polar'].value
@@ -432,7 +429,6 @@ class RefineLatticeDialog(NXDialog):
         self.transfer_parameters()
         self.set_polar_max()
         self.plot_peaks()
-        self.plot_rings()
 
     def plot_peaks(self):
         try:
@@ -446,18 +442,18 @@ class RefineLatticeDialog(NXDialog):
             azimuthal_field.long_name = 'Azimuthal Angle'
             polar_field = NXfield(polar_angles, name='polar_angle')
             polar_field.long_name = 'Polar Angle'
-            plotview = get_plotview()
-            plotview.plot(NXdata(azimuthal_field, polar_field,
-                          title=f'{self.refine.name} Peak Angles'),
-                          xmax=self.get_polar_max())
+            if 'Ring Plot' in self.plotviews:
+                self.ringview = self.plotviews['Ring Plot']
+            else:
+                self.ringview = NXPlotView('Ring Plot')
+            self.ringview.plot(NXdata(azimuthal_field, polar_field,
+                               title=f'{self.refine.name} Peak Angles'),
+                               xmax=self.get_polar_max())
+            self.ringview.vlines(self.refine.two_thetas,
+                                 colors='r', linestyles='dotted')
+            self.ringview.draw()
         except NeXusError as error:
             report_error('Plotting Lattice', error)
-
-    def plot_rings(self):
-        plotview = get_plotview()
-        plotview.vlines(self.refine.two_thetas,
-                        colors='r', linestyles='dotted')
-        plotview.draw()
 
     @property
     def refined(self):
@@ -591,7 +587,7 @@ class RefineLatticeDialog(NXDialog):
         self.peaks_box.set_title(f'{self.refine.name} Peak Table')
         self.peaks_box.adjustSize()
         self.peaks_box.show()
-        self.plotview = None
+        self.peakview = None
 
     def update_table(self):
         if self.peaks_box not in self.mainwindow.dialogs:
@@ -625,14 +621,14 @@ class RefineLatticeDialog(NXDialog):
         zmin, zmax = max(0, z-20), min(z+20, signal.shape[0])
         zslab = np.s_[zmin:zmax, ymin:ymax, xmin:xmax]
         if 'Peak Plot' in self.plotviews:
-            self.plotview = self.plotviews['Peak Plot']
+            self.peakview = self.plotviews['Peak Plot']
         else:
-            self.plotview = NXPlotView('Peak Plot')
-        self.plotview.plot(data[zslab], log=True)
-        self.plotview.ax.set_title(f'{data.nxtitle}: Peak {i}')
-        self.plotview.ztab.maxbox.setValue(z)
-        self.plotview.aspect = 'equal'
-        self.plotview.crosshairs(x, y, color='r', linewidth=0.5)
+            self.peakview = NXPlotView('Peak Plot')
+        self.peakview.plot(data[zslab], log=True)
+        self.peakview.ax.set_title(f'{data.nxtitle}: Peak {i}')
+        self.peakview.ztab.maxbox.setValue(z)
+        self.peakview.aspect = 'equal'
+        self.peakview.crosshairs(x, y, color='r', linewidth=0.5)
 
     @property
     def primary(self):

@@ -164,7 +164,7 @@ class NXServer(NXDaemon):
 
     def __init__(self, directory=None, server_type=None, nodes=None,
                  concurrent=None, run_command=None, template=None):
-        self.pid_name = 'NXServer'
+        self.pid_name = 'nxserver'
         self.initialize(directory, server_type, nodes, concurrent,
                         run_command, template)
         self.worker_queue = None

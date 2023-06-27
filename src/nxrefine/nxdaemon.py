@@ -92,9 +92,9 @@ class NXDaemon:
         if pid and node and node != self.pid_node:
             return self.pid_name + " launched on " + node
         elif self.is_running():
-            return "{0} running in process {1}".format(self.pid_name, pid)
+            return f"'{self.pid_name}' running in process {pid}"
         else:
-            return self.pid_name + " not running"
+            return f"'{self.pid_name}' not running"
 
     def start(self):
         """Start the daemon."""
@@ -117,6 +117,7 @@ class NXDaemon:
         pid, node = self.get_process()
 
         if node and node != self.pid_node:
+            print(f"'{self.pid_name}' running on {node}")
             return
 
         if os.path.exists(self.pid_file):

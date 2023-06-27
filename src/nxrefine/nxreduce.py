@@ -1367,9 +1367,10 @@ class NXReduce(QtCore.QObject):
             refine = NXRefine(self.entry)
             refine.polar_max = self.polar_max
             refine.hkl_tolerance = self.hkl_tolerance
-            refine.refine_hkls(lattice=lattice, chi=True, omega=True)
+            refine.refine_hkls(lattice=lattice, chi=True, omega=True,
+                               theta=True)
             fit_report = refine.fit_report
-            refine.refine_hkls(chi=True, omega=True)
+            refine.refine_hkls(chi=True, omega=True, theta=True)
             fit_report = fit_report + '\n' + refine.fit_report
             refine.refine_orientation_matrix()
             fit_report = fit_report + '\n' + refine.fit_report
@@ -1989,7 +1990,7 @@ class NXMultiReduce(NXReduce):
             cctw = self.settings['server']['cctw']
         else:
             cctw = 'cctw'
-        return f"{cctw} merge {input} -o {output}"
+        return f"{cctw} merge {input} --normalization 1 -o {output}"
 
     def add_title(self, data):
         title = []

@@ -108,12 +108,8 @@ class NXRefine:
         Distance from the sample to the detector in mm.
     yaw, pitch, roll : float
         Yaw, pitch and roll of the area detector in degrees.
-    twotheta : float
-        Angle of rotation of the detector with respect to the incident beam
-        in degrees. This is normally set to 0.
-    gonpitch, omega, chi : float
-        Goniometer pitch, omega, and chi angles of the sample goniometer
-        in degrees.
+    theta, omega, chi : float
+        Goniometer theta, omega, and chi angles in degrees.
     phi : array_like
         Phi angles of each measured frame.
     phi_step : float
@@ -167,8 +163,7 @@ class NXRefine:
         self._yaw = 0.0
         self._pitch = 0.0
         self._roll = 0.0
-        self.twotheta = 0.0
-        self._gonpitch = 0.0
+        self._theta = 0.0
         self._omega = 0.0
         self._chi = 0.0
         self.phi = 0.0
@@ -214,7 +209,7 @@ class NXRefine:
         self._idx = None
         self._Dmat_cache = inv(rotmat(1, self.roll) * rotmat(2, self.pitch) *
                                rotmat(3, self.yaw))
-        self._Gmat_cache = (rotmat(2, self.gonpitch) * rotmat(3, self.omega) *
+        self._Gmat_cache = (rotmat(2, self.theta) * rotmat(3, self.omega) *
                             rotmat(1, self.chi))
         self.julia = None
 
@@ -279,14 +274,30 @@ class NXRefine:
             self.entry = entry
         with self.entry.nxfile:
             self.name = self.entry.nxroot.nxname + "/" + self.entry.nxname
-            self.a = self.read_parameter('sample/unitcell_a', self.a)
-            self.b = self.read_parameter('sample/unitcell_b', self.b)
-            self.c = self.read_parameter('sample/unitcell_c', self.c)
-            self.alpha = self.read_parameter(
-                'sample/unitcell_alpha', self.alpha)
-            self.beta = self.read_parameter('sample/unitcell_beta', self.beta)
-            self.gamma = self.read_parameter(
-                'sample/unitcell_gamma', self.gamma)
+            if 'unit_cell' in self.entry['sample']:
+                lattice_parameters = self.read_parameter('sample/unit_cell')
+                if lattice_parameters is not None:
+                    self.a, self.b, self.c = lattice_parameters[:3]
+                    self.alpha, self.beta, self.gamma = lattice_parameters[3:]
+            elif 'unit_cell_abc' in self.entry['sample']:
+                lattice_parameters = self.read_parameter(
+                    'sample/unit_cell_abc')
+                if lattice_parameters is not None:
+                    self.a, self.b, self.c = lattice_parameters
+                lattice_parameters = self.read_parameter(
+                    'sample/unit_cell_alphabetagamma')
+                if lattice_parameters is not None:
+                    self.alpha, self.beta, self.gamma = lattice_parameters
+            else:
+                self.a = self.read_parameter('sample/unitcell_a', self.a)
+                self.b = self.read_parameter('sample/unitcell_b', self.b)
+                self.c = self.read_parameter('sample/unitcell_c', self.c)
+                self.alpha = self.read_parameter(
+                    'sample/unitcell_alpha', self.alpha)
+                self.beta = self.read_parameter(
+                    'sample/unitcell_beta', self.beta)
+                self.gamma = self.read_parameter(
+                    'sample/unitcell_gamma', self.gamma)
             self.formula = self.read_parameter('sample/chemical_formula',
                                                self.formula)
             self.space_group = self.read_parameter(
@@ -329,10 +340,15 @@ class NXRefine:
                 'instrument/goniometer/chi', self.chi)
             self.omega = self.read_parameter('instrument/goniometer/omega',
                                              self.omega)
-            self.twotheta = self.read_parameter(
-                'instrument/goniometer/two_theta', self.twotheta)
-            self.gonpitch = self.read_parameter(
-                'instrument/goniometer/goniometer_pitch', self.gonpitch)
+            if 'theta' in self.entry['instrument/goniometer']:
+                self.theta = self.read_parameter('instrument/goniometer/theta',
+                                                 self.theta)
+            elif 'goniometer_pitch' in self.entry['instrument/goniometer']:
+                self.theta = self.read_parameter(
+                    'instrument/goniometer/goniometer_pitch', self.theta)
+            elif 'gonpitch' in self.entry['instrument/goniometer']:
+                self.theta = self.read_parameter(
+                    'instrument/goniometer/gonpitch', self.theta)
             self.symmetry = self.read_parameter('sample/unit_cell_group',
                                                 self.symmetry)
             self.centring = self.read_parameter('sample/lattice_centring',
@@ -464,10 +480,7 @@ class NXRefine:
                                  attr='step')
             self.write_parameter('instrument/goniometer/chi', self.chi)
             self.write_parameter('instrument/goniometer/omega', self.omega)
-            self.write_parameter(
-                'instrument/goniometer/two_theta', self.twotheta)
-            self.write_parameter('instrument/goniometer/goniometer_pitch',
-                                 self.gonpitch)
+            self.write_parameter('instrument/goniometer/theta', self.theta)
             self.write_parameter('peaks/primary_reflection', self.primary)
             self.write_parameter('peaks/secondary_reflection', self.secondary)
             if isinstance(self.z, np.ndarray):
@@ -548,10 +561,8 @@ class NXRefine:
                 other.write_parameter('instrument/goniometer/chi', self.chi)
                 other.write_parameter(
                     'instrument/goniometer/omega', self.omega)
-                other.write_parameter(
-                    'instrument/goniometer/two_theta', self.twotheta)
-                other.write_parameter('instrument/goniometer/goniometer_pitch',
-                                      self.gonpitch)
+                other.write_parameter('instrument/goniometer/theta',
+                                      self.theta)
                 if ('sample' in self.entry['instrument'] and
                         'transmission' in self.entry['instrument/sample']):
                     if 'transmission' in other.entry['instrument/sample']:
@@ -604,8 +615,7 @@ class NXRefine:
         self.pitch = d['parameters.orienterrordetpitch'] * degrees
         self.roll = d['parameters.orienterrordetroll'] * degrees
         self.yaw = d['parameters.orienterrordetyaw'] * degrees
-        self.gonpitch = d['parameters.orienterrorgonpitch'] * degrees
-        self.twotheta = d['parameters.twothetanom'] * degrees
+        self.theta = d['parameters.orienterrorgonpitch'] * degrees
         self.omega = d['parameters.omeganom'] * degrees
         self.chi = d['parameters.chinom'] * degrees
         self.phi = d['parameters.phinom'] * degrees
@@ -642,9 +652,9 @@ class NXRefine:
         lines.append(f'parameters.orientErrorDetRoll = {self.roll * radians};')
         lines.append(f'parameters.orientErrorDetYaw = {self.yaw * radians};')
         lines.append(
-            f'parameters.orientErrorGonPitch = {self.gonpitch * radians};')
+            f'parameters.orientErrorGonPitch = {self.theta * radians};')
         lines.append('parameters.twoThetaCorrection = 0;')
-        lines.append(f'parameters.twoThetaNom = {self.twotheta * radians};')
+        lines.append(f'parameters.twoThetaNom = 0;')
         lines.append(f'parameters.twoThetaStep = 0;')
         lines.append('parameters.omegaCorrection = 0;')
         lines.append(f'parameters.omegaNom = {self.omega * radians};')
@@ -660,11 +670,9 @@ class NXRefine:
         lines.append(f'parameters.gridDim = {self.grid_step};')
         lines.append('parameters.gridOffset = [0,0,0];')
         lines.append('parameters.extraFlip = false;')
-        lines.append('inputData.chunkSize = [32,32,32];')
         lines.append(f'outputData.dimensions = {list(self.grid_shape)};')
-        lines.append('outputData.chunkSize = [32,32,32];')
+        lines.append('outputData.chunkSize = [50,50,50];')
         lines.append('outputData.compression = 0;')
-        lines.append('outputData.hdfChunkSize = [32,32,32];')
         lines.append('transformer.transformOptions =  0;')
         lines.append('transformer.oversampleX = 1;')
         lines.append('transformer.oversampleY = 1;')
@@ -1162,7 +1170,7 @@ class NXRefine:
         self._chi = value
         try:
             self._Gmat_cache = (
-                rotmat(2, self.gonpitch) * rotmat(3, self.omega) *
+                rotmat(2, self.theta) * rotmat(3, self.omega) *
                 rotmat(1, self.chi))
         except Exception:
             pass
@@ -1177,22 +1185,22 @@ class NXRefine:
         self._omega = value
         try:
             self._Gmat_cache = (
-                rotmat(2, self.gonpitch) * rotmat(3, self.omega) *
+                rotmat(2, self.theta) * rotmat(3, self.omega) *
                 rotmat(1, self.chi))
         except Exception:
             pass
 
     @property
-    def gonpitch(self):
-        """Goniometer pitch angle in degrees."""
-        return self._gonpitch
+    def theta(self):
+        """Theta angle in degrees (formerly goniometer pitch)."""
+        return self._theta
 
-    @gonpitch.setter
-    def gonpitch(self, value):
-        self._gonpitch = value
+    @theta.setter
+    def theta(self, value):
+        self._theta = value
         try:
             self._Gmat_cache = (
-                rotmat(2, self.gonpitch) * rotmat(3, self.omega) *
+                rotmat(2, self.theta) * rotmat(3, self.omega) *
                 rotmat(1, self.chi))
         except Exception:
             pass
@@ -1743,7 +1751,7 @@ class NXRefine:
         """
         self.set_idx()
         from lmfit import fit_report, minimize
-        p0 = self.define_parameters(lattice=True, **opts)
+        p0 = self.define_parameters(**opts)
         self.result = minimize(self.angle_residuals, p0, method=method)
         self.fit_report = fit_report(self.result)
         if self.result.success:
