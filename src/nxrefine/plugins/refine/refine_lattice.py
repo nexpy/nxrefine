@@ -94,10 +94,7 @@ class RefineLatticeDialog(NXDialog):
         self.parameters.add('phi_step', self.refine.phi_step, 'Phi Step (deg)')
         self.parameters.add('chi', self.refine.chi, 'Chi (deg)', False)
         self.parameters.add('omega', self.refine.omega, 'Omega (deg)', False)
-        self.parameters.add(
-            'twotheta', self.refine.twotheta, 'Two Theta (deg)')
-        self.parameters.add('gonpitch', self.refine.gonpitch,
-                            'Goniometer Pitch (deg)', False)
+        self.parameters.add('theta', self.refine.theta, 'Theta (deg)', False)
         self.parameters.add('polar', self.reduce.polar_max,
                             'Max. Polar Angle (deg)', None, self.set_polar_max)
         self.parameters.add('polar_tolerance', self.refine.polar_tolerance,
@@ -158,8 +155,7 @@ class RefineLatticeDialog(NXDialog):
         self.parameters['phi_step'].value = self.refine.phi_step
         self.parameters['chi'].value = self.refine.chi
         self.parameters['omega'].value = self.refine.omega
-        self.parameters['twotheta'].value = self.refine.twotheta
-        self.parameters['gonpitch'].value = self.refine.gonpitch
+        self.parameters['theta'].value = self.refine.theta
         self.parameters['polar_tolerance'].value = self.refine.polar_tolerance
         self.parameters['peak_tolerance'].value = self.refine.peak_tolerance
         self.parameters['hkl_tolerance'].value = self.refine.hkl_tolerance
@@ -181,8 +177,8 @@ class RefineLatticeDialog(NXDialog):
         self.refine.yaw, self.refine.pitch, self.refine.roll = self.get_tilts()
         self.refine.xc, self.refine.yc = self.get_centers()
         self.refine.phi, self.refine.phi_step = self.get_phi()
-        self.refine.chi, self.refine.omega, self.refine.twotheta, \
-            self.refine.gonpitch = self.get_angles()
+        self.refine.chi, self.refine.omega, self.refine.theta = (
+            self.get_angles())
         self.refine.polar_max = self.get_polar_max()
         self.refine.polar_tolerance = self.get_polar_tolerance()
         self.refine.peak_tolerance = self.get_peak_tolerance()
@@ -398,8 +394,7 @@ class RefineLatticeDialog(NXDialog):
     def get_angles(self):
         return (self.parameters['chi'].value,
                 self.parameters['omega'].value,
-                self.parameters['twotheta'].value,
-                self.parameters['gonpitch'].value)
+                self.parameters['theta'].value)
 
     def get_polar_max(self):
         return self.parameters['polar'].value

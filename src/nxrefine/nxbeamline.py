@@ -461,7 +461,7 @@ class QM2Beamline(NXBeamLine):
                 self.entry['instrument/goniometer/chi'] = (
                     90.0 - logs['positioners/chi'])
             if 'th' in logs['positioners']:
-                self.entry['instrument/goniometer/gonpitch'] = (
+                self.entry['instrument/goniometer/theta'] = (
                     logs['positioners/th'])
             if 'sample' not in self.root['entry']:
                 self.root['entry/sample'] = NXsample()

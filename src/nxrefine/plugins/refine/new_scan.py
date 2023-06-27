@@ -150,8 +150,7 @@ class ScanDialog(NXDialog):
         self.entries[position] = GridParameters()
         self.entries[position].add('chi', default['chi'], 'Chi (deg)')
         self.entries[position].add('omega', default['omega'], 'Omega (deg)')
-        self.entries[position].add('gonpitch', default['gonpitch'],
-                                   'Goniometer Pitch (deg)')
+        self.entries[position].add('theta', default['theta'], 'Theta (deg)')
         self.entries[position].add('x', default['x'], 'Translation - x (mm)')
         self.entries[position].add('y', default['y'], 'Translation - y (mm)')
         self.entries[position].add('linkfile', f'f{position:d}.h5',
@@ -182,8 +181,14 @@ class ScanDialog(NXDialog):
             if 'instrument/goniometer/omega' in entry:
                 self.entries[position]['omega'].value = (
                     entry['instrument/goniometer/omega'])
-            if 'instrument/goniometer/gonpitch' in entry:
-                self.entries[position]['gonpitch'].value = (
+            if 'instrument/goniometer/theta' in entry:
+                self.entries[position]['theta'].value = (
+                    entry['instrument/goniometer/theta'])
+            elif 'instrument/goniometer/goniometer_pitch' in entry:
+                self.entries[position]['theta'].value = (
+                    entry['instrument/goniometer/goniometer_pitch'])
+            elif 'instrument/goniometer/gonpitch' in entry:
+                self.entries[position]['theta'].value = (
                     entry['instrument/goniometer/gonpitch'])
             if 'instrument/detector/translation_x' in entry:
                 self.entries[position]['x'].value = (
@@ -210,7 +215,7 @@ class ScanDialog(NXDialog):
             phi_step = self.scan['phi_step'].value
             chi = self.entries[position]['chi'].value
             omega = self.entries[position]['omega'].value
-            gonpitch = self.entries[position]['gonpitch'].value
+            theta = self.entries[position]['theta'].value
             frame_rate = self.scan['frame_rate'].value
             if 'goniometer' not in entry['instrument']:
                 entry['instrument/goniometer'] = NXgoniometer()
@@ -222,8 +227,8 @@ class ScanDialog(NXDialog):
             entry['instrument/goniometer/chi_set'] = chi
             entry['instrument/goniometer/omega'] = omega
             entry['instrument/goniometer/omega_set'] = omega
-            entry['instrument/goniometer/gonpitch'] = gonpitch
-            entry['instrument/goniometer/gonpitch_set'] = gonpitch
+            entry['instrument/goniometer/theta'] = theta
+            entry['instrument/goniometer/theta_set'] = theta
             if frame_rate > 0.0:
                 entry['instrument/detector/frame_time'] = 1.0 / frame_rate
             linkpath = self.entries[position]['linkpath'].value
