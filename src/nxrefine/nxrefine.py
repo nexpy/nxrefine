@@ -274,14 +274,30 @@ class NXRefine:
             self.entry = entry
         with self.entry.nxfile:
             self.name = self.entry.nxroot.nxname + "/" + self.entry.nxname
-            self.a = self.read_parameter('sample/unitcell_a', self.a)
-            self.b = self.read_parameter('sample/unitcell_b', self.b)
-            self.c = self.read_parameter('sample/unitcell_c', self.c)
-            self.alpha = self.read_parameter(
-                'sample/unitcell_alpha', self.alpha)
-            self.beta = self.read_parameter('sample/unitcell_beta', self.beta)
-            self.gamma = self.read_parameter(
-                'sample/unitcell_gamma', self.gamma)
+            if 'unit_cell' in self.entry['sample']:
+                lattice_parameters = self.read_parameter('sample/unit_cell')
+                if lattice_parameters is not None:
+                    self.a, self.b, self.c = lattice_parameters[:3]
+                    self.alpha, self.beta, self.gamma = lattice_parameters[3:]
+            elif 'unit_cell_abc' in self.entry['sample']:
+                lattice_parameters = self.read_parameter(
+                    'sample/unit_cell_abc')
+                if lattice_parameters is not None:
+                    self.a, self.b, self.c = lattice_parameters
+                lattice_parameters = self.read_parameter(
+                    'sample/unit_cell_alphabetagamma')
+                if lattice_parameters is not None:
+                    self.alpha, self.beta, self.gamma = lattice_parameters
+            else:
+                self.a = self.read_parameter('sample/unitcell_a', self.a)
+                self.b = self.read_parameter('sample/unitcell_b', self.b)
+                self.c = self.read_parameter('sample/unitcell_c', self.c)
+                self.alpha = self.read_parameter(
+                    'sample/unitcell_alpha', self.alpha)
+                self.beta = self.read_parameter(
+                    'sample/unitcell_beta', self.beta)
+                self.gamma = self.read_parameter(
+                    'sample/unitcell_gamma', self.gamma)
             self.formula = self.read_parameter('sample/chemical_formula',
                                                self.formula)
             self.space_group = self.read_parameter(
