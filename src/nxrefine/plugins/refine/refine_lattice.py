@@ -10,7 +10,7 @@ import operator
 
 import numpy as np
 from nexpy.gui.datadialogs import ExportDialog, GridParameters, NXDialog
-from nexpy.gui.plotview import NXPlotView, get_plotview
+from nexpy.gui.plotview import NXPlotView
 from nexpy.gui.pyqt import QtCore, QtGui, QtWidgets
 from nexpy.gui.utils import display_message, report_error
 from nexpy.gui.widgets import NXLabel, NXLineEdit, NXPushButton
@@ -62,6 +62,7 @@ class RefineLatticeDialog(NXDialog):
         self.update_box = None
         self.tolerance_box = None
         self.fit_report = []
+        self.ringview = None
 
     def define_parameters(self):
         self.parameters = GridParameters()
@@ -428,7 +429,6 @@ class RefineLatticeDialog(NXDialog):
         self.transfer_parameters()
         self.set_polar_max()
         self.plot_peaks()
-        self.plot_rings()
 
     def plot_peaks(self):
         try:
@@ -442,18 +442,18 @@ class RefineLatticeDialog(NXDialog):
             azimuthal_field.long_name = 'Azimuthal Angle'
             polar_field = NXfield(polar_angles, name='polar_angle')
             polar_field.long_name = 'Polar Angle'
-            plotview = get_plotview()
-            plotview.plot(NXdata(azimuthal_field, polar_field,
-                          title=f'{self.refine.name} Peak Angles'),
-                          xmax=self.get_polar_max())
+            if 'Ring Plot' in self.plotviews:
+                self.ringview = self.plotviews['Ring Plot']
+            else:
+                self.ringview = NXPlotView('Ring Plot')
+            self.ringview.plot(NXdata(azimuthal_field, polar_field,
+                               title=f'{self.refine.name} Peak Angles'),
+                               xmax=self.get_polar_max())
+            self.ringview.vlines(self.refine.two_thetas,
+                                 colors='r', linestyles='dotted')
+            self.ringview.draw()
         except NeXusError as error:
             report_error('Plotting Lattice', error)
-
-    def plot_rings(self):
-        plotview = get_plotview()
-        plotview.vlines(self.refine.two_thetas,
-                        colors='r', linestyles='dotted')
-        plotview.draw()
 
     @property
     def refined(self):
@@ -587,7 +587,7 @@ class RefineLatticeDialog(NXDialog):
         self.peaks_box.set_title(f'{self.refine.name} Peak Table')
         self.peaks_box.adjustSize()
         self.peaks_box.show()
-        self.plotview = None
+        self.peakview = None
 
     def update_table(self):
         if self.peaks_box not in self.mainwindow.dialogs:
@@ -621,14 +621,14 @@ class RefineLatticeDialog(NXDialog):
         zmin, zmax = max(0, z-20), min(z+20, signal.shape[0])
         zslab = np.s_[zmin:zmax, ymin:ymax, xmin:xmax]
         if 'Peak Plot' in self.plotviews:
-            self.plotview = self.plotviews['Peak Plot']
+            self.peakview = self.plotviews['Peak Plot']
         else:
-            self.plotview = NXPlotView('Peak Plot')
-        self.plotview.plot(data[zslab], log=True)
-        self.plotview.ax.set_title(f'{data.nxtitle}: Peak {i}')
-        self.plotview.ztab.maxbox.setValue(z)
-        self.plotview.aspect = 'equal'
-        self.plotview.crosshairs(x, y, color='r', linewidth=0.5)
+            self.peakview = NXPlotView('Peak Plot')
+        self.peakview.plot(data[zslab], log=True)
+        self.peakview.ax.set_title(f'{data.nxtitle}: Peak {i}')
+        self.peakview.ztab.maxbox.setValue(z)
+        self.peakview.aspect = 'equal'
+        self.peakview.crosshairs(x, y, color='r', linewidth=0.5)
 
     @property
     def primary(self):
