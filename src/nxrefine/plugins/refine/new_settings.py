@@ -9,6 +9,7 @@
 import os
 
 from nexpy.gui.datadialogs import GridParameters, NXDialog
+from nexpy.gui.widgets import NXScrollArea
 from nexpy.gui.utils import report_error
 from nexusformat.nexus import NeXusError
 from nxrefine.nxsettings import NXSettings
@@ -64,15 +65,14 @@ class SettingsDialog(NXDialog):
         for p in defaults:
             self.reduce_parameters.add(p, defaults[p], p)
         if self.layout.count() == 2:
-            self.layout.insertLayout(
-                1, self.server_parameters.grid(header=False, title='Server'))
-            self.layout.insertLayout(
-                2, self.instrument_parameters.grid(header=False,
-                                                   title='Instrument'))
-            self.layout.insertLayout(
-                3, self.refine_parameters.grid(header=False, title='NXRefine'))
-            self.layout.insertLayout(
-                4, self.reduce_parameters.grid(header=False, title='NXReduce'))
+            scroll_layout = self.make_layout(
+                self.server_parameters.grid(header=False, title='Server'),
+                self.instrument_parameters.grid(header=False,
+                                                title='Instrument'),
+                self.refine_parameters.grid(header=False, title='NXRefine'),
+                self.reduce_parameters.grid(header=False, title='NXReduce'),
+                vertical=True)
+            self.insert_layout(1, NXScrollArea(scroll_layout))
 
     def accept(self):
         try:
