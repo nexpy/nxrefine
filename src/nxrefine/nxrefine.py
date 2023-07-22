@@ -340,15 +340,16 @@ class NXRefine:
                 'instrument/goniometer/chi', self.chi)
             self.omega = self.read_parameter('instrument/goniometer/omega',
                                              self.omega)
-            if 'theta' in self.entry['instrument/goniometer']:
-                self.theta = self.read_parameter('instrument/goniometer/theta',
-                                                 self.theta)
-            elif 'goniometer_pitch' in self.entry['instrument/goniometer']:
-                self.theta = self.read_parameter(
-                    'instrument/goniometer/goniometer_pitch', self.theta)
-            elif 'gonpitch' in self.entry['instrument/goniometer']:
-                self.theta = self.read_parameter(
-                    'instrument/goniometer/gonpitch', self.theta)
+            if 'instrument/goniometer' in self.entry:
+                if 'theta' in self.entry['instrument/goniometer']:
+                    self.theta = self.read_parameter(
+                        'instrument/goniometer/theta', self.theta)
+                elif 'goniometer_pitch' in self.entry['instrument/goniometer']:
+                    self.theta = self.read_parameter(
+                        'instrument/goniometer/goniometer_pitch', self.theta)
+                elif 'gonpitch' in self.entry['instrument/goniometer']:
+                    self.theta = self.read_parameter(
+                        'instrument/goniometer/gonpitch', self.theta)
             self.symmetry = self.read_parameter('sample/unit_cell_group',
                                                 self.symmetry)
             self.centring = self.read_parameter('sample/lattice_centring',
