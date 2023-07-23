@@ -356,7 +356,16 @@ class NXReduce(QtCore.QObject):
         if self._entries:
             return self._entries
         else:
-            return [entry for entry in self.root.entries if entry != 'entry']
+            entries = [entry for entry in self.root.entries
+                       if entry[-1].isdigit()]
+            try:
+                f = self.db.get_file(self.wrapper_file)
+                if len(f.get_entries()) != len(entries):
+                    f.set_entries(entries)
+                    self.db.session.commit()
+            except Exception:
+                pass
+            return entries
 
     @property
     def first_entry(self):
