@@ -171,7 +171,7 @@ class Sector6Beamline(NXBeamLine):
         for i, key in enumerate(meta_input.dtype.names):
             logs[key] = [array[i] for array in meta_input]
 
-        with self.root.nxfile:
+        with self.reduce:
             if 'instrument' not in self.entry:
                 self.entry['instrument'] = NXinstrument()
             if 'logs' in self.entry['instrument']:
@@ -414,7 +414,7 @@ class QM2Beamline(NXBeamLine):
             self.reduce.logger.info(f"'{spec_file}' does not exist")
             raise NeXusError('SPEC file not found')
 
-        with self.root.nxfile:
+        with self.reduce:
             scan_number = self.entry['scan_number'].nxvalue
             logs = SpecParser(spec_file).read(scan_number).NXentry[0]
             logs.nxclass = NXsubentry
