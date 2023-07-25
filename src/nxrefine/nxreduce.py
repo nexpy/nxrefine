@@ -302,7 +302,7 @@ class NXReduce(QtCore.QObject):
     @property
     def settings(self):
         if self._settings is None:
-            self._settings = NXSettings().settings
+            self._settings = NXSettings(self.task_directory).settings
         return self._settings
 
     @property
