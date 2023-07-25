@@ -15,10 +15,10 @@ from nexusformat.nexus import NeXusError
 class NXSettings(ConfigParser):
     """A ConfigParser subclass that preserves the case of option names"""
 
-    def __init__(self, directory=None, **kwargs):
+    def __init__(self, experiment=None, default=None, **kwargs):
         super().__init__(allow_no_value=True)
-        self.directory = self.get_directory(server_directory=directory)
-        self.file = Path(self.directory).joinpath('settings.ini')
+        self.file = self.get_file(experiment=experiment, default=default)
+        self.directory = self.file.parent
         super().read(self.file)
         sections = self.sections()
         if 'server' not in sections:
@@ -36,31 +36,47 @@ class NXSettings(ConfigParser):
             self.save()
         self.add_defaults()
 
-    def get_directory(self, server_directory=None):
+    def get_file(self, experiment=None, default=None):
         self.home_settings = ConfigParser()
-        home_directory = Path.home().joinpath('.nxserver')
-        if not Path(home_directory).exists():
-            Path(home_directory).mkdir()
-        self.home_file = Path(home_directory).joinpath('settings.ini')
+        home_directory = Path.home() / '.nxserver'
+        if not home_directory.exists():
+            home_directory.mkdir()
+        self.home_file = home_directory / 'settings.ini'
         self.home_settings.read(self.home_file)
         if 'setup' not in self.home_settings.sections():
             self.home_settings.add_section('setup')
-        if server_directory:
-            self.home_settings.set('setup', 'directory', server_directory)
+        if default:
+            self.home_settings.set('setup', 'directory', default)
             with open(self.home_file, 'w') as f:
                 self.home_settings.write(f)
         elif self.home_settings.has_option('setup', 'directory'):
-            server_directory = self.home_settings.get('setup', 'directory')
-        else:
+            default = self.home_settings.get('setup', 'directory')
+        if default:
+            default = Path(default).resolve()
+            if default.name != 'nxserver':
+                default = default / 'nxserver'
+            if not default.exists():
+                default.mkdir()
+            if not default.joinpath('locks').exists():
+                default.joinpath('locks').mkdir(mode=0o777)
+        if experiment is None and default is None:
             raise NeXusError(
                 "Please define settings directory - type 'nxsettings -h'")
-        if Path(server_directory).name != 'nxserver':
-            server_directory = Path(server_directory).joinpath('nxserver')
-        if not Path(server_directory).exists():
-            Path(server_directory).mkdir()
-        if not Path(server_directory).joinpath('locks').exists():
-            Path(server_directory).joinpath('locks').mkdir(mode=0o777)
-        return server_directory
+        elif experiment is None:
+            return default / 'settings.ini'
+        else:
+            experiment = Path(experiment).resolve()
+            if experiment.name != 'tasks':
+                if experiment.joinpath('tasks').exists():
+                    experiment = experiment / 'tasks'
+                else:
+                    raise NeXusError(
+                        f"'{experiment}' not a valid directory for settings")
+            if not experiment.joinpath('settings.ini').exists():
+                if default and default.joinpath('settings.ini').exists():
+                    experiment.joinpath('settings.ini').write_text(
+                        default.joinpath('settings.ini').read_text())
+            return experiment / 'settings.ini'
 
     def add_defaults(self):
         settings_changed = False
@@ -70,7 +86,7 @@ class NXSettings(ConfigParser):
             if not self.has_option('server', p):
                 self.set('server', p, default[p])
                 settings_changed = True
-        default = {'source': 'APS', 'instrument': '6-ID-D'}
+        default = {'source': None, 'instrument': None, 'raw_home': None}
         for p in default:
             if not self.has_option('instrument', p):
                 self.set('instrument', p, default[p])

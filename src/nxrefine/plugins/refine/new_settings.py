@@ -7,11 +7,14 @@
 # -----------------------------------------------------------------------------
 
 import os
+from pathlib import Path
 
 from nexpy.gui.datadialogs import GridParameters, NXDialog
-from nexpy.gui.widgets import NXScrollArea
+from nexpy.gui.pyqt import QtWidgets
 from nexpy.gui.utils import report_error
+from nexpy.gui.widgets import NXScrollArea
 from nexusformat.nexus import NeXusError
+
 from nxrefine.nxsettings import NXSettings
 
 
@@ -27,27 +30,15 @@ class SettingsDialog(NXDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        try:
-            self.settings = NXSettings()
-            default_directory = self.settings.directory
-        except NeXusError:
-            self.settings = None
-            default_directory = ""
-        self.set_layout(
-            self.directorybox('Choose Settings Directory',
-                              suggestion=default_directory),
-            self.close_layout(save=True))
-        if self.settings:
-            self.define_parameters()
-        self.set_title('New Settings')
-
-    def choose_directory(self):
-        super().choose_directory()
-        directory = self.get_directory()
-        self.settings = NXSettings(directory=directory)
-        self.define_parameters()
-
-    def define_parameters(self):
+        self.settings_list = {'Default': 'default'}
+        for root in self.tree:
+            path = Path(self.tree[root].nxfilename)
+            task_directory = path.parent.parent.parent.joinpath('tasks')
+            if task_directory.exists():
+                self.settings_list[root] = task_directory
+        self.settings_box = self.select_box(self.settings_list,
+                                            slot=self.choose_settings)
+        self.settings = NXSettings()
         self.server_parameters = GridParameters()
         defaults = self.settings.settings['server']
         for p in defaults:
@@ -64,15 +55,41 @@ class SettingsDialog(NXDialog):
         defaults = self.settings.settings['nxreduce']
         for p in defaults:
             self.reduce_parameters.add(p, defaults[p], p)
-        if self.layout.count() == 2:
-            scroll_layout = self.make_layout(
-                self.server_parameters.grid(header=False, title='Server'),
-                self.instrument_parameters.grid(header=False,
-                                                title='Instrument'),
-                self.refine_parameters.grid(header=False, title='NXRefine'),
-                self.reduce_parameters.grid(header=False, title='NXReduce'),
-                vertical=True)
-            self.insert_layout(1, NXScrollArea(scroll_layout))
+        scroll_layout = self.make_layout(
+            self.server_parameters.grid(header=False, title='Server'),
+            self.instrument_parameters.grid(header=False,
+                                            title='Instrument'),
+            self.refine_parameters.grid(header=False, title='NXRefine'),
+            self.reduce_parameters.grid(header=False, title='NXReduce'),
+            vertical=True)
+        self.set_layout(self.make_layout(self.settings_box, align='center'),
+                        NXScrollArea(scroll_layout),
+                        self.close_layout(save=True))
+        self.setMinimumWidth(400)
+        self.set_title('New Settings')
+        self.choose_settings()
+
+    def choose_settings(self):
+        settings_directory = self.settings_list[self.settings_box.selected]
+        if settings_directory == 'default':
+            self.settings = NXSettings()
+        else:
+            self.settings = NXSettings(settings_directory)
+        self.define_parameters()
+
+    def define_parameters(self):
+        defaults = self.settings.settings['server']
+        for p in defaults:
+            self.server_parameters[p].value = defaults[p]
+        defaults = self.settings.settings['instrument']
+        for p in defaults:
+            self.instrument_parameters[p].value = defaults[p]
+        defaults = self.settings.settings['nxrefine']
+        for p in defaults:
+            self.refine_parameters[p].value = defaults[p]
+        defaults = self.settings.settings['nxreduce']
+        for p in defaults:
+            self.reduce_parameters[p].value = defaults[p]
 
     def accept(self):
         try:
