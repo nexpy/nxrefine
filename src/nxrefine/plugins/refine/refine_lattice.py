@@ -209,7 +209,7 @@ class RefineLatticeDialog(NXDialog):
         self.reduce.record_end('nxrefine')
         root = self.entry.nxroot
         entries = [entry for entry in root.entries
-                   if entry != 'entry' and entry != self.entry.nxname]
+                   if entry[-1].isdigit() and entry != self.entry.nxname]
         if entries and self.confirm_action(
             f'Copy orientation to other entries? ({", ".join(entries)})',
                 answer='yes'):

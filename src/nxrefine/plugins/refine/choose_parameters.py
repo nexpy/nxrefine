@@ -53,7 +53,7 @@ class ParametersDialog(NXDialog):
 
     def choose_root(self):
         self.entries = [self.root[entry]
-                        for entry in self.root if entry != 'entry']
+                        for entry in self.root if entry[-1].isdigit()]
         if self.layout.count() == 2:
             self.layout.insertLayout(1, self.parameters.grid(header=False))
         self.read_parameters()

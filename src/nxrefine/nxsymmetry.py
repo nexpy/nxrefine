@@ -80,7 +80,7 @@ def symmetrize_entries(symm_function, data_type, data_file, data_path):
     nxsetlock(60)
     data_root = nxload(data_file, 'r')
     data_path = os.path.basename(data_path)
-    for i, entry in enumerate([e for e in data_root if e != 'entry']):
+    for i, entry in enumerate([e for e in data_root if e[-1].isdigit()]):
         if i == 0:
             if data_type == 'signal':
                 data = data_root[entry][data_path].nxsignal.nxvalue

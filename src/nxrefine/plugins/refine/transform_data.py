@@ -174,7 +174,7 @@ class TransformDialog(NXDialog):
             if self.copy:
                 root = self.entry.nxroot
                 for entry in [e for e in root
-                              if e != 'entry' and e != self.entry.nxname]:
+                              if e[-1].isdigit() and e != self.entry.nxname]:
                     if 'transform' in root[entry] and not self.overwrite:
                         self.display_message(
                             "Preparing Transform",
