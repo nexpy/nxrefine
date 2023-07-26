@@ -255,6 +255,14 @@ class NXReduce(QtCore.QObject):
     def __repr__(self):
         return f"NXReduce('{self.name}')"
 
+    def __enter__(self):
+        self.root.unlock()
+        return self.root.__enter__()
+
+    def __exit__(self, *args):
+        self.root.__exit__()
+        self.root.lock()
+
     @property
     def task_directory(self):
         """Directory containing log files and the reduction database."""
@@ -339,7 +347,7 @@ class NXReduce(QtCore.QObject):
     def root(self):
         """NXroot group containing the complete wrapper file tree."""
         if self._root is None:
-            self._root = nxopen(self.wrapper_file, 'rw')
+            self._root = nxopen(self.wrapper_file, 'r')
         return self._root
 
     @property
@@ -356,7 +364,16 @@ class NXReduce(QtCore.QObject):
         if self._entries:
             return self._entries
         else:
-            return [entry for entry in self.root.entries if entry != 'entry']
+            entries = [entry for entry in self.root.entries
+                       if entry[-1].isdigit()]
+            try:
+                f = self.db.get_file(self.wrapper_file)
+                if len(f.get_entries()) != len(entries):
+                    f.set_entries(entries)
+                    self.db.session.commit()
+            except Exception:
+                pass
+            return entries
 
     @property
     def first_entry(self):
@@ -543,7 +560,7 @@ class NXReduce(QtCore.QObject):
         local copy in the current wrapper file's '/entry/nxreduce'
         group.
         """
-        with self.root.nxfile:
+        with self:
             if 'nxreduce' not in self.root['entry']:
                 self.root['entry/nxreduce'] = NXparameters()
             if threshold is not None:
@@ -856,7 +873,7 @@ class NXReduce(QtCore.QObject):
         note = NXnote(process, (f"Current machine: {platform.node()}\n" +
                                 f"Current directory: {self.directory}\n" +
                                 parameters))
-        with self.root.nxfile:
+        with self:
             if process in self.entry:
                 del self.entry[process]
             self.entry[process] = NXprocess(
@@ -948,7 +965,7 @@ class NXReduce(QtCore.QObject):
 
     def link_data(self):
         if self.field:
-            with self.root.nxfile:
+            with self:
                 frames = np.arange(self.shape[0], dtype=np.int32)
                 if 'instrument/detector/frame_time' in self.entry:
                     frame_time = self.entry['instrument/detector/frame_time']
@@ -1084,7 +1101,7 @@ class NXReduce(QtCore.QObject):
                 self.update_progress(i)
                 try:
                     v = data[i:i+chunk_size, :, :]
-                except IndexError as error:
+                except IndexError:
                     pass
                 if i == self.first:
                     vsum = v.sum(0)
@@ -1113,7 +1130,7 @@ class NXReduce(QtCore.QObject):
         return result
 
     def write_maximum(self):
-        with self.root.nxfile:
+        with self:
             self.entry['data'].attrs['maximum'] = self.maximum
             self.entry['data'].attrs['first'] = self.first
             self.entry['data'].attrs['last'] = self.last
@@ -1154,15 +1171,16 @@ class NXReduce(QtCore.QObject):
                 correctSolidAngle=True, method=('no', 'histogram', 'cython'))
             Q = (4 * np.pi * np.sin(np.radians(polar_angle) / 2.0)
                  / (ai.wavelength * 1e10))
-            if 'radial_sum' in self.entry:
-                del self.entry['radial_sum']
-            self.entry['radial_sum'] = NXdata(
-                NXfield(intensity, name='radial_sum'),
-                NXfield(polar_angle, name='polar_angle', units='degrees'),
-                Q=NXfield(Q, name='Q', units='Ang-1'))
-            if 'polarization' in self.entry['instrument/detector']:
-                del self.entry['instrument/detector/polarization']
-            self.entry['instrument/detector/polarization'] = polarization
+            with self:
+                if 'radial_sum' in self.entry:
+                    del self.entry['radial_sum']
+                self.entry['radial_sum'] = NXdata(
+                    NXfield(intensity, name='radial_sum'),
+                    NXfield(polar_angle, name='polar_angle', units='degrees'),
+                    Q=NXfield(Q, name='Q', units='Ang-1'))
+                if 'polarization' in self.entry['instrument/detector']:
+                    del self.entry['instrument/detector/polarization']
+                self.entry['instrument/detector/polarization'] = polarization
         except Exception as error:
             self.logger.info("Unable to create radial sum")
             self.logger.info(str(error))
@@ -1336,7 +1354,7 @@ class NXReduce(QtCore.QObject):
         group.attrs['first'] = self.first
         group.attrs['last'] = self.last
         group.attrs['threshold'] = self.threshold
-        with self.root.nxfile:
+        with self:
             if 'peaks' in self.entry:
                 del self.entry['peaks']
             self.entry['peaks'] = group
@@ -1379,27 +1397,25 @@ class NXReduce(QtCore.QObject):
             self.logger.info("HKL values already refined")
 
     def refine_parameters(self, lattice=False):
-        with self.root.nxfile:
-            refine = NXRefine(self.entry)
-            refine.polar_max = self.polar_max
-            refine.hkl_tolerance = self.hkl_tolerance
-            refine.refine_hkls(lattice=lattice, chi=True, omega=True,
-                               theta=True)
-            fit_report = refine.fit_report
-            refine.refine_hkls(chi=True, omega=True, theta=True)
-            fit_report = fit_report + '\n' + refine.fit_report
-            refine.refine_orientation_matrix()
-            fit_report = fit_report + '\n' + refine.fit_report
-            if refine.result.success:
-                refine.fit_report = fit_report
-                self.logger.info("Refined HKL values")
-                return refine
-            else:
-                self.logger.info("HKL refinement not successful")
-                return None
+        refine = NXRefine(self.entry)
+        refine.polar_max = self.polar_max
+        refine.hkl_tolerance = self.hkl_tolerance
+        refine.refine_hkls(lattice=lattice, chi=True, omega=True, theta=True)
+        fit_report = refine.fit_report
+        refine.refine_hkls(chi=True, omega=True, theta=True)
+        fit_report = fit_report + '\n' + refine.fit_report
+        refine.refine_orientation_matrix()
+        fit_report = fit_report + '\n' + refine.fit_report
+        if refine.result.success:
+            refine.fit_report = fit_report
+            self.logger.info("Refined HKL values")
+            return refine
+        else:
+            self.logger.info("HKL refinement not successful")
+            return None
 
     def write_refinement(self, refine):
-        with self.root.nxfile:
+        with self:
             refine.write_parameters()
 
     def nxprepare(self):
@@ -1586,7 +1602,7 @@ class NXReduce(QtCore.QObject):
                 self.Qh = self.Qk = self.Ql = None
 
     def get_normalization(self):
-        with self.root.nxfile:
+        with self:
             if self.norm and self.monitor in self.entry:
                 self.data['monitor_weight'] = self.read_monitor()
                 inst = self.entry['instrument']
@@ -1614,31 +1630,31 @@ class NXReduce(QtCore.QObject):
     def prepare_transform(self, mask=False):
         settings_file = os.path.join(self.directory,
                                      self.entry_name+'_transform.pars')
-        with self.root.nxfile:
-            self.get_transform_grid(mask=mask)
-            if self.norm:
-                self.get_normalization()
-            if self.Qh and self.Qk and self.Ql:
-                refine = NXRefine(self.entry)
-                refine.read_parameters()
-                refine.h_start, refine.h_step, refine.h_stop = self.Qh
-                refine.k_start, refine.k_step, refine.k_stop = self.Qk
-                refine.l_start, refine.l_step, refine.l_stop = self.Ql
-                refine.define_grid()
+        self.get_transform_grid(mask=mask)
+        if self.norm:
+            self.get_normalization()
+        if self.Qh and self.Qk and self.Ql:
+            refine = NXRefine(self.entry)
+            refine.read_parameters()
+            refine.h_start, refine.h_step, refine.h_stop = self.Qh
+            refine.k_start, refine.k_step, refine.k_stop = self.Qk
+            refine.l_start, refine.l_step, refine.l_stop = self.Ql
+            refine.define_grid()
+            with self:
                 refine.prepare_transform(self.transform_file, mask=mask)
-                refine.write_settings(settings_file)
-                command = refine.cctw_command(mask)
-                if command and os.path.exists(self.transform_file):
-                    with NXLock(self.transform_file):
-                        os.remove(self.transform_file)
-                if 'cctw' in self.settings['server']:
-                    if self.settings['server']['cctw']:
-                        command = command.replace(
-                            'cctw', self.settings['server']['cctw'])
-                return command
-            else:
-                self.logger.info("Invalid HKL grid")
-                return None
+            refine.write_settings(settings_file)
+            command = refine.cctw_command(mask)
+            if command and os.path.exists(self.transform_file):
+                with NXLock(self.transform_file):
+                    os.remove(self.transform_file)
+            if 'cctw' in self.settings['server']:
+                if self.settings['server']['cctw']:
+                    command = command.replace(
+                        'cctw', self.settings['server']['cctw'])
+            return command
+        else:
+            self.logger.info("Invalid HKL grid")
+            return None
 
     def nxsum(self, scan_list, update=False):
         if os.path.exists(self.raw_file) and not (self.overwrite or update):
@@ -1725,7 +1741,7 @@ class NXReduce(QtCore.QObject):
                 if 'monitor_weight' not in reduce.entry['data']:
                     reduce.get_normalization()
                 monitor_weight += reduce.entry['data/monitor_weight'].nxvalue
-        with self.root.nxfile:
+        with self:
             self.entry['monitor1/MCS1'] = monitor1
             self.entry['monitor2/MCS2'] = monitor2
             self.entry['data/monitor_weight'] = monitor_weight
@@ -1969,7 +1985,7 @@ class NXMultiReduce(NXReduce):
 
     def prepare_combine(self):
         try:
-            with self.root.nxfile:
+            with self:
                 entry = self.entries[0]
                 Qh, Qk, Ql = (self.root[entry][self.transform_path]['Qh'],
                               self.root[entry][self.transform_path]['Qk'],
@@ -2374,7 +2390,7 @@ class NXMultiReduce(NXReduce):
         shutil.copyfile(os.path.join(self.base_directory,
                                      self.sample+'_'+scan_list[0]+'.nxs'),
                         self.wrapper_file)
-        with self.root.nxfile:
+        with self:
             if 'nxcombine' in self.root['entry']:
                 del self.root['entry/nxcombine']
             if 'nxmasked_combine' in self.root['entry']:

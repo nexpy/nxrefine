@@ -171,7 +171,7 @@ class Sector6Beamline(NXBeamLine):
         for i, key in enumerate(meta_input.dtype.names):
             logs[key] = [array[i] for array in meta_input]
 
-        with self.root.nxfile:
+        with self.reduce:
             if 'instrument' not in self.entry:
                 self.entry['instrument'] = NXinstrument()
             if 'logs' in self.entry['instrument']:
@@ -279,14 +279,21 @@ class QM2Beamline(NXBeamLine):
                 continue
             scan_directory = self.base_directory / scan.name
             scan_directory.mkdir(exist_ok=True)
-            with nxopen(scan_file, 'w') as root:
-                root['entry'] = self.config_file['entry']
+            if overwrite:
+                mode = 'w'
+            else:
+                mode = 'a'
+            with nxopen(scan_file, mode) as root:
+                if 'entry' not in root:
+                    root['entry'] = self.config_file['entry']
                 i = 0
                 for s in scan_directories:
                     scan_number = self.get_index(s, directory=True)
                     if scan_number:
                         i += 1
                         entry_name = f"f{i}"
+                        if entry_name in root and not overwrite:
+                            continue
                         root[entry_name] = self.config_file['f1']
                         entry = root[entry_name]
                         entry['scan_number'] = scan_number
@@ -407,7 +414,7 @@ class QM2Beamline(NXBeamLine):
             self.reduce.logger.info(f"'{spec_file}' does not exist")
             raise NeXusError('SPEC file not found')
 
-        with self.root.nxfile:
+        with self.reduce:
             scan_number = self.entry['scan_number'].nxvalue
             logs = SpecParser(spec_file).read(scan_number).NXentry[0]
             logs.nxclass = NXsubentry

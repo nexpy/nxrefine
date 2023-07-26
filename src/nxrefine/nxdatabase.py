@@ -195,7 +195,7 @@ class NXDatabase:
             if (f.entries is None or f.entries == ''
                     or isinstance(f.entries, int)):
                 root = nxload(filepath)
-                f.set_entries([e for e in root.entries if e != 'entry'])
+                f.set_entries([e for e in root.entries if e[-1].isdigit()])
             f = self.sync_data(filename)
         return f
 
