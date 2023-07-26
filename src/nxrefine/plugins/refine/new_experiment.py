@@ -9,11 +9,8 @@
 from pathlib import Path
 
 from nexpy.gui.datadialogs import NXDialog, GridParameters
-from nexpy.gui.pyqt import QtWidgets
 from nexpy.gui.utils import report_error
-from nexpy.gui.widgets import NXLineEdit, NXPushButton
 from nexusformat.nexus import NeXusError
-from nxrefine.nxbeamline import get_beamline
 from nxrefine.nxdatabase import NXDatabase
 from nxrefine.nxsettings import NXSettings
 
