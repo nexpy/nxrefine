@@ -33,8 +33,8 @@ class NXFileQueue(FileQueue):
         self.directory.mkdir(mode=0o777, exist_ok=True)
         tempdir = self.directory / 'tempdir'
         tempdir.mkdir(mode=0o777, exist_ok=True)
-        self.lockfile = self.directory / 'filequeue'
-        with NXLock(self.lockfile):
+        self.lock = NXLock(self.directory / 'filequeue')
+        with self.lock:
             super().__init__(directory, serializer=json, autosave=autosave,
                              tempdir=tempdir)
             self.fix_access()
@@ -42,24 +42,28 @@ class NXFileQueue(FileQueue):
     def __repr__(self):
         return f"NXFileQueue('{self.directory}')"
 
+    def __enter__(self):
+        self.lock.acquire()
+        self.info = self._loadinfo()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.fix_access()
+        self.lock.release()
+
     def put(self, item, block=True, timeout=None):
         """Add an item to the queue."""
-        with NXLock(self.lockfile):
-            self.info = self._loadinfo()
-            super().put(item, block=block, timeout=timeout)
-            self.fix_access()
+        with self:
+            super().put(str(item), block=block, timeout=timeout)
 
     def get(self, block=True, timeout=None):
         """Get the next item in the queue."""
-        with NXLock(self.lockfile):
-            self.info = self._loadinfo()
-            item = super().get(block=block, timeout=timeout)
-            self.fix_access()
+        with self:
+            item = str(super().get(block=block, timeout=timeout))
         return item
 
     def queued_items(self):
         """Return a list of items still remaining in the queue."""
-        with NXLock(self.lockfile):
+        with self:
             items = []
             while self.qsize() > 0:
                 items.append(super().get(timeout=0))
@@ -267,7 +271,7 @@ class NXServer(NXDaemon):
         """
         self.log(f'Starting server (pid={os.getpid()})')
         self.task_queue = NXFileQueue(self.queue_directory, autosave=True)
-        self.worker_queue = Queue(maxsize=len(self.cpus))
+        self.worker_queue = Queue()
         self.workers = [NXWorker(cpu, self.worker_queue, self.log_file)
                         for cpu in self.cpus]
         for worker in self.workers:
@@ -300,9 +304,13 @@ class NXServer(NXDaemon):
     def read_task(self):
         """Read the next task from the server queue"""
         try:
-            return self.task_queue.get(block=False)
+            task = self.task_queue.get(block=False)
         except Empty:
             return None
+        except Exception as error:
+            self.log(str(error))
+            return None
+        return task
 
     def remove_task(self, task):
         """Remove task from the server queue."""
@@ -325,9 +333,10 @@ class NXServer(NXDaemon):
 
     def clear(self):
         """Clear the server queue."""
-        if self.queue_directory.exists():
-            import shutil
-            shutil.rmtree(self.queue_directory, ignore_errors=True)
+        with self.task_queue.lock:
+            if self.queue_directory.exists():
+                import shutil
+                shutil.rmtree(self.queue_directory, ignore_errors=True)
         self.task_queue = NXFileQueue(self.queue_directory)
 
     def kill(self):
