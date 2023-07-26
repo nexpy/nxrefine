@@ -9,7 +9,7 @@
 from pathlib import Path
 
 from nexpy.gui.datadialogs import NXDialog, GridParameters
-from nexpy.gui.utils import report_error
+from nexpy.gui.utils import confirm_action, report_error
 from nexusformat.nexus import NeXusError
 from nxrefine.nxdatabase import NXDatabase
 from nxrefine.nxsettings import NXSettings
@@ -63,7 +63,12 @@ class ExperimentDialog(NXDialog):
             experiment_path = Path(analysis_home) / experiment
             if analysis_path:
                 experiment_path = experiment_path / analysis_path
-            experiment_path.mkdir(parents=True, exist_ok=True)
+            if not experiment_path.exists():
+                if confirm_action("Create experiment directory?",
+                                  f"{experiment_path}"):
+                    experiment_path.mkdir(parents=True, exist_ok=True)
+                else:
+                    return
             self.mainwindow.default_directory = str(experiment_path)
             configuration_directory = experiment_path / 'configurations'
             configuration_directory.mkdir(exist_ok=True)
