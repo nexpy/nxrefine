@@ -40,8 +40,9 @@ class NXBeamLine:
     """Generic class containing facility-specific information"""
 
     name = 'Unknown'
-    raw_home = Path('/')
-    experiment_home = Path('/')
+    source = 'Unknown'
+    raw_home = Path.home()
+    experiment_home = Path.home()
     experiment_directory_exists = False
     make_scans_enabled = True
     import_data_enabled = False
@@ -86,6 +87,7 @@ class NXBeamLine:
 class Sector6Beamline(NXBeamLine):
 
     name = '6-ID-D'
+    source = 'APS'
     raw_home = Path('/data/user6idd/dm/')
     experiment_home = Path('/data/user6idd/dm/')
     experiment_directory_exists = False
@@ -95,7 +97,6 @@ class Sector6Beamline(NXBeamLine):
     def __init__(self, reduce=None, *args, **kwargs):
         super().__init__(reduce)
         self.name = '6-ID-D'
-        self.source = 'APS'
         self.source_name = 'Advanced Photon Source'
         self.source_type = 'Synchrotron X-Ray Source'
 
@@ -107,7 +108,7 @@ class Sector6Beamline(NXBeamLine):
             root = nxopen(scan_file)
             temperature = root.entry.sample.temperature
             scan_dir = scan_file.stem.replace(self.sample+'_', '')
-            for entry in [root[e] for e in root if e != 'entry']:
+            for entry in [root[e] for e in root if e[-1].isdigit()]:
                 if 'phi_set' in entry['instrument/goniometer']:
                     phi_start = entry['instrument/goniometer/phi_set']
                 else:
@@ -244,7 +245,8 @@ class Sector6Beamline(NXBeamLine):
 class QM2Beamline(NXBeamLine):
 
     name = 'QM2'
-    raw_home = Path('/nfs/chess/id4b/')
+    source = 'CHESS'
+    raw_home = Path('/nfs/chess/id4b')
     experiment_home = Path('/nfs/chess/id4baux')
     experiment_directory_exists = True
     make_scans_enabled = False
@@ -252,7 +254,6 @@ class QM2Beamline(NXBeamLine):
 
     def __init__(self, reduce=None, directory=None):
         super().__init__(reduce=reduce, directory=directory)
-        self.source = 'CHESS'
         self.source_name = 'Cornell High-Energy Synchrotron'
         self.source_type = 'Synchrotron X-Ray Source'
         if reduce:

@@ -12,7 +12,7 @@ from pathlib import Path
 from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.pyqt import QtWidgets
 from nexpy.gui.utils import report_error
-from nexpy.gui.widgets import NXScrollArea
+from nexpy.gui.widgets import NXLabel, NXPushButton, NXScrollArea
 from nexusformat.nexus import NeXusError
 
 from nxrefine.nxsettings import NXSettings
@@ -20,29 +20,20 @@ from nxrefine.nxsettings import NXSettings
 
 def show_dialog():
     try:
-        dialog = SettingsDialog()
+        dialog = ExperimentSettingsDialog()
         dialog.show()
     except NeXusError as error:
-        report_error("Defining New Settings", error)
+        report_error("Editing Experiment Settings", error)
 
 
-class SettingsDialog(NXDialog):
+class ExperimentSettingsDialog(NXDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.settings_list = {'Default': 'default'}
-        for root in self.tree:
-            path = Path(self.tree[root].nxfilename)
-            task_directory = path.parent.parent.parent.joinpath('tasks')
-            if task_directory.exists():
-                self.settings_list[root] = task_directory
-        self.settings_box = self.select_box(self.settings_list,
-                                            slot=self.choose_settings)
+        self.directory_button = NXPushButton('Choose Experiment Directory',
+                                             self.choose_directory)
+        self.directoryname = NXLabel(bold=True)
         self.settings = NXSettings()
-        self.server_parameters = GridParameters()
-        defaults = self.settings.settings['server']
-        for p in defaults:
-            self.server_parameters.add(p, defaults[p], p)
         self.instrument_parameters = GridParameters()
         defaults = self.settings.settings['instrument']
         for p in defaults:
@@ -56,31 +47,24 @@ class SettingsDialog(NXDialog):
         for p in defaults:
             self.reduce_parameters.add(p, defaults[p], p)
         scroll_layout = self.make_layout(
-            self.server_parameters.grid(header=False, title='Server'),
+            self.make_layout(self.directoryname),
             self.instrument_parameters.grid(header=False,
                                             title='Instrument'),
             self.refine_parameters.grid(header=False, title='NXRefine'),
             self.reduce_parameters.grid(header=False, title='NXReduce'),
             vertical=True)
-        self.set_layout(self.make_layout(self.settings_box, align='center'),
-                        NXScrollArea(scroll_layout),
+        self.scroll_area = NXScrollArea(scroll_layout)
+        self.set_layout(self.make_layout(self.directory_button),
                         self.close_layout(save=True))
-        self.setMinimumWidth(400)
-        self.set_title('New Settings')
-        self.choose_settings()
+        self.set_title('Edit Experiment Settings')
 
-    def choose_settings(self):
-        settings_directory = self.settings_list[self.settings_box.selected]
-        if settings_directory == 'default':
-            self.settings = NXSettings()
-        else:
-            self.settings = NXSettings(settings_directory)
-        self.define_parameters()
-
-    def define_parameters(self):
-        defaults = self.settings.settings['server']
-        for p in defaults:
-            self.server_parameters[p].value = defaults[p]
+    def choose_directory(self):
+        super().choose_directory()
+        directory = Path(self.get_directory())
+        self.settings = NXSettings(directory)
+        if directory.name == 'tasks':
+            directory = directory.parent
+        self.directoryname.setText(directory.name)
         defaults = self.settings.settings['instrument']
         for p in defaults:
             self.instrument_parameters[p].value = defaults[p]
@@ -90,12 +74,12 @@ class SettingsDialog(NXDialog):
         defaults = self.settings.settings['nxreduce']
         for p in defaults:
             self.reduce_parameters[p].value = defaults[p]
+        if self.layout.count() == 2:
+            self.insert_layout(1, self.scroll_area)
+            self.setMinimumSize(300, 500)
 
     def accept(self):
         try:
-            for p in self.server_parameters:
-                self.settings.set('server', p,
-                                  self.server_parameters[p].value)
             for p in self.instrument_parameters:
                 self.settings.set('instrument', p,
                                   self.instrument_parameters[p].value)
@@ -108,4 +92,4 @@ class SettingsDialog(NXDialog):
             self.settings.save()
             super().accept()
         except Exception as error:
-            report_error("Defining New Settings", error)
+            report_error("Editing Experiment Settings", error)

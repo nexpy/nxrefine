@@ -28,13 +28,19 @@ class ConfigurationDialog(NXDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.settings = NXSettings().settings
-
         self.configuration_file = NXroot()
         self.configuration_file['entry'] = NXentry()
 
         self.detectors = {}
         self.entries = {}
+
+        self.set_layout(self.directorybox('Choose Experiment Directory',
+                                          default=False))
+        self.set_title('New Configuration')
+
+    def choose_directory(self):
+        super().choose_directory()
+        self.settings = NXSettings(self.get_directory()).settings
 
         self.setup_groups()
         self.setup_configuration()
@@ -42,15 +48,12 @@ class ConfigurationDialog(NXDialog):
         self.setup_scan()
         self.setup_instrument()
 
-        self.set_layout(self.directorybox('Choose Experiment Directory',
-                                          default=False),
-                        self.configuration.grid(header=False),
-                        self.analysis.grid(header=False,
-                                           title='Analysis Settings'),
-                        self.scan.grid(header=False, title='Scan Settings'),
-                        self.instrument.grid(header=False,
+        self.add_layout(self.configuration.grid(header=False))
+        self.add_layout(self.analysis.grid(header=False,
+                                           title='Analysis Settings'))
+        self.add_layout(self.scan.grid(header=False, title='Scan Settings'))
+        self.add_layout(self.instrument.grid(header=False,
                                              title='Detector Settings'))
-        self.set_title('New Configuration')
 
     def setup_groups(self):
         entry = self.configuration_file['entry']

@@ -86,7 +86,10 @@ class NXSettings(ConfigParser):
             if not self.has_option('server', p):
                 self.set('server', p, default[p])
                 settings_changed = True
-        default = {'source': None, 'instrument': None, 'raw_home': None}
+        default = {'source': None, 'instrument': None,
+                   'raw_home': None, 'raw_path': None,
+                   'analysis_home': None, 'analysis_path': None,
+                   'experiment': None}
         for p in default:
             if not self.has_option('instrument', p):
                 self.set('instrument', p, default[p])
