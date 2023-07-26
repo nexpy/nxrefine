@@ -340,7 +340,8 @@ class NXReduce(QtCore.QObject):
     def beamline(self):
         """NXBeamLine class for importing data and logs."""
         if self._beamline is None:
-            self._beamline = get_beamline()(self)
+            instrument = self.settings['instrument']['instrument']
+            self._beamline = get_beamline(instrument=instrument)(self)
         return self._beamline
 
     @property

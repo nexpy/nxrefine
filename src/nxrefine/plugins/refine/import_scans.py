@@ -13,6 +13,7 @@ from nexpy.gui.utils import display_message, report_error
 from nexpy.gui.widgets import NXLabel
 from nexusformat.nexus import NeXusError
 from nxrefine.nxbeamline import get_beamline
+from nxrefine.nxsettings import NXSettings
 
 
 def show_dialog():
@@ -27,12 +28,6 @@ class ImportDialog(NXDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.beamline = get_beamline()
-        if not self.beamline.import_data_enabled:
-            display_message(
-                "Importing Data",
-                f"Importing data not implemented for {self.beamline.name}")
-            self.reject()
         self.directory_box = self.directorybox('Choose Experiment Directory',
                                                self.choose_directory,
                                                default=False)
@@ -41,6 +36,33 @@ class ImportDialog(NXDialog):
 
     def choose_directory(self):
         super().choose_directory()
+        self.home_directory = Path(self.get_directory())
+        settings = NXSettings(self.home_directory).settings
+        self.beamline = get_beamline(settings['instrument']['instrument'])
+        if not self.beamline.import_data_enabled:
+            display_message(
+                "Importing Data",
+                f"Importing data not implemented for {self.beamline.name}")
+            self.reject()
+
+        analysis_home = Path(settings['instrument']['analysis_home'])
+        if analysis_home not in self.home_directory.parents:
+            display_message(
+                "Importing Data",
+                f"Chosen directory not relative to '{analysis_home}'.")
+            return
+        analysis_path = settings['instrument']['analysis_path']
+        if analysis_path and self.home_directory.name != analysis_path:
+            self.home_directory = self.home_directory / analysis_path
+        experiment = self.home_directory.parent.relative_to(analysis_home)
+        raw_home = Path(settings['instrument']['raw_home'])
+        raw_path = settings['instrument']['raw_path']
+        self.raw_directory = raw_home / experiment / raw_path
+        if not self.raw_directory.exists():
+            display_message(
+                "Importing Data",
+                f"Raw directory '{self.raw_directory}' does not exist.")
+            return
         self.sample_box = self.select_box(self.get_samples())
         self.sample_layout = self.make_layout(
             NXLabel("Sample: "), self.sample_box)
@@ -52,14 +74,6 @@ class ImportDialog(NXDialog):
         self.insert_layout(
             3, self.checkboxes(('overwrite', 'Overwrite Existing Files',
                                 False)))
-
-    @property
-    def home_directory(self):
-        directory = Path(self.get_directory())
-        if directory.name != 'nxrefine':
-            return directory / 'nxrefine'
-        else:
-            return directory
 
     @property
     def sample(self):
@@ -74,13 +88,8 @@ class ImportDialog(NXDialog):
         return self.checkbox['overwrite'].isChecked()
 
     def get_samples(self):
-        raw_directory = (
-            self.beamline.raw_home /
-            self.home_directory.parent.relative_to(
-                self.beamline.experiment_home) / 'raw6M'
-            )
-        if raw_directory.exists():
-            sample_directories = [f for f in raw_directory.iterdir()
+        if self.raw_directory.exists():
+            sample_directories = [f for f in self.raw_directory.iterdir()
                                   if f.is_dir()]
         else:
             return []
@@ -89,7 +98,7 @@ class ImportDialog(NXDialog):
             label_directories = [f for f in sample_directory.iterdir()
                                  if f.is_dir()]
             for label_directory in label_directories:
-                samples.append(label_directory.relative_to(raw_directory))
+                samples.append(label_directory.relative_to(self.raw_directory))
         return [str(sample) for sample in samples]
 
     def get_configurations(self):
