@@ -15,6 +15,7 @@ from nexpy.gui.utils import display_message, natural_sort, report_error
 from nexpy.gui.widgets import NXScrollArea
 from nexusformat.nexus import NeXusError
 from nxrefine.nxbeamline import get_beamline
+from nxrefine.nxsettings import NXSettings
 
 
 def show_dialog():
@@ -29,12 +30,6 @@ class MakeDialog(NXDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.beamline = get_beamline()
-        if not self.beamline.make_scans_enabled:
-            display_message(
-                "Making Scans",
-                f"Making scan macros not implemented for {self.beamline.name}")
-            self.reject()
         self.scans = None
         self.set_layout(
             self.directorybox("Choose Sample Directory", self.choose_sample),
@@ -50,6 +45,14 @@ class MakeDialog(NXDialog):
     def choose_sample(self):
         super().choose_directory()
         self.scan_path = Path(self.get_directory())
+        instrument = NXSettings(
+            self.scan_path.parent.parent).settings['instrument']['instrument']
+        self.beamline = get_beamline(instrument)
+        if not self.beamline.make_scans_enabled:
+            display_message(
+                "Making Scans",
+                f"Making scan macros not implemented for {self.beamline.name}")
+            self.reject()
         self.macro_directory = self.scan_path.parent.parent / 'macros'
         self.sample = self.scan_path.parent.name
         self.setup_scans()

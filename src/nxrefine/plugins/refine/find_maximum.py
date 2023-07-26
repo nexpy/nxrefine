@@ -293,7 +293,7 @@ class MaximumDialog(NXDialog):
             self.entry['instrument/sample/transmission'] = transmission
             if self.copy:
                 for entry in [self.root[e] for e in self.root if
-                              e != self.entry.nxname and e != 'entry']:
+                              e != self.entry.nxname and e[-1].isdigit()]:
                     if 'instrument' not in entry:
                         entry['instrument'] = NXinstrument()
                     if 'sample' not in entry['instrument']:

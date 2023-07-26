@@ -302,7 +302,7 @@ class NXReduce(QtCore.QObject):
     @property
     def settings(self):
         if self._settings is None:
-            self._settings = NXSettings().settings
+            self._settings = NXSettings(self.task_directory).settings
         return self._settings
 
     @property
@@ -340,7 +340,8 @@ class NXReduce(QtCore.QObject):
     def beamline(self):
         """NXBeamLine class for importing data and logs."""
         if self._beamline is None:
-            self._beamline = get_beamline()(self)
+            instrument = self.settings['instrument']['instrument']
+            self._beamline = get_beamline(instrument=instrument)(self)
         return self._beamline
 
     @property

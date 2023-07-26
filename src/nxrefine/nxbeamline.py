@@ -26,11 +26,12 @@ file_index_pattern = re.compile(r'^(.*?)([0-9]*)[.](.*)$')
 directory_index_pattern = re.compile(r'^(.*?)([0-9]*)$')
 
 
-def get_beamline():
-    beamline = NXSettings().settings['instrument']['instrument']
-    if beamline == 'Sector6' or beamline == '6-ID-D':
+def get_beamline(instrument=None):
+    if instrument is None:
+        instrument = NXSettings().settings['instrument']['instrument']
+    if instrument == 'Sector6' or instrument == '6-ID-D':
         return Sector6Beamline
-    elif beamline == 'QM2':
+    elif instrument == 'QM2':
         return QM2Beamline
     else:
         return NXBeamLine
@@ -40,9 +41,6 @@ class NXBeamLine:
     """Generic class containing facility-specific information"""
 
     name = 'Unknown'
-    raw_home = Path('/')
-    experiment_home = Path('/')
-    experiment_directory_exists = False
     make_scans_enabled = True
     import_data_enabled = False
 
@@ -60,6 +58,11 @@ class NXBeamLine:
             self.base_directory = Path(directory)
             self.label = self.base_directory.name
             self.sample = self.base_directory.parent.name
+        settings = NXSettings(self.base_directory.parent.parent).settings
+        self.experiment = settings['instrument']['experiment']
+        self.raw_home = Path(settings['instrument']['raw_home'])
+        self.raw_path = settings['instrument']['raw_path']
+        self.raw_directory = self.raw_home / self.experiment / self.raw_path
         self.probe = 'xrays'
 
     def __repr__(self):
@@ -86,16 +89,11 @@ class NXBeamLine:
 class Sector6Beamline(NXBeamLine):
 
     name = '6-ID-D'
-    raw_home = Path('/data/user6idd/dm/')
-    experiment_home = Path('/data/user6idd/dm/')
-    experiment_directory_exists = False
     make_scans_enabled = True
     import_data_enabled = False
 
     def __init__(self, reduce=None, *args, **kwargs):
         super().__init__(reduce)
-        self.name = '6-ID-D'
-        self.source = 'APS'
         self.source_name = 'Advanced Photon Source'
         self.source_type = 'Synchrotron X-Ray Source'
 
@@ -107,7 +105,7 @@ class Sector6Beamline(NXBeamLine):
             root = nxopen(scan_file)
             temperature = root.entry.sample.temperature
             scan_dir = scan_file.stem.replace(self.sample+'_', '')
-            for entry in [root[e] for e in root if e != 'entry']:
+            for entry in [root[e] for e in root if e[-1].isdigit()]:
                 if 'phi_set' in entry['instrument/goniometer']:
                     phi_start = entry['instrument/goniometer/phi_set']
                 else:
@@ -244,29 +242,17 @@ class Sector6Beamline(NXBeamLine):
 class QM2Beamline(NXBeamLine):
 
     name = 'QM2'
-    raw_home = Path('/nfs/chess/id4b/')
-    experiment_home = Path('/nfs/chess/id4baux')
-    experiment_directory_exists = True
     make_scans_enabled = False
     import_data_enabled = True
 
     def __init__(self, reduce=None, directory=None):
         super().__init__(reduce=reduce, directory=directory)
-        self.source = 'CHESS'
         self.source_name = 'Cornell High-Energy Synchrotron'
         self.source_type = 'Synchrotron X-Ray Source'
-        if reduce:
-            parts = self.directory.parts
-            experiment_path = Path(parts[-6], parts[-5])
-        elif directory:
-            parts = self.base_directory.parts
-            experiment_path = Path(parts[-5], parts[-4])
-        self.raw_directory = self.raw_home / experiment_path
-        self.experiment_directory = self.experiment_home / experiment_path
 
     def import_data(self, config_file, overwrite=False):
         self.config_file = nxopen(config_file)
-        scans = self.raw_directory / 'raw6M' / self.sample / self.label
+        scans = self.raw_directory / self.sample / self.label
         y_size, x_size = self.config_file['f1/instrument/detector/shape']
         for scan in [s for s in scans.iterdir() if s.is_dir()]:
             scan_name = self.sample+'_'+scan.name+'.nxs'
@@ -317,7 +303,7 @@ class QM2Beamline(NXBeamLine):
         try:
             self.scan_number = self.entry['scan_number'].nxvalue
             scan_directory = f"{self.sample}_{self.scan_number:03d}"
-            self.image_directory = (self.raw_directory / 'raw6M' /
+            self.image_directory = (self.raw_directory /
                                     self.sample / self.label /
                                     self.scan / scan_directory)
             entry_file = self.entry.nxname+'.h5temp'

@@ -1,25 +1,21 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2013-2022, AXMAS Development Team.
+# Copyright (c) 2013-2023, AXMAS Development Team.
 #
 # Distributed under the terms of the Modified BSD License.
 #
 # The full license is in the file COPYING, distributed with this software.
 # -----------------------------------------------------------------------------
 
-from . import new_settings, new_experiment, new_configuration
-from . import choose_parameters, calibrate_powder, create_mask
-from . import new_sample, new_scan, make_scans, import_scans, sum_scans
-from . import find_maximum, find_peaks, prepare_mask
-from . import calculate_angles, copy_parameters
-from . import define_lattice, refine_lattice
-from . import transform_data
-from . import manage_servers, manage_workflows
+from . import (calculate_angles, calibrate_powder, choose_parameters,
+               copy_parameters, create_mask, define_lattice, edit_settings,
+               find_maximum, find_peaks, import_scans, make_scans,
+               new_configuration, new_experiment, new_sample, new_scan,
+               prepare_mask, refine_lattice, sum_scans, transform_data)
 
 
 def plugin_menu():
     menu = 'Refine'
     actions = []
-    actions.append(('New Settings', new_settings.show_dialog))
     actions.append(('New Experiment', new_experiment.show_dialog))
     actions.append(('New Configuration', new_configuration.show_dialog))
     actions.append(('Choose Parameters', choose_parameters.show_dialog))
@@ -38,6 +34,5 @@ def plugin_menu():
     actions.append(('Define Lattice', define_lattice.show_dialog))
     actions.append(('Refine Lattice', refine_lattice.show_dialog))
     actions.append(('Transform Data', transform_data.show_dialog))
-    actions.append(('Manage Workflows', manage_workflows.show_dialog))
-    actions.append(('Manage Servers', manage_servers.show_dialog))
+    actions.append(('Edit Settings', edit_settings.show_dialog))
     return menu, actions

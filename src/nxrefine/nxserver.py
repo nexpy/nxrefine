@@ -180,7 +180,7 @@ class NXServer(NXDaemon):
 
     def initialize(self, directory, server_type, nodes, concurrent,
                    run_command, template):
-        self.settings = NXSettings(directory=directory)
+        self.settings = NXSettings(default=directory)
         self.directory = Path(self.settings.directory)
         if server_type:
             self.server_type = server_type

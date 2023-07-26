@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2015-2021, NeXpy Development Team.
+# Copyright (c) 2015-2023, NeXpy Development Team.
 #
 # Distributed under the terms of the Modified BSD License.
 #
@@ -7,47 +7,29 @@
 # -----------------------------------------------------------------------------
 
 import os
+from pathlib import Path
 
 from nexpy.gui.datadialogs import GridParameters, NXDialog
-from nexpy.gui.widgets import NXScrollArea
 from nexpy.gui.utils import report_error
+from nexpy.gui.widgets import NXScrollArea
 from nexusformat.nexus import NeXusError
+
 from nxrefine.nxsettings import NXSettings
 
 
 def show_dialog():
     try:
-        dialog = SettingsDialog()
+        dialog = DefaultSettingsDialog()
         dialog.show()
     except NeXusError as error:
-        report_error("Defining New Settings", error)
+        report_error("Editing Default Settings", error)
 
 
-class SettingsDialog(NXDialog):
+class DefaultSettingsDialog(NXDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        try:
-            self.settings = NXSettings()
-            default_directory = self.settings.directory
-        except NeXusError:
-            self.settings = None
-            default_directory = ""
-        self.set_layout(
-            self.directorybox('Choose Settings Directory',
-                              suggestion=default_directory),
-            self.close_layout(save=True))
-        if self.settings:
-            self.define_parameters()
-        self.set_title('New Settings')
-
-    def choose_directory(self):
-        super().choose_directory()
-        directory = self.get_directory()
-        self.settings = NXSettings(directory=directory)
-        self.define_parameters()
-
-    def define_parameters(self):
+        self.settings = NXSettings()
         self.server_parameters = GridParameters()
         defaults = self.settings.settings['server']
         for p in defaults:
@@ -64,15 +46,17 @@ class SettingsDialog(NXDialog):
         defaults = self.settings.settings['nxreduce']
         for p in defaults:
             self.reduce_parameters.add(p, defaults[p], p)
-        if self.layout.count() == 2:
-            scroll_layout = self.make_layout(
-                self.server_parameters.grid(header=False, title='Server'),
-                self.instrument_parameters.grid(header=False,
-                                                title='Instrument'),
-                self.refine_parameters.grid(header=False, title='NXRefine'),
-                self.reduce_parameters.grid(header=False, title='NXReduce'),
-                vertical=True)
-            self.insert_layout(1, NXScrollArea(scroll_layout))
+        scroll_layout = self.make_layout(
+            self.server_parameters.grid(header=False, title='Server'),
+            self.instrument_parameters.grid(header=False,
+                                            title='Instrument'),
+            self.refine_parameters.grid(header=False, title='NXRefine'),
+            self.reduce_parameters.grid(header=False, title='NXReduce'),
+            vertical=True)
+        self.set_layout(NXScrollArea(scroll_layout),
+                        self.close_layout(save=True))
+        self.setMinimumWidth(300)
+        self.set_title('Edit Settings')
 
     def accept(self):
         try:
@@ -91,4 +75,4 @@ class SettingsDialog(NXDialog):
             self.settings.save()
             super().accept()
         except Exception as error:
-            report_error("Defining New Settings", error)
+            report_error("Editing Default Settings", error)

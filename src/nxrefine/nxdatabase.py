@@ -226,7 +226,7 @@ class NXDatabase:
             else:
                 scan_files = []
             root = nxload(filepath)
-            entries = [e for e in root.entries if e != 'entry']
+            entries = [e for e in root.entries if e[-1].isdigit()]
             tasks = {t: 0 for t in self.task_names}
             for e in entries:
                 nxentry = root[e]
