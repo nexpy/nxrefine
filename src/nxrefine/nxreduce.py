@@ -187,6 +187,7 @@ class NXReduce(QtCore.QObject):
         self._parent_root = None
         self._parent_entry = None
         self._entries = entries
+        self._mode = 'r'
 
         self._threshold = threshold
         self._min_pixels = min_pixels
@@ -257,12 +258,14 @@ class NXReduce(QtCore.QObject):
         return f"NXReduce('{self.name}')"
 
     def __enter__(self):
+        self._mode = self.root.nxfilemode
         self.root.unlock()
         return self.root.__enter__()
 
     def __exit__(self, *args):
         self.root.__exit__()
-        self.root.lock()
+        if self._mode == 'r':
+            self.root.lock()
 
     @property
     def task_directory(self):
