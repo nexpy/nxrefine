@@ -19,9 +19,15 @@ class NXSettings(ConfigParser):
         super().__init__(allow_no_value=True)
         self.file = self.get_file(experiment=experiment, default=default)
         self.directory = self.file.parent
-        super().read(self.file)
+        self.experiment = experiment
+        self.read(self.file)
         sections = self.sections()
-        if 'server' not in sections:
+        if experiment:
+            if 'server' in sections:
+                self.remove_section('server')
+            if 'nodes' in sections:
+                self.remove_section('nodes')
+        elif 'server' not in sections:
             self.add_section('server')
         if 'instrument' not in sections:
             self.add_section('instrument')
@@ -80,16 +86,16 @@ class NXSettings(ConfigParser):
 
     def add_defaults(self):
         settings_changed = False
-        default = {'type': 'multicore', 'cores': 4, 'concurrent': True,
-                   'run_command': None, 'template': None, 'cctw': 'cctw'}
-        for p in default:
-            if not self.has_option('server', p):
-                self.set('server', p, default[p])
-                settings_changed = True
+        if self.experiment is None:
+            default = {'type': 'multicore', 'cores': 4, 'concurrent': True,
+                       'run_command': None, 'template': None, 'cctw': 'cctw'}
+            for p in default:
+                if not self.has_option('server', p):
+                    self.set('server', p, default[p])
+                    settings_changed = True
         default = {'source': None, 'instrument': None,
                    'raw_home': None, 'raw_path': None,
-                   'analysis_home': None, 'analysis_path': None,
-                   'experiment': None}
+                   'analysis_home': None, 'analysis_path': None}
         for p in default:
             if not self.has_option('instrument', p):
                 self.set('instrument', p, default[p])
@@ -129,7 +135,8 @@ class NXSettings(ConfigParser):
     @property
     def settings(self):
         _settings = {}
-        _settings['server'] = {k: v for (k, v) in self.items('server')}
+        if self.experiment is None:
+            _settings['server'] = {k: v for (k, v) in self.items('server')}
         _settings['instrument'] = {k: v for (k, v) in self.items('instrument')}
         _settings['nxrefine'] = {k: v for (k, v) in self.items('nxrefine')}
         _settings['nxreduce'] = {k: v for (k, v) in self.items('nxreduce')}

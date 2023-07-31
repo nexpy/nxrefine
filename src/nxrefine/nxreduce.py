@@ -187,6 +187,7 @@ class NXReduce(QtCore.QObject):
         self._parent_root = None
         self._parent_entry = None
         self._entries = entries
+        self._mode = 'r'
 
         self._threshold = threshold
         self._min_pixels = min_pixels
@@ -244,6 +245,7 @@ class NXReduce(QtCore.QObject):
         self._server = None
         self._db = None
         self._logger = None
+        self._cctw = None
 
         nxsetconfig(lock=600, lockexpiry=28800)
 
@@ -256,12 +258,14 @@ class NXReduce(QtCore.QObject):
         return f"NXReduce('{self.name}')"
 
     def __enter__(self):
+        self._mode = self.root.nxfilemode
         self.root.unlock()
         return self.root.__enter__()
 
     def __exit__(self, *args):
         self.root.__exit__()
-        self.root.lock()
+        if self._mode == 'r':
+            self.root.lock()
 
     @property
     def task_directory(self):
@@ -768,6 +772,17 @@ class NXReduce(QtCore.QObject):
     @maximum.setter
     def maximum(self, value):
         self._maximum = value
+
+    @property
+    def cctw(self):
+        if self._cctw is None:
+            server_settings = NXSettings().settings
+            if ('cctw' in server_settings['server'] and
+                    server_settings['server']['cctw']):
+                self._cctw = server_settings['server']['cctw']
+            else:
+                self._cctw = 'cctw'
+        return self._cctw
 
     def complete(self, task):
         """True if the task for this entry in the wrapper file is done """
@@ -1648,10 +1663,7 @@ class NXReduce(QtCore.QObject):
             if command and os.path.exists(self.transform_file):
                 with NXLock(self.transform_file):
                     os.remove(self.transform_file)
-            if 'cctw' in self.settings['server']:
-                if self.settings['server']['cctw']:
-                    command = command.replace(
-                        'cctw', self.settings['server']['cctw'])
+            command = command.replace('cctw', self.cctw)
             return command
         else:
             self.logger.info("Invalid HKL grid")
@@ -2018,12 +2030,7 @@ class NXMultiReduce(NXReduce):
             for entry in self.entries])
         output = os.path.join(self.directory,
                               fr'{self.transform_path}.nxs\#/entry/data/v')
-        if ('cctw' in self.settings['server'] and
-                self.settings['server']['cctw']):
-            cctw = self.settings['server']['cctw']
-        else:
-            cctw = 'cctw'
-        return f"{cctw} merge {input} --normalization 1 -o {output}"
+        return f"{self.cctw} merge {input} --normalization 1 -o {output}"
 
     def add_title(self, data):
         title = []
