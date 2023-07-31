@@ -10,7 +10,6 @@ import os
 from pathlib import Path
 
 from nexpy.gui.datadialogs import GridParameters, NXDialog
-from nexpy.gui.pyqt import QtWidgets
 from nexpy.gui.utils import report_error
 from nexpy.gui.widgets import NXLabel, NXPushButton, NXScrollArea
 from nexusformat.nexus import NeXusError
@@ -36,6 +35,8 @@ class ExperimentSettingsDialog(NXDialog):
         self.settings = NXSettings()
         self.instrument_parameters = GridParameters()
         defaults = self.settings.settings['instrument']
+        if 'experiment' not in defaults:
+            defaults['experiment'] = ''
         for p in defaults:
             self.instrument_parameters.add(p, defaults[p], p)
         self.refine_parameters = GridParameters()
@@ -60,14 +61,40 @@ class ExperimentSettingsDialog(NXDialog):
 
     def choose_directory(self):
         super().choose_directory()
-        directory = Path(self.get_directory())
+        directory = self.get_directory()
+        if directory:
+            directory = Path(directory)
+        else:
+            self.reject()
+            return
         self.settings = NXSettings(directory)
         if directory.name == 'tasks':
             directory = directory.parent
         self.directoryname.setText(directory.name)
         defaults = self.settings.settings['instrument']
+        if 'experiment' not in defaults:
+            defaults['experiment'] = ''
         for p in defaults:
-            self.instrument_parameters[p].value = defaults[p]
+            if p == 'experiment':
+                self.instrument_parameters[p].value = directory.name
+                experiment_path = directory
+            elif p == 'raw_home' and not defaults[p]:
+                self.instrument_parameters[p].value = str(directory.parent)
+            elif p == 'analysis_home' and not defaults[p]:
+                self.instrument_parameters[p].value = str(directory.parent)
+            else:
+                self.instrument_parameters[p].value = defaults[p]
+        rhp = Path(self.instrument_parameters['raw_home'].value)
+        if rhp in experiment_path.parents:
+            rhp = rhp / experiment_path.parent.relative_to(rhp)
+            self.instrument_parameters['raw_home'].value = str(rhp)
+            if defaults['analysis_home'] == defaults['raw_home']:
+                self.instrument_parameters['analysis_home'].value = str(rhp)
+        else:
+            self.display_message(
+                'Warning: Raw Home Inconsistency',
+                'The chosen experiment directory is not in the default '
+                f"location '{defaults['raw_home']}'")
         defaults = self.settings.settings['nxrefine']
         for p in defaults:
             self.refine_parameters[p].value = defaults[p]
