@@ -42,6 +42,9 @@ class NXSettings(ConfigParser):
             self.save()
         self.add_defaults()
 
+    def __repr__(self):
+        return f"NXSettings({self.file})"
+
     def get_file(self, experiment=None, default=None):
         self.home_settings = ConfigParser()
         home_directory = Path.home() / '.nxserver'

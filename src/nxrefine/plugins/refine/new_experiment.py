@@ -10,6 +10,7 @@ from pathlib import Path
 
 from nexpy.gui.datadialogs import NXDialog, GridParameters
 from nexpy.gui.utils import confirm_action, report_error
+from nexpy.gui.widgets import NXLabel, NXPushButton
 from nexusformat.nexus import NeXusError
 from nxrefine.nxdatabase import NXDatabase
 from nxrefine.nxsettings import NXSettings
@@ -17,16 +18,19 @@ from nxrefine.nxsettings import NXSettings
 
 def show_dialog():
     try:
-        dialog = ExperimentDialog()
+        dialog = NewExperimentDialog()
         dialog.show()
     except NeXusError as error:
         report_error("Defining New Experiment", error)
 
 
-class ExperimentDialog(NXDialog):
+class NewExperimentDialog(NXDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.directory_button = NXPushButton('Choose Experiment Directory',
+                                             self.choose_directory)
+
         settings = NXSettings().settings
         self.parameters = GridParameters()
         defaults = settings['instrument']
@@ -41,9 +45,48 @@ class ExperimentDialog(NXDialog):
         self.parameters.add('analysis_path', defaults['analysis_path'],
                             'Analysis Subdirectory')
         self.parameters.add('experiment', '', 'Name of Experiment')
-        self.set_layout(self.parameters.grid(header=False, width=200),
+        self.directoryname = NXLabel(settings['instrument']['raw_home'])
+        self.set_default_directory(settings['instrument']['raw_home'])
+        self.set_layout(self.make_layout(self.directory_button),
+                        self.parameters.grid(header=False, width=200),
                         self.close_layout(save=True))
         self.set_title('New Experiment')
+
+    def choose_directory(self):
+        super().choose_directory()
+        directory = self.get_directory()
+        if directory:
+            directory = Path(directory)
+        else:
+            self.reject()
+            return
+        ahp = Path(self.parameters['analysis_home'].value)
+        rhp = Path(self.parameters['raw_home'].value)
+        if rhp in directory.parents:
+            if directory.name == self.parameters['raw_path'].value:
+                directory = directory.parent
+            ahp = ahp / directory.parent.relative_to(rhp)
+            rhp = rhp / directory.parent.relative_to(rhp)
+        elif ahp in directory.parents:
+            if directory.name == self.parameters['analysis_path'].value:
+                directory = directory.parent
+            rhp = rhp / directory.parent.relative_to(ahp)
+            ahp = ahp / directory.parent.relative_to(ahp)
+        else:
+            self.display_message(
+                'Warning: Raw Home Inconsistency',
+                'The chosen experiment directory is not in the default '
+                f"location '{rhp}'")
+            return
+        self.parameters['experiment'].value = str(directory.name)
+        self.parameters['raw_home'].value = str(rhp)
+        self.parameters['analysis_home'].value = str(ahp)
+        self.activate()
+
+    def activate(self):
+        self.raise_()
+        self.activateWindow()
+        self.setFocus()
 
     def accept(self):
         try:
