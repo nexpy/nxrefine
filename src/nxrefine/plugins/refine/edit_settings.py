@@ -32,19 +32,21 @@ class ExperimentSettingsDialog(NXDialog):
         self.directory_button = NXPushButton('Choose Experiment Directory',
                                              self.choose_directory)
         self.directoryname = NXLabel(bold=True)
-        self.settings = NXSettings()
+        settings = NXSettings().settings
+        self.default_directory = settings['instrument']['analysis_home']
+        self.analysis_path = settings['instrument']['analysis_path']
         self.instrument_parameters = GridParameters()
-        defaults = self.settings.settings['instrument']
+        defaults = settings['instrument']
         if 'experiment' not in defaults:
             defaults['experiment'] = ''
         for p in defaults:
             self.instrument_parameters.add(p, defaults[p], p)
         self.refine_parameters = GridParameters()
-        defaults = self.settings.settings['nxrefine']
+        defaults = settings['nxrefine']
         for p in defaults:
             self.refine_parameters.add(p, defaults[p], p)
         self.reduce_parameters = GridParameters()
-        defaults = self.settings.settings['nxreduce']
+        defaults = settings['nxreduce']
         for p in defaults:
             self.reduce_parameters.add(p, defaults[p], p)
         scroll_layout = self.make_layout(
@@ -60,6 +62,8 @@ class ExperimentSettingsDialog(NXDialog):
         self.set_title('Edit Experiment Settings')
 
     def choose_directory(self):
+        if self.default_directory:
+            self.set_default_directory(self.default_directory)
         super().choose_directory()
         directory = self.get_directory()
         if directory:
@@ -67,9 +71,11 @@ class ExperimentSettingsDialog(NXDialog):
         else:
             self.reject()
             return
-        self.settings = NXSettings(directory)
-        if directory.name == 'tasks':
+        if directory.name == self.analysis_path:
             directory = directory.parent
+        elif directory.name == 'tasks':
+            directory = directory.parent.parent
+        self.settings = NXSettings(directory / self.analysis_path)
         self.directoryname.setText(directory.name)
         defaults = self.settings.settings['instrument']
         if 'experiment' not in defaults:
@@ -77,24 +83,28 @@ class ExperimentSettingsDialog(NXDialog):
         for p in defaults:
             if p == 'experiment':
                 self.instrument_parameters[p].value = directory.name
-                experiment_path = directory
+                expt_path = directory
             elif p == 'raw_home' and not defaults[p]:
                 self.instrument_parameters[p].value = str(directory.parent)
             elif p == 'analysis_home' and not defaults[p]:
                 self.instrument_parameters[p].value = str(directory.parent)
             else:
                 self.instrument_parameters[p].value = defaults[p]
+        if expt_path.name == self.instrument_parameters['analysis_path'].value:
+            expt_path = expt_path.parent
+        ahp = Path(self.instrument_parameters['analysis_home'].value)
         rhp = Path(self.instrument_parameters['raw_home'].value)
-        if rhp in experiment_path.parents:
-            rhp = rhp / experiment_path.parent.relative_to(rhp)
-            self.instrument_parameters['raw_home'].value = str(rhp)
-            if defaults['analysis_home'] == defaults['raw_home']:
-                self.instrument_parameters['analysis_home'].value = str(rhp)
+        if ahp in directory.parents:
+            rhp = rhp / directory.parent.relative_to(ahp)
+            ahp = ahp / directory.parent.relative_to(ahp)
         else:
             self.display_message(
-                'Warning: Raw Home Inconsistency',
+                'Warning: Invalid Location',
                 'The chosen experiment directory is not in the default '
-                f"location '{defaults['raw_home']}'")
+                f"location '{ahp}'")
+            return
+        self.instrument_parameters['analysis_home'].value = str(ahp)
+        self.instrument_parameters['raw_home'].value = str(rhp)
         defaults = self.settings.settings['nxrefine']
         for p in defaults:
             self.refine_parameters[p].value = defaults[p]
@@ -104,6 +114,12 @@ class ExperimentSettingsDialog(NXDialog):
         if self.layout.count() == 2:
             self.insert_layout(1, self.scroll_area)
             self.setMinimumSize(300, 500)
+        self.activate()
+
+    def activate(self):
+        self.raise_()
+        self.activateWindow()
+        self.setFocus()
 
     def accept(self):
         try:
