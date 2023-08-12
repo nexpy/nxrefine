@@ -19,13 +19,13 @@ from nxrefine.nxsettings import NXSettings
 
 def show_dialog():
     try:
-        dialog = DefaultSettingsDialog()
+        dialog = ServerSettingsDialog()
         dialog.show()
     except NeXusError as error:
         report_error("Editing Default Settings", error)
 
 
-class DefaultSettingsDialog(NXDialog):
+class ServerSettingsDialog(NXDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
