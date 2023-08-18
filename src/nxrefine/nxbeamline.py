@@ -41,7 +41,9 @@ class NXBeamLine:
     """Generic class containing facility-specific information"""
 
     name = 'Unknown'
-    make_scans_enabled = True
+    source_name = 'Unknown'
+    source_type = 'Synchrotron X-Ray Source'
+    make_scans_enabled = False
     import_data_enabled = False
 
     def __init__(self, reduce=None, directory=None, *args, **kwargs):
@@ -89,13 +91,12 @@ class NXBeamLine:
 class Sector6Beamline(NXBeamLine):
 
     name = '6-ID-D'
+    source_name = 'Advanced Photon Source'
     make_scans_enabled = True
     import_data_enabled = False
 
     def __init__(self, reduce=None, *args, **kwargs):
         super().__init__(reduce)
-        self.source_name = 'Advanced Photon Source'
-        self.source_type = 'Synchrotron X-Ray Source'
 
     def make_scans(self, scan_files, command='Pil2Mscan'):
         command = self.textbox['Scan Command'].text()
@@ -203,7 +204,7 @@ class Sector6Beamline(NXBeamLine):
                         self.entry['data/frame_time'])
             if 'source' not in self.entry['instrument']:
                 self.entry['instrument/source'] = NXsource()
-            self.entry['instrument/source/name'] = self.source
+            self.entry['instrument/source/name'] = self.source_name
             self.entry['instrument/source/type'] = self.source_type
             self.entry['instrument/source/probe'] = 'x-ray'
             if 'Storage_Ring_Current' in logs:
@@ -242,13 +243,12 @@ class Sector6Beamline(NXBeamLine):
 class QM2Beamline(NXBeamLine):
 
     name = 'QM2'
+    source_name = 'Cornell High-Energy Synchrotron'
     make_scans_enabled = False
     import_data_enabled = True
 
     def __init__(self, reduce=None, directory=None):
         super().__init__(reduce=reduce, directory=directory)
-        self.source_name = 'Cornell High-Energy Synchrotron'
-        self.source_type = 'Synchrotron X-Ray Source'
 
     def import_data(self, config_file, overwrite=False):
         self.config_file = nxopen(config_file)
@@ -440,7 +440,7 @@ class QM2Beamline(NXBeamLine):
                 self.entry['instrument'] = NXinstrument()
             if 'source' not in self.entry['instrument']:
                 self.entry['instrument/source'] = NXsource()
-            self.entry['instrument/source/name'] = self.source
+            self.entry['instrument/source/name'] = self.source_name
             self.entry['instrument/source/type'] = self.source_type
             self.entry['instrument/source/probe'] = 'x-ray'
             if 'goniometer' not in self.entry['instrument']:
