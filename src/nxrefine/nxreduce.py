@@ -1374,10 +1374,10 @@ class NXReduce(QtCore.QObject):
             if 'peaks' in self.entry:
                 del self.entry['peaks']
             self.entry['peaks'] = group
-            refine = NXRefine(self.entry)
-            polar_angles, azimuthal_angles = refine.calculate_angles(refine.xp,
-                                                                     refine.yp)
-            refine.write_angles(polar_angles, azimuthal_angles)
+        refine = NXRefine(self.entry)
+        polar_angles, azimuthal_angles = refine.calculate_angles(refine.xp,
+                                                                 refine.yp)
+        refine.write_angles(polar_angles, azimuthal_angles)
         self.clear_parameters(['threshold', 'first', 'last'])
 
     def nxrefine(self):
@@ -1393,15 +1393,15 @@ class NXReduce(QtCore.QObject):
                     lattice = True
                 else:
                     lattice = False
-                result = self.refine_parameters(lattice=lattice)
-                if result:
+                refine = self.refine_parameters(lattice=lattice)
+                if refine:
                     if not self.gui:
-                        self.write_refinement(result)
+                        refine.write_parameters()
                     self.write_parameters(polar_max=self.polar_max,
                                           hkl_tolerance=self.hkl_tolerance)
                     self.record('nxrefine', polar_max=self.polar_max,
                                 hkl_tolerance=self.hkl_tolerance,
-                                fit_report=result.fit_report)
+                                fit_report=refine.fit_report)
                     self.record_end('nxrefine')
                 else:
                     self.record_fail('nxrefine')
@@ -1429,10 +1429,6 @@ class NXReduce(QtCore.QObject):
         else:
             self.logger.info("HKL refinement not successful")
             return None
-
-    def write_refinement(self, refine):
-        with self:
-            refine.write_parameters()
 
     def nxprepare(self):
         if self.not_processed('nxprepare_mask') and self.prepare:
@@ -1656,8 +1652,7 @@ class NXReduce(QtCore.QObject):
             refine.k_start, refine.k_step, refine.k_stop = self.Qk
             refine.l_start, refine.l_step, refine.l_stop = self.Ql
             refine.define_grid()
-            with self:
-                refine.prepare_transform(self.transform_file, mask=mask)
+            refine.prepare_transform(self.transform_file, mask=mask)
             refine.write_settings(settings_file)
             command = refine.cctw_command(mask)
             if command and os.path.exists(self.transform_file):
