@@ -67,7 +67,7 @@ class NewExperimentDialog(NXDialog):
                 self.display_message(
                     'Warning: Analysis Home Error',
                     f"The chosen analysis path {ahp} does not exist")
-            return
+                return
         if self.parameters['raw_home'].value == '':
             rhp = directory.parent
         else:
@@ -76,7 +76,7 @@ class NewExperimentDialog(NXDialog):
                 self.display_message(
                     'Warning: Raw Home Error',
                     f"The chosen raw path {rhp} does not exist")
-            return
+                return
         if rhp in directory.parents:
             if directory == rhp:
                 directory = directory.parent
