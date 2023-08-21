@@ -22,7 +22,7 @@ def show_dialog():
         dialog = ServerSettingsDialog()
         dialog.show()
     except NeXusError as error:
-        report_error("Editing Default Settings", error)
+        report_error("Editing Server Settings", error)
 
 
 class ServerSettingsDialog(NXDialog):
@@ -75,4 +75,4 @@ class ServerSettingsDialog(NXDialog):
             self.settings.save()
             super().accept()
         except Exception as error:
-            report_error("Editing Default Settings", error)
+            report_error("Editing Server Settings", error)
