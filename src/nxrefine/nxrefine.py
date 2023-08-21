@@ -207,6 +207,7 @@ class NXRefine:
 
         self.name = ""
         self._idx = None
+        self._mode = None
         self._Dmat_cache = inv(rotmat(1, self.roll) * rotmat(2, self.pitch) *
                                rotmat(3, self.yaw))
         self._Gmat_cache = (rotmat(2, self.theta) * rotmat(3, self.omega) *
@@ -220,6 +221,23 @@ class NXRefine:
 
     def __repr__(self):
         return "NXRefine('" + self.name + "')"
+
+    def __enter__(self):
+        if self.entry is None:
+            raise NeXusError('NXRefine entry not defined')
+        self._mode = self.root.nxfilemode
+        self.root.unlock()
+        return self.root.__enter__()
+
+    def __exit__(self, *args):
+        self.root.__exit__()
+        if self._mode == 'r':
+            self.root.lock()
+
+    @property
+    def root(self):
+        """Root of NXRefine entry"""
+        return self.entry.nxroot
 
     def read_parameter(self, path, default=None, attr=None):
         """Read the experimental parameter stored at the specfied path.
@@ -427,7 +445,7 @@ class NXRefine:
         """
         if entry:
             self.entry = entry
-        with self.entry.nxfile:
+        with self:
             if 'sample' not in self.entry:
                 self.entry['sample'] = NXsample()
             self.write_parameter('sample/chemical_formula', self.formula)
@@ -500,12 +518,12 @@ class NXRefine:
             True if the instrument parameters are to be copied,
             by default False.
         """
-        with other.entry.nxfile:
+        with other:
             if sample:
-                if 'sample' not in other.entry.nxroot['entry']:
-                    other.entry.nxroot['entry/sample'] = NXsample()
+                if 'sample' not in other.root['entry']:
+                    other.root['entry/sample'] = NXsample()
                 if 'sample' not in other.entry:
-                    other.entry.makelink(other.entry.nxroot['entry/sample'])
+                    other.entry.makelink(other.root['entry/sample'])
                 other.write_parameter('sample/chemical_formula', self.formula)
                 other.write_parameter('sample/space_group', self.space_group)
                 other.write_parameter('sample/laue_group', self.laue_group)
@@ -579,7 +597,7 @@ class NXRefine:
         other : NXRefine
             NXRefine instance defined by the other entry.
         """
-        with other.entry.nxfile:
+        with other:
             if 'sample' in self.entry:
                 if 'sample' in other.entry:
                     del other.entry['sample']
@@ -691,7 +709,7 @@ class NXRefine:
         azimuthal_angles : array_like
             Azimuthal angles of the Bragg peaks in degrees.
         """
-        with self.entry.nxfile:
+        with self:
             if 'sample' not in self.entry:
                 self.entry['sample'] = NXsample()
             if 'peaks' not in self.entry:
@@ -789,7 +807,7 @@ class NXRefine:
         else:
             transform = 'transform'
 
-        with self.entry.nxfile:
+        with self:
             if transform in self.entry:
                 del self.entry[transform]
 
