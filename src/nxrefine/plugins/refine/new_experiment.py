@@ -48,7 +48,6 @@ class NewExperimentDialog(NXDialog):
         self.directoryname = NXLabel(settings['instrument']['raw_home'])
         self.set_default_directory(settings['instrument']['raw_home'])
         self.set_layout(self.make_layout(self.directory_button),
-                        self.parameters.grid(header=False, width=200),
                         self.close_layout(save=True))
         self.set_title('New Experiment')
 
@@ -60,15 +59,31 @@ class NewExperimentDialog(NXDialog):
         else:
             self.reject()
             return
-        ahp = Path(self.parameters['analysis_home'].value)
-        rhp = Path(self.parameters['raw_home'].value)
+        if self.parameters['analysis_home'].value == '':
+            ahp = directory.parent
+        else:
+            ahp = Path(self.parameters['analysis_home'].value).resolve()
+            if not ahp.exists():
+                self.display_message(
+                    'Warning: Analysis Home Error',
+                    f"The chosen analysis path {ahp} does not exist")
+            return
+        if self.parameters['raw_home'].value == '':
+            rhp = directory.parent
+        else:
+            rhp = Path(self.parameters['raw_home'].value).resolve()
+            if not rhp.exists():
+                self.display_message(
+                    'Warning: Raw Home Error',
+                    f"The chosen raw path {rhp} does not exist")
+            return
         if rhp in directory.parents:
-            if directory.name == self.parameters['raw_path'].value:
+            if directory == rhp:
                 directory = directory.parent
             ahp = ahp / directory.parent.relative_to(rhp)
             rhp = rhp / directory.parent.relative_to(rhp)
         elif ahp in directory.parents:
-            if directory.name == self.parameters['analysis_path'].value:
+            if directory == ahp:
                 directory = directory.parent
             rhp = rhp / directory.parent.relative_to(ahp)
             ahp = ahp / directory.parent.relative_to(ahp)
@@ -81,6 +96,7 @@ class NewExperimentDialog(NXDialog):
         self.parameters['experiment'].value = str(directory.name)
         self.parameters['raw_home'].value = str(rhp)
         self.parameters['analysis_home'].value = str(ahp)
+        self.insert_layout(1, self.parameters.grid(header=False, width=200))
         self.activate()
 
     def activate(self):

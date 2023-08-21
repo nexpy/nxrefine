@@ -36,7 +36,11 @@ class ImportDialog(NXDialog):
 
     def choose_directory(self):
         super().choose_directory()
-        self.home_directory = Path(self.get_directory())
+        directory = self.get_directory()
+        if directory:
+            self.home_directory = Path(directory)
+        else:
+            return
         settings = NXSettings(self.home_directory).settings
         self.beamline = get_beamline(settings['instrument']['instrument'])
         if not self.beamline.import_data_enabled:
