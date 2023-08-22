@@ -601,10 +601,11 @@ class NXReduce(QtCore.QObject):
 
     def clear_parameters(self, parameters):
         """Remove legacy records of parameters in the 'peaks' group."""
-        parameters.append('width')
-        for p in parameters:
-            if 'peaks' in self.entry and p in self.entry['peaks'].attrs:
-                del self.entry['peaks'].attrs[p]
+        with self:
+            parameters.append('width')
+            for p in parameters:
+                if 'peaks' in self.entry and p in self.entry['peaks'].attrs:
+                    del self.entry['peaks'].attrs[p]
 
     @property
     def first(self):
@@ -1516,13 +1517,12 @@ class NXReduce(QtCore.QObject):
         if os.path.exists(self.mask_file):
             os.remove(self.mask_file)
         shutil.move(mask.nxfilename, self.mask_file)
-
-        if ('data_mask' in self.data
-                and self.data['data_mask'].nxfilename != self.mask_file):
-            del self.data['data_mask']
-        if 'data_mask' not in self.data:
-            self.data['data_mask'] = NXlink('entry/mask', self.mask_file)
-
+        with self:
+            if ('data_mask' in self.data
+                    and self.data['data_mask'].nxfilename != self.mask_file):
+                del self.data['data_mask']
+            if 'data_mask' not in self.data:
+                self.data['data_mask'] = NXlink('entry/mask', self.mask_file)
         self.logger.info(f"3D Mask written to '{self.mask_file}'")
 
     def nxtransform(self, mask=False):
