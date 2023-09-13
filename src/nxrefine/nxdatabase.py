@@ -44,7 +44,7 @@ from pathlib import Path
 
 from nexusformat.nexus import NeXusError, NXLock, nxload
 from sqlalchemy import (Column, ForeignKey, Integer, String, create_engine,
-                        inspect)
+                        inspect, text)
 from sqlalchemy.dialects import mysql
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
@@ -566,7 +566,7 @@ class NXDatabase:
                        f"ADD column '{column_name}' '{data_type.__name__}'")
         try:
             connection = self.engine.connect()
-            connection.execute(command)
+            connection.execute(text(command))
             connection.close()
             ret = True
         except Exception as e:
@@ -580,7 +580,7 @@ class NXDatabase:
                    f"{new_column_name};")
         try:
             connection = self.engine.connect()
-            connection.execute(command)
+            connection.execute(text(command))
             connection.close()
             ret = True
         except Exception as e:
