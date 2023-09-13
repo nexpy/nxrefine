@@ -787,11 +787,14 @@ class NXReduce(QtCore.QObject):
 
     def complete(self, task):
         """True if the task for this entry in the wrapper file is done """
-        return self.db.task_complete(self.wrapper_file, task, self.entry_name)
+        return task in self.entry
 
     def all_complete(self, task):
         """True if the task for all entries in this wrapper file are done."""
-        return self.db.task_complete(self.wrapper_file, task)
+        for entry in self.entries:
+            if task not in self.root[entry]:
+                return False
+        return True
 
     def not_processed(self, task):
         """True if the NXprocess group for this task has not been created.
