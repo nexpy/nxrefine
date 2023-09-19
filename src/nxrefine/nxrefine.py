@@ -9,9 +9,9 @@
 import os
 
 import numpy as np
-from nexusformat.nexus import (NeXusError, NXdata, NXdetector, NXfield,
-                               NXgoniometer, NXgroup, NXinstrument, NXlink,
-                               NXmonochromator, NXsample)
+from nexusformat.nexus import (NeXusError, NXdata, NXdetector, NXentry,
+                               NXfield, NXgoniometer, NXgroup, NXinstrument,
+                               NXlink, NXmonochromator, NXroot, NXsample)
 from numpy.linalg import inv, norm
 from scipy import optimize
 
@@ -143,15 +143,14 @@ class NXRefine:
     """Space groups with minimal systematic absences for each centring."""
 
     def __init__(self, node=None):
-        if node is not None:
+        if isinstance(node, NXroot) and 'entry' in node:
+            self.entry = node['entry']
+        elif isinstance(node, NXentry):
+            self.entry = node
+        elif isinstance(node, NXgroup):
             self.entry = node.nxentry
-            if 'data' in self.entry:
-                self.data = self.entry['data']
-            else:
-                self.data = None
         else:
             self.entry = None
-            self.data = None
         self.a = 4.0
         self.b = 4.0
         self.c = 4.0

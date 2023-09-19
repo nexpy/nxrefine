@@ -1896,7 +1896,7 @@ class NXMultiReduce(NXReduce):
             entry = 'entry'
         super().__init__(entry=entry, directory=directory, entries=entries,
                          overwrite=overwrite)
-        self.refine = NXRefine(self.root[self.entries[0]])
+        self.refine = NXRefine(self.root)
 
         if laue:
             if laue in self.refine.laue_groups:
