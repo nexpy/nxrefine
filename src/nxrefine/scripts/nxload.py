@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -----------------------------------------------------------------------------
-# Copyright (c) 2018-2021, NeXpy Development Team.
+# Copyright (c) 2015-2021, NeXpy Development Team.
 #
 # Distributed under the terms of the Modified BSD License.
 #
@@ -15,17 +15,13 @@ from nxrefine.nxreduce import NXMultiReduce, NXReduce
 def main():
 
     parser = argparse.ArgumentParser(
-        description="Find maximum counts of the signal in the specified path")
+        description="Load raw data")
     parser.add_argument('-d', '--directory', required=True,
                         help='scan directory')
     parser.add_argument('-e', '--entries', nargs='+',
-                        help='names of entries to be processed')
-    parser.add_argument('-f', '--first', type=int, help='first frame')
-    parser.add_argument('-l', '--last', type=int, help='last frame')
+                        help='names of entries to be loaded')
     parser.add_argument('-o', '--overwrite', action='store_true',
-                        help='overwrite existing maximum')
-    parser.add_argument('-m', '--monitor', action='store_true',
-                        help='monitor progress in the command line')
+                        help='overwrite existing peaks')
     parser.add_argument('-q', '--queue', action='store_true',
                         help='add to server task queue')
 
@@ -37,14 +33,12 @@ def main():
         entries = NXMultiReduce(args.directory).entries
 
     for entry in entries:
-        reduce = NXReduce(entry, args.directory, maxcount=True,
-                          first=args.first, last=args.last,
-                          overwrite=args.overwrite,
-                          monitor_progress=args.monitor)
+        reduce = NXReduce(entry, args.directory, load=True,
+                          overwrite=args.overwrite)
         if args.queue:
-            reduce.queue('nxmax', args)
+            reduce.queue('nxload', args)
         else:
-            reduce.nxmax()
+            reduce.nxload()
 
 
 if __name__ == "__main__":

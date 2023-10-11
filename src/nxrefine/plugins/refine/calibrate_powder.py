@@ -5,12 +5,15 @@
 #
 # The full license is in the file COPYING, distributed with this software.
 # -----------------------------------------------------------------------------
+import os
 
 import numpy as np
 import pyFAI
 from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.plotview import NXPlotView, plotviews
-from nexpy.gui.utils import confirm_action, load_image, report_error
+from nexpy.gui.pyqt import getOpenFileName, getSaveFileName
+from nexpy.gui.utils import (confirm_action, display_message, load_image,
+                             report_error)
 from nexusformat.nexus import (NeXusError, NXcollection, NXdata, NXfield,
                                NXprocess)
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
@@ -32,14 +35,12 @@ class CalibrateDialog(NXDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.plotview = None
         self.data = None
         self.counts = None
         self.points = []
-        self.pattern_geometry = None
+        self.ai = None
         self.cake_geometry = None
         self.polarization = None
-        self.is_calibrated = False
         self.phi_max = -np.pi
 
         cstr = str(ALL_CALIBRANTS)
@@ -57,30 +58,29 @@ class CalibrateDialog(NXDialog):
         self.parameters.add('search_size', 10, 'Search Size (pixels)')
         self.rings_box = self.select_box([f'Ring{i}' for i in range(1, 21)])
         self.set_layout(self.select_entry(self.choose_entry),
-                        self.filebox('Choose Powder Calibration File'),
-                        self.parameters.grid(header=False),
-                        self.action_buttons(
-                            ('Select Points', self.select),
-                            ('Autogenerate Rings', self.auto),
-                            ('Clear Points', self.clear_points)),
-                        self.make_layout(self.rings_box),
-                        self.action_buttons(
-                            ('Calibrate', self.calibrate),
-                            ('Plot Cake', self.plot_cake),
-                            ('Restore', self.restore_parameters),
-                            ('Save', self.save_parameters)),
                         self.progress_layout(close=True))
-        self.set_title('Calibrating Powder')
-
-    def choose_file(self):
-        super().choose_file()
-        powder_file = self.get_filename()
-        if powder_file:
-            self.data = load_image(powder_file)
-            self.counts = self.data.nxsignal.nxvalue
-            self.plot_data()
+        self.set_title('Calibrate Powder')
 
     def choose_entry(self):
+        if self.layout.count() == 2:
+            self.insert_layout(
+                1, self.action_buttons(
+                    ('Import Powder Data', self.import_powder),
+                    ('Import Calibration', self.import_calibration),
+                    ('Export Calibration', self.export_calibration)))
+            self.insert_layout(2, self.parameters.grid(header=False))
+            self.insert_layout(
+                3, self.action_buttons(('Select Points', self.select),
+                                       ('Autogenerate Rings', self.auto),
+                                       ('Clear Points', self.clear_points)))
+            self.pushbutton['Select Points'].setCheckable(True)
+            self.pushbutton['Select Points'].setChecked(False)
+            self.insert_layout(4, self.make_layout(self.rings_box))
+            self.insert_layout(
+                5, self.action_buttons(('Calibrate', self.calibrate),
+                                       ('Plot Cake', self.plot_cake),
+                                       ('Restore', self.restore_parameters),
+                                       ('Save', self.save_parameters)))
         self.parameters['wavelength'].value = (
             self.entry['instrument/monochromator/wavelength'])
         detector = self.entry['instrument/detector']
@@ -97,11 +97,51 @@ class CalibrateDialog(NXDialog):
         self.pixel_mask = self.entry['instrument/detector/pixel_mask'].nxvalue
         self.ring = self.selected_ring
         if 'calibration' in self.entry['instrument']:
-            self.data = self.entry['instrument/calibration']
-            self.counts = self.data.nxsignal.nxvalue
+            signal = self.entry['instrument/calibration'].nxsignal
+            axes = self.entry['instrument/calibration'].nxaxes
+            self.counts = signal.nxvalue
+            self.data = NXdata(signal, axes)
             self.plot_data()
+            self.parameters['calibrant'].value = (
+                self.entry['instrument/calibration/calibrant'])
+            if 'refinement' in self.entry['instrument/calibration']:
+                parameters = (
+                    self.entry['instrument/calibration/refinement/parameters'])
+                self.ai = AzimuthalIntegrator(
+                    dist=parameters['Distance'].nxvalue,
+                    detector=parameters['Detector'].nxvalue,
+                    poni1=parameters['Poni1'].nxvalue,
+                    poni2=parameters['Poni2'].nxvalue,
+                    rot1=parameters['Rot1'].nxvalue,
+                    rot2=parameters['Rot2'].nxvalue,
+                    rot3=parameters['Rot3'].nxvalue,
+                    pixel1=parameters['PixelSize1'].nxvalue,
+                    pixel2=parameters['PixelSize2'].nxvalue,
+                    wavelength=parameters['Wavelength'].nxvalue)
         else:
             self.close_plots()
+
+    def import_powder(self):
+        powder_file = getOpenFileName(self, 'Open Powder Data File')
+        if os.path.exists(powder_file):
+            self.data = load_image(powder_file)
+            self.counts = self.data.nxsignal.nxvalue
+            self.plot_data()
+
+    def import_calibration(self):
+        calibration_file = getOpenFileName(self, 'Open Calibration File')
+        if os.path.exists(calibration_file):
+            self.ai = pyFAI.load(calibration_file)
+            self.read_parameters()
+
+    def export_calibration(self):
+        if self.ai is None:
+            display_message("No calibration available")
+            return
+        calibration_file = getSaveFileName(self, "Choose a Filename",
+                                           'calibration.poni')
+        if calibration_file:
+            self.ai.write(calibration_file)
 
     @property
     def search_size(self):
@@ -116,19 +156,21 @@ class CalibrateDialog(NXDialog):
         colors = ['r', 'b', 'g', 'c', 'm'] * 4
         return colors[self.ring]
 
+    @property
+    def pv(self):
+        try:
+            return plotviews['Powder Calibration']
+        except Exception:
+            return NXPlotView('Powder Calibration')
+
     def plot_data(self):
-        if self.plotview is None:
-            if 'Powder Calibration' in plotviews:
-                self.plotview = plotviews['Powder Calibration']
-            else:
-                self.plotview = NXPlotView('Powder Calibration')
-        self.plotview.plot(self.data, log=True)
-        self.plotview.aspect = 'equal'
-        self.plotview.ytab.flipped = True
+        self.pv.plot(self.data, log=True)
+        self.pv.aspect = 'equal'
+        self.pv.ytab.flipped = True
         self.clear_points()
 
     def on_button_press(self, event):
-        self.plotview.make_active()
+        self.pv.make_active()
         if event.inaxes:
             self.xp, self.yp = event.x, event.y
         else:
@@ -139,28 +181,35 @@ class CalibrateDialog(NXDialog):
         if event.inaxes:
             if abs(event.x - self.xp) > 5 or abs(event.y - self.yp) > 5:
                 return
-            x, y = self.plotview.inverse_transform(event.xdata, event.ydata)
+            x, y = self.pv.inverse_transform(event.xdata, event.ydata)
             for i, point in enumerate(self.points):
                 circle = point[0]
                 if circle.shape.contains_point(
-                        self.plotview.ax.transData.transform((x, y))):
+                        self.pv.ax.transData.transform((x, y))):
                     circle.remove()
                     for circle in point[2]:
                         circle.remove()
                     del self.points[i]
                     return
-            self.add_points(x, y)
+            try:
+                self.add_points(x, y)
+            except Exception:
+                return
 
     def circle(self, idx, idy, alpha=1.0):
-        return self.plotview.circle(idx, idy, self.search_size,
-                                    facecolor=self.ring_color, edgecolor='k',
-                                    alpha=alpha)
+        return self.pv.circle(idx, idy, self.search_size,
+                              facecolor=self.ring_color, edgecolor='k',
+                              alpha=alpha)
 
     def select(self):
-        self.plotview.cidpress = self.plotview.mpl_connect(
-            'button_press_event', self.on_button_press)
-        self.plotview.cidrelease = self.plotview.mpl_connect(
-            'button_release_event', self.on_button_release)
+        if self.pushbutton['Select Points'].isChecked():
+            self.pv.cidpress = self.pv.canvas.mpl_connect(
+                'button_press_event', self.on_button_press)
+            self.pv.cidrelease = self.pv.canvas.mpl_connect(
+                'button_release_event', self.on_button_release)
+        else:
+            self.pv.canvas.mpl_disconnect(self.pv.cidpress)
+            self.pv.canvas.mpl_disconnect(self.pv.cidrelease)
 
     def auto(self):
         xc, yc = self.parameters['xc'].value, self.parameters['yc'].value
@@ -177,7 +226,7 @@ class CalibrateDialog(NXDialog):
             r = distance * np.tan(theta) / self.pixel_size
             phi = self.phi_max = -np.pi
             while phi < np.pi:
-                x, y = np.int(xc + r*np.cos(phi)), np.int(yc + r*np.sin(phi))
+                x, y = int(xc + r*np.cos(phi)), int(yc + r*np.sin(phi))
                 if ((x > 0 and x < self.data.x.max()) and
                     (y > 0 and y < self.data.y.max()) and
                         not self.pixel_mask[y, x]):
@@ -248,61 +297,45 @@ class CalibrateDialog(NXDialog):
         self.yc = self.parameters['yc'].value
 
     def calibrate(self):
+        if len(self.points) == 0:
+            display_message("No points selected")
+            return
         self.prepare_parameters()
         self.orig_pixel1 = self.pixel_size
         self.orig_pixel2 = self.pixel_size
-        self.pattern_geometry = GeometryRefinement(self.point_array,
-                                                   dist=self.distance,
-                                                   wavelength=self.wavelength,
-                                                   pixel1=self.pixel_size,
-                                                   pixel2=self.pixel_size,
-                                                   calibrant=self.calibrant)
+        self.ai = GeometryRefinement(self.point_array,
+                                     dist=self.distance,
+                                     wavelength=self.wavelength,
+                                     pixel1=self.pixel_size,
+                                     pixel2=self.pixel_size,
+                                     calibrant=self.calibrant)
         self.refine()
-        self.create_cake_geometry()
-        self.pattern_geometry.reset()
+        self.ai.reset()
 
     def refine(self):
-        self.pattern_geometry.data = self.point_array
+        self.ai.data = self.point_array
 
         if self.parameters['wavelength'].vary:
-            self.pattern_geometry.refine2()
+            self.ai.refine2()
             fix = []
         else:
             fix = ['wavelength']
         if not self.parameters['distance'].vary:
             fix.append('dist')
-        self.pattern_geometry.refine2_wavelength(fix=fix)
+        self.ai.refine2_wavelength(fix=fix)
         self.read_parameters()
-        self.is_calibrated = True
-        self.create_cake_geometry()
-        self.pattern_geometry.reset()
-
-    def create_cake_geometry(self):
-        self.cake_geometry = AzimuthalIntegrator()
-        pyFAI_parameter = self.pattern_geometry.getPyFAI()
-        pyFAI_parameter['wavelength'] = self.pattern_geometry.wavelength
-        self.cake_geometry.setPyFAI(dist=pyFAI_parameter['dist'],
-                                    poni1=pyFAI_parameter['poni1'],
-                                    poni2=pyFAI_parameter['poni2'],
-                                    rot1=pyFAI_parameter['rot1'],
-                                    rot2=pyFAI_parameter['rot2'],
-                                    rot3=pyFAI_parameter['rot3'],
-                                    pixel1=pyFAI_parameter['pixel1'],
-                                    pixel2=pyFAI_parameter['pixel2'])
-        self.cake_geometry.wavelength = pyFAI_parameter['wavelength']
+        self.ai.reset()
 
     def plot_cake(self):
         if 'Cake Plot' in plotviews:
             plotview = plotviews['Cake Plot']
         else:
             plotview = NXPlotView('Cake Plot')
-        if not self.is_calibrated:
-            raise NeXusError('No refinement performed')
-        res = self.cake_geometry.integrate2d(self.counts,
-                                             1024, 1024,
-                                             method='csr',
-                                             unit='2th_deg',
-                                             correctSolidAngle=True)
+        if self.ai is None:
+            display_message("No refinement performed")
+            return
+        res = self.ai.integrate2d(self.counts, 1024, 1024, method='csr',
+                                  unit='2th_deg', correctSolidAngle=True)
         self.cake_data = NXdata(res[0],
                                 (NXfield(res[2], name='azimumthal_angle'),
                                  NXfield(res[1], name='polar_angle')))
@@ -316,14 +349,12 @@ class CalibrateDialog(NXDialog):
                         linestyle=':', color='r')
 
     def read_parameters(self):
-        pyFAI = self.pattern_geometry.getPyFAI()
-        fit2d = self.pattern_geometry.getFit2D()
-        self.parameters['wavelength'].value = (
-            self.pattern_geometry.wavelength * 1e10)
-        self.parameters['distance'].value = pyFAI['dist'] * 1e3
-        self.parameters['yaw'].value = np.degrees(pyFAI['rot1'])
-        self.parameters['pitch'].value = np.degrees(pyFAI['rot2'])
-        self.parameters['roll'].value = np.degrees(pyFAI['rot3'])
+        self.parameters['wavelength'].value = self.ai.wavelength * 1e10
+        self.parameters['yaw'].value = np.degrees(self.ai.rot1)
+        self.parameters['pitch'].value = np.degrees(self.ai.rot2)
+        self.parameters['roll'].value = np.degrees(self.ai.rot3)
+        fit2d = self.ai.getFit2D()
+        self.parameters['distance'].value = fit2d['directDist']
         self.parameters['xc'].value = fit2d['centerX']
         self.parameters['yc'].value = fit2d['centerY']
 
@@ -331,44 +362,39 @@ class CalibrateDialog(NXDialog):
         self.parameters.restore_parameters()
 
     def save_parameters(self):
-        if not self.is_calibrated:
-            raise NeXusError('No refinement performed')
+        if self.ai is None:
+            display_message("No refinement performed")
+            return
         elif 'calibration' in self.entry['instrument']:
             if confirm_action(
                     "Do you want to overwrite existing calibration data?"):
                 del self.entry['instrument/calibration']
             else:
                 return
-        self.entry['instrument/calibration'] = self.data
-        if 'refinement' in self.entry['instrument/calibration']:
-            if confirm_action('Overwrite previous refinement?'):
-                del self.entry['instrument/calibration/refinement']
-            else:
-                return
-        self.entry['instrument/calibration/calibrant'] = (
+        instrument = self.entry['instrument']
+        instrument['calibration'] = self.data
+        instrument['calibration/calibrant'] = (
             self.parameters['calibrant'].value)
         process = NXprocess()
         process.program = 'pyFAI'
         process.version = pyFAI.version
         process.parameters = NXcollection()
-        process.parameters['Detector'] = (
-            self.entry['instrument/detector/description'])
-        pyFAI_parameter = self.pattern_geometry.getPyFAI()
-        process.parameters['PixelSize1'] = pyFAI_parameter['pixel1']
-        process.parameters['PixelSize2'] = pyFAI_parameter['pixel2']
-        process.parameters['Distance'] = pyFAI_parameter['dist']
-        process.parameters['Poni1'] = pyFAI_parameter['poni1']
-        process.parameters['Poni2'] = pyFAI_parameter['poni2']
-        process.parameters['Rot1'] = pyFAI_parameter['rot1']
-        process.parameters['Rot2'] = pyFAI_parameter['rot2']
-        process.parameters['Rot3'] = pyFAI_parameter['rot3']
-        process.parameters['Wavelength'] = pyFAI_parameter['wavelength']
-        self.entry['instrument/calibration/refinement'] = process
-        self.entry['instrument/monochromator/wavelength'] = (
-            self.parameters['wavelength'].value)
-        self.entry['instrument/monochromator/energy'] = (
+        process.parameters['Detector'] = instrument['detector/description']
+        process.parameters['PixelSize1'] = self.ai.pixel1
+        process.parameters['PixelSize2'] = self.ai.pixel2
+        process.parameters['Distance'] = self.ai.dist
+        process.parameters['Poni1'] = self.ai.poni1
+        process.parameters['Poni2'] = self.ai.poni2
+        process.parameters['Rot1'] = self.ai.rot1
+        process.parameters['Rot2'] = self.ai.rot2
+        process.parameters['Rot3'] = self.ai.rot3
+        process.parameters['Wavelength'] = self.ai.wavelength
+        instrument['calibration/refinement'] = process
+        monochromator = instrument['monochromator']
+        monochromator['wavelength'] = self.parameters['wavelength'].value
+        monochromator['energy'] = (
             12.398419739640717 / self.parameters['wavelength'].value)
-        detector = self.entry['instrument/detector']
+        detector = instrument['detector']
         detector['distance'] = self.parameters['distance'].value
         detector['yaw'] = self.parameters['yaw'].value
         detector['pitch'] = self.parameters['pitch'].value
@@ -376,10 +402,34 @@ class CalibrateDialog(NXDialog):
         detector['beam_center_x'] = self.parameters['xc'].value
         detector['beam_center_y'] = self.parameters['yc'].value
         try:
-            detector['polarization'] = self.pattern_geometry.polarization(
-                factor=0.99, shape=detector['mask'].shape)
+            detector['polarization'] = self.ai.polarization(
+                factor=0.99, shape=detector['pixel_mask'].shape)
         except Exception:
             pass
+        entries = [entry for entry in self.root.entries
+                   if entry[-1].isdigit() and entry != self.entry.nxname]
+        if entries and self.confirm_action(
+            f'Copy mask to other entries? ({", ".join(entries)})',
+                answer='yes'):
+            for entry in [self.root[e]for e in entries]:
+                other_instrument = entry['instrument']
+                if 'calibration' in other_instrument:
+                    del other_instrument['calibration']
+                other_instrument['calibration'] = instrument['calibration']
+                other_monochromator = entry['instrument/monochromator']
+                other_monochromator['wavelength'] = monochromator['wavelength']
+                other_monochromator['energy'] = monochromator['energy']
+                other_detector = entry['instrument/detector']
+                other_detector['distance'] = detector['distance']
+                other_detector['yaw'] = detector['yaw']
+                other_detector['pitch'] = detector['pitch']
+                other_detector['roll'] = detector['roll']
+                other_detector['beam_center_x'] = detector['beam_center_x']
+                other_detector['beam_center_y'] = detector['beam_center_y']
+                try:
+                    other_detector['polarization'] = detector['polarization']
+                except Exception:
+                    pass
 
     def close_plots(self):
         if 'Powder Calibration' in plotviews:
@@ -387,9 +437,8 @@ class CalibrateDialog(NXDialog):
         if 'Cake Plot' in plotviews:
             plotviews['Cake Plot'].close()
 
-    def closeEvent(self, event):
-        self.close_plots()
-        event.accept()
+    def close(self):
+        self.reject()
 
     def accept(self):
         super().accept()

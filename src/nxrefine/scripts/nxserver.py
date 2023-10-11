@@ -62,7 +62,7 @@ def main():
         server.kill()
     elif args.command == 'status':
         if server.is_running():
-            print("Server is running (pid=%s)" % server.get_pid())
+            print(f"Server is running (pid={server.get_pid()})")
         else:
             print("Server is not running")
 

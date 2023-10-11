@@ -30,54 +30,81 @@ class TransformDialog(NXDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.select_entry(self.initialize_grid)
-        self.refine = NXRefine()
+        self.select_entry(self.choose_entry)
 
-        grid = QtWidgets.QGridLayout()
-        grid.setSpacing(10)
-        header_font = QtGui.QFont()
-        header_font.setBold(True)
-        start_label = NXLabel('Start')
-        start_label.setFont(header_font)
-        grid.addWidget(start_label, 0, 1)
-        step_label = NXLabel('Step')
-        step_label.setFont(header_font)
-        grid.addWidget(step_label, 0, 2)
-        stop_label = NXLabel('Stop')
-        stop_label.setFont(header_font)
-        grid.addWidget(stop_label, 0, 3)
-        grid.addWidget(NXLabel('H:'), 1, 0)
-        grid.addWidget(NXLabel('K:'), 2, 0)
-        grid.addWidget(NXLabel('L:'), 3, 0)
-        self.start_h_box = NXLineEdit()
-        self.step_h_box = NXLineEdit()
-        self.stop_h_box = NXLineEdit()
-        grid.addWidget(self.start_h_box, 1, 1)
-        grid.addWidget(self.step_h_box, 1, 2)
-        grid.addWidget(self.stop_h_box, 1, 3)
-        self.start_k_box = NXLineEdit()
-        self.step_k_box = NXLineEdit()
-        self.stop_k_box = NXLineEdit()
-        grid.addWidget(self.start_k_box, 2, 1)
-        grid.addWidget(self.step_k_box, 2, 2)
-        grid.addWidget(self.stop_k_box, 2, 3)
-        self.start_l_box = NXLineEdit()
-        self.step_l_box = NXLineEdit()
-        self.stop_l_box = NXLineEdit()
-        grid.addWidget(self.start_l_box, 3, 1)
-        grid.addWidget(self.step_l_box, 3, 2)
-        grid.addWidget(self.stop_l_box, 3, 3)
-        self.set_layout(
-            self.entry_layout, grid, self.checkboxes(
-                ('copy', 'Copy to all entries', True),
-                ('mask', 'Create masked transform group', True),
-                ('overwrite', 'Overwrite existing transforms', False)),
-            self.close_buttons(save=True))
+        self.Qgrid = QtWidgets.QGridLayout()
+        self.Qgrid.setSpacing(10)
+        headers = ['Axis', 'Q', 'dQ', 'N', 'Max']
+        width = [25, 50, 50, 25, 50]
+        column = 0
+        for header in headers:
+            label = NXLabel(header, bold=True, align='center')
+            self.Qgrid.addWidget(label, 0, column)
+            self.Qgrid.setColumnMinimumWidth(column, width[column])
+            column += 1
+        self.Qbox = {}
+        self.dQbox = {}
+        self.Nbox = {}
+        self.maxbox = {}
+        for i, label in enumerate(['H', 'K', 'L']):
+            self.Qgrid.addWidget(NXLabel(label, align='center'), i+1, 0)
+            self.Qbox[label] = NXLineEdit(slot=self.calculate, width=100,
+                                          align='right')
+            self.Qgrid.addWidget(self.Qbox[label], i+1, 1)
+            self.dQbox[label] = NXLineEdit(slot=self.calculate, width=100,
+                                           align='right')
+            self.Qgrid.addWidget(self.dQbox[label], i+1, 2)
+            self.Nbox[label] = NXLabel(align='center')
+            self.Qgrid.addWidget(self.Nbox[label], i+1, 3)
+            self.maxbox[label] = NXLabel(align='center')
+            self.Qgrid.addWidget(self.maxbox[label], i+1, 4)
+        self.set_layout(self.entry_layout, self.close_buttons(save=True))
         self.setWindowTitle('Transforming Data')
         try:
             self.initialize_grid()
         except Exception:
             pass
+
+    def choose_entry(self):
+        try:
+            refine = NXRefine(self.entry)
+            if refine.xp is None:
+                raise NeXusError("No peaks in entry")
+        except NeXusError as error:
+            report_error("Refining Lattice", error)
+            return
+        self.refine = refine
+        if self.layout.count() == 2:
+            self.insert_layout(1, self.Qgrid)
+            self.insert_layout(2, self.checkboxes(
+                ('copy', 'Copy to all entries', True),
+                ('mask', 'Create masked transforms', True),
+                ('overwrite', 'Overwrite transforms', False)))
+        self.refine.initialize_grid()
+        self.update_grid()
+
+    def update_grid(self):
+        self.Qbox['H'].setText(f"{self.refine.h_stop:g}")
+        self.Qbox['K'].setText(f"{self.refine.k_stop:g}")
+        self.Qbox['L'].setText(f"{self.refine.l_stop:g}")
+        self.dQbox['H'].setText(f"{self.refine.h_step:g}")
+        self.dQbox['K'].setText(f"{self.refine.k_step:g}")
+        self.dQbox['L'].setText(f"{self.refine.l_step:g}")
+        self.Nbox['H'].setText(f"{self.refine.h_shape:g}")
+        self.Nbox['K'].setText(f"{self.refine.k_shape:g}")
+        self.Nbox['L'].setText(f"{self.refine.l_shape:g}")
+        self.maxbox['H'].setText(f"{self.refine.Qmax / self.refine.astar:g}")
+        self.maxbox['K'].setText(f"{self.refine.Qmax / self.refine.bstar:g}")
+        self.maxbox['L'].setText(f"{self.refine.Qmax / self.refine.cstar:g}")
+
+    def calculate(self):
+        for label, rlu in [('H', self.refine.astar),
+                           ('K', self.refine.bstar),
+                           ('L', self.refine.cstar)]:
+            self.Nbox[label].setText(
+                int(np.round(2 * float(self.Qbox[label].text()) /
+                             float(self.dQbox[label].text()), 2)) + 1)
+            self.maxbox[label].setText(f"{self.refine.Qmax / rlu:g}")
 
     def get_output_file(self, mask=False, entry=None):
         if entry is None:
@@ -95,43 +122,19 @@ class TransformDialog(NXDialog):
         return os.path.splitext(
             entry.data.nxsignal.nxfilename)[0] + '_transform.pars'
 
-    def get_h_grid(self):
-        return (np.float32(self.start_h_box.text()),
-                np.float32(self.step_h_box.text()),
-                np.float32(self.stop_h_box.text()))
-
-    def get_k_grid(self):
-        return (np.float32(self.start_k_box.text()),
-                np.float32(self.step_k_box.text()),
-                np.float32(self.stop_k_box.text()))
-
-    def get_l_grid(self):
-        return (np.float32(self.start_l_box.text()),
-                np.float32(self.step_l_box.text()),
-                np.float32(self.stop_l_box.text()))
-
-    def initialize_grid(self):
-        self.refine = NXRefine(self.entry)
-        self.refine.initialize_grid()
-        self.start_h_box.setText(f'{self.refine.h_start:g}')
-        self.step_h_box.setText(f'{self.refine.h_step:g}')
-        self.stop_h_box.setText(f'{self.refine.h_stop:g}')
-        self.start_k_box.setText(f'{self.refine.k_start:g}')
-        self.step_k_box.setText(f'{self.refine.k_step:g}')
-        self.stop_k_box.setText(f'{self.refine.k_stop:g}')
-        self.start_l_box.setText(f'{self.refine.l_start:g}')
-        self.step_l_box.setText(f'{self.refine.l_step:g}')
-        self.stop_l_box.setText(f'{self.refine.l_stop:g}')
+    def get_parameters(self, Q):
+        stop, step = float(self.Qbox[Q].text()), float(self.dQbox[Q].text())
+        return -stop, step, stop
 
     def write_parameters(self, output_file, settings_file):
         self.refine.output_file = output_file
         self.refine.settings_file = settings_file
         self.refine.h_start, self.refine.h_step, self.refine.h_stop = (
-            self.get_h_grid())
+            self.get_parameters('H'))
         self.refine.k_start, self.refine.k_step, self.refine.k_stop = (
-            self.get_k_grid())
+            self.get_parameters('K'))
         self.refine.l_start, self.refine.l_step, self.refine.l_stop = (
-            self.get_l_grid())
+            self.get_parameters('L'))
         self.refine.define_grid()
 
     @property
@@ -171,7 +174,7 @@ class TransformDialog(NXDialog):
             if self.copy:
                 root = self.entry.nxroot
                 for entry in [e for e in root
-                              if e != 'entry' and e != self.entry.nxname]:
+                              if e[-1].isdigit() and e != self.entry.nxname]:
                     if 'transform' in root[entry] and not self.overwrite:
                         self.display_message(
                             "Preparing Transform",
@@ -195,7 +198,6 @@ class TransformDialog(NXDialog):
                         self.refine.prepare_transform(
                             masked_output_file, mask=True)
                     self.refine.write_settings(settings_file)
-
             super().accept()
         except NeXusError as error:
             report_error("Preparing Data Transform", error)
