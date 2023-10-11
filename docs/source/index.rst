@@ -3,8 +3,13 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to NXRefine's documentation!
-====================================
+NXRefine
+========
+NXRefine implements a complete workflow for both data acquisition and 
+reduction of single crystal diffuse x-ray scattering collected as a 
+series of area detector frames during continuous sample rotation. The
+data are stored in HDF5 files, which conform to the NeXus data format
+standard. 
 
 .. toctree::
    :maxdepth: 2
