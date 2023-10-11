@@ -1,10 +1,10 @@
-Licensing Terms for NXrefine
+Licensing Terms for NXRefine
 ----------------------------
 
 NXrefine is licensed under the terms of the Modified BSD License (also known as
 New or Revised BSD), as follows:
 
-Copyright (c) 2021, AXMAS Development Team
+Copyright (c) 2021-2023, NeXpy Development Team
 
 All rights reserved.
 
@@ -47,7 +47,7 @@ The following banner should be used in any source code file to indicate the
 copyright and license terms:
 
 # -----------------------------------------------------------------------------
-# Copyright (c) 2021, NeXpy Development Team.
+# Copyright (c) 2021-2023, NeXpy Development Team.
 #
 # Distributed under the terms of the Modified BSD License.
 #
