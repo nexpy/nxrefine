@@ -225,9 +225,9 @@ class NXPDF:
         self.logger.info(f"{self.title}: Total PDF calculated "
                          f"({toc - tic:g} seconds)")
 
-    def hole_mask(self):
-        symm_group = self.entry[self.symm_data]
-        dl, dk, dh = [(ax[1]-ax[0]).nxvalue for ax in symm_group.nxaxes]
+    def hole_mask(self, data_group):
+        data_group = self.entry[self.symm_data]
+        dl, dk, dh = [(ax[1]-ax[0]).nxvalue for ax in data_group.nxaxes]
         dhp = np.rint(self.radius / (dh * self.refine.astar))
         dkp = np.rint(self.radius / (dk * self.refine.bstar))
         dlp = np.rint(self.radius / (dl * self.refine.cstar))
