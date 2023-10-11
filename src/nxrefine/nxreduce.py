@@ -2141,11 +2141,12 @@ class NXMultiReduce(NXReduce):
             del self.entry[self.symm_data]
         symm_data = NXlink('/entry/data/data', file=self.symm_file,
                            name='data')
-        self.entry[self.symm_data] = NXdata(
-            symm_data, self.entry[self.transform_path].nxaxes)
-        self.entry[self.symm_data].nxweights = NXlink(
-            '/entry/data/data_weights', file=self.symm_file)
-        self.add_title(self.entry[self.symm_data])
+        with self:
+            self.entry[self.symm_data] = NXdata(
+                symm_data, self.entry[self.transform_path].nxaxes)
+            self.entry[self.symm_data].nxweights = NXlink(
+                '/entry/data/data_weights', file=self.symm_file)
+            self.add_title(self.entry[self.symm_data])
         self.logger.info(f"'{self.symm_data}' added to entry")
         toc = timeit.default_timer()
         self.logger.info(f"{self.title}: Symmetrization completed "
@@ -2210,26 +2211,28 @@ class NXMultiReduce(NXReduce):
                            workers=self.process_count)))
         fft *= (1.0 / np.prod(fft.shape))
 
-        root = nxopen(self.total_pdf_file, 'a')
-        root['entry'] = NXentry()
-        root['entry/pdf'] = NXdata(NXfield(fft, name='pdf'))
+        with nxopen(self.total_pdf_file, 'a') as root:
+            root['entry'] = NXentry()
+            root['entry/pdf'] = NXdata(NXfield(fft, name='pdf'))
 
-        if self.total_pdf_data in self.entry:
-            del self.entry[self.total_pdf_data]
-        pdf = NXlink('/entry/pdf/pdf', file=self.total_pdf_file, name='pdf')
+        with self:
+            if self.total_pdf_data in self.entry:
+                del self.entry[self.total_pdf_data]
+            pdf = NXlink('/entry/pdf/pdf', file=self.total_pdf_file,
+                         name='pdf')
 
-        dl, dk, dh = [(ax[1]-ax[0]).nxvalue
-                      for ax in self.entry[self.symm_data].nxaxes]
-        x = NXfield(scipy.fft.fftshift(scipy.fft.fftfreq(
-            fft.shape[2], dh)), name='x', scaling_factor=self.refine.a)
-        y = NXfield(scipy.fft.fftshift(scipy.fft.fftfreq(
-            fft.shape[1], dk)), name='y', scaling_factor=self.refine.b)
-        z = NXfield(scipy.fft.fftshift(scipy.fft.fftfreq(
-            fft.shape[0], dl)), name='z', scaling_factor=self.refine.c)
-        self.entry[self.total_pdf_data] = NXdata(pdf, (z, y, x))
-        self.entry[self.total_pdf_data].attrs['angles'] = (
-            self.refine.lattice_parameters[3:])
-        self.add_title(self.entry[self.total_pdf_data])
+            dl, dk, dh = [(ax[1]-ax[0]).nxvalue
+                          for ax in self.entry[self.symm_data].nxaxes]
+            x = NXfield(scipy.fft.fftshift(scipy.fft.fftfreq(
+                fft.shape[2], dh)), name='x', scaling_factor=self.refine.a)
+            y = NXfield(scipy.fft.fftshift(scipy.fft.fftfreq(
+                fft.shape[1], dk)), name='y', scaling_factor=self.refine.b)
+            z = NXfield(scipy.fft.fftshift(scipy.fft.fftfreq(
+                fft.shape[0], dl)), name='z', scaling_factor=self.refine.c)
+            self.entry[self.total_pdf_data] = NXdata(pdf, (z, y, x))
+            self.entry[self.total_pdf_data].attrs['angles'] = (
+                self.refine.lattice_parameters[3:])
+            self.add_title(self.entry[self.total_pdf_data])
         self.logger.info(f"'{self.total_pdf_data}' added to entry")
         toc = timeit.default_timer()
         self.logger.info(f"{self.title}: Total PDF calculated "
@@ -2262,10 +2265,10 @@ class NXMultiReduce(NXReduce):
     def symmetrize(self, data):
         if self.refine.laue_group not in ['-3', '-3m', '6/m', '6/mmm']:
             import tempfile
-            root = nxopen(tempfile.mkstemp(suffix='.nxs')[1], mode='w')
-            root['data'] = data
-            symmetry = NXSymmetry(root['data'],
-                                  laue_group=self.refine.laue_group)
+            with nxopen(tempfile.mkstemp(suffix='.nxs')[1], mode='w') as root:
+                root['data'] = data
+                symmetry = NXSymmetry(root['data'],
+                                      laue_group=self.refine.laue_group)
             result = symmetry.symmetrize()
             os.remove(root.nxfilename)
             return result
@@ -2317,19 +2320,21 @@ class NXMultiReduce(NXReduce):
         if 'fill' in symm_root['entry/data']:
             del symm_root['entry/data/fill']
         symm_root['entry/data/fill'] = buffer
-        if 'filled_data' in self.entry[self.symm_data]:
-            del self.entry[self.symm_data]['filled_data']
-        self.entry[self.symm_data]['filled_data'] = NXlink(
-            '/entry/data/fill', file=self.symm_file)
+        with self:
+            if 'filled_data' in self.entry[self.symm_data]:
+                del self.entry[self.symm_data]['filled_data']
+            self.entry[self.symm_data]['filled_data'] = NXlink(
+                '/entry/data/fill', file=self.symm_file)
 
         buffer[changed_idx] *= 0
         if 'punch' in symm_root['entry/data']:
             del symm_root['entry/data/punch']
         symm_root['entry/data/punch'] = buffer
-        if 'punched_data' in self.entry[self.symm_data]:
-            del self.entry[self.symm_data]['punched_data']
-        self.entry[self.symm_data]['punched_data'] = NXlink(
-            '/entry/data/punch', file=self.symm_file)
+        with self:
+            if 'punched_data' in self.entry[self.symm_data]:
+                del self.entry[self.symm_data]['punched_data']
+            self.entry[self.symm_data]['punched_data'] = NXlink(
+                '/entry/data/punch', file=self.symm_file)
 
         toc = timeit.default_timer()
         self.logger.info(f"{self.title}: Punch-and-fill completed "
@@ -2357,7 +2362,8 @@ class NXMultiReduce(NXReduce):
         root['entry/pdf'] = NXdata(NXfield(fft, name='pdf'))
 
         if self.pdf_data in self.entry:
-            del self.entry[self.pdf_data]
+            with self:
+                del self.entry[self.pdf_data]
         pdf = NXlink('/entry/pdf/pdf', file=self.pdf_file, name='pdf')
 
         dl, dk, dh = [(ax[1]-ax[0]).nxvalue
@@ -2368,10 +2374,11 @@ class NXMultiReduce(NXReduce):
             fft.shape[1], dk)), name='y', scaling_factor=self.refine.b)
         z = NXfield(scipy.fft.fftshift(scipy.fft.fftfreq(
             fft.shape[0], dl)), name='z', scaling_factor=self.refine.c)
-        self.entry[self.pdf_data] = NXdata(pdf, (z, y, x))
-        self.entry[self.pdf_data].attrs['angles'] = (
-            self.refine.lattice_parameters[3:])
-        self.add_title(self.entry[self.pdf_data])
+        with self:
+            self.entry[self.pdf_data] = NXdata(pdf, (z, y, x))
+            self.entry[self.pdf_data].attrs['angles'] = (
+                self.refine.lattice_parameters[3:])
+            self.add_title(self.entry[self.pdf_data])
         self.logger.info(f"'{self.pdf_data}' added to entry")
         toc = timeit.default_timer()
         self.logger.info(f"{self.title}: Delta-PDF calculated "
