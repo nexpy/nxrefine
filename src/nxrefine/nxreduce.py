@@ -1799,9 +1799,9 @@ class NXReduce(QtCore.QObject):
                 if self.mask and self.all_complete('nxmasked_transform'):
                     reduce.nxcombine(mask=True)
             if self.pdf:
-                if self.regular and self.all_complete('nxcombine'):
+                if self.regular and self.complete('nxcombine'):
                     reduce.nxpdf()
-                if self.mask and self.all_complete('nxmasked_combine'):
+                if self.mask and self.complete('nxmasked_combine'):
                     reduce.nxpdf(mask=True)
 
     def queue(self, command, args=None):
@@ -1918,6 +1918,8 @@ class NXMultiReduce(NXReduce):
         return f"NXMultiReduce('{self.sample}_{self.scan}')"
 
     def complete(self, task):
+        if task in ['nxcombine', 'nxmasked_combine', 'nxpdf', 'nxmasked_pdf']:
+            return task in self.entry
         return self.all_complete(task)
 
     def nxcombine(self, mask=False):
