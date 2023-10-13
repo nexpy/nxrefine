@@ -38,7 +38,7 @@ def main():
         reduce = NXReduce(entry, args.directory, parent=args.parent, copy=True,
                           overwrite=args.overwrite)
         if args.queue:
-            reduce.queue()
+            reduce.queue('nxcopy', args)
         else:
             reduce.nxcopy()
 

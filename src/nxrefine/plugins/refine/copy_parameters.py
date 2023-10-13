@@ -35,9 +35,9 @@ class CopyDialog(NXDialog):
 
     def choose_root(self):
         self.checkbox['overwrite'].setVisible(False)
-        for entry in [e for e in self.root if e != 'entry']:
+        for entry in [e for e in self.root if e[-1].isdigit()]:
             reduce = NXReduce(self.root[entry])
-            if not reduce.not_complete('nxcopy'):
+            if not reduce.not_processed('nxcopy'):
                 self.checkbox['overwrite'].setVisible(True)
         self._selected = True
 
@@ -52,7 +52,7 @@ class CopyDialog(NXDialog):
         elif self.root.nxfilemode == 'r':
             raise NeXusError("NeXus file is locked")
         if self.overwrite:
-            for entry in [e for e in self.root if e != 'entry']:
+            for entry in [e for e in self.root if e[-1].isdigit()]:
                 reduce = NXReduce(self.root[entry], copy=True, overwrite=True)
                 reduce.nxcopy()
         else:

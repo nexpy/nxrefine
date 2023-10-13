@@ -20,6 +20,8 @@ def main():
                         help='scan directory')
     parser.add_argument('-e', '--entries', nargs='+',
                         help='names of entries to be processed')
+    parser.add_argument('-L', '--load', action='store_true',
+                        help='load raw data')
     parser.add_argument('-l', '--link', action='store_true',
                         help='link wrapper file to raw data')
     parser.add_argument('-m', '--max', action='store_true',
@@ -34,12 +36,14 @@ def main():
                         help='prepare 3D masks')
     parser.add_argument('-t', '--transform', action='store_true',
                         help='perform CCTW transforms')
-    parser.add_argument('-M', '--mask', action='store_true',
-                        help='perform CCTW transforms with 3D mask')
-    parser.add_argument('-b', '--combine', action='store_true',
+    parser.add_argument('-C', '--combine', action='store_true',
                         help='combine CCTW transforms')
     parser.add_argument('-P', '--pdf', action='store_true',
                         help='perform PDF transforms')
+    parser.add_argument('-R', '--regular', action='store_true',
+                        help='perform regular CCTW transforms')
+    parser.add_argument('-M', '--mask', action='store_true',
+                        help='perform CCTW transforms with 3D mask')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing maximum')
     parser.add_argument('-q', '--queue', action='store_true',
@@ -53,23 +57,23 @@ def main():
         entries = NXMultiReduce(args.directory).entries
 
     for entry in entries:
-        reduce = NXReduce(entry, args.directory, link=args.link,
-                          maxcount=args.max, find=args.find, copy=args.copy,
-                          refine=args.refine, prepare=args.prepare,
-                          transform=args.transform, mask=args.mask,
+        reduce = NXReduce(entry=entry, directory=args.directory,
+                          load=args.load, link=args.link, maxcount=args.max,
+                          find=args.find, copy=args.copy, refine=args.refine,
+                          prepare=args.prepare, transform=args.transform,
+                          combine=args.combine, pdf=args.pdf,
+                          regular=args.regular, mask=args.mask,
                           overwrite=args.overwrite)
         if args.queue:
-            reduce.queue()
+            reduce.queue('nxreduce', args)
         else:
+            reduce.combine = reduce.pdf = False
             reduce.nxreduce()
-    if args.combine or args.pdf:
-        reduce = NXMultiReduce(args.directory, entries=args.entries,
-                               combine=args.combine, pdf=args.pdf,
+    if (args.combine or args.pdf) and not args.queue:
+        reduce = NXMultiReduce(args.directory, combine=args.combine,
+                               pdf=args.pdf, regular=args.regular,
                                mask=args.mask, overwrite=args.overwrite)
-        if args.queue:
-            reduce.queue()
-        else:
-            reduce.nxreduce()
+        reduce.nxreduce()
 
 
 if __name__ == "__main__":

@@ -8,8 +8,6 @@
 
 import os
 
-import iotbx.cif as cif
-from cctbx import sgtbx
 from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.pyqt import getOpenFileName
 from nexpy.gui.utils import report_error
@@ -33,42 +31,44 @@ class LatticeDialog(NXDialog):
 
         self.select_root(self.choose_entry)
 
-        self.refine = NXRefine()
-
-        self.parameters = GridParameters()
-        self.parameters.add('space_group', self.refine.space_group,
-                            'Space Group', slot=self.set_groups)
-        self.parameters.add('laue_group', self.refine.laue_groups,
-                            'Laue Group')
-        self.parameters.add('symmetry', self.refine.symmetries, 'Symmetry',
-                            slot=self.set_lattice_parameters)
-        self.parameters.add('centring', self.refine.centrings, 'Cell Centring')
-        self.parameters.add('a', self.refine.a, 'Unit Cell - a (Ang)',
-                            slot=self.set_lattice_parameters)
-        self.parameters.add('b', self.refine.b, 'Unit Cell - b (Ang)',
-                            slot=self.set_lattice_parameters)
-        self.parameters.add('c', self.refine.c, 'Unit Cell - c (Ang)',
-                            slot=self.set_lattice_parameters)
-        self.parameters.add('alpha', self.refine.alpha,
-                            'Unit Cell - alpha (deg)',
-                            slot=self.set_lattice_parameters)
-        self.parameters.add('beta', self.refine.beta,
-                            'Unit Cell - beta (deg)',
-                            slot=self.set_lattice_parameters)
-        self.parameters.add('gamma', self.refine.gamma,
-                            'Unit Cell - gamma (deg)',
-                            slot=self.set_lattice_parameters)
-        self.parameters['laue_group'].value = self.refine.laue_group
-        self.parameters['symmetry'].value = self.refine.symmetry
-        self.parameters['centring'].value = self.refine.centring
         self.import_button = NXPushButton('Import CIF', self.import_cif)
         self.import_checkbox = NXCheckBox('Update Lattice Parameters')
         self.set_layout(self.root_layout, self.close_buttons(save=True))
         self.set_title('Defining Lattice')
 
     def choose_entry(self):
+        from cctbx import sgtbx
         self.refine = NXRefine(self.root['entry'])
         if self.layout.count() == 2:
+            self.parameters = GridParameters()
+            self.parameters.add('chemical_formula', self.refine.formula,
+                                'Chemical Formula')
+            self.parameters.add('space_group', self.refine.space_group,
+                                'Space Group', slot=self.set_groups)
+            self.parameters.add('laue_group', self.refine.laue_groups,
+                                'Laue Group')
+            self.parameters.add('symmetry', self.refine.symmetries, 'Symmetry',
+                                slot=self.set_lattice_parameters)
+            self.parameters.add('centring', self.refine.centrings,
+                                'Cell Centring')
+            self.parameters.add('a', self.refine.a, 'Unit Cell - a (Ang)',
+                                slot=self.set_lattice_parameters)
+            self.parameters.add('b', self.refine.b, 'Unit Cell - b (Ang)',
+                                slot=self.set_lattice_parameters)
+            self.parameters.add('c', self.refine.c, 'Unit Cell - c (Ang)',
+                                slot=self.set_lattice_parameters)
+            self.parameters.add('alpha', self.refine.alpha,
+                                'Unit Cell - alpha (deg)',
+                                slot=self.set_lattice_parameters)
+            self.parameters.add('beta', self.refine.beta,
+                                'Unit Cell - beta (deg)',
+                                slot=self.set_lattice_parameters)
+            self.parameters.add('gamma', self.refine.gamma,
+                                'Unit Cell - gamma (deg)',
+                                slot=self.set_lattice_parameters)
+            self.parameters['laue_group'].value = self.refine.laue_group
+            self.parameters['symmetry'].value = self.refine.symmetry
+            self.parameters['centring'].value = self.refine.centring
             self.insert_layout(1, self.parameters.grid(header=False))
             if sgtbx:
                 self.insert_layout(2, self.make_layout(self.import_button,
@@ -77,6 +77,8 @@ class LatticeDialog(NXDialog):
         self.update_parameters()
 
     def import_cif(self):
+        import iotbx.cif as cif
+        from cctbx import sgtbx
         filename = getOpenFileName(self, 'Open CIF File')
         if os.path.exists(filename):
             cif_info = cif.reader(file_path=filename).model()
@@ -123,6 +125,7 @@ class LatticeDialog(NXDialog):
             self.update_parameters()
 
     def update_parameters(self):
+        self.parameters['chemical_formula'].value = self.refine.formula
         self.parameters['space_group'].value = self.refine.space_group
         self.parameters['laue_group'].value = self.refine.laue_group
         self.parameters['symmetry'].value = self.refine.symmetry
@@ -135,6 +138,7 @@ class LatticeDialog(NXDialog):
         self.parameters['gamma'].value = self.refine.gamma
 
     def set_groups(self):
+        from cctbx import sgtbx
         if self.space_group:
             try:
                 if isinstance(self.space_group, float):
@@ -152,6 +156,10 @@ class LatticeDialog(NXDialog):
                 self.update_parameters()
             except Exception:
                 pass
+
+    @property
+    def chemical_formula(self):
+        return self.parameters['chemical_formula'].value
 
     @property
     def space_group(self):
@@ -205,6 +213,7 @@ class LatticeDialog(NXDialog):
         (self.refine.a, self.refine.b, self.refine.c,
          self.refine.alpha, self.refine.beta, self.refine.gamma) = (
             self.get_lattice_parameters())
+        self.refine.formula = self.chemical_formula
         self.refine.space_group = self.space_group
         self.refine.laue_group = self.laue_group
         self.refine.symmetry = self.get_symmetry()

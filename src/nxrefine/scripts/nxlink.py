@@ -36,7 +36,7 @@ def main():
         reduce = NXReduce(entry, args.directory, link=True,
                           overwrite=args.overwrite)
         if args.queue:
-            reduce.queue()
+            reduce.queue('nxlink', args)
         else:
             reduce.nxlink()
 

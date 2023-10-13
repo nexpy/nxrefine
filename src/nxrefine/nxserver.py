@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2013-2021, NeXpy Development Team.
+# Copyright (c) 2013-2022, NeXpy Development Team.
 #
 # Distributed under the terms of the Modified BSD License.
 #
@@ -8,52 +8,110 @@
 
 import os
 import subprocess
+import tempfile
 import time
-from configparser import ConfigParser
 from datetime import datetime
-from multiprocessing import JoinableQueue, Process, Queue
+from pathlib import Path
+from queue import Queue
+from threading import Thread
 
 import psutil
-from nexusformat.nexus import NeXusError
+from nexusformat.nexus import NeXusError, NXLock
+from persistqueue import Queue as FileQueue
+from persistqueue.exceptions import Empty
+from persistqueue.serializers import json
 
-from .daemon import NXDaemon
+from .nxdaemon import NXDaemon
+from .nxsettings import NXSettings
 
 
-class NXWorker(Process):
-    """Class for processing tasks on a specific cpu."""
+class NXFileQueue(FileQueue):
+    """A file-based queue with locked access"""
 
-    def __init__(self, cpu, task_queue, result_queue, server_log):
-        Process.__init__(self)
-        self.cpu = cpu
-        self.task_queue = task_queue
-        self.result_queue = result_queue
-        self.server_log = server_log
-        self.cpu_log = os.path.join(os.path.dirname(self.server_log),
-                                    self.cpu + '.log')
+    def __init__(self, directory, autosave=False):
+        self.directory = Path(directory)
+        self.directory.mkdir(mode=0o777, exist_ok=True)
+        tempdir = self.directory / 'tempdir'
+        tempdir.mkdir(mode=0o777, exist_ok=True)
+        self.lock = NXLock(self.directory / 'filequeue')
+        with self.lock:
+            super().__init__(directory, serializer=json, autosave=autosave,
+                             tempdir=tempdir)
+            self.fix_access()
 
     def __repr__(self):
-        return f"NXWorker(cpu={self.cpu})"
+        return f"NXFileQueue('{self.directory}')"
+
+    def __enter__(self):
+        self.lock.acquire()
+        self.info = self._loadinfo()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.fix_access()
+        self.lock.release()
+
+    def put(self, item, block=True, timeout=None):
+        """Add an item to the queue."""
+        with self:
+            super().put(str(item), block=block, timeout=timeout)
+
+    def get(self, block=True, timeout=None):
+        """Get the next item in the queue."""
+        with self:
+            item = str(super().get(block=block, timeout=timeout))
+        return item
+
+    def queued_items(self):
+        """Return a list of items still remaining in the queue."""
+        with self:
+            items = []
+            while self.qsize() > 0:
+                items.append(super().get(timeout=0))
+        return items
+
+    def fix_access(self):
+        """Ensure that the file queue pointer is readable."""
+        for f in [f for f in self.directory.iterdir() if f.is_file()]:
+            try:
+                self.directory.joinpath(f).chmod(0o666)
+            except Exception:
+                pass
+        for f in [f for f in self.directory.iterdir() if f.is_dir()]:
+            try:
+                self.directory.joinpath(f).chmod(0o777)
+            except Exception:
+                pass
+
+
+class NXWorker(Thread):
+    """Class for processing tasks on a specific cpu."""
+
+    def __init__(self, cpu, worker_queue, server_log):
+        super().__init__()
+        self.cpu = cpu
+        self.worker_queue = worker_queue
+        self.server_log = server_log
+        cpu_log = self.cpu + '.log'
+        self.cpu_log = Path(self.server_log).parent / cpu_log
+
+    def __repr__(self):
+        return f"NXWorker(cpu='{self.cpu}')"
 
     def run(self):
         self.log(f"Starting worker on {self.cpu} (pid={os.getpid()})")
         while True:
             time.sleep(5)
-            next_task = self.task_queue.get()
+            next_task = self.worker_queue.get()
             if next_task is None:
-                self.log(f'{self.cpu}: Exiting')
-                self.task_queue.task_done()
+                self.log(f"Stopping worker on {self.cpu} (pid={os.getpid()})")
+                self.worker_queue.task_done()
                 break
             else:
                 self.log(f"{self.cpu}: Executing '{next_task.command}'")
                 next_task.execute(self.cpu, self.cpu_log)
-            self.task_queue.task_done()
+            self.worker_queue.task_done()
             self.log(f"{self.cpu}: Finished '{next_task.command}'")
-            self.result_queue.put(next_task.command)
         return
-
-    def terminate(self):
-        self.log(f"Stopping worker on {self.cpu} (pid={os.getpid()})")
-        Process.terminate(self)
 
     def log(self, message):
         with open(self.server_log, 'a') as f:
@@ -61,106 +119,115 @@ class NXWorker(Process):
                     str(message) + '\n')
 
 
-class NXTask(object):
+class NXTask:
     """Class for submitting tasks to different cpus."""
 
-    def __init__(self, command, server_type):
+    def __init__(self, command, server):
         self.command = command
-        self.server_type = server_type
+        self.name = command.split()[0]
+        self.server = server
 
-    def executable_command(self, cpu):
+    def __repr__(self):
+        return f"NXTask('{self.name}')"
+
+    def executable_command(self, cpu, cpu_log):
         """Wrap command according to the server type."""
-        if self.server_type == 'multicore':
-            return self.command
+        if self.server.template:
+            with open(self.server.template) as f:
+                text = f.read()
+            self.script = Path(tempfile.mkstemp(suffix='.sh')[1])
+            with open(self.script, 'w') as f:
+                f.write(text.replace('<NXSERVER>', self.command))
+            command = str(self.script)
         else:
-            return f"pdsh -w {cpu} '{self.command}'"
+            self.script = None
+            command = self.command
+        if self.server.run_command:
+            if self.server.run_command.startswith('pdsh'):
+                command = f"{self.server.run_command} -w {cpu} '{command}'"
+            elif self.server.run_command.startswith('qsub'):
+                command = (f"{self.server.run_command} -j y -o {cpu_log} "
+                           f"-N {cpu} -hold_jid {cpu} -S /bin/bash {command}")
+        return command
 
-    def execute(self, cpu, log_file):
-        with open(log_file, 'a') as f:
+    def execute(self, cpu, cpu_log):
+        with open(cpu_log, 'a') as f:
             f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' +
                     self.command + '\n')
-        process = subprocess.run(self.executable_command(cpu),
+        process = subprocess.run(self.executable_command(cpu, cpu_log),
                                  shell=True,
                                  stdout=subprocess.PIPE,
                                  stderr=subprocess.STDOUT)
-        with open(log_file, 'a') as f:
+        with open(cpu_log, 'a') as f:
             f.write(process.stdout.decode() + '\n')
+        if self.script and self.script.exists():
+            self.script.unlink()
 
 
 class NXServer(NXDaemon):
 
-    def __init__(self, directory=None, server_type=None, nodes=None):
-        self.pid_name = 'NXServer'
-        self.initialize(directory, server_type, nodes)
-        self.task_list = os.path.join(self.directory, 'task_list')
-        self.log_file = os.path.join(self.directory, 'nxserver.log')
-        self.pid_file = os.path.join(self.directory, 'nxserver.pid')
-        self.tasks = None
-        self.results = None
+    def __init__(self, directory=None, server_type=None, nodes=None,
+                 concurrent=None, run_command=None, template=None):
+        self.pid_name = 'nxserver'
+        self.initialize(directory, server_type, nodes, concurrent,
+                        run_command, template)
+        self.worker_queue = None
         self.workers = []
-        if not os.path.exists(self.task_list):
-            os.mkfifo(self.task_list)
         super(NXServer, self).__init__(self.pid_name, self.pid_file)
 
     def __repr__(self):
-        return (f"NXServer(directory='{self.directory}', "
-                "type='{self.server_type}')")
+        return f"NXServer(directory='{self.directory}')"
 
-    def initialize(self, directory, server_type, nodes):
-        self.home_settings = ConfigParser()
-        home_directory = os.path.join(os.path.abspath(os.path.expanduser('~')),
-                                      '.nxserver')
-        if not os.path.exists(home_directory):
-            os.mkdir(home_directory)
-        self.home_file = os.path.join(home_directory, 'settings.ini')
-        self.home_settings.read(self.home_file)
-        if 'setup' not in self.home_settings.sections():
-            self.home_settings.add_section('setup')
-        if directory:
-            self.home_settings.set('setup', 'directory', directory)
-            with open(self.home_file, 'w') as f:
-                self.home_settings.write(f)
-        elif self.home_settings.has_option('setup', 'directory'):
-            directory = self.home_settings.get('setup', 'directory')
-        else:
-            raise NeXusError('Server directory not specified')
-        self.directory = os.path.join(directory, 'nxserver')
-        if not os.path.exists(self.directory):
-            os.mkdir(self.directory)
-
-        self.server_settings = ConfigParser(allow_no_value=True)
-        self.server_file = os.path.join(self.directory, 'settings.ini')
-        self.server_settings.read(self.server_file)
-        if 'setup' not in self.server_settings.sections():
-            self.server_settings.add_section('setup')
+    def initialize(self, directory, server_type, nodes, concurrent,
+                   run_command, template):
+        self.settings = NXSettings(default=directory)
+        self.directory = Path(self.settings.directory)
         if server_type:
             self.server_type = server_type
-            self.server_settings.set('setup', 'type', server_type)
-        elif self.server_settings.has_option('setup', 'type'):
-            self.server_type = self.server_settings.get('setup', 'type')
+            self.settings.set('server', 'type', server_type)
+        elif self.settings.has_option('server', 'type'):
+            self.server_type = self.settings.get('server', 'type')
         else:
             raise NeXusError('Server type not specified')
         if self.server_type == 'multinode':
-            if 'nodes' not in self.server_settings.sections():
-                self.server_settings.add_section('nodes')
+            if 'nodes' not in self.settings.sections():
+                self.settings.add_section('nodes')
             if nodes:
                 self.write_nodes(nodes)
             self.cpus = self.read_nodes()
         else:
-            if self.server_settings.has_option('setup', 'cores'):
-                cpu_count = int(self.server_settings.get('setup', 'cores'))
+            if self.settings.has_option('server', 'cores'):
+                cpu_count = int(self.settings.get('server', 'cores'))
                 if cpu_count > psutil.cpu_count():
                     cpu_count = psutil.cpu_count()
             else:
                 cpu_count = psutil.cpu_count()
             self.cpus = ['cpu'+str(cpu) for cpu in range(1, cpu_count+1)]
-        with open(self.server_file, 'w') as f:
-            self.server_settings.write(f)
+        if concurrent:
+            self.concurrent = concurrent
+            self.settings.set('server', 'concurrent', concurrent)
+        else:
+            self.concurrent = self.settings.get('server', 'concurrent')
+        if run_command:
+            self.run_command = run_command
+            self.settings.set('server', 'run_command', run_command)
+        else:
+            self.run_command = self.settings.get('server', 'run_command')
+        if template:
+            self.template = template
+            self.settings.set('server', 'template', template)
+        else:
+            self.template = self.settings.get('server', 'template')
+        self.settings.save()
+        self.log_file = self.directory / 'nxserver.log'
+        self.pid_file = self.directory / 'nxserver.pid'
+        self.queue_directory = self.directory / 'task_list'
+        self.task_queue = NXFileQueue(self.queue_directory)
 
     def read_nodes(self):
         """Read available nodes"""
-        if 'nodes' in self.server_settings.sections():
-            nodes = self.server_settings.options('nodes')
+        if 'nodes' in self.settings.sections():
+            nodes = self.settings.options('nodes')
         else:
             nodes = []
         return sorted(nodes)
@@ -169,17 +236,15 @@ class NXServer(NXDaemon):
         """Write additional nodes"""
         current_nodes = self.read_nodes()
         for node in [cpu for cpu in nodes if cpu not in current_nodes]:
-            self.server_settings.set('nodes', node)
-        with open(self.server_file, 'w') as f:
-            self.server_settings.write(f)
+            self.settings.set('nodes', node)
+        self.settings.save()
         self.cpus = self.read_nodes()
 
     def remove_nodes(self, nodes):
         """Remove specified nodes"""
         for node in nodes:
-            self.server_settings.remove_option('nodes', node)
-        with open(self.server_file, 'w') as f:
-            self.server_settings.write(f)
+            self.settings.remove_option('nodes', node)
+        self.settings.save()
         self.cpus = self.read_nodes()
 
     def set_cores(self, cpu_count):
@@ -188,9 +253,8 @@ class NXServer(NXDaemon):
             cpu_count = int(cpu_count)
         except ValueError:
             raise NeXusError('Number of cores must be a valid integer')
-        self.server_settings.set('setup', 'cores', str(cpu_count))
-        with open(self.server_file, 'w') as f:
-            self.server_settings.write(f)
+        self.settings.set('server', 'cores', cpu_count)
+        self.settings.save()
         self.cpus = ['cpu'+str(cpu) for cpu in range(1, cpu_count+1)]
 
     def log(self, message):
@@ -200,57 +264,85 @@ class NXServer(NXDaemon):
 
     def run(self):
         """
-        Create worker processes to process commands from the task_fifo
+        Create worker processes to process commands from the task queue
 
-        Create a worker for each cpu, read commands from task_list, submit
-            an NXTask for each command to a JoinableQueue
+        Create a worker for each cpu, read commands from the server
+        queue, and add an NXTask for each command to a Queue.
         """
         self.log(f'Starting server (pid={os.getpid()})')
-        self.tasks = JoinableQueue()
-        self.results = Queue()
-        self.workers = [NXWorker(cpu, self.tasks, self.results, self.log_file)
+        self.task_queue = NXFileQueue(self.queue_directory, autosave=True)
+        self.worker_queue = Queue()
+        self.workers = [NXWorker(cpu, self.worker_queue, self.log_file)
                         for cpu in self.cpus]
         for worker in self.workers:
             worker.start()
-        self.task_fifo = open(self.task_list, 'r')
         while True:
             time.sleep(5)
             command = self.read_task()
             if command == 'stop':
                 break
             elif command:
-                self.tasks.put(NXTask(command, self.server_type))
+                self.worker_queue.put(NXTask(command, self))
         for worker in self.workers:
-            self.tasks.put(None)
-        self.tasks.join()
+            self.worker_queue.put(None)
+        self.worker_queue.join()
         for worker in self.workers:
-            worker.terminate()
             worker.join()
         self.log("Stopping server")
         super(NXServer, self).stop()
 
-    def add_task(self, command):
-        """Add a task to the server queue"""
-        task_fifo = os.open(self.task_list, os.O_RDWR)
-        os.write(task_fifo, (command+'\n').encode())
+    def add_task(self, tasks):
+        """Add a task to the server queue."""
+        if isinstance(tasks, str):
+            tasks = tasks.split('\n')
+        for task in tasks:
+            if task == 'stop':
+                self.task_queue.put(task)
+            elif task not in self.queued_tasks():
+                self.task_queue.put(task)
 
     def read_task(self):
-        command = self.task_fifo.readline()[:-1]
-        return command
+        """Read the next task from the server queue"""
+        try:
+            task = self.task_queue.get(block=False)
+        except Empty:
+            return None
+        except Exception as error:
+            self.log(str(error))
+            return None
+        return task
+
+    def remove_task(self, task):
+        """Remove task from the server queue."""
+        tasks = self.queued_tasks()
+        if task in tasks:
+            tasks.remove(task)
+        self.clear()
+        for task in tasks:
+            self.add_task(task)
+
+    def queued_tasks(self):
+        """List tasks remaining on the server queue."""
+        queue = NXFileQueue(self.queue_directory, autosave=False)
+        return queue.queued_items()
 
     def stop(self):
+        """Stop the server when active tasks are completed."""
         if self.is_running():
             self.add_task('stop')
 
     def clear(self):
-        if os.path.exists(self.task_list):
-            os.remove(self.task_list)
-        os.mkfifo(self.task_list)
+        """Clear the server queue."""
+        with self.task_queue.lock:
+            if self.queue_directory.exists():
+                import shutil
+                shutil.rmtree(self.queue_directory, ignore_errors=True)
+        self.task_queue = NXFileQueue(self.queue_directory)
 
     def kill(self):
         """Kill the server process.
 
-        This provides a backup mechanism for terminating the server if adding
-        'stop' to the task list does not work.
+        This provides a backup mechanism for terminating the server if
+        adding 'stop' to the task list does not work.
         """
         super(NXServer, self).stop()

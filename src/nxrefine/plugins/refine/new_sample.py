@@ -6,7 +6,7 @@
 # The full license is in the file COPYING, distributed with this software.
 # -----------------------------------------------------------------------------
 
-import os
+from pathlib import Path
 
 from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.utils import report_error
@@ -33,16 +33,13 @@ class SampleDialog(NXDialog):
         self.set_layout(self.directorybox('Choose Experiment Directory',
                                           default=False),
                         self.sample.grid(header=False),
-                        self.close_buttons(save=True))
-
+                        self.action_buttons(('Create Sample Directory',
+                                             self.create_sample_directory)),
+                        self.close_buttons(close=True))
         self.set_title('New Sample')
 
-    def accept(self):
-        home_directory = self.get_directory()
-        self.mainwindow.default_directory = home_directory
-        sample_directory = os.path.join(home_directory,
-                                        self.sample['sample'].value,
-                                        self.sample['label'].value)
-        if not os.path.exists(sample_directory):
-            os.makedirs(sample_directory)
-        super().accept()
+    def create_sample_directory(self):
+        self.sample_directory = (Path(self.get_directory()) /
+                                 self.sample['sample'].value /
+                                 self.sample['label'].value)
+        self.sample_directory.mkdir(parents=True, exist_ok=True)

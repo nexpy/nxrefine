@@ -46,6 +46,11 @@ Icon?
 
 # eclipse
 .settings
+.project
+.pydevproject
+
+# emacs
+*~
 
 # Virtual Studio Code
 .vscode
@@ -53,6 +58,9 @@ Icon?
 # setuptools_scm
 src/nxrefine/_version.py
 
-# Sphinx
-doctrees/
-.buildinfo
+# unused NXRefine code
+_unused
+
+# miscellaneous system files
+.directoryhash
+ 
