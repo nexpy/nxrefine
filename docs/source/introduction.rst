@@ -52,7 +52,7 @@ plane by ω and in the vertical plane by θ.
 
 .. note:: This geometry is equivalent to the four-circle geometry
           defined by H. You [see Fig. 1 in J. Appl. Cryst. **32**, 614
-          (1999)], with θ coreesponding to η and ω corresponding to μ.
+          (1999)], with θ and ω corresponding to η and μ, respectively.
           At present, NXRefine assumes that the two angles coupled to
           the detector, δ and ν, are fixed to 0°, with detector
           misalignments handled by the yaw and pitch angles refined in
