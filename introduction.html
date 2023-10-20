@@ -89,12 +89,48 @@ plane by ω and in the vertical plane by θ.</p>
 <p class="admonition-title">Note</p>
 <p>This geometry is equivalent to the four-circle geometry
 defined by H. You [see Fig. 1 in J. Appl. Cryst. <strong>32</strong>, 614
-(1999)], with θ coreesponding to η and ω corresponding to μ.
+(1999)], with θ and ω corresponding to η and μ, respectively.
 At present, NXRefine assumes that the two angles coupled to
 the detector, δ and ν, are fixed to 0°, with detector
 misalignments handled by the yaw and pitch angles refined in
 powder calibrations.</p>
 </div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>In earlier versions of NXRefine, θ was called the
+goniometer pitch angle, since it corresponds to a tilting
+of the χ-circle about the horizontal axis. It is still
+referred to as ‘gonpitch’ in CCTW, the C++ program called
+by NXRefine to transform the detector coordinates to
+reciprocal space.</p>
+</div>
+<p>NXRefine uses the following conventions to define a set of Cartesian
+coordinates as laboratory coordinates when all angles are set to 0.</p>
+<ul class="simple">
+<li><p>+X: parallel to the incident beam.</p></li>
+<li><p>+Z: parallel to the (usually vertical) axis connecting the base of the
+χ-circle to the sample.</p></li>
+<li><p>+Y: defined to produce a right-handed set of coordinates.</p></li>
+</ul>
+<p>In addition to defining the sample orientation, it is necessary to
+relate the pixel coordinates of the detector to the instrument
+coordinates. Assuming the pixels form a rectangular two-dimensional
+array, the detector X-axis corresponds to the fastest-changing
+direction, which is normally horizontal, so the orthogonal Y-axis is
+usually vertical. The two coordinate systems are then related by:</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="center">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">center</span></span><a class="headerlink" href="#center" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>+X(det) = -Y(lab), +Y(det) = +Z(lab), and +Z(det) = -X(lab)</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="left">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">left</span></span><a class="headerlink" href="#left" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>This is defined by an orientation matrix, which can in principle be
+changed, although it is currently fixed.</p>
 </div>
 </div>
 
