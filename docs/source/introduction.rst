@@ -80,11 +80,7 @@ array, the detector X-axis corresponds to the fastest-changing
 direction, which is normally horizontal, so the orthogonal Y-axis is
 usually vertical. The two coordinate systems are then related by:
 
-.. class:: center
-
-+X(det) = -Y(lab), +Y(det) = +Z(lab), and +Z(det) = -X(lab)
-
-.. class:: left
+    | +X(det) = -Y(lab), +Y(det) = +Z(lab), and +Z(det) = -X(lab)
 
 This is defined by an orientation matrix, which can in principle be
 changed, although it is currently fixed.
