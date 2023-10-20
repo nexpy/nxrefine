@@ -1,0 +1,130 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Introduction &#8212; NXRefine 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinxdoc.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="NXRefine" href="index.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="index.html" title="NXRefine"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">NXRefine 0.1.0 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Introduction</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="introduction">
+<h1>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h1>
+<p>NXRefine implements a complete workflow for both data acquisition and
+reduction of single crystal x-ray scattering, collected by the sample
+rotation method. NXRefine generates a three-dimensional mesh of
+scattering intensity, <em>i.e.</em>, S(Q), which can be used either to model
+diffuse scattering in reciprocal space or to transform the data to
+produce three-dimensional pair-distribution-functions (PDF), which
+represent the summed probabilities of all possible interatomic vectors.
+In crystallography, these are known as Patterson maps. If the Bragg
+peaks are eliminated before these transforms, using a process known as
+‘punch-and-fill,’ only those probabilities that deviate from the average
+crystalline structure are retained, generating ‘difference’ Patterson,
+or 3D-ΔPDF, maps. The final stage of the NXRefine workflow is to
+generate such 3D-ΔPDF maps.</p>
+<p>The uncompressed raw data from such measurements comprises tens (and
+sometimes hundreds) of gigabytes, often collected in under 30 minutes.
+This allows such measurements to be repeated multiple times as a
+function of a parametric variable, such as temperature. Ideally, such
+data should be transformed into reciprocal space as quickly as it is
+measured, so that scientists can inspect the results before a set of
+scans is complete. For this reason, NXRefine enables the workflow to be
+run automatically once an initial refinement of the sample orientation
+has been determined.</p>
+<div class="section" id="experimental-geometry">
+<h2>Experimental Geometry<a class="headerlink" href="#experimental-geometry" title="Permalink to this headline">¶</a></h2>
+<a class="reference internal image-reference" href="_images/experimental-geometry.png"><img alt="_images/experimental-geometry.png" class="align-center" src="_images/experimental-geometry.png" style="width: 90%;" /></a>
+</div>
+</div>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Introduction</a><ul>
+<li><a class="reference internal" href="#experimental-geometry">Experimental Geometry</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="index.html"
+                          title="previous chapter">NXRefine</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/introduction.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="index.html" title="NXRefine"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">NXRefine 0.1.0 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Introduction</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2023, Ray Osborn.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

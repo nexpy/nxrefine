@@ -14,7 +14,8 @@
     <script src="_static/doctools.js"></script>
     <link rel="shortcut icon" href="_static/favicon.ico"/>
     <link rel="index" title="Index" href="genindex.html" />
-    <link rel="search" title="Search" href="search.html" /> 
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Introduction" href="introduction.html" /> 
   </head><body>
     <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
@@ -22,6 +23,9 @@
         <li class="right" style="margin-right: 10px">
           <a href="genindex.html" title="General Index"
              accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="introduction.html" title="Introduction"
+             accesskey="N">next</a> |</li>
         <li class="nav-item nav-item-0"><a href="#">NXRefine 0.1.0 documentation</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">NXRefine</a></li> 
       </ul>
@@ -34,12 +38,38 @@
             
   <div class="section" id="nxrefine">
 <h1>NXRefine<a class="headerlink" href="#nxrefine" title="Permalink to this headline">¶</a></h1>
+<p>Recent advances in synchrotron x-ray instrumentation have enabled the
+rapid acquisition of x-ray diffraction data from single crystals,
+allowing large contiguous volumes of scattering in reciprocal space to
+be collected in a matter of minutes. Typically, the sample is rotated
+continuously in a monochromatic beam while images are collected on a
+fast area detector. These images are stacked into three-dimensional
+arrays and transformed from detector coordinates to reciprocal space
+coordinates, using an orientation matrix derived from the measured
+Bragg peaks.</p>
 <p>NXRefine implements a complete workflow for both data acquisition and
-reduction of single crystal diffuse x-ray scattering collected as a
-series of area detector frames during continuous sample rotation. The
-data are stored in HDF5 files, which conform to the NeXus data format
-standard.</p>
+reduction of single crystal x-ray scattering. Advanced workflows exist
+for the generation of Bragg peak intensities used by crystallographers
+to solve the average crystalline structure. However, the goal of
+NXRefine is to generate a three-dimensional mesh of scattering intensity
+that includes both Bragg peaks and the diffuse scattering that arises
+from deviations from the average structure.</p>
+<p>The workflow is written as a set of Python modules that can either be
+run from the command line, launched from a GUI that is implemented as a
+plugin to <a class="reference external" href="https://nexpy.github.io.nexpy/">NeXpy</a>, or by submitting
+jobs to a batch queue. After the initial refinement of the sample
+orientation, the entire workflow can be run in an automated fashion,
+while the data is being collected so that reduced data is available for
+inspection before a set of measurements, <em>e.g.</em>, as a function of
+temperature, are complete.</p>
 <div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="introduction.html#experimental-geometry">Experimental Geometry</a></li>
+</ul>
+</li>
+</ul>
 </div>
 </div>
 <div class="section" id="indices-and-tables">
@@ -50,6 +80,7 @@ standard.</p>
 <li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
 </ul>
 </div>
+
 
             <div class="clearer"></div>
           </div>
@@ -64,6 +95,11 @@ standard.</p>
 <li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
 </ul>
 
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="introduction.html"
+                          title="next chapter">Introduction</a></p>
   </div>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -92,6 +128,9 @@ standard.</p>
         <li class="right" style="margin-right: 10px">
           <a href="genindex.html" title="General Index"
              >index</a></li>
+        <li class="right" >
+          <a href="introduction.html" title="Introduction"
+             >next</a> |</li>
         <li class="nav-item nav-item-0"><a href="#">NXRefine 0.1.0 documentation</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">NXRefine</a></li> 
       </ul>
