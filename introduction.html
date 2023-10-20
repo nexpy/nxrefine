@@ -66,7 +66,35 @@ run automatically once an initial refinement of the sample orientation
 has been determined.</p>
 <div class="section" id="experimental-geometry">
 <h2>Experimental Geometry<a class="headerlink" href="#experimental-geometry" title="Permalink to this headline">¶</a></h2>
-<a class="reference internal image-reference" href="_images/experimental-geometry.png"><img alt="_images/experimental-geometry.png" class="align-center" src="_images/experimental-geometry.png" style="width: 90%;" /></a>
+<p>NXRefine is designed for experiments, in which the sample is placed in a
+monochromatic x-ray beam and rotated continuously about a Φ-axis that is
+approximately perpendicular to the beam. Images are collected on an area
+detector placed in transmission geometry behind the sample. Detectors
+such as the Dectris Pilatus series consist of a set of chips with small
+gaps between them, so sample rotation scans are often repeated three
+times with small detector translations between each one. However, it is
+also possible to fill in the gaps just by adjusting the orientation of
+the Φ-axis itself. NXRefine reduces the data independently for each
+rotation scan before merging them to create a single 3D data volume.</p>
+<div class="figure align-center" id="id1">
+<a class="reference internal image-reference" href="_images/experimental-geometry.png"><img alt="_images/experimental-geometry.png" src="_images/experimental-geometry.png" style="width: 90%;" /></a>
+<p class="caption"><span class="caption-text">Experimental geometry used in NXRefine.</span><a class="headerlink" href="#id1" title="Permalink to this image">¶</a></p>
+</div>
+<p>The Φ-axis is approximately perpendicular to the beam. The Φ-axis motor
+is on a χ-circle (not shown), with χ = 0° corresponding to a vertical
+axis of rotation. The figure shows a configuration, in which χ = -90°.
+The orientation of the Φ-axis can also be adjusted in the horizontal
+plane by ω and in the vertical plane by θ.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This geometry is equivalent to the four-circle geometry
+defined by H. You [see Fig. 1 in J. Appl. Cryst. <strong>32</strong>, 614
+(1999)], with θ coreesponding to η and ω corresponding to μ.
+At present, NXRefine assumes that the two angles coupled to
+the detector, δ and ν, are fixed to 0°, with detector
+misalignments handled by the yaw and pitch angles refined in
+powder calibrations.</p>
+</div>
 </div>
 </div>
 

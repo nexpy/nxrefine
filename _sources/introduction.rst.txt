@@ -26,8 +26,33 @@ has been determined.
 
 Experimental Geometry
 ---------------------
+NXRefine is designed for experiments, in which the sample is placed in a
+monochromatic x-ray beam and rotated continuously about a Φ-axis that is
+approximately perpendicular to the beam. Images are collected on an area
+detector placed in transmission geometry behind the sample. Detectors
+such as the Dectris Pilatus series consist of a set of chips with small
+gaps between them, so sample rotation scans are often repeated three
+times with small detector translations between each one. However, it is
+also possible to fill in the gaps just by adjusting the orientation of
+the Φ-axis itself. NXRefine reduces the data independently for each
+rotation scan before merging them to create a single 3D data volume.
 
-.. image:: /images/experimental-geometry.png
+.. figure:: /images/experimental-geometry.png
    :align: center
    :width: 90%
 
+   Experimental geometry used in NXRefine. 
+
+The Φ-axis is approximately perpendicular to the beam. The Φ-axis motor
+is on a χ-circle (not shown), with χ = 0° corresponding to a vertical
+axis of rotation. The figure shows a configuration, in which χ = -90°.
+The orientation of the Φ-axis can also be adjusted in the horizontal
+plane by ω and in the vertical plane by θ.
+
+.. note:: This geometry is equivalent to the four-circle geometry
+          defined by H. You [see Fig. 1 in J. Appl. Cryst. **32**, 614
+          (1999)], with θ coreesponding to η and ω corresponding to μ.
+          At present, NXRefine assumes that the two angles coupled to
+          the detector, δ and ν, are fixed to 0°, with detector
+          misalignments handled by the yaw and pitch angles refined in
+          powder calibrations.
