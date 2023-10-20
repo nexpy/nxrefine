@@ -40,6 +40,7 @@ rotation scan before merging them to create a single 3D data volume.
 .. figure:: /images/experimental-geometry.png
    :align: right
    :width: 40%
+   :figwidth: 50%
 
    Experimental geometry used in NXRefine. 
 
