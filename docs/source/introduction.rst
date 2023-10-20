@@ -1,6 +1,3 @@
-.. NXRefine documentation master file, created by
-   sphinx-quickstart on Wed Oct 11 14:36:33 2023.
-
 Introduction
 ============
 NXRefine implements a complete workflow for both data acquisition and 
