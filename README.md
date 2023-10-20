@@ -37,10 +37,10 @@ of this project are available on the
 
 Installing and Running
 ======================
-The source code can be downloaded from the AXMAS Git repository:
+The source code can be downloaded from the NeXpy Git repository:
 
 ```
-    $ git clone https://github.com/axmas-anl/nxrefine.git
+    $ git clone https://github.com/nexpy/nxrefine.git
 ```
 
 To install in the standard Python location:
@@ -72,5 +72,5 @@ User Support
 ============
 If you are interested in using this package, please contact Ray Osborn 
 (ROsborn@anl.gov). Please report any bugs as a 
-[Github issue](https://github.com/axmas/nxrefine/issues), with relevant 
+[Github issue](https://github.com/nexpy/nxrefine/issues), with relevant 
 tracebacks.
