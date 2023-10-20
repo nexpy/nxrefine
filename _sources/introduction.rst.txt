@@ -39,10 +39,10 @@ rotation scan before merging them to create a single 3D data volume.
 
 .. figure:: /images/experimental-geometry.png
    :align: right
-   :width: 40%
-   :figwidth: 50%
+   :width: 90%
+   :figwidth: 60%
 
-   Experimental geometry used in NXRefine. 
+   *Experimental geometry used in NXRefine.* 
 
 The Φ-axis is approximately perpendicular to the beam. The Φ-axis motor
 is on a χ-circle (not shown), with χ = 0° corresponding to a vertical
