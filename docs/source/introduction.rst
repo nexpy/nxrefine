@@ -29,7 +29,7 @@ Experimental Geometry
 .. figure:: /images/experimental-geometry.png
    :align: right
    :width: 90%
-   :figwidth: 60%
+   :figwidth: 40%
 
    *Experimental geometry used in NXRefine.* 
 
