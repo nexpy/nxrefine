@@ -57,3 +57,34 @@ plane by ω and in the vertical plane by θ.
           the detector, δ and ν, are fixed to 0°, with detector
           misalignments handled by the yaw and pitch angles refined in
           powder calibrations.
+
+.. warning:: In earlier versions of NXRefine, θ was called the
+             goniometer pitch angle, since it corresponds to a tilting
+             of the χ-circle about the horizontal axis. It is still
+             referred to as 'gonpitch' in CCTW, the C++ program called
+             by NXRefine to transform the detector coordinates to
+             reciprocal space.
+
+NXRefine uses the following conventions to define a set of Cartesian
+coordinates as laboratory coordinates when all angles are set to 0.
+
+* +X: parallel to the incident beam.
+* +Z: parallel to the (usually vertical) axis connecting the base of the
+  χ-circle to the sample.
+* +Y: defined to produce a right-handed set of coordinates.
+
+In addition to defining the sample orientation, it is necessary to
+relate the pixel coordinates of the detector to the instrument
+coordinates. Assuming the pixels form a rectangular two-dimensional
+array, the detector X-axis corresponds to the fastest-changing
+direction, which is normally horizontal, so the orthogonal Y-axis is
+usually vertical. The two coordinate systems are then related by:
+
+.. class:: center
+
++X(det) = -Y(lab), +Y(det) = +Z(lab), and +Z(det) = -X(lab)
+
+.. class:: left
+
+This is defined by an orientation matrix, which can in principle be
+changed, although it is currently fixed.
