@@ -30,7 +30,7 @@ psutil             https://psutil.readthedocs.io/.io/
 
 CCTW
 ----
-[CCTW](https://sourceforge.net/projects/cctw/) (Crystal Coordination 
+`CCTW <https://sourceforge.net/projects/cctw/>`_` (Crystal Coordination 
 Transformation Workflow) is a C++ package written by Guy Jennings. It
 is launched as a separate process by NXRefine, which uses the 
 experimental metadata to define the settings file used to define the 
@@ -40,5 +40,5 @@ User Support
 ------------
 If you are interested in using this package, please contact Ray Osborn 
 (ROsborn@anl.gov). Please report any bugs as a 
-[Github issue](https://github.com/axmas/nxrefine/issues), with relevant 
+`Github issue <https://github.com/nxrefine/nxrefine/issues>`_, with relevant 
 tracebacks.
