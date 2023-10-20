@@ -38,8 +38,8 @@ the Φ-axis itself. NXRefine reduces the data independently for each
 rotation scan before merging them to create a single 3D data volume.
 
 .. figure:: /images/experimental-geometry.png
-   :align: center
-   :width: 90%
+   :align: right
+   :width: 40%
 
    Experimental geometry used in NXRefine. 
 
