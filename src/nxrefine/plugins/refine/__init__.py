@@ -7,8 +7,8 @@
 # -----------------------------------------------------------------------------
 
 from . import (calculate_angles, choose_parameters, copy_parameters,
-               define_lattice, find_maximum, find_peaks,
-               prepare_mask, refine_lattice, transform_data)
+               define_lattice, find_maximum, find_peaks, prepare_mask,
+               refine_lattice, transform_data)
 
 
 def plugin_menu():
