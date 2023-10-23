@@ -31,6 +31,7 @@ Here is the structure of an experiment directory::
     experiment
     └── tasks
         ├── nxdatabase.db
+        ├── nxlogger.log
         ├── settings.ini
     └── calibrations
         ├── CeO2_87keV_600mm.tiff
@@ -39,9 +40,17 @@ Here is the structure of an experiment directory::
     └── sample1
         └── label1
             ├── sample1_100K.nxs
+            └── 100K
+                ├── f1.h5
+                ├── f2.h5
+                ├── f3.h5
+                ├── f1_transform.nxs
+                ├── f2_transform.nxs
+                ├── f3_transform.nxs
+                └── transform.nxs
             ├── sample1_200K.nxs
             └── sample1_300K.nxs
         └── label2
             └── sample1_300K.nxs
     ├── sample2
-    ├── sample 3
+    ├── sample3
