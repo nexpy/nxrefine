@@ -1,10 +1,13 @@
 name: "Sphinx: Render Documentation"
 
 on:
-    workflow_dispatch:
-    push:
-        branches:
-            - docs
+  workflow_dispatch:
+  push:
+    branches:
+      - docs
+  pull_request:
+    branches:
+      - docs
 
 jobs:
   build:
