@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - docs
+      - 'docs'
   pull_request:
     branches:
-      - docs
+      - 'docs'
 
 jobs:
   build:
