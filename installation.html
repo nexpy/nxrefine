@@ -116,12 +116,12 @@ be appended.</p>
 </div>
 <p>All the files in the <code class="docutils literal notranslate"><span class="pre">nxserver</span></code> directory will have group read/write
 permissions to allow them to be updated by multiple users in that group.</p>
-<p>This also adds a hidden file to the home directory pointing to the
-server directory, so that the server path can be read in future login
-sessions. Each user should then issue the same command to store the
-server directory in their own home directory. If the server directory
-already exists, it is not touched. In principle, this only needs to be
-run once,</p>
+<p>This also adds a hidden file to the home directory, containing the path
+to the server directory, so that the server path can be read in future
+login sessions. Each user should then issue the same command to store
+the server directory in their own home directory. If the server
+directory already exists, it is not touched. In principle, this only
+needs to be run once, but it could be</p>
 <p>NXRefine uses file-based locking to prevent corruption of data files.
 This system is provided by the
 <a class="reference external" href="https://nexpy.github.io/nexpy/">nexusformat package</a>, which defines
@@ -141,9 +141,8 @@ to set up a unique lock file directory for all their users.</p>
 <span class="n">nxserver</span> <span class="o">-</span><span class="n">d</span> <span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">parent</span><span class="o">/</span><span class="n">nxserver</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="nxserver-directory">
-<h2>NXServer Directory<a class="headerlink" href="#nxserver-directory" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="server-directory">
+<h3>Server Directory<a class="headerlink" href="#server-directory" title="Permalink to this headline">¶</a></h3>
 <p>Here is the structure of the <code class="docutils literal notranslate"><span class="pre">nxserver</span></code> directory:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>nxserver
 ├── nxserver.log
@@ -160,26 +159,35 @@ to set up a unique lock file directory for all their users.</p>
 </pre></div>
 </div>
 <ul>
-<li><p>nxserver.log</p>
+<li><p><strong>nxserver.log</strong></p>
 <p>This is a log file that records jobs submitted to the server queue.</p>
 </li>
-<li><p>cpu1.log, cpu2.log, …</p>
+<li><p><strong>cpu1.log</strong>, <strong>cpu2.log</strong>, …</p>
 <p>These are log files that contain the output of jobs running on the
 server. The number depends on the number of simultaneous jobs that
 are allowed on the server, which is defined by the settings file.</p>
 </li>
-<li><p>settings.ini</p>
+<li><p><strong>settings.ini</strong></p>
 <p>A file containing default settings used by the NXRefine package,
 including server parameters, instrumental parameters, and parameters
 used in the data reduction workflow. When a new experiment is set up,
 a copy of these parameters is stored in the experiment directory (to
-be described later), so that they can be customized if necessary.</p>
+be described later), so that they can be customized if necessary.
+These settings are defined later.</p>
 </li>
-<li><p>nxcommand.sh</p>
+<li><p><strong>nxcommand.sh</strong></p>
 <p>A shell script that may be used if jobs need to be wrapped before
 submission to the job queue, <em>e.g.</em>, using <code class="docutils literal notranslate"><span class="pre">qsub</span></code>.</p>
 </li>
 </ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The log files can be viewed using the <code class="docutils literal notranslate"><span class="pre">Manage</span> <span class="pre">Server</span></code> dialog
+and the settings file can be modified using the <code class="docutils literal notranslate"><span class="pre">Edit</span>
+<span class="pre">Settings</span></code> dialog, both of which are located in the <code class="docutils literal notranslate"><span class="pre">Server</span></code>
+menu added as a NeXpy plugin when NXRefine is installed.</p>
+</div>
+</div>
 </div>
 </div>
 
@@ -197,8 +205,10 @@ submission to the job queue, <em>e.g.</em>, using <code class="docutils literal 
 <li><a class="reference internal" href="#required-libraries">Required Libraries</a></li>
 <li><a class="reference internal" href="#cctw">CCTW</a></li>
 <li><a class="reference internal" href="#user-support">User Support</a></li>
-<li><a class="reference internal" href="#initial-setup">Initial Setup</a></li>
-<li><a class="reference internal" href="#nxserver-directory">NXServer Directory</a></li>
+<li><a class="reference internal" href="#initial-setup">Initial Setup</a><ul>
+<li><a class="reference internal" href="#server-directory">Server Directory</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
