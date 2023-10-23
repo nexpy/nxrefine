@@ -42,3 +42,8 @@ If you are interested in using this package, please contact Ray Osborn
 (ROsborn@anl.gov). Please report any bugs as a 
 `Github issue <https://github.com/nxrefine/nxrefine/issues>`_, with
 relevant tracebacks.
+
+Initial Setup
+=============
+In order to allow NXRefine to be used on machines with multiple users,
+a directory is defined to store log files, task queues, and settings. 
