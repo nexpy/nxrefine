@@ -98,11 +98,24 @@ input and output grids. It has to be separately installed.</p>
 <a class="reference external" href="https://github.com/nxrefine/nxrefine/issues">Github issue</a>, with
 relevant tracebacks.</p>
 </div>
-</div>
 <div class="section" id="initial-setup">
-<h1>Initial Setup<a class="headerlink" href="#initial-setup" title="Permalink to this headline">¶</a></h1>
+<h2>Initial Setup<a class="headerlink" href="#initial-setup" title="Permalink to this headline">¶</a></h2>
 <p>In order to allow NXRefine to be used on machines with multiple users,
-a directory is defined to store log files, task queues, and settings.</p>
+a directory is defined to store log files, task queues, and settings.
+This directory can be initialized on the command line by the ‘nxserver’
+command:</p>
+<blockquote>
+<div><p>$ nxserver -d /path/to/parent</p>
+</div></blockquote>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The name of the server directory is always ‘nxserver.’ This
+will be appended to the supplied path, unless the final
+element is already ‘nxserver.’</p>
+</div>
+<p>All the files in the ‘nxserver’ directory will have group read/write
+permissions to allow them to be updated by multiple users in that group.</p>
+</div>
 </div>
 
 
@@ -119,9 +132,9 @@ a directory is defined to store log files, task queues, and settings.</p>
 <li><a class="reference internal" href="#required-libraries">Required Libraries</a></li>
 <li><a class="reference internal" href="#cctw">CCTW</a></li>
 <li><a class="reference internal" href="#user-support">User Support</a></li>
+<li><a class="reference internal" href="#initial-setup">Initial Setup</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#initial-setup">Initial Setup</a></li>
 </ul>
 
   </div>

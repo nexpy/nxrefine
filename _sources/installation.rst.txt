@@ -44,6 +44,18 @@ If you are interested in using this package, please contact Ray Osborn
 relevant tracebacks.
 
 Initial Setup
-=============
+-------------
 In order to allow NXRefine to be used on machines with multiple users,
-a directory is defined to store log files, task queues, and settings. 
+a directory is defined to store log files, task queues, and settings.
+This directory can be initialized on the command line by the 'nxserver'
+command:
+
+    $ nxserver -d /path/to/parent
+
+.. note:: The name of the server directory is always 'nxserver.' This
+          will be appended to the supplied path, unless the final
+          element is already 'nxserver.'
+
+All the files in the 'nxserver' directory will have group read/write
+permissions to allow them to be updated by multiple users in that group.
+
