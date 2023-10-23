@@ -52,10 +52,37 @@ command:
 
     $ nxserver -d /path/to/parent
 
-.. note:: The name of the server directory is always 'nxserver.' This
-          will be appended to the supplied path, unless the final
-          element is already 'nxserver.'
+This will create a directory at '/path/to/parent/nxserver' containing
+the files that are required by NXRefine server.
+
+.. note:: If the supplied path already ends in 'nxserver,' it will not
+          be appended.
 
 All the files in the 'nxserver' directory will have group read/write
 permissions to allow them to be updated by multiple users in that group.
+
+This also adds a hidden file to the home directory pointing to the
+server directory, so that the server path can be read in future login
+sessions. Each user should then issue the same command to store the
+server directory in their own home directory. If the server directory
+already exists, it is not touched. In principle, this only needs to be
+run once, 
+
+NXRefine uses file-based locking to prevent corruption of data files.
+This system is provided by the 
+`nexusformat package <https://nexpy.github.io/nexpy/>`_, which defines
+the directory to contain the lock files using the NX_LOCKDIRECTORY
+environment variable. It is recommended that this directory be placed
+within the server directory.
+
+.. note:: The NeXpy GUI has a settings file that can be used to define
+          the lock directory, but it is overridden by the environment
+          variable if it is defined. This allows system administrators
+          to set up a unique lock file directory for all their users.
+
+It is suggested that users add the following to their .bashrc file::
+
+    export NX_LOCKDIRECTORY=/nfs/chess/id4baux/nxserver/locks
+    export NX_LOCK=10
+    nxserver -d /nfs/chess/id4baux/nxserver
 
