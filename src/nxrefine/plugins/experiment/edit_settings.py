@@ -97,14 +97,13 @@ class ExperimentSettingsDialog(NXDialog):
         if ahp in directory.parents:
             rhp = rhp / directory.parent.relative_to(ahp)
             ahp = ahp / directory.parent.relative_to(ahp)
+            self.instrument_parameters['analysis_home'].value = str(ahp)
+            self.instrument_parameters['raw_home'].value = str(rhp)
         else:
             self.display_message(
                 'Warning: Invalid Location',
                 'The chosen experiment directory is not in the default '
                 f"location '{ahp}'")
-            return
-        self.instrument_parameters['analysis_home'].value = str(ahp)
-        self.instrument_parameters['raw_home'].value = str(rhp)
         defaults = self.settings.settings['nxrefine']
         for p in defaults:
             self.refine_parameters[p].value = defaults[p]
