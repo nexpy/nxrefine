@@ -61,12 +61,12 @@ the files that are required by NXRefine server.
 All the files in the ``nxserver`` directory will have group read/write
 permissions to allow them to be updated by multiple users in that group.
 
-This also adds a hidden file to the home directory pointing to the
-server directory, so that the server path can be read in future login
-sessions. Each user should then issue the same command to store the
-server directory in their own home directory. If the server directory
-already exists, it is not touched. In principle, this only needs to be
-run once, 
+This also adds a hidden file to the home directory, containing the path
+to the server directory, so that the server path can be read in future
+login sessions. Each user should then issue the same command to store
+the server directory in their own home directory. If the server
+directory already exists, it is not touched. In principle, this only
+needs to be run once, but it could be 
 
 NXRefine uses file-based locking to prevent corruption of data files.
 This system is provided by the 
@@ -86,8 +86,8 @@ It is suggested that users add the following to their .bashrc file::
     export NX_LOCK=10
     nxserver -d /path/to/parent/nxserver
 
-NXServer Directory
-------------------
+Server Directory
+^^^^^^^^^^^^^^^^
 Here is the structure of the ``nxserver`` directory::
 
     nxserver
@@ -103,25 +103,31 @@ Here is the structure of the ``nxserver`` directory::
     └── locks
         ├── ...
 
-* nxserver.log
+* **nxserver.log**
 
   This is a log file that records jobs submitted to the server queue.
 
-* cpu1.log, cpu2.log, ...
+* **cpu1.log**, **cpu2.log**, ...
   
   These are log files that contain the output of jobs running on the
   server. The number depends on the number of simultaneous jobs that
   are allowed on the server, which is defined by the settings file.
 
-* settings.ini
+* **settings.ini**
   
   A file containing default settings used by the NXRefine package,
   including server parameters, instrumental parameters, and parameters
   used in the data reduction workflow. When a new experiment is set up,
   a copy of these parameters is stored in the experiment directory (to
   be described later), so that they can be customized if necessary.
+  These settings are defined later.
 
-* nxcommand.sh
+* **nxcommand.sh**
   
   A shell script that may be used if jobs need to be wrapped before
   submission to the job queue, *e.g.*, using ``qsub``.
+
+.. note:: The log files can be viewed using the ``Manage Server`` dialog
+          and the settings file can be modified using the ``Edit
+          Settings`` dialog, both of which are located in the ``Server``
+          menu added as a NeXpy plugin when NXRefine is installed.
