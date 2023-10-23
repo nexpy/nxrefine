@@ -37,7 +37,7 @@ of this project are available on the
 
 Installing and Running
 ======================
-The source code can be downloaded from the AXMAS Git repository:
+The source code can be downloaded from the NeXpy Git repository:
 
 ```
     $ git clone https://github.com/nexpy/nxrefine.git
