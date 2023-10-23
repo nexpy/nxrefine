@@ -259,6 +259,7 @@ class NXReduce(QtCore.QObject):
 
     def __enter__(self):
         self._mode = self.root.nxfilemode
+        self.root.reload()
         self.root.unlock()
         return self.root.__enter__()
 

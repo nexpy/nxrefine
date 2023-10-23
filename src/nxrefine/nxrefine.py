@@ -225,6 +225,7 @@ class NXRefine:
         if self.entry is None:
             raise NeXusError('NXRefine entry not defined')
         self._mode = self.root.nxfilemode
+        self.root.reload()
         self.root.unlock()
         return self.root.__enter__()
 
