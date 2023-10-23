@@ -107,14 +107,14 @@ command:</p>
 <blockquote>
 <div><p>$ nxserver -d /path/to/parent</p>
 </div></blockquote>
-<p>This will create a directory at ‘/path/to/parent/nxserver’ containing
+<p>This will create a directory at <code class="docutils literal notranslate"><span class="pre">/path/to/parent/nxserver</span></code> containing
 the files that are required by NXRefine server.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>If the supplied path already ends in ‘nxserver,’ it will not
+<p>If the supplied path already ends in <code class="docutils literal notranslate"><span class="pre">nxserver</span></code>, it will not
 be appended.</p>
 </div>
-<p>All the files in the ‘nxserver’ directory will have group read/write
+<p>All the files in the <code class="docutils literal notranslate"><span class="pre">nxserver</span></code> directory will have group read/write
 permissions to allow them to be updated by multiple users in that group.</p>
 <p>This also adds a hidden file to the home directory pointing to the
 server directory, so that the server path can be read in future login
@@ -125,7 +125,7 @@ run once,</p>
 <p>NXRefine uses file-based locking to prevent corruption of data files.
 This system is provided by the
 <a class="reference external" href="https://nexpy.github.io/nexpy/">nexusformat package</a>, which defines
-the directory to contain the lock files using the NX_LOCKDIRECTORY
+the directory to contain the lock files using the <code class="docutils literal notranslate"><span class="pre">NX_LOCKDIRECTORY</span></code>
 environment variable. It is recommended that this directory be placed
 within the server directory.</p>
 <div class="admonition note">
@@ -136,11 +136,50 @@ variable if it is defined. This allows system administrators
 to set up a unique lock file directory for all their users.</p>
 </div>
 <p>It is suggested that users add the following to their .bashrc file:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">export</span> <span class="n">NX_LOCKDIRECTORY</span><span class="o">=/</span><span class="n">nfs</span><span class="o">/</span><span class="n">chess</span><span class="o">/</span><span class="n">id4baux</span><span class="o">/</span><span class="n">nxserver</span><span class="o">/</span><span class="n">locks</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">export</span> <span class="n">NX_LOCKDIRECTORY</span><span class="o">=/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">parent</span><span class="o">/</span><span class="n">nxserver</span><span class="o">/</span><span class="n">locks</span>
 <span class="n">export</span> <span class="n">NX_LOCK</span><span class="o">=</span><span class="mi">10</span>
-<span class="n">nxserver</span> <span class="o">-</span><span class="n">d</span> <span class="o">/</span><span class="n">nfs</span><span class="o">/</span><span class="n">chess</span><span class="o">/</span><span class="n">id4baux</span><span class="o">/</span><span class="n">nxserver</span>
+<span class="n">nxserver</span> <span class="o">-</span><span class="n">d</span> <span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">parent</span><span class="o">/</span><span class="n">nxserver</span>
 </pre></div>
 </div>
+</div>
+<div class="section" id="nxserver-directory">
+<h2>NXServer Directory<a class="headerlink" href="#nxserver-directory" title="Permalink to this headline">¶</a></h2>
+<p>Here is the structure of the <code class="docutils literal notranslate"><span class="pre">nxserver</span></code> directory:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>nxserver
+├── nxserver.log
+├── cpu1.log
+├── cpu2.log
+├── cpu3.log
+├── settings.ini
+├── nxcommand.sh
+└── task_list
+    ├── info
+    ├── q00000
+└── locks
+    ├── ...
+</pre></div>
+</div>
+<ul>
+<li><p>nxserver.log</p>
+<p>This is a log file that records jobs submitted to the server queue.</p>
+</li>
+<li><p>cpu1.log, cpu2.log, …</p>
+<p>These are log files that contain the output of jobs running on the
+server. The number depends on the number of simultaneous jobs that
+are allowed on the server, which is defined by the settings file.</p>
+</li>
+<li><p>settings.ini</p>
+<p>A file containing default settings used by the NXRefine package,
+including server parameters, instrumental parameters, and parameters
+used in the data reduction workflow. When a new experiment is set up,
+a copy of these parameters is stored in the experiment directory (to
+be described later), so that they can be customized if necessary.</p>
+</li>
+<li><p>nxcommand.sh</p>
+<p>A shell script that may be used if jobs need to be wrapped before
+submission to the job queue, <em>e.g.</em>, using <code class="docutils literal notranslate"><span class="pre">qsub</span></code>.</p>
+</li>
+</ul>
 </div>
 </div>
 
@@ -159,6 +198,7 @@ to set up a unique lock file directory for all their users.</p>
 <li><a class="reference internal" href="#cctw">CCTW</a></li>
 <li><a class="reference internal" href="#user-support">User Support</a></li>
 <li><a class="reference internal" href="#initial-setup">Initial Setup</a></li>
+<li><a class="reference internal" href="#nxserver-directory">NXServer Directory</a></li>
 </ul>
 </li>
 </ul>

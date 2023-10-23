@@ -52,13 +52,13 @@ command:
 
     $ nxserver -d /path/to/parent
 
-This will create a directory at '/path/to/parent/nxserver' containing
+This will create a directory at ``/path/to/parent/nxserver`` containing
 the files that are required by NXRefine server.
 
-.. note:: If the supplied path already ends in 'nxserver,' it will not
+.. note:: If the supplied path already ends in ``nxserver``, it will not
           be appended.
 
-All the files in the 'nxserver' directory will have group read/write
+All the files in the ``nxserver`` directory will have group read/write
 permissions to allow them to be updated by multiple users in that group.
 
 This also adds a hidden file to the home directory pointing to the
@@ -71,7 +71,7 @@ run once,
 NXRefine uses file-based locking to prevent corruption of data files.
 This system is provided by the 
 `nexusformat package <https://nexpy.github.io/nexpy/>`_, which defines
-the directory to contain the lock files using the NX_LOCKDIRECTORY
+the directory to contain the lock files using the ``NX_LOCKDIRECTORY``
 environment variable. It is recommended that this directory be placed
 within the server directory.
 
@@ -82,7 +82,46 @@ within the server directory.
 
 It is suggested that users add the following to their .bashrc file::
 
-    export NX_LOCKDIRECTORY=/nfs/chess/id4baux/nxserver/locks
+    export NX_LOCKDIRECTORY=/path/to/parent/nxserver/locks
     export NX_LOCK=10
-    nxserver -d /nfs/chess/id4baux/nxserver
+    nxserver -d /path/to/parent/nxserver
 
+NXServer Directory
+------------------
+Here is the structure of the ``nxserver`` directory::
+
+    nxserver
+    ├── nxserver.log
+    ├── cpu1.log
+    ├── cpu2.log
+    ├── cpu3.log
+    ├── settings.ini
+    ├── nxcommand.sh
+    └── task_list
+        ├── info
+        ├── q00000
+    └── locks
+        ├── ...
+
+* nxserver.log
+
+  This is a log file that records jobs submitted to the server queue.
+
+* cpu1.log, cpu2.log, ...
+  
+  These are log files that contain the output of jobs running on the
+  server. The number depends on the number of simultaneous jobs that
+  are allowed on the server, which is defined by the settings file.
+
+* settings.ini
+  
+  A file containing default settings used by the NXRefine package,
+  including server parameters, instrumental parameters, and parameters
+  used in the data reduction workflow. When a new experiment is set up,
+  a copy of these parameters is stored in the experiment directory (to
+  be described later), so that they can be customized if necessary.
+
+* nxcommand.sh
+  
+  A shell script that may be used if jobs need to be wrapped before
+  submission to the job queue, *e.g.*, using ``qsub``.
