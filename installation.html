@@ -107,14 +107,40 @@ command:</p>
 <blockquote>
 <div><p>$ nxserver -d /path/to/parent</p>
 </div></blockquote>
+<p>This will create a directory at ‘/path/to/parent/nxserver’ containing
+the files that are required by NXRefine server.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The name of the server directory is always ‘nxserver.’ This
-will be appended to the supplied path, unless the final
-element is already ‘nxserver.’</p>
+<p>If the supplied path already ends in ‘nxserver,’ it will not
+be appended.</p>
 </div>
 <p>All the files in the ‘nxserver’ directory will have group read/write
 permissions to allow them to be updated by multiple users in that group.</p>
+<p>This also adds a hidden file to the home directory pointing to the
+server directory, so that the server path can be read in future login
+sessions. Each user should then issue the same command to store the
+server directory in their own home directory. If the server directory
+already exists, it is not touched. In principle, this only needs to be
+run once,</p>
+<p>NXRefine uses file-based locking to prevent corruption of data files.
+This system is provided by the
+<a class="reference external" href="https://nexpy.github.io/nexpy/">nexusformat package</a>, which defines
+the directory to contain the lock files using the NX_LOCKDIRECTORY
+environment variable. It is recommended that this directory be placed
+within the server directory.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The NeXpy GUI has a settings file that can be used to define
+the lock directory, but it is overridden by the environment
+variable if it is defined. This allows system administrators
+to set up a unique lock file directory for all their users.</p>
+</div>
+<p>It is suggested that users add the following to their .bashrc file:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">export</span> <span class="n">NX_LOCKDIRECTORY</span><span class="o">=/</span><span class="n">nfs</span><span class="o">/</span><span class="n">chess</span><span class="o">/</span><span class="n">id4baux</span><span class="o">/</span><span class="n">nxserver</span><span class="o">/</span><span class="n">locks</span>
+<span class="n">export</span> <span class="n">NX_LOCK</span><span class="o">=</span><span class="mi">10</span>
+<span class="n">nxserver</span> <span class="o">-</span><span class="n">d</span> <span class="o">/</span><span class="n">nfs</span><span class="o">/</span><span class="n">chess</span><span class="o">/</span><span class="n">id4baux</span><span class="o">/</span><span class="n">nxserver</span>
+</pre></div>
+</div>
 </div>
 </div>
 
