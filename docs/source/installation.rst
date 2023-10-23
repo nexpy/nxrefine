@@ -80,12 +80,6 @@ within the server directory.
           variable if it is defined. This allows system administrators
           to set up a unique lock file directory for all their users.
 
-It is suggested that users add the following to their .bashrc file::
-
-    export NX_LOCKDIRECTORY=/path/to/parent/nxserver/locks
-    export NX_LOCK=10
-    nxserver -d /path/to/parent/nxserver
-
 Server Directory
 ^^^^^^^^^^^^^^^^
 Here is the structure of the ``nxserver`` directory::
@@ -122,10 +116,43 @@ Here is the structure of the ``nxserver`` directory::
   be described later), so that they can be customized if necessary.
   These settings are defined later.
 
+* **nxsetup.sh**
+  
+  A shell script that could be used to initialize paths to the server
+  directory or environment variables used by NeXpy. This could be run
+  within a user's ``~/.bashrc`` file, or by other shell scripts used to
+  launch NXRefine workflow jobs (see below). Here is an example of what
+  this file could contain.::
+
+    export NX_LOCKDIRECTORY=/path/to/parent/nxserver/locks
+    export NX_LOCK=10
+    nxserver -d /path/to/parent/nxserver
+
+  Other commands, *e.g.*, to initialize a particular conda environment,
+  could be also be added to this file.
+
 * **nxcommand.sh**
   
-  A shell script that may be used if jobs need to be wrapped before
-  submission to the job queue, *e.g.*, using ``qsub``.
+  A shell script that is used if jobs need to be wrapped before
+  submission to the job queue, *e.g.*, using ``qsub``. Here is an
+  example, in which ``nxsetup.sh`` is run in order to initialize
+  NXRefine.::
+
+    echo `date` "USER ${USER} JOB_ID ${JOB_ID}"
+    source /path/to/parent/nxserver/nxsetup.sh
+    <NXSERVER>
+
+* **task_list**
+  
+  A directory that contains files that implement a file-based FIFO
+  queuing system for server jobs.
+
+* **locks**
+  
+  A directory that contains files that implement the
+  `nexusformat <https://nexpy.github.io/nexpy/>`_ file-locking system.
+  Locked files can be viewed, and removed if they are stale, using the
+  ``Show File Locks`` dialog in the NeXpy ``File`` menu. 
 
 .. note:: The log files can be viewed using the ``Manage Server`` dialog
           and the settings file can be modified using the ``Edit

@@ -35,6 +35,7 @@ temperature, are complete.
 
    introduction
    installation
+   experiment
 
 Indices and tables
 ==================
