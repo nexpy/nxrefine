@@ -1,6 +1,13 @@
-name: "Sphinx: Render docs"
+name: "Sphinx: Render Documentation"
 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - docs
+  pull_request:
+    branches:
+      - docs
 
 jobs:
   build:
@@ -18,7 +25,7 @@ jobs:
         path: docs/build/html/
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3
-      if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/docs'}}
+      if: ${{github.ref == 'refs/heads/docs'}}
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: docs/build/html
