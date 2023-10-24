@@ -93,9 +93,10 @@ Here is the structure of the ``nxserver`` directory::
     ├── nxcommand.sh
     └── task_list
         ├── info
-        ├── q00000
+        └── q00000
     └── locks
         ├── ...
+        └── ...
 
 * **nxserver.log**
 
@@ -114,7 +115,7 @@ Here is the structure of the ``nxserver`` directory::
   used in the data reduction workflow. When a new experiment is set up,
   a copy of these parameters is stored in the experiment directory (to
   be described later), so that they can be customized if necessary.
-  These settings are defined later.
+  These settings are described below.
 
 * **nxsetup.sh**
   
@@ -158,3 +159,64 @@ Here is the structure of the ``nxserver`` directory::
           and the settings file can be modified using the ``Edit
           Settings`` dialog, both of which are located in the ``Server``
           menu added as a NeXpy plugin when NXRefine is installed.
+
+Server Settings
+---------------
+The file, ``settings.ini`` in the server directory contains settings for
+the server, the beamline, and the workflow. These values can be changed,
+either by opening the "Edit Settings" dialog in the NeXpy "Server" menu
+or at the command line using ``nxsettings -i``. Hitting the [Return] key
+keeps the current value. Here are the parameters::
+
+    $ nxsettings -i 
+
+    Default settings stored in /path/to/parent/nxserver 
+
+
+    server Parameters 
+    ------------------- 
+    type [multicore]:  
+    cores [10]:
+    concurrent [False]:
+    run_command [qsub -q chess.q]:  
+    template [/path/to/parent/nxserver/nxcommand.sh]:
+    cctw [cctw]:  
+
+    instrument Parameters 
+    ------------------- 
+    source [CHESS]:
+    instrument [QM2]:
+    raw_home [/nfs/chess/id4b]:
+    raw_path [raw6M]: 
+    analysis_home [/nfs/chess/id4baux]: 
+    analysis_path [nxrefine]: 
+    experiment []: 
+
+    NXRefine Parameters 
+    ------------------- 
+    wavelength [0.3351]:  
+    distance [511.312]:  
+    geometry [default]:
+    phi [-5]:
+    phi_end [360]:
+    phi_step [-0.1]:
+    chi [0]:
+    omega [0]:
+    gonpitch [0]:
+    x [0]:
+    y [0]:
+    nsteps [3]:
+    frame_rate [10]:
+
+    NXReduce Parameters 
+    ------------------- 
+    threshold [50000]:
+    min_pixels [10]:
+    first [10]:
+    last [3640]:
+    polar_max [10]:
+    monitor [monitor1]:
+    norm [15000]:
+    qmin [4]:
+    qmax [11]:
+    radius [0.2]:
