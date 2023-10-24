@@ -1,5 +1,5 @@
-Experiment Setup
-================
+Experiments
+===========
 Data that is processed by the NXRefine package are stored as HDF5 files
 stored according to the `NeXus format <http://www.nexusformat.org/>`_,
 which is an international standard for the storage of x-ray and neutron
@@ -13,34 +13,35 @@ themselves.
 In the next section, we will describe the workflow used to both ingest
 the raw data and transform it into reciprocal space coordinates and
 pair-distribution-functions. In this section, we will describe the
-framework, within which these processes function.
+directory framework, within which these processes function, and how
+NeXpy can be used to initialize it.
 
-Experiment Files
-----------------
+Experiment Layout
+-----------------
 An 'experiment' in NXRefine comprises measurements on a set of samples
 that are logically grouped together, often because they are performed
-within a specific period and/or share calibration files. At synchrotron
-x-ray facilities, it is common to schedule all the measurements
-associated with a particular proposal together, so these would be
-labelled by the proposal number and/or run cycle. For example, on
-beamline 6-ID-D at the Advanced Photon Source, measurements
-resulting from Proposal No. GUP-75969 may be scheduled in a specific
-run cycle, say 23-1, and stored in, *e.g.*, ``/data/GUP-75969-23-1``.
+within a specific time period and/or share calibration files. At
+synchrotron x-ray facilities, it is common to schedule all the
+measurements associated with a particular proposal together, so they
+would be labelled by the proposal number and/or run cycle. For example,
+on beamline 6-ID-D at the Advanced Photon Source, measurements resulting 
+from Proposal No. GUP-75969 may be scheduled in a specific run cycle,
+say 23-1, and stored in, *e.g.*, ``/data/6-id-d/GUP-75969-23-1``.
 
 In NXRefine, it is assumed that all the files associated with a
 particular experiment are stored in a single directory, *i.e.*, in the
 APS example above, ``GUP-75969-23-1``. This directory should contain
-files and directories that conform to a particular layout, that includes
-calibration files (stored in the directory ``calibrations``), NeXus
-files containing measurement templates (stored in ``configurations``),
-settings and log files (stored in ``tasks``), and a set of directories
-containing the data from one or more samples measured at one or more
-values of a parametric variable (usually temperature).
+sub-directories that conform to a particular layout, which store files
+such as calibration files (stored in the directory ``calibrations``),
+NeXus files containing measurement templates (stored in 
+``configurations``), settings and log files (stored in ``tasks``), and a
+set of directories containing the data from one or more samples measured
+at one or more values of a parametric variable (usually temperature).
 
 Here is the structure of a possible experiment directory. Most of the
-names in this example are chosen to be generic; they will be different
-for every experiment. The only exceptions are the files in the ``tasks``
-directory, which are set automatically by NXRefine.::
+names in this example are chosen to be generic, *i.e.*, they will be
+different for every experiment. The only exceptions are the files in the
+``tasks`` directory, which are set automatically by NXRefine.::
 
     experiment
     └── tasks
@@ -48,7 +49,7 @@ directory, which are set automatically by NXRefine.::
         ├── nxlogger.log
         ├── settings.ini
     └── calibrations
-        └── powder_calibration.tiff (*or .cbf or .poni*)
+        └── powder_calibration.tiff
     └── configurations
         ├── configuration.nxs
     └── sample1
@@ -71,36 +72,71 @@ directory, which are set automatically by NXRefine.::
 
 The aim of this directory structure is for all the data and metadata
 required to analyze the results to be stored in an easily accessible
-location, although not all files are required. For example, the powder
-calibrations can be imported from any location.
+location, although not all files are required by NXRefine. For example,
+the powder calibration files can be imported from any location.
 
-The ``sample`` directories are typically named after a common abbreviation
-or chemical formula of the measured sample (*e.g.*, ``TiSe2``). Within
-each sample directory are one or more directories usually corresponding
-to different crystals, specified by unique labels often provided by the
-crystal grower. It is common in these experiments to screen a number of
-crystals before selecting one for further measurements, so many of
-these directories only contain a single scan.
+Experiment Sub-Directories
+--------------------------
 
-Within each ``label`` directory, there are one or more directories that
-are named after the parametric variable being modified between each set
-of rotation scans, *e.g.*, ``100K``. These ``scan`` directories contain
-the raw data in HDF5 files, typically with extension ``.h5``. Each one
-of these ``.h5`` files contain the raw data from a single rotation scan
-stacked into a single HDF5 array. It is common to perform three
-sample rotations, which are then stored in ``f1.h5``, ``f2.h5``, and
-``f3.h5``, but any number is possible. The ``scan`` directories also
-contain other files produced during the data reduction procedure, such
-as data transformed into reciprocal space coordinates.
+**tasks**
+    The ``tasks`` sub-directory contains a number of files used by
+    NXRefine to store default settings, workflow logs, and a MySQL
+    database for recording the status of each workflow component. The
+    files in this directory are created automatically by NXRefine and
+    should not be touched. NeXpy GUIs are used to inspect their
+    contents.
 
-For each of these ``scan`` directories, there is a corresponding NeXus
-file that is named as, *e.g.*, ``sample_scan.nxs``, where ``sample``
-must be the name of the ``sample`` directory and ``scan`` should be the
-name of the directory containing the raw data. These NeXus files
-contain external links to the much larger files stored in the ``scan``
-directories. By opening them, the user has access to all the data and
-metadata associated with a particular scan, since external links, if
-they are available, will appear to be part of the file.
+**calibrations**
+    The ``calibrations`` sub-directory is designed to contain either the
+    TIFF or CBF files generated by measurements of a calibrant powder,
+    or a file, usually with extension ``.poni``, containing the
+    instrument parameters calibrated using the PyFAI module. The
+    workflow includes a GUI for performing PyFAI calibrations directly
+    on powder calibration image files, with the results stored in the
+    NeXus files (described below). The files don't have to be stored in
+    this sub-directory, but if they are in another location, it is
+    recommended to copy them here for completeness. If the calibrations
+    have been performed by external processes, the PONI parameters can
+    be imported directly.
+
+**configurations**
+    The ``configurations`` sub-directory contains NeXus files that act
+    as templates when creating the files used to store the scan results.
+    These files contain scan parameters, such as the goniometer angles,
+    for one or more sample rotations, and are initialized by a NeXpy GUI
+    dialog.
+
+**sample**
+    The ``sample`` sub-directories are typically named after a common
+    abbreviation or chemical formula of the measured sample (*e.g.*,
+    ``TiSe2``). Within each sample directory are one or more directories
+    usually corresponding to different crystals, specified by unique
+    labels often provided by the crystal grower. It is common in these
+    experiments to screen a number of crystals before selecting one for
+    further measurements, so many of these directories only contain a
+    single scan.
+
+    Within each ``label`` directory, there are one or more directories
+    that are named after the parametric variable being modified between
+    each set of rotation scans, *e.g.*, ``100K``. These ``scan``
+    directories contain the raw data in HDF5 files, typically with
+    extension ``.h5``. Each one of these ``.h5`` files contain the raw
+    data from a single rotation scan stacked into a single HDF5 array.
+    It is common to perform three sample rotations, which are then
+    stored in ``f1.h5``, ``f2.h5``, and ``f3.h5``, but any number is
+    possible. The ``scan`` directories also contain other files produced
+    during the data reduction procedure, such as data transformed into
+    reciprocal space coordinates or pair-distribution functions.
+    
+    For each of these ``scan`` directories, there is a corresponding
+    NeXus file that is named as, *e.g.*, ``sample_scan.nxs``, where
+    ``sample`` must be the name of the ``sample`` directory and ``scan``
+    should be the name of the directory containing the raw data.
+    These NeXus files contain external links to the much larger files
+    stored in the ``scan`` directories. By opening them, the user has
+    access to all the data and metadata associated with a particular
+    scan, since external links, if they are available, will appear to be
+    part of the file.
 
 .. note:: External links are defined by the file name and internal path
           to the required HDF5 field. If the file and/or field are not
