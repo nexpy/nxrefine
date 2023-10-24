@@ -161,7 +161,7 @@ Here is the structure of the ``nxserver`` directory::
           menu added as a NeXpy plugin when NXRefine is installed.
 
 Server Settings
----------------
+^^^^^^^^^^^^^^^
 The file, ``settings.ini`` in the server directory contains settings for
 the server, the beamline, and the workflow. These values can be changed,
 either by opening the "Edit Settings" dialog in the NeXpy "Server" menu
@@ -176,31 +176,30 @@ keeps the current value. Here are the parameters::
     server Parameters 
     ------------------- 
     type [multicore]:  
-    cores [10]:
-    concurrent [False]:
-    run_command [qsub -q chess.q]:  
-    template [/path/to/parent/nxserver/nxcommand.sh]:
+    cores [4]:
+    concurrent [True]:
+    run_command [None]:  
+    template [None]:
     cctw [cctw]:  
 
     instrument Parameters 
     ------------------- 
-    source [CHESS]:
-    instrument [QM2]:
-    raw_home [/nfs/chess/id4b]:
-    raw_path [raw6M]: 
-    analysis_home [/nfs/chess/id4baux]: 
-    analysis_path [nxrefine]: 
-    experiment []: 
-
+    source [None]:
+    instrument [None]:
+    raw_home [None]:
+    raw_path [None]: 
+    analysis_home [None]: 
+    analysis_path [None]: 
+    
     NXRefine Parameters 
     ------------------- 
-    wavelength [0.3351]:  
-    distance [511.312]:  
+    wavelength [0.2]:  
+    distance [500]:  
     geometry [default]:
     phi [-5]:
     phi_end [360]:
     phi_step [-0.1]:
-    chi [0]:
+    chi [-90]:
     omega [0]:
     gonpitch [0]:
     x [0]:
@@ -215,8 +214,12 @@ keeps the current value. Here are the parameters::
     first [10]:
     last [3640]:
     polar_max [10]:
+    hkl_tolerance [0.05]:
     monitor [monitor1]:
-    norm [15000]:
-    qmin [4]:
-    qmax [11]:
+    norm [10000]:
+    polarization [0.99]:
+    qmin [5]:
+    qmax [10]:
     radius [0.2]:
+
+These parameters will be described later.

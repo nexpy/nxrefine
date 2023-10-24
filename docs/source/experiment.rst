@@ -176,3 +176,4 @@ Experiment Sub-Directories
 
 Experiment Setup
 ----------------
+The experiment directory layout could be created 
