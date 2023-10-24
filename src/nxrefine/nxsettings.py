@@ -103,9 +103,9 @@ class NXSettings(ConfigParser):
             if not self.has_option('instrument', p):
                 self.set('instrument', p, default[p])
                 settings_changed = True
-        default = {'wavelength': 0.141, 'distance': 650, 'geometry': 'default',
+        default = {'wavelength': 0.2, 'distance': 500, 'geometry': 'default',
                    'phi': -5.0, 'phi_end': 360.0, 'phi_step': 0.1,
-                   'chi': -90.0, 'omega': 0.0, 'theta': 0.0,
+                   'chi': 0.0, 'omega': 0.0, 'theta': 0.0,
                    'x': 0.0, 'y': 0.0,
                    'nsteps': 3, 'frame_rate': 10}
         for p in default:
@@ -115,8 +115,8 @@ class NXSettings(ConfigParser):
         default = {'threshold': 50000, 'min_pixels': 10,
                    'first': 10, 'last': 3640,
                    'polar_max': 10.0, 'hkl_tolerance': 0.05,
-                   'monitor': 'monitor2', 'norm': 30000,
-                   'polarization': 0.99, 'qmin': 6.0, 'qmax': 16.0,
+                   'monitor': 'monitor1', 'norm': 50000,
+                   'polarization': 0.99, 'qmin': 5.0, 'qmax': 10.0,
                    'radius': 0.2}
         for p in default:
             if not self.has_option('nxreduce', p):
