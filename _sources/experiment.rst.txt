@@ -75,6 +75,28 @@ required to analyze the results to be stored in an easily accessible
 location, although not all files are required by NXRefine. For example,
 the powder calibration files can be imported from any location.
 
+If an instrument does not exclusively use NXRefine for its data
+reduction, it is possible that there already exists a directory
+containing the files that comprise an experiment as described above. To
+avoid any interference with other instrument files, it is possible to
+create the above directory structure within a sub-directory, usually
+called ``nxrefine``, of the instrument's ``experiment`` directory::
+
+    experiment
+    └── nxrefine
+        ├── tasks
+        ├── calibrations
+        ├── configurations
+        ├── scripts
+        ├── sample1
+        └── sample2
+        .
+        .
+        .
+
+The name of this sub-directory is defined in the server settings, which
+are defined in the Server section.
+
 Experiment Sub-Directories
 --------------------------
 
@@ -105,6 +127,11 @@ Experiment Sub-Directories
     These files contain scan parameters, such as the goniometer angles,
     for one or more sample rotations, and are initialized by a NeXpy GUI
     dialog.
+
+**scripts**
+    The ``scripts`` sub-directory is not used directly by NXRefine, but
+    is created by the ``New Experiment`` dialog described below. It is
+    designed to store macros for use during an experiment.
 
 **sample**
     The ``sample`` sub-directories are typically named after a common
@@ -146,3 +173,6 @@ Experiment Sub-Directories
           the files in the ``scan`` directory can be moved to another
           location if, for example, access to the raw data is no
           longer necessary.
+
+Experiment Setup
+----------------

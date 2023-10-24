@@ -108,6 +108,27 @@ different for every experiment. The only exceptions are the files in the
 required to analyze the results to be stored in an easily accessible
 location, although not all files are required by NXRefine. For example,
 the powder calibration files can be imported from any location.</p>
+<p>If an instrument does not exclusively use NXRefine for its data
+reduction, it is possible that there already exists a directory
+containing the files that comprise an experiment as described above. To
+avoid any interference with other instrument files, it is possible to
+create the above directory structure within a sub-directory, usually
+called <code class="docutils literal notranslate"><span class="pre">nxrefine</span></code>, of the instrument’s <code class="docutils literal notranslate"><span class="pre">experiment</span></code> directory:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>experiment
+└── nxrefine
+    ├── tasks
+    ├── calibrations
+    ├── configurations
+    ├── scripts
+    ├── sample1
+    └── sample2
+    .
+    .
+    .
+</pre></div>
+</div>
+<p>The name of this sub-directory is defined in the server settings, which
+are defined in the Server section.</p>
 </div>
 <div class="section" id="experiment-sub-directories">
 <h2>Experiment Sub-Directories<a class="headerlink" href="#experiment-sub-directories" title="Permalink to this headline">¶</a></h2>
@@ -136,6 +157,10 @@ as templates when creating the files used to store the scan results.
 These files contain scan parameters, such as the goniometer angles,
 for one or more sample rotations, and are initialized by a NeXpy GUI
 dialog.</p>
+</dd>
+<dt><strong>scripts</strong></dt><dd><p>The <code class="docutils literal notranslate"><span class="pre">scripts</span></code> sub-directory is not used directly by NXRefine, but
+is created by the <code class="docutils literal notranslate"><span class="pre">New</span> <span class="pre">Experiment</span></code> dialog described below. It is
+designed to store macros for use during an experiment.</p>
 </dd>
 <dt><strong>sample</strong></dt><dd><p>The <code class="docutils literal notranslate"><span class="pre">sample</span></code> sub-directories are typically named after a common
 abbreviation or chemical formula of the measured sample (<em>e.g.</em>,
@@ -179,6 +204,9 @@ location if, for example, access to the raw data is no
 longer necessary.</p>
 </div>
 </div>
+<div class="section" id="experiment-setup">
+<h2>Experiment Setup<a class="headerlink" href="#experiment-setup" title="Permalink to this headline">¶</a></h2>
+</div>
 </div>
 
 
@@ -194,6 +222,7 @@ longer necessary.</p>
 <li><a class="reference internal" href="#">Experiments</a><ul>
 <li><a class="reference internal" href="#experiment-layout">Experiment Layout</a></li>
 <li><a class="reference internal" href="#experiment-sub-directories">Experiment Sub-Directories</a></li>
+<li><a class="reference internal" href="#experiment-setup">Experiment Setup</a></li>
 </ul>
 </li>
 </ul>
