@@ -126,7 +126,7 @@ class NXSettings(ConfigParser):
             self.save()
 
     def input_defaults(self):
-        for s in ['server', 'instrument', 'NXRefine', 'NXReduce']:
+        for s in ['Server', 'Instrument', 'NXRefine', 'NXReduce']:
             print(f'\n{s} Parameters\n-------------------')
             s = s.lower()
             for p in self.options(s):
