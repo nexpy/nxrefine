@@ -237,21 +237,20 @@ The server settings are used by the workflow server, which is described
 in a later section.</p>
 <dl class="field-list simple">
 <dt class="field-odd">type</dt>
-<dd class="field-odd"><p>The server type can either be <code class="docutils literal notranslate"><span class="pre">multicore</span></code> or <code class="docutils literal notranslate"><span class="pre">multinode</span></code>. The</p>
+<dd class="field-odd"><p>The server type can either be <code class="docutils literal notranslate"><span class="pre">multicore</span></code> or <code class="docutils literal notranslate"><span class="pre">multinode</span></code>. The
+only difference is that multinode servers have a list of defined
+nodes, to which jobs may be submitted, so their names will also
+be stored in the settings file. If jobs are submitted to a job
+server, without needing to specify the node, or if all the jobs
+are performed on the local machine, then the server type should
+be <code class="docutils literal notranslate"><span class="pre">multicore</span></code>.</p>
+</dd>
+<dt class="field-even">cores</dt>
+<dd class="field-even"><p>This sets the number of jobs that can be run simultaneously by
+the server. Once reaching the limit, new jobs will only start as
+old ones are finished.</p>
 </dd>
 </dl>
-<p>only difference is that multinode servers have a list of defined nodes,
-to which jobs may be submitted, so their names will also be stored in
-the settings file. If jobs are submitted to a job server, without
-needing to specify the node, or if all the jobs are performed on the
-local machine, then the server type should be <code class="docutils literal notranslate"><span class="pre">multicore</span></code>.</p>
-<dl class="field-list simple">
-<dt class="field-odd">cores</dt>
-<dd class="field-odd"><p>This sets the number of jobs that can be run simultaneously by</p>
-</dd>
-</dl>
-<p>the server. Once reaching the limit, new jobs will only start as old
-ones are finished.</p>
 <ul class="simple">
 <li><p><strong>concurrent</strong>
 This determines whether parallelized processes should be used in the
