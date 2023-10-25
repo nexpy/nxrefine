@@ -6,7 +6,7 @@
 # The full license is in the file COPYING, distributed with this software.
 # -----------------------------------------------------------------------------
 
-import os
+from pathlib import Path
 
 import numpy as np
 from nexpy.gui.datadialogs import GridParameters, NXDialog
@@ -34,13 +34,19 @@ class ConfigurationDialog(NXDialog):
         self.detectors = {}
         self.entries = {}
 
+        settings = NXSettings().settings
+        self.default_directory = settings['instrument']['analysis_home']
+        self.analysis_path = settings['instrument']['analysis_path']
+
         self.set_layout(self.directorybox('Choose Experiment Directory',
                                           default=False))
         self.set_title('New Configuration')
 
     def choose_directory(self):
+        if self.default_directory:
+            self.set_default_directory(self.default_directory)
         super().choose_directory()
-        self.settings = NXSettings(self.get_directory()).settings
+        self.settings = NXSettings(self.experiment_directory).settings
 
         self.setup_groups()
         self.setup_configuration()
@@ -54,6 +60,13 @@ class ConfigurationDialog(NXDialog):
         self.add_layout(self.scan.grid(header=False, title='Scan Settings'))
         self.add_layout(self.instrument.grid(header=False,
                                              title='Detector Settings'))
+
+    @property
+    def experiment_directory(self):
+        directory = Path(self.get_directory())
+        if self.analysis_path and directory.name != self.analysis_path:
+            directory = directory / self.analysis_path
+        return directory
 
     def setup_groups(self):
         entry = self.configuration_file['entry']
@@ -268,16 +281,13 @@ class ConfigurationDialog(NXDialog):
 
     def accept(self):
         try:
-            experiment_directory = self.get_directory()
-            configuration_directory = os.path.join(experiment_directory,
-                                                   'configurations')
-            self.mainwindow.default_directory = experiment_directory
+            directory = self.experiment_directory
+            configuration_directory = directory /  'configurations'
             self.get_parameters()
-            self.configuration_file.save(
-                os.path.join(configuration_directory,
-                             self.configuration['configuration'].value +
-                             '.nxs'))
+            self.configuration_file.save(configuration_directory.joinpath(
+                self.configuration['configuration'].value + '.nxs'))
             self.treeview.tree.load(self.configuration_file.nxfilename, 'rw')
+            self.mainwindow.default_directory = directory
             super().accept()
         except Exception as error:
             report_error("Defining New Configuration", error)
