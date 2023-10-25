@@ -160,13 +160,13 @@ Here is the structure of the ``nxserver`` directory::
           Settings`` dialog, both of which are located in the ``Server``
           menu added as a NeXpy plugin when NXRefine is installed.
 
-Default Settings
-^^^^^^^^^^^^^^^^
 .. figure:: /images/server_settings.png
    :align: right
    :width: 90%
    :figwidth: 30%
 
+Default Settings
+^^^^^^^^^^^^^^^^
 The file, ``settings.ini`` in the server directory contains the default
 settings for the server, the beamline, and the workflow. These values
 can be changed, either by opening the "Edit Settings" dialog in the
