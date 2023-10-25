@@ -218,69 +218,61 @@ and the settings file can be modified using the <code class="docutils literal no
 menu added as a NeXpy plugin when NXRefine is installed.</p>
 </div>
 </div>
-<div class="section" id="server-settings">
-<h3>Server Settings<a class="headerlink" href="#server-settings" title="Permalink to this headline">¶</a></h3>
-<p>The file, <code class="docutils literal notranslate"><span class="pre">settings.ini</span></code> in the server directory contains settings for
-the server, the beamline, and the workflow. These values can be changed,
-either by opening the “Edit Settings” dialog in the NeXpy “Server” menu
-or at the command line using <code class="docutils literal notranslate"><span class="pre">nxsettings</span> <span class="pre">-i</span></code>. Hitting the [Return] key
-keeps the current value. Here are the parameters:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ nxsettings -i
-
-Default settings stored in /path/to/parent/nxserver
-
-
-server Parameters
--------------------
-type [multicore]:
-cores [4]:
-concurrent [True]:
-run_command [None]:
-template [None]:
-cctw [cctw]:
-
-instrument Parameters
--------------------
-source [None]:
-instrument [None]:
-raw_home [None]:
-raw_path [None]:
-analysis_home [None]:
-analysis_path [None]:
-
-NXRefine Parameters
--------------------
-wavelength [0.2]:
-distance [500]:
-geometry [default]:
-phi [-5]:
-phi_end [360]:
-phi_step [-0.1]:
-chi [-90]:
-omega [0]:
-gonpitch [0]:
-x [0]:
-y [0]:
-nsteps [3]:
-frame_rate [10]:
-
-NXReduce Parameters
--------------------
-threshold [50000]:
-min_pixels [10]:
-first [10]:
-last [3640]:
-polar_max [10]:
-hkl_tolerance [0.05]:
-monitor [monitor1]:
-norm [10000]:
-polarization [0.99]:
-qmin [5]:
-qmax [10]:
-radius [0.2]:
-</pre></div>
+<div class="section" id="default-settings">
+<h3>Default Settings<a class="headerlink" href="#default-settings" title="Permalink to this headline">¶</a></h3>
+<p>The file, <code class="docutils literal notranslate"><span class="pre">settings.ini</span></code> in the server directory contains the default
+settings for the server, the beamline, and the workflow. These values
+can be changed, either by opening the “Edit Settings” dialog in the
+NeXpy “Server” menu or at the command line using <code class="docutils literal notranslate"><span class="pre">nxsettings</span> <span class="pre">-i</span></code>.
+Hitting the [Return] key keeps the current value.</p>
+<div class="figure align-right" id="id2" style="width: 40%">
+<a class="reference internal image-reference" href="_images/server_settings.png"><img alt="_images/server_settings.png" src="_images/server_settings.png" style="width: 90%;" /></a>
+<p class="caption"><span class="caption-text"><em>Example server settings.</em></span><a class="headerlink" href="#id2" title="Permalink to this image">¶</a></p>
 </div>
-<p>These parameters will be described later.</p>
+<p>The right-hand figure shows an example of the first two sections of the
+<code class="docutils literal notranslate"><span class="pre">settings.ini</span></code>. The other sections contain default values of the data
+reduction parameters that can be customized for each experiment (see the
+next section).</p>
+<p><strong>Server Settings</strong>
+The server settings are used by the workflow server, which is described
+in a later section.</p>
+<ul class="simple">
+<li><p><strong>type</strong>
+The server type can either be <code class="docutils literal notranslate"><span class="pre">multicore</span></code> or <code class="docutils literal notranslate"><span class="pre">multinode</span></code>. The only
+difference is that multinode servers have a list of defined nodes, to
+which jobs may be submitted, so their names will also be stored in
+the settings file. If jobs are submitted to a job server, without
+needing to specify the node, or if all the jobs are performed on the
+local machine, then the server type should be <code class="docutils literal notranslate"><span class="pre">multicore</span></code>.</p></li>
+<li><p><strong>cores</strong>
+This sets the number of jobs that can be run simultaneously by the
+server. Once reaching the limit, new jobs will only start as old ones
+are finished.</p></li>
+<li><p><strong>concurrent</strong>
+This determines whether parallelized processes should be used in the
+workflow. These speed up the computation, but can be disabled if they
+cause issues with the server. Note that this refers to whether
+multiple processes can be run simultaneously, <em>e.g.</em>, in peaks
+searches, not whether multiple jobs can be submitted to the server.
+Valid values are <code class="docutils literal notranslate"><span class="pre">True</span></code> or <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+<li><p><strong>run_command</strong>
+This is a string that is prepended to any jobs that are submitted to
+the server. It can contain a set of switches in addition to the
+job submission command itself.</p></li>
+<li><p><strong>template</strong>
+In some systems, it is necessary to wrap the command that is submitted
+to the server in a shell script. This is the name of the script, which
+should be stored in the <code class="docutils literal notranslate"><span class="pre">nxserver</span></code> directory. It should contain the
+string <code class="docutils literal notranslate"><span class="pre">&lt;NXSERVER&gt;</span></code>, which is replaced by the job command.</p></li>
+<li><p><strong>cctw</strong>
+This is the path to the CCTW executable used to transform data from
+instrumental coordinates to reciprocal space.</p></li>
+</ul>
+<p><strong>Instrument Settings</strong>
+The instrument settings are used to define the name of the instrument,
+which is used to import a customized plugin for importing metadata,
+and a set of paths defining the location of the raw and reduced data
+locations.</p>
 </div>
 </div>
 </div>
@@ -301,7 +293,7 @@ radius [0.2]:
 <li><a class="reference internal" href="#user-support">User Support</a></li>
 <li><a class="reference internal" href="#initial-setup">Initial Setup</a><ul>
 <li><a class="reference internal" href="#server-directory">Server Directory</a></li>
-<li><a class="reference internal" href="#server-settings">Server Settings</a></li>
+<li><a class="reference internal" href="#default-settings">Default Settings</a></li>
 </ul>
 </li>
 </ul>
