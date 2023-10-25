@@ -157,25 +157,28 @@ to set up a unique lock file directory for all their users.</p>
     └── ...
 </pre></div>
 </div>
-<ul>
-<li><p><strong>nxserver.log</strong></p>
-<p>This is a log file that records jobs submitted to the server queue.</p>
-</li>
-<li><p><strong>cpu1.log</strong>, <strong>cpu2.log</strong>, …</p>
-<p>These are log files that contain the output of jobs running on the
+<p><strong>nxserver.log</strong></p>
+<blockquote>
+<div><p>This is a log file that records jobs submitted to the server queue.</p>
+</div></blockquote>
+<p><strong>cpu1.log</strong>, <strong>cpu2.log</strong>, …</p>
+<blockquote>
+<div><p>These are log files that contain the output of jobs running on the
 server. The number depends on the number of simultaneous jobs that
 are allowed on the server, which is defined by the settings file.</p>
-</li>
-<li><p><strong>settings.ini</strong></p>
-<p>A file containing default settings used by the NXRefine package,
+</div></blockquote>
+<p><strong>settings.ini</strong></p>
+<blockquote>
+<div><p>A file containing default settings used by the NXRefine package,
 including server parameters, instrumental parameters, and parameters
 used in the data reduction workflow. When a new experiment is set up,
 a copy of these parameters is stored in the experiment directory (to
 be described later), so that they can be customized if necessary.
 These settings are described below.</p>
-</li>
-<li><p><strong>nxsetup.sh</strong></p>
-<p>A shell script that could be used to initialize paths to the server
+</div></blockquote>
+<p><strong>nxsetup.sh</strong></p>
+<blockquote>
+<div><p>A shell script that could be used to initialize paths to the server
 directory or environment variables used by NeXpy. This could be run
 within a user’s <code class="docutils literal notranslate"><span class="pre">~/.bashrc</span></code> file, or by other shell scripts used to
 launch NXRefine workflow jobs (see below). Here is an example of what
@@ -187,9 +190,10 @@ this file could contain.:</p>
 </div>
 <p>Other commands, <em>e.g.</em>, to initialize a particular conda environment,
 could be also be added to this file.</p>
-</li>
-<li><p><strong>nxcommand.sh</strong></p>
-<p>A shell script that is used if jobs need to be wrapped before
+</div></blockquote>
+<p><strong>nxcommand.sh</strong></p>
+<blockquote>
+<div><p>A shell script that is used if jobs need to be wrapped before
 submission to the job queue, <em>e.g.</em>, using <code class="docutils literal notranslate"><span class="pre">qsub</span></code>. Here is an
 example, in which <code class="docutils literal notranslate"><span class="pre">nxsetup.sh</span></code> is run in order to initialize
 NXRefine.:</p>
@@ -198,18 +202,19 @@ source /path/to/parent/nxserver/nxsetup.sh
 &lt;NXSERVER&gt;
 </pre></div>
 </div>
-</li>
-<li><p><strong>task_list</strong></p>
-<p>A directory that contains files that implement a file-based FIFO
+</div></blockquote>
+<p><strong>task_list</strong></p>
+<blockquote>
+<div><p>A directory that contains files that implement a file-based FIFO
 queuing system for server jobs.</p>
-</li>
-<li><p><strong>locks</strong></p>
-<p>A directory that contains files that implement the
+</div></blockquote>
+<p><strong>locks</strong></p>
+<blockquote>
+<div><p>A directory that contains files that implement the
 <a class="reference external" href="https://nexpy.github.io/nexpy/">nexusformat</a> file-locking system.
 Locked files can be viewed, and removed if they are stale, using the
 <code class="docutils literal notranslate"><span class="pre">Show</span> <span class="pre">File</span> <span class="pre">Locks</span></code> dialog in the NeXpy <code class="docutils literal notranslate"><span class="pre">File</span></code> menu.</p>
-</li>
-</ul>
+</div></blockquote>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>The log files can be viewed using the <code class="docutils literal notranslate"><span class="pre">Manage</span> <span class="pre">Server</span></code> dialog
@@ -250,28 +255,32 @@ be <code class="docutils literal notranslate"><span class="pre">multicore</span>
 the server. Once reaching the limit, new jobs will only start as
 old ones are finished.</p>
 </dd>
+<dt class="field-odd">concurrent</dt>
+<dd class="field-odd"><p>This determines whether parallelized processes should be
+used in the workflow. These speed up the computation, but
+can be disabled if they cause issues with the server. Note
+that this refers to whether multiple processes can be run
+simultaneously, <em>e.g.</em>, in peaks searches, not whether
+multiple jobs can be submitted to the server. Valid values
+are <code class="docutils literal notranslate"><span class="pre">True</span></code> or <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+</dd>
+<dt class="field-even">run_command</dt>
+<dd class="field-even"><p>This is a string that is prepended to any jobs that are
+submitted to the server. It can contain a set of switches
+in addition to the job submission command itself.</p>
+</dd>
+<dt class="field-odd">template</dt>
+<dd class="field-odd"><p>In some systems, it is necessary to wrap the command that is
+submitted to the server in a shell script. This is the name
+of the script, which should be stored in the <code class="docutils literal notranslate"><span class="pre">nxserver</span></code>
+directory. It should contain the string <code class="docutils literal notranslate"><span class="pre">&lt;NXSERVER&gt;</span></code>,
+which is replaced by the job command.</p>
+</dd>
+<dt class="field-even">cctw</dt>
+<dd class="field-even"><p>This is the path to the CCTW executable used to transform data
+from instrumental coordinates to reciprocal space.</p>
+</dd>
 </dl>
-<ul class="simple">
-<li><p><strong>concurrent</strong>
-This determines whether parallelized processes should be used in the
-workflow. These speed up the computation, but can be disabled if they
-cause issues with the server. Note that this refers to whether
-multiple processes can be run simultaneously, <em>e.g.</em>, in peaks
-searches, not whether multiple jobs can be submitted to the server.
-Valid values are <code class="docutils literal notranslate"><span class="pre">True</span></code> or <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
-<li><p><strong>run_command</strong>
-This is a string that is prepended to any jobs that are submitted to
-the server. It can contain a set of switches in addition to the
-job submission command itself.</p></li>
-<li><p><strong>template</strong>
-In some systems, it is necessary to wrap the command that is submitted
-to the server in a shell script. This is the name of the script, which
-should be stored in the <code class="docutils literal notranslate"><span class="pre">nxserver</span></code> directory. It should contain the
-string <code class="docutils literal notranslate"><span class="pre">&lt;NXSERVER&gt;</span></code>, which is replaced by the job command.</p></li>
-<li><p><strong>cctw</strong>
-This is the path to the CCTW executable used to transform data from
-instrumental coordinates to reciprocal space.</p></li>
-</ul>
 <p><strong>Instrument Settings</strong>
 The instrument settings are used to define the name of the instrument,
 which is used to import a customized plugin for importing metadata,

@@ -98,17 +98,17 @@ Here is the structure of the ``nxserver`` directory::
         ├── ...
         └── ...
 
-* **nxserver.log**
+**nxserver.log**
 
   This is a log file that records jobs submitted to the server queue.
 
-* **cpu1.log**, **cpu2.log**, ...
+**cpu1.log**, **cpu2.log**, ...
   
   These are log files that contain the output of jobs running on the
   server. The number depends on the number of simultaneous jobs that
   are allowed on the server, which is defined by the settings file.
 
-* **settings.ini**
+**settings.ini**
   
   A file containing default settings used by the NXRefine package,
   including server parameters, instrumental parameters, and parameters
@@ -117,7 +117,7 @@ Here is the structure of the ``nxserver`` directory::
   be described later), so that they can be customized if necessary.
   These settings are described below.
 
-* **nxsetup.sh**
+**nxsetup.sh**
   
   A shell script that could be used to initialize paths to the server
   directory or environment variables used by NeXpy. This could be run
@@ -132,7 +132,7 @@ Here is the structure of the ``nxserver`` directory::
   Other commands, *e.g.*, to initialize a particular conda environment,
   could be also be added to this file.
 
-* **nxcommand.sh**
+**nxcommand.sh**
   
   A shell script that is used if jobs need to be wrapped before
   submission to the job queue, *e.g.*, using ``qsub``. Here is an
@@ -143,12 +143,12 @@ Here is the structure of the ``nxserver`` directory::
     source /path/to/parent/nxserver/nxsetup.sh
     <NXSERVER>
 
-* **task_list**
+**task_list**
   
   A directory that contains files that implement a file-based FIFO
   queuing system for server jobs.
 
-* **locks**
+**locks**
   
   A directory that contains files that implement the
   `nexusformat <https://nexpy.github.io/nexpy/>`_ file-locking system.
@@ -194,28 +194,26 @@ in a later section.
         the server. Once reaching the limit, new jobs will only start as
         old ones are finished.
 
-* **concurrent**
-  This determines whether parallelized processes should be used in the
-  workflow. These speed up the computation, but can be disabled if they
-  cause issues with the server. Note that this refers to whether
-  multiple processes can be run simultaneously, *e.g.*, in peaks
-  searches, not whether multiple jobs can be submitted to the server.
-  Valid values are ``True`` or ``False``.
+:concurrent: This determines whether parallelized processes should be
+             used in the workflow. These speed up the computation, but
+             can be disabled if they cause issues with the server. Note
+             that this refers to whether multiple processes can be run
+             simultaneously, *e.g.*, in peaks searches, not whether
+             multiple jobs can be submitted to the server. Valid values
+             are ``True`` or ``False``.
 
-* **run_command**
-  This is a string that is prepended to any jobs that are submitted to
-  the server. It can contain a set of switches in addition to the
-  job submission command itself.
+:run_command: This is a string that is prepended to any jobs that are
+              submitted to the server. It can contain a set of switches
+              in addition to the job submission command itself.
 
-* **template**
-  In some systems, it is necessary to wrap the command that is submitted
-  to the server in a shell script. This is the name of the script, which
-  should be stored in the ``nxserver`` directory. It should contain the
-  string ``<NXSERVER>``, which is replaced by the job command.
+:template: In some systems, it is necessary to wrap the command that is
+           submitted to the server in a shell script. This is the name
+           of the script, which should be stored in the ``nxserver``
+           directory. It should contain the string ``<NXSERVER>``,
+           which is replaced by the job command.
 
-* **cctw**
-  This is the path to the CCTW executable used to transform data from
-  instrumental coordinates to reciprocal space.
+:cctw: This is the path to the CCTW executable used to transform data
+       from instrumental coordinates to reciprocal space.
 
 **Instrument Settings**
 The instrument settings are used to define the name of the instrument,
