@@ -247,7 +247,7 @@ class NXReduce(QtCore.QObject):
         self._logger = None
         self._cctw = None
 
-        nxsetconfig(lock=600, lockexpiry=28800)
+        nxsetconfig(lock=3600, lockexpiry=28800)
 
     start = QtCore.Signal(object)
     update = QtCore.Signal(object)
