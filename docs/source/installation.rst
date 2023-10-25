@@ -162,16 +162,16 @@ Here is the structure of the ``nxserver`` directory::
 
 Default Settings
 ^^^^^^^^^^^^^^^^
+.. figure:: /images/server_settings.png
+   :align: right
+   :width: 90%
+   :figwidth: 30%
+
 The file, ``settings.ini`` in the server directory contains the default
 settings for the server, the beamline, and the workflow. These values
 can be changed, either by opening the "Edit Settings" dialog in the
 NeXpy "Server" menu or at the command line using ``nxsettings -i``.
 Hitting the [Return] key keeps the current value. 
-
-.. figure:: /images/server_settings.png
-   :align: right
-   :width: 90%
-   :figwidth: 30%
 
 The right-hand figure shows an example of the first two sections of the
 ``settings.ini``. The other sections contain default values of the data
