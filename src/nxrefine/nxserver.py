@@ -185,6 +185,7 @@ class NXServer(NXDaemon):
         if server_type:
             self.server_type = server_type
             self.settings.set('server', 'type', server_type)
+            self.settings.save()
         elif self.settings.has_option('server', 'type'):
             self.server_type = self.settings.get('server', 'type')
         else:
@@ -206,19 +207,21 @@ class NXServer(NXDaemon):
         if concurrent:
             self.concurrent = concurrent
             self.settings.set('server', 'concurrent', concurrent)
+            self.settings.save()
         else:
             self.concurrent = self.settings.get('server', 'concurrent')
         if run_command:
             self.run_command = run_command
             self.settings.set('server', 'run_command', run_command)
+            self.settings.save()
         else:
             self.run_command = self.settings.get('server', 'run_command')
         if template:
             self.template = template
             self.settings.set('server', 'template', template)
+            self.settings.save()
         else:
             self.template = self.settings.get('server', 'template')
-        self.settings.save()
         self.log_file = self.directory / 'nxserver.log'
         self.pid_file = self.directory / 'nxserver.pid'
         self.queue_directory = self.directory / 'task_list'

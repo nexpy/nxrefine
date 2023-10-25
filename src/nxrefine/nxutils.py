@@ -7,7 +7,7 @@
 # -----------------------------------------------------------------------------
 import numpy as np
 from nexusformat.nexus import (NXdata, NXentry, NXfield, NXlog, NXroot, nxopen,
-                               nxsetlock)
+                               nxsetconfig)
 from skimage.feature import peak_local_max
 
 
@@ -34,7 +34,7 @@ def peak_search(data_file, data_path, i, j, k, threshold, min_pixels=10):
     list of NXBlobs
         Peak locations and intensities stored in NXBlob instances
     """
-    nxsetlock(600)
+    nxsetconfig(lock=3600, lockexpiry=28800)
 
     with nxopen(data_file, "r") as data_root:
         data = data_root[data_path][j:k].nxvalue.clip(0)
@@ -255,7 +255,7 @@ def mask_volume(data_file, data_path, mask_file, mask_path, i, j, k,
         Queue used in multiprocessing, by default None
     """
 
-    nxsetlock(600)
+    nxsetconfig(lock=3600, lockexpiry=28800)
     with nxopen(data_file, 'r') as data_root:
         volume = data_root[data_path][j:k].nxvalue
 
@@ -296,6 +296,7 @@ def mask_volume(data_file, data_path, mask_file, mask_path, i, j, k,
     vol_smoothed /= sum2
     vol_smoothed[vol_smoothed < threshold_2] = 0
     vol_smoothed[vol_smoothed > threshold_2] = 1
+    nxsetconfig(lock=3600, lockexpiry=28800)
     with nxopen(mask_file, 'rw') as mask_root:
         mask_root[mask_path][j+1:k-1] = (
             np.maximum(vol_smoothed[0:-1], vol_smoothed[1:]))
