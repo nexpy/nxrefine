@@ -118,8 +118,8 @@ Experiment Sub-Directories
     NeXus files (described below). The files don't have to be stored in
     this sub-directory, but if they are in another location, it is
     recommended to copy them here for completeness. If the calibrations
-    have been performed by external processes, the PONI parameters can
-    be imported directly.
+    have been performed by another package, the PONI parameters can be
+    imported directly from a PONI file.
 
 **configurations**
     The ``configurations`` sub-directory contains NeXus files that act

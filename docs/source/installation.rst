@@ -160,66 +160,68 @@ Here is the structure of the ``nxserver`` directory::
           Settings`` dialog, both of which are located in the ``Server``
           menu added as a NeXpy plugin when NXRefine is installed.
 
-Server Settings
-^^^^^^^^^^^^^^^
-The file, ``settings.ini`` in the server directory contains settings for
-the server, the beamline, and the workflow. These values can be changed,
-either by opening the "Edit Settings" dialog in the NeXpy "Server" menu
-or at the command line using ``nxsettings -i``. Hitting the [Return] key
-keeps the current value. Here are the parameters::
+Default Settings
+^^^^^^^^^^^^^^^^
+The file, ``settings.ini`` in the server directory contains the default
+settings for the server, the beamline, and the workflow. These values
+can be changed, either by opening the "Edit Settings" dialog in the
+NeXpy "Server" menu or at the command line using ``nxsettings -i``.
+Hitting the [Return] key keeps the current value. 
 
-    $ nxsettings -i 
+.. figure:: /images/server_settings.png
+   :align: right
+   :width: 90%
+   :figwidth: 40%
 
-    Default settings stored in /path/to/parent/nxserver 
+   *Example server settings.* 
 
+The right-hand figure shows an example of the first two sections of the
+``settings.ini``. The other sections contain default values of the data
+reduction parameters that can be customized for each experiment (see the
+next section).
 
-    server Parameters 
-    ------------------- 
-    type [multicore]:  
-    cores [4]:
-    concurrent [True]:
-    run_command [None]:  
-    template [None]:
-    cctw [cctw]:  
+**Server Settings**
+The server settings are used by the workflow server, which is described
+in a later section.
 
-    instrument Parameters 
-    ------------------- 
-    source [None]:
-    instrument [None]:
-    raw_home [None]:
-    raw_path [None]: 
-    analysis_home [None]: 
-    analysis_path [None]: 
-    
-    NXRefine Parameters 
-    ------------------- 
-    wavelength [0.2]:  
-    distance [500]:  
-    geometry [default]:
-    phi [-5]:
-    phi_end [360]:
-    phi_step [-0.1]:
-    chi [-90]:
-    omega [0]:
-    gonpitch [0]:
-    x [0]:
-    y [0]:
-    nsteps [3]:
-    frame_rate [10]:
+* **type**
+  The server type can either be ``multicore`` or ``multinode``. The only
+  difference is that multinode servers have a list of defined nodes, to
+  which jobs may be submitted, so their names will also be stored in
+  the settings file. If jobs are submitted to a job server, without
+  needing to specify the node, or if all the jobs are performed on the
+  local machine, then the server type should be ``multicore``.
 
-    NXReduce Parameters 
-    ------------------- 
-    threshold [50000]:
-    min_pixels [10]:
-    first [10]:
-    last [3640]:
-    polar_max [10]:
-    hkl_tolerance [0.05]:
-    monitor [monitor1]:
-    norm [10000]:
-    polarization [0.99]:
-    qmin [5]:
-    qmax [10]:
-    radius [0.2]:
+* **cores**
+  This sets the number of jobs that can be run simultaneously by the
+  server. Once reaching the limit, new jobs will only start as old ones
+  are finished.
 
-These parameters will be described later.
+* **concurrent**
+  This determines whether parallelized processes should be used in the
+  workflow. These speed up the computation, but can be disabled if they
+  cause issues with the server. Note that this refers to whether
+  multiple processes can be run simultaneously, *e.g.*, in peaks
+  searches, not whether multiple jobs can be submitted to the server.
+  Valid values are ``True`` or ``False``.
+
+* **run_command**
+  This is a string that is prepended to any jobs that are submitted to
+  the server. It can contain a set of switches in addition to the
+  job submission command itself.
+
+* **template**
+  In some systems, it is necessary to wrap the command that is submitted
+  to the server in a shell script. This is the name of the script, which
+  should be stored in the ``nxserver`` directory. It should contain the
+  string ``<NXSERVER>``, which is replaced by the job command.
+
+* **cctw**
+  This is the path to the CCTW executable used to transform data from
+  instrumental coordinates to reciprocal space.
+
+**Instrument Settings**
+The instrument settings are used to define the name of the instrument,
+which is used to import a customized plugin for importing metadata,
+and a set of paths defining the location of the raw and reduced data
+locations.
