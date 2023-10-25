@@ -171,9 +171,7 @@ Hitting the [Return] key keeps the current value.
 .. figure:: /images/server_settings.png
    :align: right
    :width: 90%
-   :figwidth: 40%
-
-   *Example server settings.* 
+   :figwidth: 30%
 
 The right-hand figure shows an example of the first two sections of the
 ``settings.ini``. The other sections contain default values of the data
@@ -184,18 +182,16 @@ next section).
 The server settings are used by the workflow server, which is described
 in a later section.
 
-* **type**
-  The server type can either be ``multicore`` or ``multinode``. The only
-  difference is that multinode servers have a list of defined nodes, to
-  which jobs may be submitted, so their names will also be stored in
-  the settings file. If jobs are submitted to a job server, without
-  needing to specify the node, or if all the jobs are performed on the
-  local machine, then the server type should be ``multicore``.
+:type: The server type can either be ``multicore`` or ``multinode``. The
+only difference is that multinode servers have a list of defined nodes,
+to which jobs may be submitted, so their names will also be stored in
+the settings file. If jobs are submitted to a job server, without
+needing to specify the node, or if all the jobs are performed on the
+local machine, then the server type should be ``multicore``.
 
-* **cores**
-  This sets the number of jobs that can be run simultaneously by the
-  server. Once reaching the limit, new jobs will only start as old ones
-  are finished.
+:cores: This sets the number of jobs that can be run simultaneously by
+the server. Once reaching the limit, new jobs will only start as old
+ones are finished.
 
 * **concurrent**
   This determines whether parallelized processes should be used in the

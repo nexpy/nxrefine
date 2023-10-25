@@ -225,9 +225,8 @@ settings for the server, the beamline, and the workflow. These values
 can be changed, either by opening the “Edit Settings” dialog in the
 NeXpy “Server” menu or at the command line using <code class="docutils literal notranslate"><span class="pre">nxsettings</span> <span class="pre">-i</span></code>.
 Hitting the [Return] key keeps the current value.</p>
-<div class="figure align-right" id="id2" style="width: 40%">
+<div class="figure align-right" style="width: 30%">
 <a class="reference internal image-reference" href="_images/server_settings.png"><img alt="_images/server_settings.png" src="_images/server_settings.png" style="width: 90%;" /></a>
-<p class="caption"><span class="caption-text"><em>Example server settings.</em></span><a class="headerlink" href="#id2" title="Permalink to this image">¶</a></p>
 </div>
 <p>The right-hand figure shows an example of the first two sections of the
 <code class="docutils literal notranslate"><span class="pre">settings.ini</span></code>. The other sections contain default values of the data
@@ -236,18 +235,24 @@ next section).</p>
 <p><strong>Server Settings</strong>
 The server settings are used by the workflow server, which is described
 in a later section.</p>
-<ul class="simple">
-<li><p><strong>type</strong>
-The server type can either be <code class="docutils literal notranslate"><span class="pre">multicore</span></code> or <code class="docutils literal notranslate"><span class="pre">multinode</span></code>. The only
-difference is that multinode servers have a list of defined nodes, to
-which jobs may be submitted, so their names will also be stored in
+<dl class="field-list simple">
+<dt class="field-odd">type</dt>
+<dd class="field-odd"><p>The server type can either be <code class="docutils literal notranslate"><span class="pre">multicore</span></code> or <code class="docutils literal notranslate"><span class="pre">multinode</span></code>. The</p>
+</dd>
+</dl>
+<p>only difference is that multinode servers have a list of defined nodes,
+to which jobs may be submitted, so their names will also be stored in
 the settings file. If jobs are submitted to a job server, without
 needing to specify the node, or if all the jobs are performed on the
-local machine, then the server type should be <code class="docutils literal notranslate"><span class="pre">multicore</span></code>.</p></li>
-<li><p><strong>cores</strong>
-This sets the number of jobs that can be run simultaneously by the
-server. Once reaching the limit, new jobs will only start as old ones
-are finished.</p></li>
+local machine, then the server type should be <code class="docutils literal notranslate"><span class="pre">multicore</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">cores</dt>
+<dd class="field-odd"><p>This sets the number of jobs that can be run simultaneously by</p>
+</dd>
+</dl>
+<p>the server. Once reaching the limit, new jobs will only start as old
+ones are finished.</p>
+<ul class="simple">
 <li><p><strong>concurrent</strong>
 This determines whether parallelized processes should be used in the
 workflow. These speed up the computation, but can be disabled if they
