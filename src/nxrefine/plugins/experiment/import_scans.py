@@ -51,6 +51,7 @@ class ImportScanDialog(NXDialog):
                 "Importing Data",
                 f"Raw directory '{self.raw_directory}' does not exist.")
             return
+
         self.sample_box = self.select_box(self.get_samples())
         self.sample_layout = self.make_layout(
             NXLabel("Sample: "), self.sample_box)
@@ -62,6 +63,7 @@ class ImportScanDialog(NXDialog):
         self.insert_layout(
             3, self.checkboxes(('overwrite', 'Overwrite Existing Files',
                                 False)))
+        self.activate()
 
     @property
     def experiment(self):

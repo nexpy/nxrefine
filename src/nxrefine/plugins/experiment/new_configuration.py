@@ -60,6 +60,7 @@ class ConfigurationDialog(NXDialog):
         self.add_layout(self.scan.grid(header=False, title='Scan Settings'))
         self.add_layout(self.instrument.grid(header=False,
                                              title='Detector Settings'))
+        self.activate()
 
     @property
     def experiment_directory(self):

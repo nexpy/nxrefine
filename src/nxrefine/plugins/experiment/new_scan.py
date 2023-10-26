@@ -71,6 +71,7 @@ class ScanDialog(NXDialog):
         self.mainwindow.default_directory = str(self.home_directory)
         self.setup_directory()
         self.insert_layout(1, self.sample_layout)
+        self.activate()
 
     def setup_directory(self):
         self.sample_box = self.select_box(self.get_samples())
