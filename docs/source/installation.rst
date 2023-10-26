@@ -61,12 +61,13 @@ the files that are required by NXRefine server.
 All the files in the ``nxserver`` directory will have group read/write
 permissions to allow them to be updated by multiple users in that group.
 
-This also adds a hidden file to the home directory, containing the path
-to the server directory, so that the server path can be read in future
-login sessions. Each user should then issue the same command to store
-the server directory in their own home directory. If the server
-directory already exists, it is not touched. In principle, this only
-needs to be run once, but it could be 
+This also adds a hidden file to the home directory, in 
+``~/.nxserver/settings.ini`` containing the path to the server
+directory, so that the server path can be read in future login sessions.
+Each user should then issue the same command to store the server
+directory in their own home directory. If the server directory already
+exists, it is not touched. In principle, this only needs to be run once,
+although it could also be added to a login script.
 
 NXRefine uses file-based locking to prevent corruption of data files.
 This system is provided by the 
@@ -90,6 +91,7 @@ Here is the structure of the ``nxserver`` directory::
     ├── cpu2.log
     ├── cpu3.log
     ├── settings.ini
+    ├── nxsetup.sh
     ├── nxcommand.sh
     └── task_list
         ├── info
@@ -180,7 +182,10 @@ next section).
 
 **Server Settings**
 The server settings are used by the workflow server, which is described
-in a later section.
+in a later section. They define the server configuration, such as the
+number of simultaneous jobs that may be run, the command required to
+add them to the system's standard job queues, and whether they need to
+be wrapped in a shell script.
 
 :type: The server type can either be ``multicore`` or ``multinode``. The
        only difference is that multinode servers have a list of defined
