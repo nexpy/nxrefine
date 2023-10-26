@@ -120,12 +120,13 @@ be appended.</p>
 </div>
 <p>All the files in the <code class="docutils literal notranslate"><span class="pre">nxserver</span></code> directory will have group read/write
 permissions to allow them to be updated by multiple users in that group.</p>
-<p>This also adds a hidden file to the home directory, containing the path
-to the server directory, so that the server path can be read in future
-login sessions. Each user should then issue the same command to store
-the server directory in their own home directory. If the server
-directory already exists, it is not touched. In principle, this only
-needs to be run once, but it could be</p>
+<p>This also adds a hidden file to the home directory, in
+<code class="docutils literal notranslate"><span class="pre">~/.nxserver/settings.ini</span></code> containing the path to the server
+directory, so that the server path can be read in future login sessions.
+Each user should then issue the same command to store the server
+directory in their own home directory. If the server directory already
+exists, it is not touched. In principle, this only needs to be run once,
+although it could also be added to a login script.</p>
 <p>NXRefine uses file-based locking to prevent corruption of data files.
 This system is provided by the
 <a class="reference external" href="https://nexpy.github.io/nexpy/">nexusformat package</a>, which defines
@@ -148,6 +149,7 @@ to set up a unique lock file directory for all their users.</p>
 ├── cpu2.log
 ├── cpu3.log
 ├── settings.ini
+├── nxsetup.sh
 ├── nxcommand.sh
 └── task_list
     ├── info
@@ -239,7 +241,10 @@ reduction parameters that can be customized for each experiment (see the
 next section).</p>
 <p><strong>Server Settings</strong>
 The server settings are used by the workflow server, which is described
-in a later section.</p>
+in a later section. They define the server configuration, such as the
+number of simultaneous jobs that may be run, the command required to
+add them to the system’s standard job queues, and whether they need to
+be wrapped in a shell script.</p>
 <dl class="field-list simple">
 <dt class="field-odd">type</dt>
 <dd class="field-odd"><p>The server type can either be <code class="docutils literal notranslate"><span class="pre">multicore</span></code> or <code class="docutils literal notranslate"><span class="pre">multinode</span></code>. The
