@@ -225,7 +225,7 @@ class NXPDF:
         self.logger.info(f"{self.title}: Total PDF calculated "
                          f"({toc - tic:g} seconds)")
 
-    def hole_mask(self, data_group):
+    def hole_mask(self):
         data_group = self.entry[self.symm_data]
         dl, dk, dh = [(ax[1]-ax[0]).nxvalue for ax in data_group.nxaxes]
         dhp = np.rint(self.radius / (dh * self.refine.astar))
@@ -277,7 +277,7 @@ class NXPDF:
         symm_root = nxopen(self.symm_file, 'rw')
         symm_data = symm_root['entry/data/data']
 
-        mask, mask_indices = self.hole_mask()
+        mask, mask_indices = self.hole_mask(symm_data)
         idx = [Main.CartesianIndex(int(i[0]+1), int(i[1]+1), int(i[2]+1))
                for i in mask_indices]
         ml = int((mask.shape[0]-1)/2)
