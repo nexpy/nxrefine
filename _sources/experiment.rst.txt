@@ -174,7 +174,7 @@ Experiment Sub-Directories
           location if, for example, access to the raw data is no
           longer necessary.
 
-.. figure:: /images/instrument_settings.png
+.. figure:: /images/instrument-settings.png
    :align: right
    :width: 90%
    :figwidth: 25%
