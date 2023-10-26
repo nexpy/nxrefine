@@ -18,13 +18,13 @@ from nxrefine.nxsettings import NXSettings
 
 def show_dialog():
     try:
-        dialog = ImportDialog()
+        dialog = ImportScanDialog()
         dialog.show()
     except NeXusError as error:
         report_error("Importing Data", error)
 
 
-class ImportDialog(NXDialog):
+class ImportScanDialog(NXDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -36,32 +36,16 @@ class ImportDialog(NXDialog):
 
     def choose_directory(self):
         super().choose_directory()
-        directory = self.get_directory()
-        if directory:
-            self.home_directory = Path(directory)
-        else:
-            return
-        settings = NXSettings(self.home_directory).settings
-        self.beamline = get_beamline(settings['instrument']['instrument'])
-        if not self.beamline.import_data_enabled:
-            display_message(
-                "Importing Data",
-                f"Importing data not implemented for {self.beamline.name}")
-            self.reject()
 
-        analysis_home = Path(settings['instrument']['analysis_home'])
-        if analysis_home not in self.home_directory.parents:
-            display_message(
-                "Importing Data",
-                f"Chosen directory not relative to '{analysis_home}'.")
-            return
-        analysis_path = settings['instrument']['analysis_path']
-        if analysis_path and self.home_directory.name != analysis_path:
-            self.home_directory = self.home_directory / analysis_path
-        experiment = self.home_directory.parent.relative_to(analysis_home)
-        raw_home = Path(settings['instrument']['raw_home'])
-        raw_path = settings['instrument']['raw_path']
-        self.raw_directory = raw_home / experiment / raw_path
+        settings = NXSettings().settings
+        self.analysis_home = Path(settings['instrument']['analysis_home'])
+        self.analysis_path = settings['instrument']['analysis_path']
+        self.raw_home = Path(settings['instrument']['raw_home'])
+        self.raw_path = settings['instrument']['raw_path']
+
+        settings = NXSettings(self.experiment_directory).settings
+        self.beamline = get_beamline(settings['instrument']['instrument'])
+
         if not self.raw_directory.exists():
             display_message(
                 "Importing Data",
@@ -78,6 +62,24 @@ class ImportDialog(NXDialog):
         self.insert_layout(
             3, self.checkboxes(('overwrite', 'Overwrite Existing Files',
                                 False)))
+
+    @property
+    def experiment(self):
+        if self.experiment_directory.name == self.analysis_path:
+            return self.experiment_directory.parent.name
+        else:
+            return self.experiment_directory.name
+
+    @property
+    def experiment_directory(self):
+        directory = Path(self.get_directory())
+        if self.analysis_path and directory.name != self.analysis_path:
+            directory = directory / self.analysis_path
+        return directory
+
+    @property
+    def raw_directory(self):
+        return self.raw_home / self.experiment / self.raw_path
 
     @property
     def sample(self):
@@ -106,7 +108,7 @@ class ImportDialog(NXDialog):
         return [str(sample) for sample in samples]
 
     def get_configurations(self):
-        directory = self.home_directory / 'configurations'
+        directory = self.experiment_directory / 'configurations'
         if directory.exists():
             return sorted([str(f.name) for f in directory.glob('*.nxs')])
         else:
@@ -114,11 +116,11 @@ class ImportDialog(NXDialog):
 
     @property
     def configuration_file(self):
-        return (self.home_directory / 'configurations' /
+        return (self.experiment_directory / 'configurations' /
                 self.configuration_box.currentText())
 
     def accept(self):
-        sample_directory = self.home_directory / self.sample / self.label
+        sample_directory = self.experiment_directory / self.sample / self.label
         sample_directory.mkdir(parents=True, exist_ok=True)
         try:
             self.beamline(directory=sample_directory).import_data(
