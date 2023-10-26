@@ -26,15 +26,17 @@ cctbx-base         https://cci.lbl.gov/cctbx_docs/
 pyfai              https://pyfai.readthedocs.io/
 sqlalchemy         https://docs.sqlalchemy.org/
 psutil             https://psutil.readthedocs.io/.io/
+persist-queue      https://github.com/peter-wangxu/persist-queue
 =================  =================================================
 
 NeXpy
 -----
 Although much of the NXRefine workflow can be performed using
 command-line scripts, it is recommended that they are used in
-conjunction Python-based GUI `NeXpy <https://nexpy.github.io/nexpy>`_.
-Once NXRefine has been installed, NeXpy will automatically import a set
-of plugins that add three menu items to the NeXpy menu bar.
+conjunction with the Python-based GUI,
+`NeXpy <https://nexpy.github.io/nexpy>`_. Once NXRefine has been
+installed, NeXpy will automatically import a set of plugins that add
+three menu items to the NeXpy menu bar.
 
 .. figure:: /images/NeXpy-GUI.png
    :align: center
@@ -42,19 +44,24 @@ of plugins that add three menu items to the NeXpy menu bar.
    :figwidth: 100%
 
 * **Experiment**
+  
   Dialogs to set up experiment directories, initialize NeXus templates,
   perform powder calibrations, create NeXus files for linking to the
   scans and storing data reduction results, and, if necessary, import
   existing scan data.
 
 * **Refine**
+  
   Dialogs to define data reduction parameters, perform peak searches,
   refine crystal orientations, and prepare the reciprocal space grids
   for the transformed data.
 
 * **Server**
+  
   Dialogs to manage workflow operations on existing data, view server
   logs, and edit default settings for future experiments.
+
+The menus will be described in more detail in subsequent sections.
 
 CCTW
 ----
@@ -183,12 +190,12 @@ Here is the structure of the ``nxserver`` directory::
   A directory that contains files that implement the
   `nexusformat <https://nexpy.github.io/nexpy/>`_ file-locking system.
   Locked files can be viewed, and removed if they are stale, using the
-  ``Show File Locks`` dialog in the NeXpy ``File`` menu. 
+  "Show File Locks" dialog in the NeXpy "File" menu. 
 
-.. note:: The log files can be viewed using the ``Manage Server`` dialog
-          and the settings file can be modified using the ``Edit
-          Settings`` dialog, both of which are located in the ``Server``
-          menu added as a NeXpy plugin when NXRefine is installed.
+.. note:: The log files can be viewed using the "Manage Server" dialog
+          and the settings file can be modified using the "Edit
+          Settings" dialog, both of which are located in the "Server"
+          menu in NeXpy.
 
 .. figure:: /images/server_settings.png
    :align: right
