@@ -87,6 +87,31 @@ it can be installed without downloading the source code.</p>
 </tbody>
 </table>
 </div>
+<div class="section" id="nexpy">
+<h2>NeXpy<a class="headerlink" href="#nexpy" title="Permalink to this headline">¶</a></h2>
+<p>Although much of the NXRefine workflow can be performed using
+command-line scripts, it is recommended that they are used in
+conjunction Python-based GUI <a class="reference external" href="https://nexpy.github.io/nexpy">NeXpy</a>.
+Once NXRefine has been installed, NeXpy will automatically import a set
+of plugins that add three menu items to the NeXpy menu bar.</p>
+<div class="figure align-center" style="width: 100%">
+<a class="reference internal image-reference" href="_images/NeXpy-GUI.png"><img alt="_images/NeXpy-GUI.png" src="_images/NeXpy-GUI.png" style="width: 90%;" /></a>
+</div>
+<ul class="simple">
+<li><p><strong>Experiment</strong>
+Dialogs to set up experiment directories, initialize NeXus templates,
+perform powder calibrations, create NeXus files for linking to the
+scans and storing data reduction results, and, if necessary, import
+existing scan data.</p></li>
+<li><p><strong>Refine</strong>
+Dialogs to define data reduction parameters, perform peak searches,
+refine crystal orientations, and prepare the reciprocal space grids
+for the transformed data.</p></li>
+<li><p><strong>Server</strong>
+Dialogs to manage workflow operations on existing data, view server
+logs, and edit default settings for future experiments.</p></li>
+</ul>
+</div>
 <div class="section" id="cctw">
 <h2>CCTW<a class="headerlink" href="#cctw" title="Permalink to this headline">¶</a></h2>
 <p><a class="reference external" href="https://sourceforge.net/projects/cctw/">CCTW</a> (Crystal Coordination
@@ -236,11 +261,14 @@ can be changed, either by opening the “Edit Settings” dialog in the
 NeXpy “Server” menu or at the command line using <code class="docutils literal notranslate"><span class="pre">nxsettings</span> <span class="pre">-i</span></code>.
 Hitting the [Return] key keeps the current value.</p>
 <p>The right-hand figure shows an example of the first two sections of the
-<code class="docutils literal notranslate"><span class="pre">settings.ini</span></code>. The other sections contain default values of the data
-reduction parameters that can be customized for each experiment (see the
-next section).</p>
-<p><strong>Server Settings</strong>
-The server settings are used by the workflow server, which is described
+<code class="docutils literal notranslate"><span class="pre">settings.ini</span></code>. The parameters in the first section are described
+here. The other sections contain information concerning the location
+of the data and default values of the data reduction parameters. They
+will be described later.</p>
+</div>
+<div class="section" id="server-settings">
+<h3>Server Settings<a class="headerlink" href="#server-settings" title="Permalink to this headline">¶</a></h3>
+<p>The server settings are used by the workflow server, which is described
 in a later section. They define the server configuration, such as the
 number of simultaneous jobs that may be run, the command required to
 add them to the system’s standard job queues, and whether they need to
@@ -286,11 +314,6 @@ which is replaced by the job command.</p>
 from instrumental coordinates to reciprocal space.</p>
 </dd>
 </dl>
-<p><strong>Instrument Settings</strong>
-The instrument settings are used to define the name of the instrument,
-which is used to import a customized plugin for importing metadata,
-and a set of paths defining the location of the raw and reduced data
-locations.</p>
 </div>
 </div>
 </div>
@@ -307,11 +330,13 @@ locations.</p>
     <ul>
 <li><a class="reference internal" href="#">Installation</a><ul>
 <li><a class="reference internal" href="#required-libraries">Required Libraries</a></li>
+<li><a class="reference internal" href="#nexpy">NeXpy</a></li>
 <li><a class="reference internal" href="#cctw">CCTW</a></li>
 <li><a class="reference internal" href="#user-support">User Support</a></li>
 <li><a class="reference internal" href="#initial-setup">Initial Setup</a><ul>
 <li><a class="reference internal" href="#server-directory">Server Directory</a></li>
 <li><a class="reference internal" href="#default-settings">Default Settings</a></li>
+<li><a class="reference internal" href="#server-settings">Server Settings</a></li>
 </ul>
 </li>
 </ul>

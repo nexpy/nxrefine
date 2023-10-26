@@ -28,6 +28,34 @@ sqlalchemy         https://docs.sqlalchemy.org/
 psutil             https://psutil.readthedocs.io/.io/
 =================  =================================================
 
+NeXpy
+-----
+Although much of the NXRefine workflow can be performed using
+command-line scripts, it is recommended that they are used in
+conjunction Python-based GUI `NeXpy <https://nexpy.github.io/nexpy>`_.
+Once NXRefine has been installed, NeXpy will automatically import a set
+of plugins that add three menu items to the NeXpy menu bar.
+
+.. figure:: /images/NeXpy-GUI.png
+   :align: center
+   :width: 90%
+   :figwidth: 100%
+
+* **Experiment**
+  Dialogs to set up experiment directories, initialize NeXus templates,
+  perform powder calibrations, create NeXus files for linking to the
+  scans and storing data reduction results, and, if necessary, import
+  existing scan data.
+
+* **Refine**
+  Dialogs to define data reduction parameters, perform peak searches,
+  refine crystal orientations, and prepare the reciprocal space grids
+  for the transformed data.
+
+* **Server**
+  Dialogs to manage workflow operations on existing data, view server
+  logs, and edit default settings for future experiments.
+
 CCTW
 ----
 `CCTW <https://sourceforge.net/projects/cctw/>`_ (Crystal Coordination 
@@ -176,11 +204,13 @@ NeXpy "Server" menu or at the command line using ``nxsettings -i``.
 Hitting the [Return] key keeps the current value. 
 
 The right-hand figure shows an example of the first two sections of the
-``settings.ini``. The other sections contain default values of the data
-reduction parameters that can be customized for each experiment (see the
-next section).
+``settings.ini``. The parameters in the first section are described
+here. The other sections contain information concerning the location
+of the data and default values of the data reduction parameters. They
+will be described later.
 
-**Server Settings**
+Server Settings
+^^^^^^^^^^^^^^^
 The server settings are used by the workflow server, which is described
 in a later section. They define the server configuration, such as the
 number of simultaneous jobs that may be run, the command required to
@@ -219,9 +249,3 @@ be wrapped in a shell script.
 
 :cctw: This is the path to the CCTW executable used to transform data
        from instrumental coordinates to reciprocal space.
-
-**Instrument Settings**
-The instrument settings are used to define the name of the instrument,
-which is used to import a customized plugin for importing metadata,
-and a set of paths defining the location of the raw and reduced data
-locations.
