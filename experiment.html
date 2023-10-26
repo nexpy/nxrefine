@@ -203,10 +203,55 @@ the files in the <code class="docutils literal notranslate"><span class="pre">sc
 location if, for example, access to the raw data is no
 longer necessary.</p>
 </div>
+<div class="figure align-right" style="width: 25%">
+<a class="reference internal image-reference" href="images/instrument_settings.png"><img alt="images/instrument_settings.png" src="images/instrument_settings.png" style="width: 90%;" /></a>
+</div>
 </div>
 <div class="section" id="experiment-setup">
 <h2>Experiment Setup<a class="headerlink" href="#experiment-setup" title="Permalink to this headline">¶</a></h2>
-<p>The experiment directory layout could be created</p>
+<p>The experiment directory layout can be created automatically using GUI
+dialogs in the NeXpy “Experiment” menu. Before using them, it is
+important to have initialized the default instrument parameters using
+the “Edit Settings” dialog of the NeXpy “Server” menu, or at the command
+line using <code class="docutils literal notranslate"><span class="pre">nxsettings</span> <span class="pre">-i</span></code>.</p>
+<p>The instrument settings provide information on the directories, in which
+both the raw data and the NXRefine directory tree are located. The
+instrument name is also used to identify plugin packages used to
+customize the import of instrumental metadata from different
+instruments.</p>
+<p>Here is a list of instrument parameters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">source</dt>
+<dd class="field-odd"><p>This is the name of the synchrotron source, at which the
+instrument is located. This will be stored in the NeXus files
+during the data reduction, but is not otherwise used.</p>
+</dd>
+<dt class="field-even">instrument</dt>
+<dd class="field-even"><p>This is the name of the instrument. If a customized
+beamline package is to be imported, this must correspond to
+the instrument name used in the package.</p>
+</dd>
+<dt class="field-odd">raw_home</dt>
+<dd class="field-odd"><p>This is the directory containing the raw data, if it is to be
+imported from</p>
+</dd>
+<dt class="field-even">run_command</dt>
+<dd class="field-even"><p>This is a string that is prepended to any jobs that are
+submitted to the server. It can contain a set of switches
+in addition to the job submission command itself.</p>
+</dd>
+<dt class="field-odd">template</dt>
+<dd class="field-odd"><p>In some systems, it is necessary to wrap the command that is
+submitted to the server in a shell script. This is the name
+of the script, which should be stored in the <code class="docutils literal notranslate"><span class="pre">nxserver</span></code>
+directory. It should contain the string <code class="docutils literal notranslate"><span class="pre">&lt;NXSERVER&gt;</span></code>,
+which is replaced by the job command.</p>
+</dd>
+<dt class="field-even">cctw</dt>
+<dd class="field-even"><p>This is the path to the CCTW executable used to transform data
+from instrumental coordinates to reciprocal space.</p>
+</dd>
+</dl>
 </div>
 </div>
 

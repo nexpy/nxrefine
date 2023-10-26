@@ -84,6 +84,9 @@ it can be installed without downloading the source code.</p>
 <tr class="row-even"><td><p>psutil</p></td>
 <td><p><a class="reference external" href="https://psutil.readthedocs.io/.io/">https://psutil.readthedocs.io/.io/</a></p></td>
 </tr>
+<tr class="row-odd"><td><p>persist-queue</p></td>
+<td><p><a class="reference external" href="https://github.com/peter-wangxu/persist-queue">https://github.com/peter-wangxu/persist-queue</a></p></td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -91,26 +94,31 @@ it can be installed without downloading the source code.</p>
 <h2>NeXpy<a class="headerlink" href="#nexpy" title="Permalink to this headline">¶</a></h2>
 <p>Although much of the NXRefine workflow can be performed using
 command-line scripts, it is recommended that they are used in
-conjunction Python-based GUI <a class="reference external" href="https://nexpy.github.io/nexpy">NeXpy</a>.
-Once NXRefine has been installed, NeXpy will automatically import a set
-of plugins that add three menu items to the NeXpy menu bar.</p>
+conjunction with the Python-based GUI,
+<a class="reference external" href="https://nexpy.github.io/nexpy">NeXpy</a>. Once NXRefine has been
+installed, NeXpy will automatically import a set of plugins that add
+three menu items to the NeXpy menu bar.</p>
 <div class="figure align-center" style="width: 100%">
 <a class="reference internal image-reference" href="_images/NeXpy-GUI.png"><img alt="_images/NeXpy-GUI.png" src="_images/NeXpy-GUI.png" style="width: 90%;" /></a>
 </div>
-<ul class="simple">
-<li><p><strong>Experiment</strong>
-Dialogs to set up experiment directories, initialize NeXus templates,
+<ul>
+<li><p><strong>Experiment</strong></p>
+<p>Dialogs to set up experiment directories, initialize NeXus templates,
 perform powder calibrations, create NeXus files for linking to the
 scans and storing data reduction results, and, if necessary, import
-existing scan data.</p></li>
-<li><p><strong>Refine</strong>
-Dialogs to define data reduction parameters, perform peak searches,
+existing scan data.</p>
+</li>
+<li><p><strong>Refine</strong></p>
+<p>Dialogs to define data reduction parameters, perform peak searches,
 refine crystal orientations, and prepare the reciprocal space grids
-for the transformed data.</p></li>
-<li><p><strong>Server</strong>
-Dialogs to manage workflow operations on existing data, view server
-logs, and edit default settings for future experiments.</p></li>
+for the transformed data.</p>
+</li>
+<li><p><strong>Server</strong></p>
+<p>Dialogs to manage workflow operations on existing data, view server
+logs, and edit default settings for future experiments.</p>
+</li>
 </ul>
+<p>The menus will be described in more detail in subsequent sections.</p>
 </div>
 <div class="section" id="cctw">
 <h2>CCTW<a class="headerlink" href="#cctw" title="Permalink to this headline">¶</a></h2>
@@ -240,14 +248,14 @@ queuing system for server jobs.</p>
 <div><p>A directory that contains files that implement the
 <a class="reference external" href="https://nexpy.github.io/nexpy/">nexusformat</a> file-locking system.
 Locked files can be viewed, and removed if they are stale, using the
-<code class="docutils literal notranslate"><span class="pre">Show</span> <span class="pre">File</span> <span class="pre">Locks</span></code> dialog in the NeXpy <code class="docutils literal notranslate"><span class="pre">File</span></code> menu.</p>
+“Show File Locks” dialog in the NeXpy “File” menu.</p>
 </div></blockquote>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The log files can be viewed using the <code class="docutils literal notranslate"><span class="pre">Manage</span> <span class="pre">Server</span></code> dialog
-and the settings file can be modified using the <code class="docutils literal notranslate"><span class="pre">Edit</span>
-<span class="pre">Settings</span></code> dialog, both of which are located in the <code class="docutils literal notranslate"><span class="pre">Server</span></code>
-menu added as a NeXpy plugin when NXRefine is installed.</p>
+<p>The log files can be viewed using the “Manage Server” dialog
+and the settings file can be modified using the “Edit
+Settings” dialog, both of which are located in the “Server”
+menu in NeXpy.</p>
 </div>
 <div class="figure align-right" style="width: 30%">
 <a class="reference internal image-reference" href="_images/server_settings.png"><img alt="_images/server_settings.png" src="_images/server_settings.png" style="width: 90%;" /></a>

@@ -174,6 +174,47 @@ Experiment Sub-Directories
           location if, for example, access to the raw data is no
           longer necessary.
 
+.. figure:: /images/instrument_settings.png
+   :align: right
+   :width: 90%
+   :figwidth: 25%
+
 Experiment Setup
 ----------------
-The experiment directory layout could be created 
+The experiment directory layout can be created automatically using GUI
+dialogs in the NeXpy "Experiment" menu. Before using them, it is
+important to have initialized the default instrument parameters using
+the "Edit Settings" dialog of the NeXpy "Server" menu, or at the command
+line using ``nxsettings -i``.
+
+The instrument settings provide information on the directories, in which
+both the raw data and the NXRefine directory tree are located. The
+instrument name is also used to identify plugin packages used to
+customize the import of instrumental metadata from different
+instruments.
+
+Here is a list of instrument parameters.
+
+:source: This is the name of the synchrotron source, at which the 
+         instrument is located. This will be stored in the NeXus files
+         during the data reduction, but is not otherwise used.
+
+:instrument: This is the name of the instrument. If a customized
+             beamline package is to be imported, this must correspond to
+             the instrument name used in the package.
+
+:raw_home: This is the directory containing the raw data, if it is to be
+           imported from 
+
+:run_command: This is a string that is prepended to any jobs that are
+              submitted to the server. It can contain a set of switches
+              in addition to the job submission command itself.
+
+:template: In some systems, it is necessary to wrap the command that is
+           submitted to the server in a shell script. This is the name
+           of the script, which should be stored in the ``nxserver``
+           directory. It should contain the string ``<NXSERVER>``,
+           which is replaced by the job command.
+
+:cctw: This is the path to the CCTW executable used to transform data
+       from instrumental coordinates to reciprocal space.
