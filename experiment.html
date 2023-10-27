@@ -277,6 +277,19 @@ NXRefine sub-directories. In the above example, this
 would be <code class="docutils literal notranslate"><span class="pre">nxrefine</span></code>.</p>
 </dd>
 </dl>
+<p>On Sector 6 at the APS, the images are automatically stacked as HDF5
+files and saved in the analysis directories as <code class="docutils literal notranslate"><span class="pre">f1.h5</span></code>, <code class="docutils literal notranslate"><span class="pre">f2.h5</span></code>,
+<em>etc</em>, so the paths to the raw data are not required and can be left
+blank. The ‘analysis_path’ field is also blank.</p>
+<p>If someone wants to use NXRefine to analyze data collected as image
+files, which are not stored in a directory tree compatible with the
+above description, there are two options. Firstly, the NXBeamLine class,
+which is described later, is designed to allow beamline-specific methods
+of importing the data and metadata. These can be implemented in separate
+packages that are imported into NXRefine as plugins. Secondly, the image
+files can be loaded into HDF5 files using the <a class="reference external" href="https://nexpy.github.io/nexpy">nexusformat</a> command-line script, ‘nxstack’ and
+saved to the scan directories described above.  Type <code class="docutils literal notranslate"><span class="pre">nxstack</span> <span class="pre">-h</span></code> at
+the terminal command line to see possible options.</p>
 </div>
 </div>
 
