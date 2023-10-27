@@ -244,5 +244,18 @@ Here is a list of instrument parameters.
                 NXRefine sub-directories. In the above example, this
                 would be ``nxrefine``.
 
+On Sector 6 at the APS, the images are automatically stacked as HDF5
+files and saved in the analysis directories as ``f1.h5``, ``f2.h5``,
+*etc*, so the paths to the raw data are not required and can be left
+blank. The 'analysis_path' field is also blank.
 
-
+If someone wants to use NXRefine to analyze data collected as image
+files, which are not stored in a directory tree compatible with the
+above description, there are two options. Firstly, the NXBeamLine class,
+which is described later, is designed to allow beamline-specific methods
+of importing the data and metadata. These can be implemented in separate
+packages that are imported into NXRefine as plugins. Secondly, the image
+files can be loaded into HDF5 files using the `nexusformat 
+<https://nexpy.github.io/nexpy>`_ command-line script, 'nxstack' and
+saved to the scan directories described above.  Type ``nxstack -h`` at
+the terminal command line to see possible options.
