@@ -207,8 +207,8 @@ longer necessary.</p>
 <a class="reference internal image-reference" href="_images/instrument-settings.png"><img alt="_images/instrument-settings.png" src="_images/instrument-settings.png" style="width: 90%;" /></a>
 </div>
 </div>
-<div class="section" id="experiment-setup">
-<h2>Experiment Setup<a class="headerlink" href="#experiment-setup" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="instrument-setup">
+<h2>Instrument Setup<a class="headerlink" href="#instrument-setup" title="Permalink to this headline">¶</a></h2>
 <p>The experiment directory layout can be created automatically using GUI
 dialogs in the NeXpy “Experiment” menu. Before using them, it is
 important to have initialized the default instrument parameters using
@@ -280,7 +280,8 @@ would be <code class="docutils literal notranslate"><span class="pre">nxrefine</
 <p>On Sector 6 at the APS, the images are automatically stacked as HDF5
 files and saved in the analysis directories as <code class="docutils literal notranslate"><span class="pre">f1.h5</span></code>, <code class="docutils literal notranslate"><span class="pre">f2.h5</span></code>,
 <em>etc</em>, so the paths to the raw data are not required and can be left
-blank. The ‘analysis_path’ field is also blank.</p>
+blank. The ‘analysis_path’ field is also blank, since the sample
+directories are at the top level of the experiment directories.</p>
 <p>If someone wants to use NXRefine to analyze data collected as image
 files, which are not stored in a directory tree compatible with the
 above description, there are two options. Firstly, the NXBeamLine class,
@@ -290,6 +291,30 @@ packages that are imported into NXRefine as plugins. Secondly, the image
 files can be loaded into HDF5 files using the <a class="reference external" href="https://nexpy.github.io/nexpy">nexusformat</a> command-line script, ‘nxstack’ and
 saved to the scan directories described above.  Type <code class="docutils literal notranslate"><span class="pre">nxstack</span> <span class="pre">-h</span></code> at
 the terminal command line to see possible options.</p>
+</div>
+<div class="section" id="experiment-setup">
+<h2>Experiment Setup<a class="headerlink" href="#experiment-setup" title="Permalink to this headline">¶</a></h2>
+<p>Once the instrument parameters have been defined in the server settings,
+it is possible to initialize the experiment directories using the
+“New Experiment” dialog within the NeXpy “Experiment” menu. When the
+dialog is launched, click on “Choose Experiment Directory” to launch a
+a file browser in order to select a directory. There are two scenarios.</p>
+<ol class="arabic simple">
+<li><p>If <code class="docutils literal notranslate"><span class="pre">raw_home</span></code> is not blank, the file browser will default to the
+<code class="docutils literal notranslate"><span class="pre">raw_home</span></code> directory, because this normally means that an
+experiment directory already exists, containing the raw image files.
+By selecting an existing directory, the dialog automatically fills in
+the equivalent path to the analysis directory, in which the NXRefine
+files are to be stored.</p></li>
+</ol>
+<div class="figure align-center">
+<a class="reference internal image-reference" href="_images/new-experiment-CHESS.png"><img alt="_images/new-experiment-CHESS.png" src="_images/new-experiment-CHESS.png" style="width: 90%;" /></a>
+</div>
+<ol class="arabic simple" start="2">
+<li><p>If <code class="docutils literal notranslate"><span class="pre">raw_home</span></code> is blank, the file browser will default to the
+<code class="docutils literal notranslate"><span class="pre">analysis_home</span></code> directory, from where a new directory can be
+created with the experiment name.</p></li>
+</ol>
 </div>
 </div>
 
@@ -306,6 +331,7 @@ the terminal command line to see possible options.</p>
 <li><a class="reference internal" href="#">Experiments</a><ul>
 <li><a class="reference internal" href="#experiment-layout">Experiment Layout</a></li>
 <li><a class="reference internal" href="#experiment-sub-directories">Experiment Sub-Directories</a></li>
+<li><a class="reference internal" href="#instrument-setup">Instrument Setup</a></li>
 <li><a class="reference internal" href="#experiment-setup">Experiment Setup</a></li>
 </ul>
 </li>

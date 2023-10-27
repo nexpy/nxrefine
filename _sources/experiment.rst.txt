@@ -179,7 +179,7 @@ Experiment Sub-Directories
    :width: 90%
    :figwidth: 40%
 
-Experiment Setup
+Instrument Setup
 ----------------
 The experiment directory layout can be created automatically using GUI
 dialogs in the NeXpy "Experiment" menu. Before using them, it is
@@ -247,7 +247,8 @@ Here is a list of instrument parameters.
 On Sector 6 at the APS, the images are automatically stacked as HDF5
 files and saved in the analysis directories as ``f1.h5``, ``f2.h5``,
 *etc*, so the paths to the raw data are not required and can be left
-blank. The 'analysis_path' field is also blank.
+blank. The 'analysis_path' field is also blank, since the sample
+directories are at the top level of the experiment directories.
 
 If someone wants to use NXRefine to analyze data collected as image
 files, which are not stored in a directory tree compatible with the
@@ -259,3 +260,26 @@ files can be loaded into HDF5 files using the `nexusformat
 <https://nexpy.github.io/nexpy>`_ command-line script, 'nxstack' and
 saved to the scan directories described above.  Type ``nxstack -h`` at
 the terminal command line to see possible options.
+
+Experiment Setup
+----------------
+Once the instrument parameters have been defined in the server settings,
+it is possible to initialize the experiment directories using the
+"New Experiment" dialog within the NeXpy "Experiment" menu. When the
+dialog is launched, click on "Choose Experiment Directory" to launch a
+a file browser in order to select a directory. There are two scenarios.
+
+1. If ``raw_home`` is not blank, the file browser will default to the
+   ``raw_home`` directory, because this normally means that an
+   experiment directory already exists, containing the raw image files.
+   By selecting an existing directory, the dialog automatically fills in
+   the equivalent path to the analysis directory, in which the NXRefine
+   files are to be stored.
+
+.. figure:: /images/new-experiment-CHESS.png
+   :align: center
+   :width: 90%
+
+2. If ``raw_home`` is blank, the file browser will default to the
+   ``analysis_home`` directory, from where a new directory can be
+   created with the experiment name.
