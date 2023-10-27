@@ -177,7 +177,7 @@ Experiment Sub-Directories
 .. figure:: /images/instrument-settings.png
    :align: right
    :width: 90%
-   :figwidth: 25%
+   :figwidth: 40%
 
 Experiment Setup
 ----------------
@@ -188,10 +188,35 @@ the "Edit Settings" dialog of the NeXpy "Server" menu, or at the command
 line using ``nxsettings -i``.
 
 The instrument settings provide information on the directories, in which
-both the raw data and the NXRefine directory tree are located. The
-instrument name is also used to identify plugin packages used to
-customize the import of instrumental metadata from different
-instruments.
+both the raw data and the NXRefine directory tree are located. It is
+quite common for the raw data to be collected as a set of image files,
+typically TIFF or CBF files. These are usually not stored in the
+experiment directories described in the previous section, and may be in
+read-only directories. To allow for the input of such files, NXRefine
+defines two sets of paths; one to the 'raw' data and one to the NXRefine
+(or 'analysis') directories. It is assumed that the experiment names,
+*e.g.*, ``GUP-75969-23-1``, are the same in both locations, although
+alternative methods of linking the 'raw' and 'analysis' paths could be
+defined in the customized beamline classes described later.
+
+For example, at CHESS, the 'raw' and 'analysis' paths are defined in
+parallel directory trees as follows (with generic experiment names)::
+
+    /nfs/chess/id4b                 /nfs/chess/id4baux
+    ├── 2023-1                      ├── 2023-1
+    ├── 2023-2                      ├── 2023-2
+    └── 2023-2                      └── 2023-2
+        ├── experiment1                 ├── experiment1
+        ├── experiment2                 ├── experiment2
+        └── experiment3                 └── experiment3
+            └── raw6M                       └── nxrefine
+                ├── sample1                     ├── sample1
+                ├── sample2                     ├── sample2
+                └── sample3                     └── sample3
+                    └── label1                      └── label1
+                        ├── 100                         ├── 100
+                        ├── 200                         ├── 200
+                        └── 300                         └── 300
 
 Here is a list of instrument parameters.
 
@@ -203,18 +228,21 @@ Here is a list of instrument parameters.
              beamline package is to be imported, this must correspond to
              the instrument name used in the package.
 
-:raw_home: This is the directory containing the raw data, if it is to be
-           imported from 
+:raw_home: This is the home directory, in which the experimental raw
+           data are stored. In the above example, this could be
+           ``/nfs/chess/id4b/2023-3``.
 
-:run_command: This is a string that is prepended to any jobs that are
-              submitted to the server. It can contain a set of switches
-              in addition to the job submission command itself.
+:raw_path: This is the path within the experiment directory to the
+           sample directories. In the above example, this would be
+           ``raw6M``.
 
-:template: In some systems, it is necessary to wrap the command that is
-           submitted to the server in a shell script. This is the name
-           of the script, which should be stored in the ``nxserver``
-           directory. It should contain the string ``<NXSERVER>``,
-           which is replaced by the job command.
+:analysis_home: This is the home directory, in which the data are
+                analyzed. In the above example, this could be
+                ``/nfs/chess/id4baux/2023-3``.
 
-:cctw: This is the path to the CCTW executable used to transform data
-       from instrumental coordinates to reciprocal space.
+:analysis_path: This is the path within the experiment directory to the
+                NXRefine sub-directories. In the above example, this
+                would be ``nxrefine``.
+
+
+
