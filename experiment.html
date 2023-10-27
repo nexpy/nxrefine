@@ -203,7 +203,7 @@ the files in the <code class="docutils literal notranslate"><span class="pre">sc
 location if, for example, access to the raw data is no
 longer necessary.</p>
 </div>
-<div class="figure align-right" style="width: 25%">
+<div class="figure align-right" style="width: 40%">
 <a class="reference internal image-reference" href="_images/instrument-settings.png"><img alt="_images/instrument-settings.png" src="_images/instrument-settings.png" style="width: 90%;" /></a>
 </div>
 </div>
@@ -215,10 +215,35 @@ important to have initialized the default instrument parameters using
 the “Edit Settings” dialog of the NeXpy “Server” menu, or at the command
 line using <code class="docutils literal notranslate"><span class="pre">nxsettings</span> <span class="pre">-i</span></code>.</p>
 <p>The instrument settings provide information on the directories, in which
-both the raw data and the NXRefine directory tree are located. The
-instrument name is also used to identify plugin packages used to
-customize the import of instrumental metadata from different
-instruments.</p>
+both the raw data and the NXRefine directory tree are located. It is
+quite common for the raw data to be collected as a set of image files,
+typically TIFF or CBF files. These are usually not stored in the
+experiment directories described in the previous section, and may be in
+read-only directories. To allow for the input of such files, NXRefine
+defines two sets of paths; one to the ‘raw’ data and one to the NXRefine
+(or ‘analysis’) directories. It is assumed that the experiment names,
+<em>e.g.</em>, <code class="docutils literal notranslate"><span class="pre">GUP-75969-23-1</span></code>, are the same in both locations, although
+alternative methods of linking the ‘raw’ and ‘analysis’ paths could be
+defined in the customized beamline classes described later.</p>
+<p>For example, at CHESS, the ‘raw’ and ‘analysis’ paths are defined in
+parallel directory trees as follows (with generic experiment names):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>/nfs/chess/id4b                 /nfs/chess/id4baux
+├── 2023-1                      ├── 2023-1
+├── 2023-2                      ├── 2023-2
+└── 2023-2                      └── 2023-2
+    ├── experiment1                 ├── experiment1
+    ├── experiment2                 ├── experiment2
+    └── experiment3                 └── experiment3
+        └── raw6M                       └── nxrefine
+            ├── sample1                     ├── sample1
+            ├── sample2                     ├── sample2
+            └── sample3                     └── sample3
+                └── label1                      └── label1
+                    ├── 100                         ├── 100
+                    ├── 200                         ├── 200
+                    └── 300                         └── 300
+</pre></div>
+</div>
 <p>Here is a list of instrument parameters.</p>
 <dl class="field-list simple">
 <dt class="field-odd">source</dt>
@@ -232,24 +257,24 @@ beamline package is to be imported, this must correspond to
 the instrument name used in the package.</p>
 </dd>
 <dt class="field-odd">raw_home</dt>
-<dd class="field-odd"><p>This is the directory containing the raw data, if it is to be
-imported from</p>
+<dd class="field-odd"><p>This is the home directory, in which the experimental raw
+data are stored. In the above example, this could be
+<code class="docutils literal notranslate"><span class="pre">/nfs/chess/id4b/2023-3</span></code>.</p>
 </dd>
-<dt class="field-even">run_command</dt>
-<dd class="field-even"><p>This is a string that is prepended to any jobs that are
-submitted to the server. It can contain a set of switches
-in addition to the job submission command itself.</p>
+<dt class="field-even">raw_path</dt>
+<dd class="field-even"><p>This is the path within the experiment directory to the
+sample directories. In the above example, this would be
+<code class="docutils literal notranslate"><span class="pre">raw6M</span></code>.</p>
 </dd>
-<dt class="field-odd">template</dt>
-<dd class="field-odd"><p>In some systems, it is necessary to wrap the command that is
-submitted to the server in a shell script. This is the name
-of the script, which should be stored in the <code class="docutils literal notranslate"><span class="pre">nxserver</span></code>
-directory. It should contain the string <code class="docutils literal notranslate"><span class="pre">&lt;NXSERVER&gt;</span></code>,
-which is replaced by the job command.</p>
+<dt class="field-odd">analysis_home</dt>
+<dd class="field-odd"><p>This is the home directory, in which the data are
+analyzed. In the above example, this could be
+<code class="docutils literal notranslate"><span class="pre">/nfs/chess/id4baux/2023-3</span></code>.</p>
 </dd>
-<dt class="field-even">cctw</dt>
-<dd class="field-even"><p>This is the path to the CCTW executable used to transform data
-from instrumental coordinates to reciprocal space.</p>
+<dt class="field-even">analysis_path</dt>
+<dd class="field-even"><p>This is the path within the experiment directory to the
+NXRefine sub-directories. In the above example, this
+would be <code class="docutils literal notranslate"><span class="pre">nxrefine</span></code>.</p>
 </dd>
 </dl>
 </div>
