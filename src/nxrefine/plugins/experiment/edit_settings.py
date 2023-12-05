@@ -75,7 +75,7 @@ class ExperimentSettingsDialog(NXDialog):
             directory = directory.parent
         elif directory.name == 'tasks':
             directory = directory.parent.parent
-        self.settings = NXSettings(directory / self.analysis_path)
+        self.settings = NXSettings(directory)
         self.directoryname.setText(directory.name)
         defaults = self.settings.settings['instrument']
         if 'experiment' not in defaults:

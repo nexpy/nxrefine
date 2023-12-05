@@ -32,21 +32,26 @@ class NewExperimentDialog(NXDialog):
                                              self.choose_directory)
 
         settings = NXSettings().settings
+        raw_home = settings['instrument']['raw_home']
+        analysis_home = settings['instrument']['analysis_home']
         self.parameters = GridParameters()
         defaults = settings['instrument']
         self.parameters.add('source', defaults['source'], 'Source Name')
         self.parameters.add('instrument', defaults['instrument'], 'Instrument')
         self.parameters.add('raw_home', defaults['raw_home'],
-                            'Raw Data Root Directory')
+                            'Raw Home Directory')
         self.parameters.add('raw_path', defaults['raw_path'],
                             'Raw Data Subdirectory')
         self.parameters.add('analysis_home', defaults['analysis_home'],
-                            'Analysis Root Directory')
+                            'Analysis Home Directory')
         self.parameters.add('analysis_path', defaults['analysis_path'],
                             'Analysis Subdirectory')
         self.parameters.add('experiment', '', 'Name of Experiment')
         self.directoryname = NXLabel(settings['instrument']['raw_home'])
-        self.set_default_directory(settings['instrument']['raw_home'])
+        if raw_home and Path(raw_home).exists():
+            self.set_default_directory(raw_home)
+        else:
+            self.set_default_directory(analysis_home)
         self.set_layout(self.make_layout(self.directory_button),
                         self.close_layout(save=True))
         self.set_title('New Experiment')
@@ -138,7 +143,7 @@ class NewExperimentDialog(NXDialog):
             calibration_directory.mkdir(exist_ok=True)
             script_directory = experiment_path / 'scripts'
             script_directory.mkdir(exist_ok=True)
-            settings = NXSettings(task_directory)
+            settings = NXSettings(directory=task_directory, create=True)
             settings.set('instrument', 'source', source)
             settings.set('instrument', 'instrument', instrument)
             settings.set('instrument', 'raw_home', raw_home)

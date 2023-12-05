@@ -6,6 +6,7 @@
 # The full license is in the file COPYING, distributed with this software.
 # -----------------------------------------------------------------------------
 
+from configparser import ConfigParser
 import os
 import subprocess
 import tempfile
@@ -166,11 +167,9 @@ class NXTask:
 
 class NXServer(NXDaemon):
 
-    def __init__(self, directory=None, server_type=None, nodes=None,
-                 concurrent=None, run_command=None, template=None):
+    def __init__(self, directory=None, server_type=None):
         self.pid_name = 'nxserver'
-        self.initialize(directory, server_type, nodes, concurrent,
-                        run_command, template)
+        self.initialize(directory, server_type)
         self.worker_queue = None
         self.workers = []
         super(NXServer, self).__init__(self.pid_name, self.pid_file)
@@ -178,10 +177,37 @@ class NXServer(NXDaemon):
     def __repr__(self):
         return f"NXServer(directory='{self.directory}')"
 
-    def initialize(self, directory, server_type, nodes, concurrent,
-                   run_command, template):
-        self.settings = NXSettings(default=directory)
-        self.directory = Path(self.settings.directory)
+    def get_directory(self):
+        home_settings_file = Path.home() / '.nxserver' / 'settings.ini'
+        if 'NX_SERVER' in os.environ:
+            return Path(os.environ['NX_SERVER'])
+        elif home_settings_file.exists():
+            home_settings = ConfigParser()
+            home_settings.read(home_settings_file)
+            if home_settings.has_option('setup', 'directory'):
+                return Path(home_settings.get('setup', 'directory'))
+        else:
+            return None
+
+    def save_directory(self):
+        home_settings_file = Path.home() / '.nxserver' / 'settings.ini'
+        home_settings = ConfigParser()
+        if home_settings_file.exists():
+            home_settings.read(home_settings_file)
+        if 'setup' not in home_settings.section():
+            home_settings.add_section('setup')
+        home_settings.set('setup', 'directory', str(self.directory))
+        with open(home_settings_file, 'w') as f:
+            home_settings.write(f)
+
+    def initialize(self, directory, server_type):
+        if directory is None:
+            self.directory = self.get_directory()
+            self.settings = NXSettings(directory=self.directory)
+        else:
+            self.settings = NXSettings(directory=directory)
+            self.directory = self.settings.directory
+            self.save_directory()
         if server_type:
             self.server_type = server_type
             self.settings.set('server', 'type', server_type)
@@ -193,8 +219,6 @@ class NXServer(NXDaemon):
         if self.server_type == 'multinode':
             if 'nodes' not in self.settings.sections():
                 self.settings.add_section('nodes')
-            if nodes:
-                self.write_nodes(nodes)
             self.cpus = self.read_nodes()
         else:
             if self.settings.has_option('server', 'cores'):
@@ -204,24 +228,9 @@ class NXServer(NXDaemon):
             else:
                 cpu_count = psutil.cpu_count()
             self.cpus = ['cpu'+str(cpu) for cpu in range(1, cpu_count+1)]
-        if concurrent:
-            self.concurrent = concurrent
-            self.settings.set('server', 'concurrent', concurrent)
-            self.settings.save()
-        else:
-            self.concurrent = self.settings.get('server', 'concurrent')
-        if run_command:
-            self.run_command = run_command
-            self.settings.set('server', 'run_command', run_command)
-            self.settings.save()
-        else:
-            self.run_command = self.settings.get('server', 'run_command')
-        if template:
-            self.template = template
-            self.settings.set('server', 'template', template)
-            self.settings.save()
-        else:
-            self.template = self.settings.get('server', 'template')
+        self.concurrent = self.settings.get('server', 'concurrent')
+        self.run_command = self.settings.get('server', 'run_command')
+        self.template = self.settings.get('server', 'template')
         self.log_file = self.directory / 'nxserver.log'
         self.pid_file = self.directory / 'nxserver.pid'
         self.queue_directory = self.directory / 'task_list'
