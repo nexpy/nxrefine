@@ -2139,11 +2139,11 @@ class NXMultiReduce(NXReduce):
         symm_root['entry/data'].nxsignal = symm_root['entry/data/data']
         symm_root['entry/data'].nxweights = 1.0 / self.taper
         symm_root['entry/data'].nxaxes = self.entry[self.transform_path].nxaxes
-        if self.symm_data in self.entry:
-            del self.entry[self.symm_data]
-        symm_data = NXlink('/entry/data/data', file=self.symm_file,
-                           name='data')
         with self:
+            if self.symm_data in self.entry:
+                del self.entry[self.symm_data]
+            symm_data = NXlink('/entry/data/data', file=self.symm_file,
+                               name='data')
             self.entry[self.symm_data] = NXdata(
                 symm_data, self.entry[self.transform_path].nxaxes)
             self.entry[self.symm_data].nxweights = NXlink(
