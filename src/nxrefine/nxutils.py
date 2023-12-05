@@ -5,6 +5,8 @@
 #
 # The full license is in the file COPYING, distributed with this software.
 # -----------------------------------------------------------------------------
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from multiprocessing import get_context
 import numpy as np
 from nexusformat.nexus import (NXdata, NXentry, NXfield, NXlog, NXroot, nxopen,
                                nxsetconfig)
@@ -589,3 +591,14 @@ class SpecParser:
         for subkey, value in spec_metadata.items():
             nxlog[subkey] = NXfield(value)
         return nxlog
+
+
+class NXExecutor(ProcessPoolExecutor):
+    """ProcessPoolExecutor class using 'spawn' for new processes."""
+
+    def __init__(self, max_workers=None):
+        mp_context = get_context('spawn')
+        super().__init__(max_workers=max_workers, mp_context=mp_context)
+
+    def __repr__(self):
+        return f"NXExecutor(max_workers={self._max_workers})"

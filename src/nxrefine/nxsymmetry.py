@@ -10,7 +10,8 @@ import tempfile
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import numpy as np
-from nexusformat.nexus import nxload, nxsetlock
+
+from .nxutils import NXExecutor, as_completed
 
 
 def triclinic(data):
@@ -144,7 +145,7 @@ class NXSymmetry:
             symmetrize = symmetrize_entries
         else:
             symmetrize = symmetrize_data
-        with ProcessPoolExecutor(max_workers=2) as executor:
+        with NXExecutor(max_workers=2) as executor:
             futures = []
             for data_type in ['signal', 'weights']:
                 futures.append(executor.submit(

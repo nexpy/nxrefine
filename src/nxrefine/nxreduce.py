@@ -1330,9 +1330,9 @@ class NXReduce(QtCore.QObject):
         tic = self.start_progress(self.first, self.last)
         self.blobs = []
         if self.server.concurrent:
-            from concurrent.futures import ProcessPoolExecutor, as_completed
-            with ProcessPoolExecutor(
-                    max_workers=self.process_count) as executor:
+            from nxrefine.nxutils import NXExecutor, as_completed
+            from multiprocessing import get_context
+            with NXExecutor(max_workers=self.process_count) as executor:
                 futures = []
                 for i in range(self.first, self.last+1, 50):
                     j, k = i - min(5, i), min(i+55, self.last+5, self.nframes)
@@ -1482,9 +1482,8 @@ class NXReduce(QtCore.QObject):
             NXfield(shape=self.shape, dtype=np.int8, fillvalue=0))
 
         if self.server.concurrent:
-            from concurrent.futures import ProcessPoolExecutor, as_completed
-            with ProcessPoolExecutor(
-                    max_workers=self.process_count) as executor:
+            from nxrefine.nxutils import NXExecutor, as_completed
+            with NXExecutor(max_workers=self.process_count) as executor:
                 futures = []
                 for i in range(self.first, self.last+1, 10):
                     j, k = i - min(1, i), min(i+11, self.last+1, self.nframes)
