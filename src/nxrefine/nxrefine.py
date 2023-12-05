@@ -106,6 +106,8 @@ class NXRefine:
         Wavelength of the incident x-ray beam in Å.
     distance : float
         Distance from the sample to the detector in mm.
+    detector_orientation : array_like
+        Tuple of three values representing detector orientation in lab frame.
     yaw, pitch, roll : float
         Yaw, pitch and roll of the area detector in degrees.
     theta, omega, chi : float
@@ -159,6 +161,7 @@ class NXRefine:
         self.gamma = 90.0
         self.wavelength = 1.0
         self.distance = 100.0
+        self.detector_orientation = ('-y', '-z', 'x')
         self._yaw = 0.0
         self._pitch = 0.0
         self._roll = 0.0
@@ -202,7 +205,6 @@ class NXRefine:
         self.grid_basis = None
         self.grid_shape = None
         self.grid_step = None
-        self.standard = True
 
         self.name = ""
         self._idx = None
@@ -326,6 +328,9 @@ class NXRefine:
                 'instrument/monochromator/wavelength', self.wavelength)
             self.distance = self.read_parameter('instrument/detector/distance',
                                                 self.distance)
+            self.detector_orientation = self.read_parameter(
+                'instrument/detector/detector_orientation',
+                self.detector_orientation)
             self.yaw = self.read_parameter('instrument/detector/yaw', self.yaw)
             self.pitch = self.read_parameter('instrument/detector/pitch',
                                              self.pitch)
@@ -476,6 +481,8 @@ class NXRefine:
             self.write_parameter('instrument/monochromator/wavelength',
                                  self.wavelength)
             self.write_parameter('instrument/detector/distance', self.distance)
+            self.write_parameter('instrument/detector/detector_orientation',
+                                 self.detector_orientation)
             self.write_parameter('instrument/detector/yaw', self.yaw)
             self.write_parameter('instrument/detector/pitch', self.pitch)
             self.write_parameter('instrument/detector/roll', self.roll)
@@ -549,6 +556,8 @@ class NXRefine:
                     other.entry['instrument/sample'] = NXsample()
                 other.write_parameter('instrument/detector/distance',
                                       self.distance)
+                other.write_parameter('instrument/detector/detector_orientation',
+                                      self.detector_orientation)
                 other.write_parameter('instrument/detector/yaw', self.yaw)
                 other.write_parameter('instrument/detector/pitch', self.pitch)
                 other.write_parameter('instrument/detector/roll', self.roll)
@@ -1280,13 +1289,17 @@ class NXRefine:
         When all goniometer angles are zero, the standard
         transformations are as follows:
 
-            +X(det) = -y(lab), +Y(det) = +z(lab), and +Z(det) = -x(lab)
+            +X(det) = -y(lab), +Y(det) = -z(lab), and +Z(det) = x(lab)
 
         """
-        if self.standard:
-            return np.matrix(((0, -1, 0), (0, 0, 1), (-1, 0, 0)))
-        else:
-            return np.matrix(((0, 0, 1), (0, 1, 0), (-1, 0, 0)))
+        _omat = np.zeros((3, 3), dtype=int)
+        for i in range(3):
+            j = 'xyz'.index(self.detector_orientation[i][-1])
+            if self.detector_orientation[i][0] == '-':
+                _omat[i][j] = -1
+            else:
+                _omat[i][j] = 1
+        return np.matrix(_omat)
 
     @property
     def Dmat(self):
