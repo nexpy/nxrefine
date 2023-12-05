@@ -143,7 +143,7 @@ class NewExperimentDialog(NXDialog):
             calibration_directory.mkdir(exist_ok=True)
             script_directory = experiment_path / 'scripts'
             script_directory.mkdir(exist_ok=True)
-            settings = NXSettings(task_directory)
+            settings = NXSettings(directory=task_directory, create=True)
             settings.set('instrument', 'source', source)
             settings.set('instrument', 'instrument', instrument)
             settings.set('instrument', 'raw_home', raw_home)

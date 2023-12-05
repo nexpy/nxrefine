@@ -6,6 +6,7 @@
 # The full license is in the file COPYING, distributed with this software.
 # -----------------------------------------------------------------------------
 
+import os
 from configparser import ConfigParser
 from pathlib import Path
 
@@ -15,94 +16,92 @@ from nexusformat.nexus import NeXusError
 class NXSettings(ConfigParser):
     """A ConfigParser subclass that preserves the case of option names"""
 
-    def __init__(self, experiment=None, default=None, **kwargs):
+    def __init__(self, directory=None, create=False, **kwargs):
         super().__init__(allow_no_value=True)
-        self.file = self.get_file(experiment=experiment, default=default)
+        self.create = create
+        if directory:
+            directory = Path(directory).resolve()
+        self.file = self.get_file(directory)
         self.directory = self.file.parent
-        self.experiment = experiment
+        if self.create:
+            self.make_file(self.file)
         self.read(self.file)
-        sections = self.sections()
-        if experiment:
-            if 'server' in sections:
-                self.remove_section('server')
-            if 'nodes' in sections:
-                self.remove_section('nodes')
-        elif 'server' not in sections:
-            self.add_section('server')
-        if 'instrument' not in sections:
-            self.add_section('instrument')
-        if 'nxrefine' not in sections:
-            self.add_section('nxrefine')
-        if 'nxreduce' not in sections:
-            self.add_section('nxreduce')
-        if 'setup' in sections:
-            for option in self.options('setup'):
-                self.set('server', option, self.get('setup', option))
-            self.remove_section('setup')
-            self.save()
-        self.add_defaults()
 
     def __repr__(self):
         return f"NXSettings({self.file})"
 
-    def get_file(self, experiment=None, default=None):
-        self.home_settings = ConfigParser()
-        home_directory = Path.home() / '.nxserver'
-        if not home_directory.exists():
-            home_directory.mkdir()
-        self.home_file = home_directory / 'settings.ini'
-        self.home_settings.read(self.home_file)
-        if 'setup' not in self.home_settings.sections():
-            self.home_settings.add_section('setup')
-        if default:
-            self.home_settings.set('setup', 'directory', default)
-            with open(self.home_file, 'w') as f:
-                self.home_settings.write(f)
-        elif self.home_settings.has_option('setup', 'directory'):
-            default = self.home_settings.get('setup', 'directory')
-        if default:
-            default = Path(default).resolve()
-            if default.name != 'nxserver':
-                default = default / 'nxserver'
-            if not default.exists():
-                default.mkdir()
-            if not default.joinpath('locks').exists():
-                default.joinpath('locks').mkdir(mode=0o777)
-        if experiment is None and default is None:
-            raise NeXusError(
-                "Please define settings directory - type 'nxsettings -h'")
-        elif experiment is None:
-            return default / 'settings.ini'
+    def get_file(self, directory=None):
+        if directory is None:
+            if 'NX_SERVER' in os.environ:
+                directory = Path(os.environ['NX_SERVER'])
+            else:
+                home_file = Path.home() / '.nxserver' / 'settings.ini'
+                try:
+                    home_settings = ConfigParser()
+                    home_settings.read(home_file)
+                    directory = Path(home_settings.get('setup', 'directory'))
+                except Exception:
+                    raise NeXusError("Default server settings not defined")
+            if directory.name != 'nxserver':
+                directory = directory / 'nxserver'
+        if directory.exists():
+            if directory.name == 'nxserver':
+                self.server = True
+                return directory / 'settings.ini'
+            elif directory.name == 'tasks':
+                self.server = False
+                return directory / 'settings.ini'
+            elif directory.joinpath('nxserver').exists():
+                self.server = True
+                return directory / 'nxserver' / 'settings.ini'
+            elif directory.joinpath('tasks').exists():
+                self.server = False
+                return directory / 'tasks' / 'settings.ini'
+            elif directory.joinpath('nxrefine').exists():
+                self.server = False
+                return directory / 'nxrefine' / 'tasks' / 'settings.ini'
+        return None
+
+    def make_file(self):
+        if self.file.exists():
+            return
+        Path(self.file.parent).mkdir(parents=True, exist_ok=True)
+        if self.server:
+            self.add_defaults()
+            if not self.file.parent.joinpath('locks').exists():
+                self.file.parent.joinpath('locks').mkdir(mode=0o777)
         else:
-            experiment = Path(experiment).resolve()
-            if experiment.name != 'tasks':
-                if experiment.joinpath('tasks').exists():
-                    experiment = experiment / 'tasks'
-                else:
-                    raise NeXusError(
-                        f"'{experiment}' not a valid directory for settings")
-            if not experiment.joinpath('settings.ini').exists():
-                if default and default.joinpath('settings.ini').exists():
-                    experiment.joinpath('settings.ini').write_text(
-                        default.joinpath('settings.ini').read_text())
-            return experiment / 'settings.ini'
+            default_file = self.get_file()
+            self.file.write_text(default_file.read_text())
 
     def add_defaults(self):
-        settings_changed = False
-        if self.experiment is None:
+        sections = self.sections()
+        if self.server:
+            if 'setup' in sections:
+                for option in self.options('setup'):
+                    self.set('server', option, self.get('setup', option))
+                self.remove_section('setup')
+            if 'server' not in sections:
+                self.add_section('server')
             default = {'type': 'multicore', 'cores': 4, 'concurrent': True,
                        'run_command': None, 'template': None, 'cctw': 'cctw'}
             for p in default:
                 if not self.has_option('server', p):
                     self.set('server', p, default[p])
-                    settings_changed = True
+        else:
+            for section in ['server', 'nodes', 'setup']:
+                if section in sections:
+                    self.remove_section(section)
+        if 'instrument' not in sections:
+            self.add_section('instrument')
         default = {'source': None, 'instrument': None,
                    'raw_home': None, 'raw_path': None,
                    'analysis_home': None, 'analysis_path': None}
         for p in default:
             if not self.has_option('instrument', p):
                 self.set('instrument', p, default[p])
-                settings_changed = True
+        if 'nxrefine' not in sections:
+            self.add_section('nxrefine')
         default = {'wavelength': 0.2, 'distance': 500, 'geometry': 'default',
                    'phi': -5.0, 'phi_end': 360.0, 'phi_step': 0.1,
                    'chi': 0.0, 'omega': 0.0, 'theta': 0.0,
@@ -111,7 +110,8 @@ class NXSettings(ConfigParser):
         for p in default:
             if not self.has_option('nxrefine', p):
                 self.set('nxrefine', p, default[p])
-                settings_changed = True
+        if 'nxreduce' not in sections:
+            self.add_section('nxreduce')
         default = {'threshold': 50000, 'min_pixels': 10,
                    'first': 10, 'last': 3640,
                    'polar_max': 10.0, 'hkl_tolerance': 0.05,
@@ -121,28 +121,31 @@ class NXSettings(ConfigParser):
         for p in default:
             if not self.has_option('nxreduce', p):
                 self.set('nxreduce', p, default[p])
-                settings_changed = True
-        if settings_changed:
-            self.save()
+        self.save()
 
     def input_defaults(self):
-        for s in ['Server', 'Instrument', 'NXRefine', 'NXReduce']:
+        sections = ['Instrument', 'NXRefine', 'NXReduce']
+        if self.server:
+            sections.insert(0, 'Server')
+        for s in sections:
             print(f'\n{s} Parameters\n-------------------')
             s = s.lower()
             for p in self.options(s):
                 value = input(f"{p} [{self.get(s, p)}]: ")
                 if value:
                     self.set(s, p, value)
-        self.save()
+        save = input("Save? [n]: ")
+        if save == 'y' or save == 'Y':
+            self.save()
 
     @property
     def settings(self):
+        sections = ['instrument', 'nxrefine', 'nxreduce']
+        if self.server:
+            sections.insert(0, 'server')
         _settings = {}
-        if self.experiment is None:
-            _settings['server'] = {k: v for (k, v) in self.items('server')}
-        _settings['instrument'] = {k: v for (k, v) in self.items('instrument')}
-        _settings['nxrefine'] = {k: v for (k, v) in self.items('nxrefine')}
-        _settings['nxreduce'] = {k: v for (k, v) in self.items('nxreduce')}
+        for section in sections:
+            _settings[section] = {k: v for (k, v) in self.items(section)}
         return _settings
 
     def get(self, section, option, **kwargs):

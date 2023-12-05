@@ -17,19 +17,18 @@ def main():
 
     parser = argparse.ArgumentParser(
         description="Set default settings")
-    parser.add_argument('-e', '--experiment', nargs='?',
-                        help='Directory containing the experiment settings')
-    parser.add_argument('-d', '--default', nargs='?',
-                        help='Directory containing the default settings')
+    parser.add_argument('-d', '--directory', nargs='?',
+                        help='Directory containing the settings file')
+    parser.add_argument('-c', '--create', action='store_true',
+                        help='Create settings file if necessary')
     parser.add_argument('-i', '--input', action='store_true',
-                        help='Input default parameters')
+                        help='Input parameters')
 
     args = parser.parse_args()
 
-    if args.experiment:
-        settings = NXSettings(experiment=Path(args.experiment).resolve())
-    elif args.default:
-        settings = NXSettings(default=Path(args.default).resolve())
+    if args.directory:
+        settings = NXSettings(directory=Path(args.directory).resolve(),
+                              create=args.create)
     else:
         settings = NXSettings()
     print(f'Default settings stored in {settings.directory}')
