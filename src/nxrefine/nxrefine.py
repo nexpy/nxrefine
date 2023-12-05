@@ -116,6 +116,8 @@ class NXRefine:
         Phi angles of each measured frame.
     phi_step : float
         Step size of phi angle rotations in degrees.
+    xs, ys, zs : float
+        Distance of sample from center of goniometer in mm.
     xc, yc : float
         Location of the incident beam on the detector in pixel coordinates.
     xd, yd : float
@@ -170,6 +172,9 @@ class NXRefine:
         self._chi = 0.0
         self.phi = 0.0
         self.phi_step = 0.1
+        self.xs = 0.0
+        self.ys = 0.0
+        self.zs = 0.0
         self.xc = 256.0
         self.yc = 256.0
         self.xd = 0.0
@@ -181,12 +186,8 @@ class NXRefine:
         self.symmetry = 'triclinic'
         self.centring = 'P'
         self.peaks = None
-        self.xp = None
-        self.yp = None
-        self.zp = None
-        self.x = None
-        self.y = None
-        self.z = None
+        self.x = self.y = self.z = None
+        self.xp = self.yp = self.zp = None
         self.polar_angle = None
         self.azimuthal_angle = None
         self.rotation_angle = None
@@ -373,6 +374,10 @@ class NXRefine:
                 elif 'gonpitch' in self.entry['instrument/goniometer']:
                     self.theta = self.read_parameter(
                         'instrument/goniometer/gonpitch', self.theta)
+            self.xs = self.read_parameter('instrument/goniometer/xs', 0.0)
+            self.ys = self.read_parameter('instrument/goniometer/ys', 0.0)
+            self.zs = self.read_parameter('instrument/goniometer/zs', 0.0)
+
             self.symmetry = self.read_parameter('sample/unit_cell_group',
                                                 self.symmetry)
             self.centring = self.read_parameter('sample/lattice_centring',
@@ -507,6 +512,9 @@ class NXRefine:
             self.write_parameter('instrument/goniometer/chi', self.chi)
             self.write_parameter('instrument/goniometer/omega', self.omega)
             self.write_parameter('instrument/goniometer/theta', self.theta)
+            self.write_parameter('instrument/goniometer/xs', self.xs)
+            self.write_parameter('instrument/goniometer/ys', self.ys)
+            self.write_parameter('instrument/goniometer/zs', self.zs)
             self.write_parameter('peaks/primary_reflection', self.primary)
             self.write_parameter('peaks/secondary_reflection', self.secondary)
             if isinstance(self.z, np.ndarray):
@@ -1325,7 +1333,12 @@ class NXRefine:
     @property
     def Dvec(self):
         """Return the vector from the detector to the sample position."""
-        return vec(-self.distance)
+        return self.Gmat * self.Svec - vec(self.distance)
+
+    @property
+    def Svec(self):
+        """Vector from the center of the goniometer to the sample."""
+        return vec(self.xs, self.ys, self.zs)
 
     @property
     def Evec(self):
