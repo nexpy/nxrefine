@@ -2255,7 +2255,8 @@ class NXMultiReduce(NXReduce):
 
     @property
     def indices(self):
-        self.refine.polar_max = self.refine.two_theta_max()
+        self.refine.polar_max = max([NXRefine(self.root[e]).two_theta_max()
+                                     for e in self.entries])
         if self.refine.laue_group in ['-3', '-3m', '6/m', '6/mmm']:
             _indices = []
             for idx in self.refine.indices:
@@ -2297,7 +2298,8 @@ class NXMultiReduce(NXReduce):
         mk = int((mask.shape[1]-1)/2)
         mh = int((mask.shape[2]-1)/2)
         fill_data = np.zeros(shape=symm_data.shape, dtype=symm_data.dtype)
-        self.refine.polar_max = self.refine.two_theta_max()
+        self.refine.polar_max = max([NXRefine(self.root[e]).two_theta_max()
+                                     for e in self.entries])
         for h, k, l in self.indices:
             try:
                 ih = np.argwhere(np.isclose(Qh, h))[0][0]
