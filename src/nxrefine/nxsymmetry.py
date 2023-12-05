@@ -7,10 +7,11 @@
 # -----------------------------------------------------------------------------
 import os
 import tempfile
-from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import numpy as np
-from nexusformat.nexus import nxload, nxsetlock
+from nexusformat.nexus import nxopen, nxsetconfig
+
+from .nxutils import NXExecutor, as_completed
 
 
 def triclinic(data):
@@ -77,42 +78,47 @@ def cubic(data):
 
 
 def symmetrize_entries(symm_function, data_type, data_file, data_path):
-    nxsetlock(60)
-    data_root = nxload(data_file, 'r')
-    data_path = os.path.basename(data_path)
-    for i, entry in enumerate([e for e in data_root if e[-1].isdigit()]):
-        if i == 0:
-            if data_type == 'signal':
-                data = data_root[entry][data_path].nxsignal.nxvalue
-            elif data_root[entry][data_path].nxweights:
-                data = data_root[entry][data_path].nxweights.nxvalue
+    nxsetconfig(lock=3600, lockexpiry=28800)
+    with nxopen(data_file, 'r') as data_root:
+        data_path = os.path.basename(data_path)
+        for i, entry in enumerate([e for e in data_root if e[-1].isdigit()]):
+            data_size = int(
+                data_root[entry][data_path].nxsignal.nbytes / 1e6) + 1000
+            nxsetconfig(memory=data_size)
+            if i == 0:
+                if data_type == 'signal':
+                    data = data_root[entry][data_path].nxsignal.nxvalue
+                elif data_root[entry][data_path].nxweights:
+                    data = data_root[entry][data_path].nxweights.nxvalue
+                else:
+                    signal = data_root[entry][data_path].nxsignal.nxvalue
+                    data = np.zeros(signal.shape, dtype=signal.dtype)
+                    data[np.where(signal > 0)] = 1
             else:
-                signal = data_root[entry][data_path].nxsignal.nxvalue
-                data = np.zeros(signal.shape, dtype=signal.dtype)
-                data[np.where(signal > 0)] = 1
-        else:
-            if data_type == 'signal':
-                data += data_root[entry][data_path].nxsignal.nxvalue
-            elif data_root[entry][data_path].nxweights:
-                data += data_root[entry][data_path].nxweights.nxvalue
+                if data_type == 'signal':
+                    data += data_root[entry][data_path].nxsignal.nxvalue
+                elif data_root[entry][data_path].nxweights:
+                    data += data_root[entry][data_path].nxweights.nxvalue
     result = symm_function(data)
-    root = nxload(tempfile.mkstemp(suffix='.nxs')[1], mode='w')
-    root['data'] = result
+    with nxopen(tempfile.mkstemp(suffix='.nxs')[1], mode='w') as root:
+        root['data'] = result
     return data_type, root.nxfilename
 
 
 def symmetrize_data(symm_function, data_type, data_file, data_path):
-    nxsetlock(60)
-    data_root = nxload(data_file, 'r')
-    if data_type == 'signal':
-        data = data_root[data_path].nxvalue
-    else:
-        signal = data_root[data_path].nxvalue
-        data = np.zeros(signal.shape, signal.dtype)
-        data[np.where(signal > 0)] = 1
+    nxsetconfig(lock=3600, lockexpiry=28800)
+    with nxopen(data_file, 'r') as data_root:
+        data_size = int(data_root[data_path].nbytes / 1e6) + 1000
+        nxsetconfig(memory=data_size)
+        if data_type == 'signal':
+            data = data_root[data_path].nxvalue
+        else:
+            signal = data_root[data_path].nxvalue
+            data = np.zeros(signal.shape, signal.dtype)
+            data[np.where(signal > 0)] = 1
     result = symm_function(data)
-    root = nxload(tempfile.mkstemp(suffix='.nxs')[1], mode='w')
-    root['data'] = result
+    with nxopen(tempfile.mkstemp(suffix='.nxs')[1], mode='w') as root:
+        root['data'] = result
     return data_type, root.nxfilename
 
 
@@ -144,7 +150,7 @@ class NXSymmetry:
             symmetrize = symmetrize_entries
         else:
             symmetrize = symmetrize_data
-        with ProcessPoolExecutor(max_workers=2) as executor:
+        with NXExecutor(max_workers=2) as executor:
             futures = []
             for data_type in ['signal', 'weights']:
                 futures.append(executor.submit(
@@ -152,11 +158,11 @@ class NXSymmetry:
                     self.data_file, self.data_path))
         for future in as_completed(futures):
             data_type, result_file = future.result()
-            result_root = nxload(result_file, 'r')
-            if data_type == 'signal':
-                signal = result_root['data'].nxvalue
-            else:
-                weights = result_root['data'].nxvalue
+            with nxopen(result_file, 'r') as result_root:
+                if data_type == 'signal':
+                    signal = result_root['data'].nxvalue
+                else:
+                    weights = result_root['data'].nxvalue
             os.remove(result_file)
         with np.errstate(divide='ignore', invalid='ignore'):
             result = np.where(weights > 0, signal / weights, 0.0)

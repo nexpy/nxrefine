@@ -1330,9 +1330,9 @@ class NXReduce(QtCore.QObject):
         tic = self.start_progress(self.first, self.last)
         self.blobs = []
         if self.server.concurrent:
-            from concurrent.futures import ProcessPoolExecutor, as_completed
-            with ProcessPoolExecutor(
-                    max_workers=self.process_count) as executor:
+            from nxrefine.nxutils import NXExecutor, as_completed
+            from multiprocessing import get_context
+            with NXExecutor(max_workers=self.process_count) as executor:
                 futures = []
                 for i in range(self.first, self.last+1, 50):
                     j, k = i - min(5, i), min(i+55, self.last+5, self.nframes)
@@ -1482,9 +1482,8 @@ class NXReduce(QtCore.QObject):
             NXfield(shape=self.shape, dtype=np.int8, fillvalue=0))
 
         if self.server.concurrent:
-            from concurrent.futures import ProcessPoolExecutor, as_completed
-            with ProcessPoolExecutor(
-                    max_workers=self.process_count) as executor:
+            from nxrefine.nxutils import NXExecutor, as_completed
+            with NXExecutor(max_workers=self.process_count) as executor:
                 futures = []
                 for i in range(self.first, self.last+1, 10):
                     j, k = i - min(1, i), min(i+11, self.last+1, self.nframes)
@@ -2140,11 +2139,11 @@ class NXMultiReduce(NXReduce):
         symm_root['entry/data'].nxsignal = symm_root['entry/data/data']
         symm_root['entry/data'].nxweights = 1.0 / self.taper
         symm_root['entry/data'].nxaxes = self.entry[self.transform_path].nxaxes
-        if self.symm_data in self.entry:
-            del self.entry[self.symm_data]
-        symm_data = NXlink('/entry/data/data', file=self.symm_file,
-                           name='data')
         with self:
+            if self.symm_data in self.entry:
+                del self.entry[self.symm_data]
+            symm_data = NXlink('/entry/data/data', file=self.symm_file,
+                               name='data')
             self.entry[self.symm_data] = NXdata(
                 symm_data, self.entry[self.transform_path].nxaxes)
             self.entry[self.symm_data].nxweights = NXlink(
@@ -2256,7 +2255,8 @@ class NXMultiReduce(NXReduce):
 
     @property
     def indices(self):
-        self.refine.polar_max = self.refine.two_theta_max()
+        self.refine.polar_max = max([NXRefine(self.root[e]).two_theta_max()
+                                     for e in self.entries])
         if self.refine.laue_group in ['-3', '-3m', '6/m', '6/mmm']:
             _indices = []
             for idx in self.refine.indices:
@@ -2298,7 +2298,8 @@ class NXMultiReduce(NXReduce):
         mk = int((mask.shape[1]-1)/2)
         mh = int((mask.shape[2]-1)/2)
         fill_data = np.zeros(shape=symm_data.shape, dtype=symm_data.dtype)
-        self.refine.polar_max = self.refine.two_theta_max()
+        self.refine.polar_max = max([NXRefine(self.root[e]).two_theta_max()
+                                     for e in self.entries])
         for h, k, l in self.indices:
             try:
                 ih = np.argwhere(np.isclose(Qh, h))[0][0]
