@@ -1330,25 +1330,24 @@ class NXRefine:
         """Return the vector from the sample to detector."""
         return vec(self.xc, self.yc)
 
-    @property
-    def Dvec(self):
+    def Dvec(self, phi=0.0):
         """Return the vector from the detector to the sample position."""
-        return self.Gmat * self.Svec - vec(self.distance)
+        return self.Gmat(phi) * self.Svec - vec(self.distance)
+
+    @property
+    def Evec(self):
+        return vec(1.0 / self.wavelength)
 
     @property
     def Svec(self):
         """Vector from the center of the goniometer to the sample."""
         return vec(self.xs, self.ys, self.zs)
 
-    @property
-    def Evec(self):
-        return vec(1.0 / self.wavelength)
-
     def Gvec(self, x, y, z):
         phi = self.phi + self.phi_step * z
         v1 = vec(x, y)
         v2 = self.pixel_size * inv(self.Omat) * (v1 - self.Cvec)
-        v3 = inv(self.Dmat) * v2 - self.Dvec
+        v3 = inv(self.Dmat) * v2 - self.Dvec(phi)
         return (inv(self.Gmat(phi)) *
                 ((norm_vec(v3) / self.wavelength) - self.Evec))
 
@@ -1520,8 +1519,8 @@ class NXRefine:
         def get_ij(phi):
             v4 = self.Gmat(phi) * v5
             p = norm_vec(v4 + self.Evec)
-            v3 = -(self.Dvec[0, 0] / p[0, 0]) * p
-            v2 = self.Dmat * (v3 + self.Dvec)
+            v3 = -(self.Dvec(phi)[0, 0] / p[0, 0]) * p
+            v2 = self.Dmat * (v3 + self.Dvec(phi))
             v1 = (self.Omat * v2 / self.pixel_size) + self.Cvec
             return v1[0, 0], v1[1, 0]
 
@@ -1554,7 +1553,7 @@ class NXRefine:
         Main.Dmat = np.array(self.Dmat)
         Main.Omat = np.array(self.Omat) / self.pixel_size
         Main.Cvec = list(np.array(self.Cvec.T).reshape((3)))
-        Main.Dvec = list(np.array(self.Dvec.T).reshape((3)))
+        Main.Dvec = list(np.array(self.Dvec().T).reshape((3)))
         Main.Evec = list(np.array(self.Evec.T).reshape((3)))
         Main.shape = self.shape
         if Qh is None:
