@@ -106,8 +106,8 @@ class NXRefine:
         Wavelength of the incident x-ray beam in Å.
     distance : float
         Distance from the sample to the detector in mm.
-    detector_orientation : array_like
-        Tuple of three values representing detector orientation in lab frame.
+    detector_orientation : str
+        Detector orientation specifying three vectors in the lab frame.
     yaw, pitch, roll : float
         Yaw, pitch and roll of the area detector in degrees.
     theta, omega, chi : float
@@ -163,7 +163,7 @@ class NXRefine:
         self.gamma = 90.0
         self.wavelength = 1.0
         self.distance = 100.0
-        self.detector_orientation = ('-y', '-z', 'x')
+        self.detector_orientation = '-y -z +x'
         self._yaw = 0.0
         self._pitch = 0.0
         self._roll = 0.0
@@ -1301,12 +1301,18 @@ class NXRefine:
 
         """
         _omat = np.zeros((3, 3), dtype=int)
-        for i in range(3):
-            j = 'xyz'.index(self.detector_orientation[i][-1])
-            if self.detector_orientation[i][0] == '-':
-                _omat[i][j] = -1
+        i = 0
+        d = 1
+        for c in self.detector_orientation.replace(' ', ''):
+            if c == '+':
+                d = 1
+            elif c == '-':
+                d = -1
             else:
-                _omat[i][j] = 1
+                j = 'xyz'.index(c)
+                _omat[i][j] = d
+                d = 1
+                i += 1
         return np.matrix(_omat)
 
     @property
