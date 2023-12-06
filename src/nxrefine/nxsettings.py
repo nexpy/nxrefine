@@ -45,7 +45,7 @@ class NXSettings(ConfigParser):
             raise NeXusError(f'{directory} is not a valid directory')
         self.directory = self.file.parent
         if self.create:
-            self.make_file(self.file)
+            self.make_file()
         else:
             self.read()
 
