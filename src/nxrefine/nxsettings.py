@@ -18,14 +18,36 @@ class NXSettings(ConfigParser):
 
     def __init__(self, directory=None, create=False, **kwargs):
         super().__init__(allow_no_value=True)
+        self.defaults = {
+            'server': {'type': 'multicore', 'cores': 4, 'concurrent': True,
+                       'run_command': None, 'template': None, 'cctw': 'cctw'},
+            'instrument': {'source': None, 'instrument': None,
+                           'raw_home': None, 'raw_path': None,
+                           'analysis_home': None, 'analysis_path': None},
+            'nxrefine': {'wavelength': 0.2, 'distance': 500,
+                         'detector_orientation': '-y -z +x',
+                         'phi': -5.0, 'phi_end': 360.0, 'phi_step': 0.1,
+                         'chi': 0.0, 'omega': 0.0, 'theta': 0.0,
+                         'x': 0.0, 'y': 0.0,
+                         'nsteps': 3, 'frame_rate': 10},
+            'nxreduce': {'threshold': 50000, 'min_pixels': 10,
+                         'first': 10, 'last': 3640,
+                         'polar_max': 10.0, 'hkl_tolerance': 0.05,
+                         'monitor': 'monitor1', 'norm': 50000,
+                         'polarization': 0.99, 'qmin': 5.0, 'qmax': 10.0,
+                         'radius': 0.2}
+        }
         self.create = create
         if directory:
             directory = Path(directory).resolve()
         self.file = self.get_file(directory)
+        if self.file is None:
+            raise NeXusError(f'{directory} is not a valid directory')
         self.directory = self.file.parent
         if self.create:
             self.make_file(self.file)
-        self.read(self.file)
+        else:
+            self.read()
 
     def __repr__(self):
         return f"NXSettings({self.file})"
@@ -67,61 +89,41 @@ class NXSettings(ConfigParser):
             return
         Path(self.file.parent).mkdir(parents=True, exist_ok=True)
         if self.server:
-            self.add_defaults()
+            self.set_defaults()
+            self.save()
             if not self.file.parent.joinpath('locks').exists():
                 self.file.parent.joinpath('locks').mkdir(mode=0o777)
         else:
             default_file = self.get_file()
             self.file.write_text(default_file.read_text())
+            self.read()
+            self.save()
 
-    def add_defaults(self):
-        sections = self.sections()
+    def set_defaults(self):
+
+        def update_section(section):
+            if section not in self.sections():
+                self.add_section(section)
+            for option in self.options(section):
+                if option not in self.defaults[section]:
+                    self.remove_option(section, option)
+            for option in self.defaults[section]:
+                if not self.has_option(section, option):
+                    self.set(section, option, self.defaults[section][option])
+            
         if self.server:
-            if 'setup' in sections:
+            if 'setup' in self.sections():
                 for option in self.options('setup'):
                     self.set('server', option, self.get('setup', option))
                 self.remove_section('setup')
-            if 'server' not in sections:
-                self.add_section('server')
-            default = {'type': 'multicore', 'cores': 4, 'concurrent': True,
-                       'run_command': None, 'template': None, 'cctw': 'cctw'}
-            for p in default:
-                if not self.has_option('server', p):
-                    self.set('server', p, default[p])
+            update_section('server')
         else:
             for section in ['server', 'nodes', 'setup']:
-                if section in sections:
+                if section in self.sections():
                     self.remove_section(section)
-        if 'instrument' not in sections:
-            self.add_section('instrument')
-        default = {'source': None, 'instrument': None,
-                   'raw_home': None, 'raw_path': None,
-                   'analysis_home': None, 'analysis_path': None}
-        for p in default:
-            if not self.has_option('instrument', p):
-                self.set('instrument', p, default[p])
-        if 'nxrefine' not in sections:
-            self.add_section('nxrefine')
-        default = {'wavelength': 0.2, 'distance': 500, 'geometry': 'default',
-                   'phi': -5.0, 'phi_end': 360.0, 'phi_step': 0.1,
-                   'chi': 0.0, 'omega': 0.0, 'theta': 0.0,
-                   'x': 0.0, 'y': 0.0,
-                   'nsteps': 3, 'frame_rate': 10}
-        for p in default:
-            if not self.has_option('nxrefine', p):
-                self.set('nxrefine', p, default[p])
-        if 'nxreduce' not in sections:
-            self.add_section('nxreduce')
-        default = {'threshold': 50000, 'min_pixels': 10,
-                   'first': 10, 'last': 3640,
-                   'polar_max': 10.0, 'hkl_tolerance': 0.05,
-                   'monitor': 'monitor1', 'norm': 50000,
-                   'polarization': 0.99, 'qmin': 5.0, 'qmax': 10.0,
-                   'radius': 0.2}
-        for p in default:
-            if not self.has_option('nxreduce', p):
-                self.set('nxreduce', p, default[p])
-        self.save()
+        update_section('instrument')
+        update_section('nxrefine')
+        update_section('nxreduce')
 
     def input_defaults(self):
         sections = ['Instrument', 'NXRefine', 'NXReduce']
@@ -173,6 +175,12 @@ class NXSettings(ConfigParser):
             super().set(section, option, str(value))
         else:
             super().set(section, option)
+
+    def read(self, filename=None):
+        if filename is None:
+            filename = self.file
+        super().read(filename)
+        self.set_defaults()
 
     def save(self):
         with open(self.file, 'w') as f:
