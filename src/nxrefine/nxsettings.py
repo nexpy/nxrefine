@@ -25,7 +25,7 @@ class NXSettings(ConfigParser):
                            'raw_home': None, 'raw_path': None,
                            'analysis_home': None, 'analysis_path': None},
             'nxrefine': {'wavelength': 0.2, 'distance': 500,
-                         'detector_orientation': '-y -z +x',
+                         'detector_orientation': '-y +z -x',
                          'phi': -5.0, 'phi_end': 360.0, 'phi_step': 0.1,
                          'chi': 0.0, 'omega': 0.0, 'theta': 0.0,
                          'x': 0.0, 'y': 0.0,
