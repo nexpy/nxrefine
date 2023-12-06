@@ -106,6 +106,8 @@ class NXRefine:
         Wavelength of the incident x-ray beam in Å.
     distance : float
         Distance from the sample to the detector in mm.
+    detector_orientation : str
+        Detector orientation specifying three vectors in the lab frame.
     yaw, pitch, roll : float
         Yaw, pitch and roll of the area detector in degrees.
     theta, omega, chi : float
@@ -114,6 +116,8 @@ class NXRefine:
         Phi angles of each measured frame.
     phi_step : float
         Step size of phi angle rotations in degrees.
+    xs, ys, zs : float
+        Distance of sample from center of goniometer in mm.
     xc, yc : float
         Location of the incident beam on the detector in pixel coordinates.
     xd, yd : float
@@ -159,6 +163,7 @@ class NXRefine:
         self.gamma = 90.0
         self.wavelength = 1.0
         self.distance = 100.0
+        self.detector_orientation = '-y -z +x'
         self._yaw = 0.0
         self._pitch = 0.0
         self._roll = 0.0
@@ -167,6 +172,9 @@ class NXRefine:
         self._chi = 0.0
         self.phi = 0.0
         self.phi_step = 0.1
+        self.xs = 0.0
+        self.ys = 0.0
+        self.zs = 0.0
         self.xc = 256.0
         self.yc = 256.0
         self.xd = 0.0
@@ -178,12 +186,8 @@ class NXRefine:
         self.symmetry = 'triclinic'
         self.centring = 'P'
         self.peaks = None
-        self.xp = None
-        self.yp = None
-        self.zp = None
-        self.x = None
-        self.y = None
-        self.z = None
+        self.x = self.y = self.z = None
+        self.xp = self.yp = self.zp = None
         self.polar_angle = None
         self.azimuthal_angle = None
         self.rotation_angle = None
@@ -202,7 +206,6 @@ class NXRefine:
         self.grid_basis = None
         self.grid_shape = None
         self.grid_step = None
-        self.standard = True
 
         self.name = ""
         self._idx = None
@@ -326,6 +329,9 @@ class NXRefine:
                 'instrument/monochromator/wavelength', self.wavelength)
             self.distance = self.read_parameter('instrument/detector/distance',
                                                 self.distance)
+            self.detector_orientation = self.read_parameter(
+                'instrument/detector/detector_orientation',
+                self.detector_orientation)
             self.yaw = self.read_parameter('instrument/detector/yaw', self.yaw)
             self.pitch = self.read_parameter('instrument/detector/pitch',
                                              self.pitch)
@@ -368,6 +374,10 @@ class NXRefine:
                 elif 'gonpitch' in self.entry['instrument/goniometer']:
                     self.theta = self.read_parameter(
                         'instrument/goniometer/gonpitch', self.theta)
+            self.xs = self.read_parameter('instrument/goniometer/xs', 0.0)
+            self.ys = self.read_parameter('instrument/goniometer/ys', 0.0)
+            self.zs = self.read_parameter('instrument/goniometer/zs', 0.0)
+
             self.symmetry = self.read_parameter('sample/unit_cell_group',
                                                 self.symmetry)
             self.centring = self.read_parameter('sample/lattice_centring',
@@ -476,6 +486,8 @@ class NXRefine:
             self.write_parameter('instrument/monochromator/wavelength',
                                  self.wavelength)
             self.write_parameter('instrument/detector/distance', self.distance)
+            self.write_parameter('instrument/detector/detector_orientation',
+                                 self.detector_orientation)
             self.write_parameter('instrument/detector/yaw', self.yaw)
             self.write_parameter('instrument/detector/pitch', self.pitch)
             self.write_parameter('instrument/detector/roll', self.roll)
@@ -500,6 +512,9 @@ class NXRefine:
             self.write_parameter('instrument/goniometer/chi', self.chi)
             self.write_parameter('instrument/goniometer/omega', self.omega)
             self.write_parameter('instrument/goniometer/theta', self.theta)
+            self.write_parameter('instrument/goniometer/xs', self.xs)
+            self.write_parameter('instrument/goniometer/ys', self.ys)
+            self.write_parameter('instrument/goniometer/zs', self.zs)
             self.write_parameter('peaks/primary_reflection', self.primary)
             self.write_parameter('peaks/secondary_reflection', self.secondary)
             if isinstance(self.z, np.ndarray):
@@ -549,6 +564,8 @@ class NXRefine:
                     other.entry['instrument/sample'] = NXsample()
                 other.write_parameter('instrument/detector/distance',
                                       self.distance)
+                other.write_parameter('instrument/detector/detector_orientation',
+                                      self.detector_orientation)
                 other.write_parameter('instrument/detector/yaw', self.yaw)
                 other.write_parameter('instrument/detector/pitch', self.pitch)
                 other.write_parameter('instrument/detector/roll', self.roll)
@@ -1280,13 +1297,23 @@ class NXRefine:
         When all goniometer angles are zero, the standard
         transformations are as follows:
 
-            +X(det) = -y(lab), +Y(det) = +z(lab), and +Z(det) = -x(lab)
+            +X(det) = -y(lab), +Y(det) = -z(lab), and +Z(det) = x(lab)
 
         """
-        if self.standard:
-            return np.matrix(((0, -1, 0), (0, 0, 1), (-1, 0, 0)))
-        else:
-            return np.matrix(((0, 0, 1), (0, 1, 0), (-1, 0, 0)))
+        _omat = np.zeros((3, 3), dtype=int)
+        i = 0
+        d = 1
+        for c in self.detector_orientation.replace(' ', ''):
+            if c == '+':
+                d = 1
+            elif c == '-':
+                d = -1
+            else:
+                j = 'xyz'.index(c)
+                _omat[i][j] = d
+                d = 1
+                i += 1
+        return np.matrix(_omat)
 
     @property
     def Dmat(self):
@@ -1309,20 +1336,24 @@ class NXRefine:
         """Return the vector from the sample to detector."""
         return vec(self.xc, self.yc)
 
-    @property
-    def Dvec(self):
+    def Dvec(self, phi=0.0):
         """Return the vector from the detector to the sample position."""
-        return vec(-self.distance)
+        return self.Gmat(phi) * self.Svec - vec(self.distance)
 
     @property
     def Evec(self):
         return vec(1.0 / self.wavelength)
 
+    @property
+    def Svec(self):
+        """Vector from the center of the goniometer to the sample."""
+        return vec(self.xs, self.ys, self.zs)
+
     def Gvec(self, x, y, z):
         phi = self.phi + self.phi_step * z
         v1 = vec(x, y)
         v2 = self.pixel_size * inv(self.Omat) * (v1 - self.Cvec)
-        v3 = inv(self.Dmat) * v2 - self.Dvec
+        v3 = inv(self.Dmat) * v2 - self.Dvec(phi)
         return (inv(self.Gmat(phi)) *
                 ((norm_vec(v3) / self.wavelength) - self.Evec))
 
@@ -1494,8 +1525,8 @@ class NXRefine:
         def get_ij(phi):
             v4 = self.Gmat(phi) * v5
             p = norm_vec(v4 + self.Evec)
-            v3 = -(self.Dvec[0, 0] / p[0, 0]) * p
-            v2 = self.Dmat * (v3 + self.Dvec)
+            v3 = -(self.Dvec(phi)[0, 0] / p[0, 0]) * p
+            v2 = self.Dmat * (v3 + self.Dvec(phi))
             v1 = (self.Omat * v2 / self.pixel_size) + self.Cvec
             return v1[0, 0], v1[1, 0]
 
@@ -1528,7 +1559,7 @@ class NXRefine:
         Main.Dmat = np.array(self.Dmat)
         Main.Omat = np.array(self.Omat) / self.pixel_size
         Main.Cvec = list(np.array(self.Cvec.T).reshape((3)))
-        Main.Dvec = list(np.array(self.Dvec.T).reshape((3)))
+        Main.Dvec = list(np.array(self.Dvec().T).reshape((3)))
         Main.Evec = list(np.array(self.Evec.T).reshape((3)))
         Main.shape = self.shape
         if Qh is None:

@@ -140,7 +140,6 @@ class ConfigurationDialog(NXDialog):
     def setup_scan(self):
         default = self.settings['nxrefine']
         entry = self.configuration_file['entry']
-        entry['instrument/goniometer/geometry'] = 'default'
         entry['instrument/goniometer/chi'] = (
             NXfield(default['chi'], dtype=float))
         entry['instrument/goniometer/chi'].attrs['units'] = 'degree'
@@ -165,6 +164,8 @@ class ConfigurationDialog(NXDialog):
         entry['instrument/detector/distance'] = NXfield(default['distance'],
                                                         dtype=float)
         entry['instrument/detector/distance'].attrs['units'] = 'mm'
+        entry['instrument/detector/detector_orientation'] = (
+            NXfield(default['detector_orientation']))
         self.instrument = GridParameters()
         self.instrument.add('distance', entry['instrument/detector/distance'],
                             'Detector Distance (mm)')
@@ -172,6 +173,9 @@ class ConfigurationDialog(NXDialog):
                                     for detector in ALL_DETECTORS.values()])))
         self.instrument.add('detector', detector_list, 'Detector')
         self.instrument['detector'].value = 'Pilatus CdTe 2M'
+        self.instrument.add('detector_orientation',
+                            default['detector_orientation'],
+                            'Detector Orientation')
         self.instrument.add('positions', [0, 1, 2, 3, 4, 5, 6, 7, 8],
                             'Number of Detector Positions',
                             slot=self.set_entries)
@@ -246,6 +250,8 @@ class ConfigurationDialog(NXDialog):
         entry['instrument/detector/description'] = detector.name
         entry['instrument/detector/distance'] = (
             self.instrument['distance'].value)
+        entry['instrument/detector/detector_orientation'] = (
+            self.instrument['detector_orientation'].value)
         entry['instrument/detector/pixel_size'] = detector.pixel1 * 1000
         entry['instrument/detector/pixel_size'].attrs['units'] = 'mm'
         entry['instrument/detector/pixel_mask'] = detector.mask

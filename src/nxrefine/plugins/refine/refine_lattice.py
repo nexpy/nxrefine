@@ -96,6 +96,9 @@ class RefineLatticeDialog(NXDialog):
         self.parameters.add('chi', self.refine.chi, 'Chi (deg)', False)
         self.parameters.add('omega', self.refine.omega, 'Omega (deg)', False)
         self.parameters.add('theta', self.refine.theta, 'Theta (deg)', False)
+        self.parameters.add('xs', self.refine.xs, 'Sample x (mm)', False)
+        self.parameters.add('ys', self.refine.ys, 'Sample y (mm)', False)
+        self.parameters.add('zs', self.refine.zs, 'Sample z (mm)', False)
         self.parameters.add('polar', self.reduce.polar_max,
                             'Max. Polar Angle (deg)', None, self.set_polar_max)
         self.parameters.add('polar_tolerance', self.refine.polar_tolerance,
@@ -157,6 +160,9 @@ class RefineLatticeDialog(NXDialog):
         self.parameters['chi'].value = self.refine.chi
         self.parameters['omega'].value = self.refine.omega
         self.parameters['theta'].value = self.refine.theta
+        self.parameters['xs'].value = self.refine.xs
+        self.parameters['ys'].value = self.refine.ys
+        self.parameters['zs'].value = self.refine.zs
         self.parameters['polar_tolerance'].value = self.refine.polar_tolerance
         self.parameters['peak_tolerance'].value = self.refine.peak_tolerance
         self.parameters['hkl_tolerance'].value = self.refine.hkl_tolerance
@@ -181,6 +187,8 @@ class RefineLatticeDialog(NXDialog):
         self.refine.phi, self.refine.phi_step = self.get_phi()
         self.refine.chi, self.refine.omega, self.refine.theta = (
             self.get_angles())
+        self.refine.xs, self.refine.ys, self.refine.zs = (
+            self.get_sample_shift())
         self.refine.polar_max = self.get_polar_max()
         self.refine.polar_tolerance = self.get_polar_tolerance()
         self.refine.peak_tolerance = self.get_peak_tolerance()
@@ -397,6 +405,11 @@ class RefineLatticeDialog(NXDialog):
         return (self.parameters['chi'].value,
                 self.parameters['omega'].value,
                 self.parameters['theta'].value)
+
+    def get_sample_shift(self):
+        return (self.parameters['xs'].value,
+                self.parameters['ys'].value,
+                self.parameters['zs'].value)
 
     def get_polar_max(self):
         return self.parameters['polar'].value
