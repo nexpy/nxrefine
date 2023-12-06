@@ -163,7 +163,7 @@ class NXRefine:
         self.gamma = 90.0
         self.wavelength = 1.0
         self.distance = 100.0
-        self.detector_orientation = '-y -z +x'
+        self.detector_orientation = '-y +z -x' #Old default orientation
         self._yaw = 0.0
         self._pitch = 0.0
         self._roll = 0.0
