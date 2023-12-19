@@ -28,13 +28,6 @@ Source and the QM2 beamline at CHESS.
 
 Experimental Geometry
 ---------------------
-.. figure:: /images/experimental-geometry.png
-   :align: right
-   :width: 90%
-   :figwidth: 40%
-
-   *Experimental geometry used in NXRefine.* 
-
 NXRefine is designed for experiments, in which the sample is placed in a
 monochromatic x-ray beam and rotated continuously about a Φ-axis that is
 approximately perpendicular to the beam. Images are collected on an area
@@ -46,6 +39,13 @@ to fill in these gaps. However, it is also possible to accomplish this
 just by adjusting the orientation of the Φ-axis itself. NXRefine reduces
 the data independently for each rotation scan before merging them to
 create a single 3D data volume.
+
+.. figure:: /images/experimental-geometry.png
+   :align: right
+   :width: 90%
+   :figwidth: 90%
+
+   *Experimental geometry used in NXRefine.* 
 
 The Φ-axis is approximately perpendicular to the beam. The Φ-axis motor
 is on a χ-circle (not shown), with χ = 0° corresponding to a vertical
