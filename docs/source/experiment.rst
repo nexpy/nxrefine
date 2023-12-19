@@ -95,7 +95,7 @@ called ``nxrefine``, of the instrument's ``experiment`` directory::
         .
 
 The name of this sub-directory is defined in the server settings, which
-are defined in the Server section.
+are described in the Server section.
 
 Experiment Sub-Directories
 --------------------------
@@ -202,21 +202,21 @@ defined in the customized beamline classes described later.
 For example, at CHESS, the 'raw' and 'analysis' paths are defined in
 parallel directory trees as follows (with generic experiment names)::
 
-    /nfs/chess/id4b                 /nfs/chess/id4baux
-    ├── 2023-1                      ├── 2023-1
-    ├── 2023-2                      ├── 2023-2
-    └── 2023-2                      └── 2023-2
-        ├── experiment1                 ├── experiment1
-        ├── experiment2                 ├── experiment2
-        └── experiment3                 └── experiment3
-            └── raw6M                       └── nxrefine
-                ├── sample1                     ├── sample1
-                ├── sample2                     ├── sample2
-                └── sample3                     └── sample3
-                    └── label1                      └── label1
-                        ├── 100                         ├── 100
-                        ├── 200                         ├── 200
-                        └── 300                         └── 300
+    /nfs/chess/id4b                         /nfs/chess/id4baux
+    ├── 2023-1                              ├── 2023-1
+    ├── 2023-2                              ├── 2023-2
+    └── 2023-2                              └── 2023-2
+        ├── experiment1                         ├── experiment1
+        ├── experiment2                         ├── experiment2
+        └── experiment3                         └── experiment3
+            └── raw6M                               └── nxrefine
+                ├── sample1                             ├── sample1
+                ├── sample2                             ├── sample2
+                └── sample3                             └── sample3
+                    └── label1                              └── label1
+                        ├── 100                                 ├── 100
+                        ├── 200                                 ├── 200
+                        └── 300                                 └── 300
 
 Here is a list of instrument parameters.
 
@@ -278,7 +278,7 @@ a file browser in order to select a directory. There are two scenarios.
 
 .. figure:: /images/new-experiment-CHESS.png
    :align: center
-   :width: 90%
+   :width: 40%
 
 2. If ``raw_home`` is blank, the file browser will default to the
    ``analysis_home`` directory, from where a new directory can be
