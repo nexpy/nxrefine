@@ -109,10 +109,10 @@ coordinates to reciprocal space.</p>
 <p>NXRefine uses the following conventions to define a set of Cartesian
 coordinates as laboratory coordinates when all angles are set to 0.</p>
 <ul class="simple">
-<li><p>+X: parallel to the incident beam.</p></li>
-<li><p>+Z: parallel to the (usually vertical) axis connecting the base of the
+<li><p>+X<sub>lab</sub>: parallel to the incident beam.</p></li>
+<li><p>+Z<sub>lab</sub>: parallel to the (usually vertical) axis connecting the base of the
 χ-circle to the sample.</p></li>
-<li><p>+Y: defined to produce a right-handed set of coordinates.</p></li>
+<li><p>+Y<sub>lab</sub>: defined to produce a right-handed set of coordinates.</p></li>
 </ul>
 <p>In addition to defining the sample orientation, it is necessary to
 relate the pixel coordinates of the detector to the instrument
@@ -122,11 +122,17 @@ direction, which is normally horizontal, so the orthogonal Y-axis is
 usually vertical. The two coordinate systems are then related by:</p>
 <blockquote>
 <div><div class="line-block">
-<div class="line">+X(det) = -Y(lab), +Y(det) = -Z(lab), and +Z(det) = -X(lab)</div>
+<div class="line">+X<sub>det</sub> = -Y<sub>lab</sub>, +Y<sub>det</sub> = -Z<sub>lab</sub>, and +Z<sub>det</sub> = -X<sub>lab</sub></div>
 </div>
 </div></blockquote>
-<p>This is defined by an orientation matrix, which can in principle be
-changed, although it is currently fixed.</p>
+<dl class="simple">
+<dt>..note:: This orientation matrix to convert between these two coordinate</dt><dd><p>systems is defined by a setting describing the conversion as a string.
+In the above example, the setting is “-y +z -x”.</p>
+</dd>
+<dt>..warning:: Many detectors store images as TIFF or CBF files, with the origin</dt><dd><p>at the top-left corner. In those case, the y-axis is inverted, so
+the appropriate setting should be “-y -z +x”.</p>
+</dd>
+</dl>
 </div>
 <div class="section" id="sample-orientation">
 <h2>Sample Orientation<a class="headerlink" href="#sample-orientation" title="Permalink to this headline">¶</a></h2>
