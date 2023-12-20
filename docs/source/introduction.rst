@@ -70,10 +70,10 @@ plane by ω and in the vertical plane by θ.
 NXRefine uses the following conventions to define a set of Cartesian
 coordinates as laboratory coordinates when all angles are set to 0.
 
-* +X: parallel to the incident beam.
-* +Z: parallel to the (usually vertical) axis connecting the base of the
+* +X\ :sub:`lab`: parallel to the incident beam.
+* +Z\ :sub:`lab`: parallel to the (usually vertical) axis connecting the base of the
   χ-circle to the sample.
-* +Y: defined to produce a right-handed set of coordinates.
+* +Y\ :sub:`lab`: defined to produce a right-handed set of coordinates.
 
 In addition to defining the sample orientation, it is necessary to
 relate the pixel coordinates of the detector to the instrument
@@ -82,10 +82,15 @@ array, the detector X-axis corresponds to the fastest-changing
 direction, which is normally horizontal, so the orthogonal Y-axis is
 usually vertical. The two coordinate systems are then related by:
 
-    | +X(det) = -Y(lab), +Y(det) = -Z(lab), and +Z(det) = -X(lab)
+    | +X\ :sub:`det` = -Y\ :sub:`lab`, +Y\ :sub:`det` = -Z\ :sub:`lab`, and +Z\ :sub:`det` = -X\ :sub:`lab`
 
-This is defined by an orientation matrix, which can in principle be
-changed, although it is currently fixed.
+..note:: This orientation matrix to convert between these two coordinate
+         systems is defined by a setting describing the conversion as a string.
+         In the above example, the setting is "-y +z -x".
+
+..warning:: Many detectors store images as TIFF or CBF files, with the origin
+            at the top-left corner. In those case, the y-axis is inverted, so
+            the appropriate setting should be "-y -z +x".  
 
 Sample Orientation
 ------------------
