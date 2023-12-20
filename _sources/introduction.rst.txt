@@ -42,8 +42,7 @@ create a single 3D data volume.
 
 .. figure:: /images/experimental-geometry.png
    :align: center
-   :width: 90%
-   :figwidth: 90%
+   :width: 80%
 
    *Experimental geometry used in NXRefine.* 
 
