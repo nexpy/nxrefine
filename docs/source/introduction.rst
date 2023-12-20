@@ -82,7 +82,7 @@ array, the detector X-axis corresponds to the fastest-changing
 direction, which is normally horizontal, so the orthogonal Y-axis is
 usually vertical. The two coordinate systems are then related by:
 
-    | +X\ :sub:`det` = -Y\ :sub:`lab`, +Y\ :sub:`det` = -Z\ :sub:`lab`, and +Z\ :sub:`det` = -X\ :sub:`lab`
+    | +X\ :sub:`det` = -Y\ :sub:`lab`, +Y\ :sub:`det` = +Z\ :sub:`lab`, and +Z\ :sub:`det` = -X\ :sub:`lab`
 
 .. note:: This orientation matrix to convert between these two coordinate
           systems is defined by a setting describing the conversion as a string.
