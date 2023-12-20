@@ -41,7 +41,7 @@ the data independently for each rotation scan before merging them to
 create a single 3D data volume.
 
 .. figure:: /images/experimental-geometry.png
-   :align: right
+   :align: center
    :width: 90%
    :figwidth: 90%
 
