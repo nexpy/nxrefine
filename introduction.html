@@ -125,14 +125,18 @@ usually vertical. The two coordinate systems are then related by:</p>
 <div class="line">+X<sub>det</sub> = -Y<sub>lab</sub>, +Y<sub>det</sub> = -Z<sub>lab</sub>, and +Z<sub>det</sub> = -X<sub>lab</sub></div>
 </div>
 </div></blockquote>
-<dl class="simple">
-<dt>..note:: This orientation matrix to convert between these two coordinate</dt><dd><p>systems is defined by a setting describing the conversion as a string.
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This orientation matrix to convert between these two coordinate
+systems is defined by a setting describing the conversion as a string.
 In the above example, the setting is “-y +z -x”.</p>
-</dd>
-<dt>..warning:: Many detectors store images as TIFF or CBF files, with the origin</dt><dd><p>at the top-left corner. In those case, the y-axis is inverted, so
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Many detectors store images as TIFF or CBF files, with the origin
+at the top-left corner. In those case, the y-axis is inverted, so
 the appropriate setting should be “-y -z +x”.</p>
-</dd>
-</dl>
+</div>
 </div>
 <div class="section" id="sample-orientation">
 <h2>Sample Orientation<a class="headerlink" href="#sample-orientation" title="Permalink to this headline">¶</a></h2>
