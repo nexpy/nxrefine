@@ -84,13 +84,13 @@ usually vertical. The two coordinate systems are then related by:
 
     | +X\ :sub:`det` = -Y\ :sub:`lab`, +Y\ :sub:`det` = -Z\ :sub:`lab`, and +Z\ :sub:`det` = -X\ :sub:`lab`
 
-..note:: This orientation matrix to convert between these two coordinate
-         systems is defined by a setting describing the conversion as a string.
-         In the above example, the setting is "-y +z -x".
+.. note:: This orientation matrix to convert between these two coordinate
+          systems is defined by a setting describing the conversion as a string.
+          In the above example, the setting is "-y +z -x".
 
-..warning:: Many detectors store images as TIFF or CBF files, with the origin
-            at the top-left corner. In those case, the y-axis is inverted, so
-            the appropriate setting should be "-y -z +x".  
+.. warning:: Many detectors store images as TIFF or CBF files, with the origin
+             at the top-left corner. In those case, the y-axis is inverted, so
+             the appropriate setting should be "-y -z +x".  
 
 Sample Orientation
 ------------------
