@@ -109,6 +109,6 @@ number, which can be converted to the rotation angle, Φ. The conversion between
 detector coordinates and reciprocal space coordinates is accomplished through
 a set of matrix operations.
 
-.. math:: \begin{pmatrix}H\\K\\L\end{pmatrix}=\mathcal{B}^{-1}\mathcal{U}^{-1}\mathcal{G}^{-1}\frac{
+.. math:: \begin{pmatrix}H\\K\\L\end{pmatrix} = \mathcal{B}^{-1}\mathcal{U}^{-1}\mathcal{G}^{-1}\frac{
 \left(\hat{\mathbf{d}}-\hat{\mathbf{x}}\right)}{\lambda}
 
