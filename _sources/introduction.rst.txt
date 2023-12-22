@@ -111,6 +111,7 @@ a set of matrix operations.
 
 .. math:: 
 
-    \mathbf{Q}(h,k,l) = \mathcal{B}^{-1}\mathcal{U}^{-1}\mathcal{G}^{-1}\frac{
-\left(\hat{\mathbf{d}}-\hat{\mathbf{x}}\right)}{\lambda}
+    \mathbf{Q}(h,k,l) = \mathcal{B}^{-1}\mathcal{U}^{-1}\mathcal{G}^{-1}
+    \frac{\left(\hat{\mathbf{d}}-\hat{\mathbf{x}}\right)}{\lambda}
+    
 
