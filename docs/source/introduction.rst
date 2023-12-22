@@ -104,12 +104,12 @@ NXRefine has a peak-search algorithm for identifying all the peaks above
 a certain intensity threshold, which are then used to generate an
 orientation matrix that is refined on many, if not all, Bragg peaks.
 
-Each peak is defined by its pixel coordinates on the detector, :math:`x_p` and
-:math:`y_p`, and the frame number, :math:`z_p`, which can be converted to the
-rotation angle, Φ, when stepping as :math:`\delta\phi` *i.e.*,
-:math:`\phi=z_{p}\delta\phi`. The conversion between detector coordinates and
-reciprocal space coordinates is accomplished through a set of matrix
-operations.
+Each peak is defined by its coordinates on the detector, :math:`x_p` and
+:math:`y_p`, and the goniometer angles :math:`\theta`, :math:`\omega`,
+:math:`\chi`, and :math:`\phi` defined in the figure above. These need to be
+converted into reciprocal space coordinates, :math:`\mathbf{Q}(h,k,l)`, using an
+orientation matrix. The conversion between detector coordinates and reciprocal
+space coordinates is accomplished through a set of matrix operations.
 
 .. math:: 
 
@@ -124,7 +124,7 @@ where
     \begin{pmatrix}{x_{p}-x_{c}}\\{y_{p}-y_{c}}\\0\end{pmatrix}-\mathcal{G}
     \begin{pmatrix}{x_{s}-l_{sd}}\\{y_{s}}\\{z_{s}}\end{pmatrix}
 
-with the following sets of rotations about axes in the laboratory frame.
+where
 
 .. math::
 
@@ -134,9 +134,46 @@ with the following sets of rotations about axes in the laboratory frame.
     \mathcal{D}(\tau_{x},\tau_{y},\tau_{z})=\mathcal{R}^x(\tau_{x})
     \mathcal{R}^y(\tau_{y})\mathcal{R}^z(\tau_{z})
 
-The goniometer angles, :math:`\theta`, :math:`\omega`, :math:`\chi`, and
-:math:`\phi` are shown in the figure above, while :math:`\tau_x`,
-:math:`\tau_y`, and :math:`\tau_z` represent detector tilts, commonly known as
-pitch, yaw, and roll, respectively.
+:math:`\mathcal{R}^\alpha` are rotation matrices around axes,
+:math:`\alpha=x,y,z`, defined in the laboratory frame. The detector tilt
+angles, :math:`\tau_x`, :math:`\tau_y`, and :math:`\tau_z` are commonly known
+as pitch, yaw, and roll, respectively.
+
+All distances are defined in absolute units, *i.e.*, the pixel coordinates of
+the peaks, :math:`x_p` and :math:`y_p`, and beam center, :math:`x_c` and
+:math:`y_c` have been multiplied by the pixel size. These are defined in the
+detector frame, shown in the above figure, in which the *x* axis is defined
+by the direction of the fastest-moving pixel coordinates. By convention, this
+is horizontal, with the *y*-axis vertical, *i.e.*, the origin of the pixel
+array is in the lower-left corner. However, it is quite common for detector
+images to be saved as TIFF or CBF files, in which the origin is in the
+upper-left corner, *i.e.*, the *y*-axis points downward. To accommodate this
+situation, and to handle other possible detector orientations, the
+:math:`\mathcal{O}` matrix converts between detector and laboratory frames.
+
+So, for example, for the conventional detector orientation,
+
+.. math:: 
+
+    \mathcal{O} = \begin{pmatrix}0 & -1 & 0\\0 & 0 & 1\\-1 & 0 & 0\end{pmatrix}
+
+whereas, when the *y*-axis is flipped
+
+.. math:: 
+
+    \mathcal{O} = \begin{pmatrix}0 & -1 & 0\\0 & 0 & -1\\1 & 0 & 0\end{pmatrix}
+
+.. note:: Currently, these matrices are defined in NXRefine settings files by
+          a single string, defining which laboratory axis are parallel to the
+          detector axes, *e.g.*, in the first example, "-y +z -x". It is
+          possible to define detector orientation for an arbitrary orientation,
+          but this requires the (3x3) matrix to be manually defined in the
+          NeXus file.
+
+The center of the sample, with respect to the goniometer center, is given by
+:math:`x_s`, :math:`y_s`, and :math:`z_s`, and the distance from the goniometer
+center to the detector, at the point where the incident beam would intersect,
+is :math:`l_{sd}`. The incident beam wavelength is :math:`\lambda`.
+
 
 
