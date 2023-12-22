@@ -103,3 +103,13 @@ such volumes contain hundreds, if not thousands, of Brillouin Zones.
 NXRefine has a peak-search algorithm for identifying all the peaks above
 a certain intensity threshold, which are then used to generate an
 orientation matrix that is refined on many, if not all, Bragg peaks.
+
+Each peak is defined by its pixel coordinates on the detector and the frame
+number, which can be converted to the rotation angle, Φ. The conversion between
+detector coordinates and reciprocal space coordinates is accomplished through
+a set of matrix operations.
+
+.. math::
+    \begin{pmatrix}H\\K\\L\end{pmatrix}=\mathcal{B}^{-1}\mathcal{U}^{-1}\mathcal{G}^{-1}\frac{
+\left(\hat{\mathbf{d}}-\hat{\mathbf{x}}\right)}{\lambda}
+
