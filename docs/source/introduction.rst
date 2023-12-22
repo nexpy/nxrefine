@@ -104,14 +104,39 @@ NXRefine has a peak-search algorithm for identifying all the peaks above
 a certain intensity threshold, which are then used to generate an
 orientation matrix that is refined on many, if not all, Bragg peaks.
 
-Each peak is defined by its pixel coordinates on the detector and the frame
-number, which can be converted to the rotation angle, Φ. The conversion between
-detector coordinates and reciprocal space coordinates is accomplished through
-a set of matrix operations.
+Each peak is defined by its pixel coordinates on the detector, :math:`x_p` and
+:math:`y_p`, and the frame number, :math:`z_p`, which can be converted to the
+rotation angle, Φ, when stepping as :math:`\delta\phi` *i.e.*,
+:math:`\phi=z_{p}\delta\phi`. The conversion between detector coordinates and
+reciprocal space coordinates is accomplished through a set of matrix
+operations.
 
 .. math:: 
 
     \mathbf{Q}(h,k,l) = \mathcal{B}^{-1}\mathcal{U}^{-1}\mathcal{G}^{-1}
     \frac{\left(\hat{\mathbf{d}}-\hat{\mathbf{x}}\right)}{\lambda}
-    
+
+where 
+
+.. math:: 
+
+    \mathbf{d}(x_{p}, y_{p})=\mathcal{D}\mathcal{O}^{-1}_{det}
+    \begin{pmatrix}{x_{p}-x_{c}}\\{y_{p}-y_{c}}\\0\end{pmatrix}-\mathcal{G}
+    \begin{pmatrix}{x_{s}-l_{sd}}\\{y_{s}}\\{z_{s}}\end{pmatrix}
+
+with the following sets of rotations about axes in the laboratory frame.
+
+.. math::
+
+    \mathcal{G}(\theta,\omega,\chi,\phi)=\mathcal{R}^y(\theta)
+    \mathcal{R}^z(\omega)\mathcal{R}^x(\chi)\mathcal{R}^z(\phi)
+
+    \mathcal{D}(\tau_{x},\tau_{y},\tau_{z})=\mathcal{R}^x(\tau_{x})
+    \mathcal{R}^y(\tau_{y})\mathcal{R}^z(\tau_{z})
+
+The goniometer angles, :math:`\theta`, :math:`\omega`, :math:`\chi`, and
+:math:`\phi` are shown in the figure above, while :math:`\tau_x`,
+:math:`\tau_y`, and :math:`\tau_z` represent detector tilts, commonly known as
+pitch, yaw, and roll, respectively.
+
 
