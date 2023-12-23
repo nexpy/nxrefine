@@ -139,7 +139,7 @@ All distances are defined in absolute units, *i.e.*, in the above
 equations, the coordinates of the Bragg peaks, :math:`x_p` and
 :math:`y_p`, and the beam center, :math:`x_c` and :math:`y_c` have been
 multiplied by the pixel sizes. These coordinates are defined in the
-detector frame in which the *x*-l_axis is the direction of the
+detector frame in which the *x*-axis is the direction of the
 fastest-moving pixel coordinates. By convention, the *x*-axis is
 horizontal and the *y*-axis is vertical, *i.e.*, the origin of the pixel
 array is in the lower-left corner. However, it is quite common for
