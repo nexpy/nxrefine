@@ -1,8 +1,8 @@
 Introduction
 ============
-NXRefine implements a complete workflow for both data acquisition and 
+*NXRefine* implements a complete workflow for both data acquisition and 
 reduction of single crystal x-ray scattering collected by the sample
-rotation method. NXRefine generates a three-dimensional mesh of
+rotation method. The package generates a three-dimensional mesh of
 scattering intensity, *i.e.*, S(**Q**), which can be used either to
 model diffuse scattering in reciprocal space or to transform the data to
 produce three-dimensional pair-distribution-functions (PDF), which
@@ -10,35 +10,36 @@ represent the summed probabilities of all possible interatomic vectors
 in real space, *i.e.*, Patterson maps. If the Bragg peaks are eliminated
 before these transforms, using a process known as 'punch-and-fill,' only
 those probabilities that deviate from the average crystalline structure
-are retained. The final stage of the NXRefine workflow is to generate
+are retained. The final stage of the *NXRefine* workflow is to generate
 such 3D-ΔPDF maps.
 
 The uncompressed raw data from such measurements comprise tens (and
 sometimes hundreds) of gigabytes, which are often collected in under 30
 minutes. The speed of data collection allows such measurements to be
 repeated multiple times as a function of a parametric variable, such as
-temperature. Ideally, such data should be transformed into reciprocal
-space as quickly as it is measured, so that scientists can inspect the
-results before a set of scans is complete. For this reason, the NXRefine
+temperature. Such data needs to be transformed into reciprocal space as
+quickly as it is measured, so that scientists can inspect the results
+before a set of scans is complete. For this reason, the *NXRefine*
 workflow is designed to be run automatically once an initial refinement
 of the sample orientation has been determined.
 
-NXRefine is currently in use on Sector 6-ID-D at the Advanced Photon
-Source and the QM2 beamline at CHESS. 
+*NXRefine* is currently in use on Sector 6-ID-D at the Advanced Photon
+Source and the QM2 beamline at CHESS, and is under active development at
+other facilities.
 
 Experimental Geometry
 ---------------------
-NXRefine is designed for experiments, in which the sample is placed in a
-monochromatic x-ray beam and rotated continuously about a Φ-axis that is
-approximately perpendicular to the beam. Images are collected on an area
-detector placed in transmission geometry behind the sample. Many
-detectors consist of a set of chips with small gaps between them, so
-sample rotation scans are often repeated multiple times (usually three)
-with small detector translations between each one to fill in these gaps.
-However, it is also possible to accomplish this just by adjusting the
-orientation of the Φ-axis itself. NXRefine reduces the data
-independently for each rotation scan before merging them to create a
-single 3D data volume.
+*NXRefine* is designed for experiments, in which the sample is placed in
+a monochromatic x-ray beam and rotated continuously about an axis that
+is approximately perpendicular to the beam. Images are collected on an
+area detector placed in transmission geometry behind the sample. Many
+area detectors consist of a set of chips with small gaps between them,
+so sample rotation scans are often repeated multiple times (typically
+three) with small detector translations between each one to fill in
+these gaps. However, it is also possible to accomplish this just by
+adjusting the orientation of the rotation axis itself. *NXRefine*
+reduces the data independently for each rotation scan before merging
+them to create a single 3D data volume.
 
 .. figure:: /images/experimental-geometry.png
    :align: center
@@ -50,42 +51,47 @@ The sample is at the center of a χ-circle, which can be rotated about
 the horizontal or vertical axes by θ or ω, respectively. When θ = ω = 0,
 the χ-circle is perpendicular to the incident beam. During a scan, the
 sample is rotated about the Φ-axis, which is vertical when χ = θ = 0.
-The figure shows a configuration, in which the Φ-axis is horizontal,
-with θ = ω = 0 and χ = -90°. The dotted lines show the orientation of
-the Φ-axis with ω = ±15°.
+However, the Φ-axis can be reoriented by adjusting any of the other
+three angles. The figure shows the configuration in use on Sector
+6-ID-D, in which the Φ-axis is horizontal, with θ = ω = 0 and χ = -90°.
+The dotted lines show the orientation of the Φ-axis with ω = ±15°;
+rotating ω between Φ-rotation scans can be used to improve the quality
+of the merged data, for reasons that are explained in a later section. 
 
 .. note:: This geometry is equivalent to the four-circle geometry
           defined by H. You [see Fig. 1 in J. Appl. Cryst. **32**, 614
           (1999)], with θ and ω corresponding to η and μ, respectively.
-          At present, NXRefine assumes that the two angles coupled to
+          At present, *NXRefine* assumes that the two angles coupled to
           the detector (δ and ν in You's paper), are fixed to 0°, with
           detector misalignments handled by the yaw and pitch angles
           refined in powder calibrations.
 
-.. warning:: In earlier versions of NXRefine, θ was called the
+.. warning:: In earlier versions of *NXRefine*, θ was called the
              goniometer pitch angle, since it corresponds to a tilting
              or pitch of the goniometer's χ-circle about the horizontal
              axis. It is still referred to as 'gonpitch' in CCTW, the
-             C++ program called by NXRefine to transform the detector
+             C++ program called by *NXRefine* to transform the detector
              coordinates to reciprocal space.
 
-NXRefine uses the following conventions to define a set of Cartesian
+*NXRefine* uses the following conventions to define a set of Cartesian
 coordinates as laboratory coordinates when all angles are set to 0.
 
 * +X\ :sub:`lab`: parallel to the incident beam.
 * +Z\ :sub:`lab`: parallel to the (usually vertical) axis connecting the
-  base of the χ-circle to the sample.
+  base of the χ-circle to the sample when χ = θ = 0.
 * +Y\ :sub:`lab`: defined to produce a right-handed set of coordinates.
 
 In addition to defining the sample orientation, it is necessary to
 relate the pixel coordinates of the detector to the instrument
 coordinates. Assuming the pixels form a rectangular two-dimensional
-array, the detector X-axis corresponds to the fastest-changing
-direction, which is normally horizontal, so the orthogonal Y-axis is
-usually vertical. The two coordinate systems are then related by:
+array, the detector's X-axis corresponds to the fastest-changing
+direction, which is normally horizontal, so that the orthogonal Y-axis
+is vertical. The two coordinate systems are then related by:
 
     | +X\ :sub:`det` = -Y\ :sub:`lab`, +Y\ :sub:`det` = +Z\ :sub:`lab`, 
       and +Z\ :sub:`det` = -X\ :sub:`lab`
+
+This is discussed in more detail in the next section.
 
 Sample Orientation
 ------------------
@@ -95,17 +101,18 @@ in the course of the sample rotation. With high-energy x-rays, the area
 detector covers reciprocal space volumes that can exceed
 10×10×10Å\ :sup:`3`. Depending on the size of the crystal unit cell,
 such volumes contain hundreds, if not thousands, of Brillouin Zones.
-NXRefine has a peak-search algorithm for identifying all the peaks above
-a certain intensity threshold, which are then used to generate an
-orientation matrix that is refined on many, if not all, Bragg peaks.
+*NXRefine* has a peak-search algorithm for identifying all the peaks
+above a certain intensity threshold, which are then used to generate an
+orientation matrix, :math:`\mathcal{U}`, that is refined on a large
+number of Bragg peaks.
 
 Each peak is defined by its coordinates on the detector, :math:`x_p` and
 :math:`y_p`, and the goniometer angles :math:`\theta`, :math:`\omega`,
-:math:`\chi`, and :math:`\phi` defined in the figure above. These need
-to be converted into reciprocal space coordinates,
-:math:`\mathbf{Q}(h,k,l)`, using an orientation matrix. The conversion
-between detector coordinates and reciprocal space coordinates is
-accomplished through a set of matrix operations:
+:math:`\chi`, and :math:`\phi` of the diffractometer when the image was
+collected. Once the orientation matrix has been determined, these
+experimental coordinates can be converted into reciprocal space
+coordinates, :math:`\mathbf{Q}(h,k,l)`. The conversion is accomplished
+through a set of matrix operations:
 
 .. math:: 
 
@@ -120,9 +127,10 @@ where
     \begin{pmatrix}{x_{p}-x_{c}}\\{y_{p}-y_{c}}\\0\end{pmatrix}-\mathcal{G}
     \begin{pmatrix}{x_{s}-l_{sd}}\\{y_{s}}\\{z_{s}}\end{pmatrix}
 
-The :math:`\mathcal{U}` and :math:`\mathcal{B}` matrices are defined by
-Busing and Levy in Acta Cryst. **22**, 457 (1967). :math:`\mathcal{G}`
-and :math:`\mathcal{D}` describe two sets of chained rotations:
+The :math:`\mathcal{B}` matrix is defined by the lattice parameters of
+the sample, as described by Busing and Levy in Acta Cryst. **22**, 457
+(1967).  :math:`\mathcal{G}` and :math:`\mathcal{D}` describe two sets
+of chained rotations:
 
 .. math::
 
@@ -163,7 +171,7 @@ whereas, when the *y*-axis is flipped
 
     \mathcal{O} = \begin{pmatrix}0 & -1 & 0\\0 & 0 & -1\\1 & 0 & 0\end{pmatrix}
 
-.. note:: Currently, these matrices are defined in NXRefine settings
+.. note:: Currently, these matrices are defined in *NXRefine* settings
           files by a single string, defining which laboratory axis are
           parallel to the detector axes, *e.g.*, in the first example,
           "-y +z -x". It is possible to define detector orientation for
@@ -176,19 +184,38 @@ from the goniometer center to the detector, at the point where the
 incident beam would intersect, is :math:`l_{sd}`. The incident beam
 wavelength is :math:`\lambda`.
 
-The position and orientation of the detector are originally estimated
-using a powder calibrant. The :math:`\mathcal{B}` matrix is a function
-of the lattice parameters, which are assumed to be approximately known
-in advance. In the refinement process defined by NXRefine, an initial
-estimate of the orientation matrix, :math:`\mathcal{U}`, is generated by
-selecting two peaks, whose (*h*, *k*, *l*) values are assumed based on
-their *d*-spacings. This allows all the other peaks to be assigned
+The position and tilt angles of the detector are originally estimated
+using a powder calibrant. It is assumed that the space group and
+approximate lattice parameters are known in advance so that an original
+estimate of the :math:`\mathcal{B}` matrix can be derived. In the
+refinement procedure defined by *NXRefine*, an initial estimate of the
+orientation matrix, :math:`\mathcal{U}`, is generated by selecting two
+peaks, whose (*h*, *k*, *l*) values are initialized using their
+*d*-spacings. This allows all the other peaks to be assigned
 (*h*, *k*, *l*) indices. If these assignments are reasonable, then the
 other peaks are used to refine both the instrumental and sample
 parameters in order to minimize discrepancies between the calculated and
-measured peak positions and optimize :math:`\mathcal{U}`. If too few
-peaks are assigned by the initial peak selection, it is necessary to
-select different peaks. 
+measured peak positions, allowing :math:`\mathcal{U}` to be optimized.
+If too few peaks are assigned by the initial peak selection, it is
+necessary to select different peaks. 
 
-The refinement process, along with the tools that NXRefine provide to
-facilitate peak assignments, are described in a later section. 
+The refinement process, along with the tools that *NXRefine* provide to
+facilitate peak assignments, are described in a later section.
+
+Coordinate Transformation
+-------------------------
+Once the orientation matrix has been determined, the above equations are
+used to transform the raw data into a three-dimensional grid in
+reciprocal space. This is a numerically intensive operation that is
+performed by a highly efficient multithreaded  C++ application, *Crystal
+Coordinate Transformation Workflow* (*CCTW*), written by Guy Jennings
+(APS).
+
+*CCTW* needs to be built from source, which is available on `SourceForge
+<https://sourceforge.net/projects/cctw/>`_. *NXRefine* generates the
+parameter file used by *CCTW* for each set of Φ-rotations, launches
+the application, and links to the results. Once all the rotation scans
+are processed, they are merged into a single reciprocal space grid. On
+a multi-core system, it is possible to accomplish the complete
+transformation process in less time than it takes to collect the data,
+even though the raw data can exceed 100 GB in size.
