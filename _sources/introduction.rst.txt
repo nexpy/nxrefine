@@ -143,7 +143,7 @@ of chained rotations:
 :math:`\mathcal{R}^\alpha` are rotation matrices around axes,
 :math:`\alpha=x,y,z`, defined in the laboratory frame. The detector tilt
 angles, :math:`\tau_x`, :math:`\tau_y`, and :math:`\tau_z` are commonly
-known as pitch, yaw, and roll, respectively.  
+known as roll, pitch, and yaw, respectively.  
 
 All distances are defined in absolute units, *i.e.*, in the above
 equations, the coordinates of the Bragg peaks, :math:`x_p` and
