@@ -145,15 +145,15 @@ detector covers reciprocal space volumes that can exceed
 such volumes contain hundreds, if not thousands, of Brillouin Zones.
 <em>NXRefine</em> has a peak-search algorithm for identifying all the peaks
 above a certain intensity threshold, which are then used to generate an
-orientation matrix, <span class="math notranslate nohighlight">\(\mathcal{U}\)</span>, that is refined on a large
-number of Bragg peaks.</p>
-<p>Each peak is defined by its coordinates on the detector, <span class="math notranslate nohighlight">\(x_p\)</span> and
-<span class="math notranslate nohighlight">\(y_p\)</span>, and the goniometer angles <span class="math notranslate nohighlight">\(\theta\)</span>, <span class="math notranslate nohighlight">\(\omega\)</span>,
-<span class="math notranslate nohighlight">\(\chi\)</span>, and <span class="math notranslate nohighlight">\(\phi\)</span> of the diffractometer when the image was
-collected. Once the orientation matrix has been determined, these
-experimental coordinates can be converted into reciprocal space
-coordinates, <span class="math notranslate nohighlight">\(\mathbf{Q}(h,k,l)\)</span>. The conversion is accomplished
-through a set of matrix operations:</p>
+orientation matrix, <span class="math notranslate nohighlight">\(\mathcal{U}\)</span>, which is refined using the
+positions of a large number of Bragg peaks.</p>
+<p>Each Bragg peak is defined by its coordinates on the detector,
+<span class="math notranslate nohighlight">\(x_p\)</span> and <span class="math notranslate nohighlight">\(y_p\)</span>, and the goniometer angles <span class="math notranslate nohighlight">\(\theta\)</span>,
+<span class="math notranslate nohighlight">\(\omega\)</span>, <span class="math notranslate nohighlight">\(\chi\)</span>, and <span class="math notranslate nohighlight">\(\phi\)</span> of the diffractometer
+when the image was collected. Once the orientation matrix has been
+determined, these experimental coordinates can be converted into
+reciprocal space coordinates, <span class="math notranslate nohighlight">\(\mathbf{Q}(h,k,l)\)</span>. The conversion
+is accomplished through a set of matrix operations:</p>
 <div class="math notranslate nohighlight">
 \[\mathbf{Q}(h,k,l) = \mathcal{B}^{-1}\mathcal{U}^{-1}\mathcal{G}^{-1}
 \frac{\left(\hat{\mathbf{d}}-\hat{\mathbf{x}}\right)}{\lambda}\]</div>
@@ -235,13 +235,14 @@ reciprocal space. This is a numerically intensive operation that is
 performed by a highly efficient multithreaded  C++ application, <em>Crystal
 Coordinate Transformation Workflow</em> (<em>CCTW</em>), written by Guy Jennings
 (APS).</p>
-<p><em>CCTW</em> needs to be built from source, which is available on <a class="reference external" href="https://sourceforge.net/projects/cctw/">SourceForge</a>. <em>NXRefine</em> generates the
-parameter file used by <em>CCTW</em> for each set of Φ-rotations, launches
-the application, and links to the results. Once all the rotation scans
-are processed, they are merged into a single reciprocal space grid. On
-a multi-core system, it is possible to accomplish the complete
-transformation process in less time than it takes to collect the data,
-even though the raw data can exceed 100 GB in size.</p>
+<p><em>CCTW</em> needs to be built from the source code, which is available on
+<a class="reference external" href="https://sourceforge.net/projects/cctw/">SourceForge</a>. <em>NXRefine</em>
+generates the parameter file used by <em>CCTW</em> for each set of Φ-rotations
+launches the application, and links to the results. Once all the
+rotation scans are processed, they are merged into a single reciprocal
+space grid. On a multi-core system, it is possible to accomplish the
+complete transformation process in less time than it takes to collect
+the data, even though the raw data can exceed 100 GB in size.</p>
 </div>
 </div>
 

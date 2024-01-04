@@ -35,7 +35,9 @@ temperature, are complete.
 
    introduction
    installation
+   server
    experiment
+   refine
 
 Indices and tables
 ==================
