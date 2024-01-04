@@ -7,9 +7,10 @@
 # -----------------------------------------------------------------------------
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import get_context
+
 import numpy as np
-from nexusformat.nexus import (NXdata, NXentry, NXfield, NXlog, NXroot, nxopen,
-                               nxsetconfig)
+from nexusformat.nexus import (NeXusError, NXdata, NXentry, NXfield, NXlog,
+                               NXroot, nxopen, nxsetconfig)
 from skimage.feature import peak_local_max
 
 
@@ -324,6 +325,55 @@ def load_julia(resources):
     for resource in resources:
         Main.include(
             str(importlib.resources.files('nxrefine.julia') / resource))
+
+
+def parse_orientation(orientation):
+    """Return the detector orientation matrix based on the input.
+    
+    The detector orientation is used to convert from detector to
+    laboratory coordinates. It may be defined by a string defining which
+    laboratory axes are parallel to the detector axes. For example, if
+    the detector y axis is parallel to the laboratory z axis, and the
+    detector x and z axes are anti-parallel to the laboratory y and x
+    axes, the string would be  "-y +z -x". If the orientation is passed
+    to the function as a 3x3 array, it is returned unchanged as a
+    NumPy matrix.
+
+    Parameters
+    ----------
+    orientation : str or array_like
+        The description of the orientation as a string or a 3x3 array. 
+
+    Returns
+    -------
+    np.matrix
+        Matrix containing the detector orientation
+
+    Raises
+    ------
+    NeXusError
+        Invalid input value describing the orientation.
+    """    
+    try:
+        if isinstance(orientation, str):
+            _omat = np.zeros((3, 3), dtype=int)
+            i = 0
+            d = 1
+            for c in orientation.replace(' ', ''):
+                if c == '+':
+                    d = 1
+                elif c == '-':
+                    d = -1
+                else:
+                    j = 'xyz'.index(c)
+                    _omat[i][j] = d
+                    d = 1
+                    i += 1
+            return np.matrix(_omat)
+        else:
+            return np.matrix(orientation)
+    except Exception:
+        raise NeXusError('Invalid detector orientation')
 
 
 class SpecParser:

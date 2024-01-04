@@ -15,7 +15,7 @@ from nexusformat.nexus import (NeXusError, NXdata, NXdetector, NXentry,
 from numpy.linalg import inv, norm
 from scipy import optimize
 
-from .nxutils import init_julia, load_julia
+from .nxutils import init_julia, load_julia, parse_orientation
 
 degrees = 180.0 / np.pi
 radians = np.pi / 180.0
@@ -1157,7 +1157,7 @@ class NXRefine:
     def roll(self, value):
         self._roll = value
         try:
-            self._Dmat_cache = inv(rotmat(1, self.roll) *
+            self._Dmat_cache = inv(rotmat(1, self._roll) *
                                    rotmat(2, self.pitch) *
                                    rotmat(3, self.yaw))
 
@@ -1174,7 +1174,7 @@ class NXRefine:
         self._pitch = value
         try:
             self._Dmat_cache = inv(
-                rotmat(1, self.roll) * rotmat(2, self.pitch) *
+                rotmat(1, self.roll) * rotmat(2, self._pitch) *
                 rotmat(3, self.yaw))
 
         except Exception:
@@ -1191,7 +1191,7 @@ class NXRefine:
         try:
             self._Dmat_cache = inv(
                 rotmat(1, self.roll) * rotmat(2, self.pitch) *
-                rotmat(3, self.yaw))
+                rotmat(3, self._yaw))
 
         except Exception:
             pass
@@ -1207,7 +1207,7 @@ class NXRefine:
         try:
             self._Gmat_cache = (
                 rotmat(2, self.theta) * rotmat(3, self.omega) *
-                rotmat(1, self.chi))
+                rotmat(1, self._chi))
         except Exception:
             pass
 
@@ -1221,7 +1221,7 @@ class NXRefine:
         self._omega = value
         try:
             self._Gmat_cache = (
-                rotmat(2, self.theta) * rotmat(3, self.omega) *
+                rotmat(2, self.theta) * rotmat(3, self._omega) *
                 rotmat(1, self.chi))
         except Exception:
             pass
@@ -1236,7 +1236,7 @@ class NXRefine:
         self._theta = value
         try:
             self._Gmat_cache = (
-                rotmat(2, self.theta) * rotmat(3, self.omega) *
+                rotmat(2, self._theta) * rotmat(3, self.omega) *
                 rotmat(1, self.chi))
         except Exception:
             pass
@@ -1300,20 +1300,7 @@ class NXRefine:
             +X(det) = -y(lab), +Y(det) = -z(lab), and +Z(det) = x(lab)
 
         """
-        _omat = np.zeros((3, 3), dtype=int)
-        i = 0
-        d = 1
-        for c in self.detector_orientation.replace(' ', ''):
-            if c == '+':
-                d = 1
-            elif c == '-':
-                d = -1
-            else:
-                j = 'xyz'.index(c)
-                _omat[i][j] = d
-                d = 1
-                i += 1
-        return np.matrix(_omat)
+        return parse_orientation(self.detector_orientation)
 
     @property
     def Dmat(self):
