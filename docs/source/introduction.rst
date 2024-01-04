@@ -103,16 +103,16 @@ detector covers reciprocal space volumes that can exceed
 such volumes contain hundreds, if not thousands, of Brillouin Zones.
 *NXRefine* has a peak-search algorithm for identifying all the peaks
 above a certain intensity threshold, which are then used to generate an
-orientation matrix, :math:`\mathcal{U}`, that is refined on a large
-number of Bragg peaks.
+orientation matrix, :math:`\mathcal{U}`, which is refined using the
+positions of a large number of Bragg peaks.
 
-Each peak is defined by its coordinates on the detector, :math:`x_p` and
-:math:`y_p`, and the goniometer angles :math:`\theta`, :math:`\omega`,
-:math:`\chi`, and :math:`\phi` of the diffractometer when the image was
-collected. Once the orientation matrix has been determined, these
-experimental coordinates can be converted into reciprocal space
-coordinates, :math:`\mathbf{Q}(h,k,l)`. The conversion is accomplished
-through a set of matrix operations:
+Each Bragg peak is defined by its coordinates on the detector,
+:math:`x_p` and :math:`y_p`, and the goniometer angles :math:`\theta`,
+:math:`\omega`, :math:`\chi`, and :math:`\phi` of the diffractometer
+when the image was collected. Once the orientation matrix has been
+determined, these experimental coordinates can be converted into
+reciprocal space coordinates, :math:`\mathbf{Q}(h,k,l)`. The conversion
+is accomplished through a set of matrix operations:
 
 .. math:: 
 
@@ -214,11 +214,11 @@ performed by a highly efficient multithreaded  C++ application, *Crystal
 Coordinate Transformation Workflow* (*CCTW*), written by Guy Jennings
 (APS).
 
-*CCTW* needs to be built from source, which is available on `SourceForge
-<https://sourceforge.net/projects/cctw/>`_. *NXRefine* generates the
-parameter file used by *CCTW* for each set of Φ-rotations, launches
-the application, and links to the results. Once all the rotation scans
-are processed, they are merged into a single reciprocal space grid. On
-a multi-core system, it is possible to accomplish the complete
-transformation process in less time than it takes to collect the data,
-even though the raw data can exceed 100 GB in size.
+*CCTW* needs to be built from the source code, which is available on
+`SourceForge <https://sourceforge.net/projects/cctw/>`_. *NXRefine*
+generates the parameter file used by *CCTW* for each set of Φ-rotations
+launches the application, and links to the results. Once all the
+rotation scans are processed, they are merged into a single reciprocal
+space grid. On a multi-core system, it is possible to accomplish the
+complete transformation process in less time than it takes to collect
+the data, even though the raw data can exceed 100 GB in size.
