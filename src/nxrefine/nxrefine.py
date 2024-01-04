@@ -15,7 +15,7 @@ from nexusformat.nexus import (NeXusError, NXdata, NXdetector, NXentry,
 from numpy.linalg import inv, norm
 from scipy import optimize
 
-from .nxutils import init_julia, load_julia
+from .nxutils import init_julia, load_julia, parse_orientation
 
 degrees = 180.0 / np.pi
 radians = np.pi / 180.0
@@ -1300,20 +1300,7 @@ class NXRefine:
             +X(det) = -y(lab), +Y(det) = -z(lab), and +Z(det) = x(lab)
 
         """
-        _omat = np.zeros((3, 3), dtype=int)
-        i = 0
-        d = 1
-        for c in self.detector_orientation.replace(' ', ''):
-            if c == '+':
-                d = 1
-            elif c == '-':
-                d = -1
-            else:
-                j = 'xyz'.index(c)
-                _omat[i][j] = d
-                d = 1
-                i += 1
-        return np.matrix(_omat)
+        return parse_orientation(self.detector_orientation)
 
     @property
     def Dmat(self):
