@@ -238,11 +238,21 @@ Coordinate Transformation Workflow</em> (<em>CCTW</em>), written by Guy Jennings
 <p><em>CCTW</em> needs to be built from the source code, which is available on
 <a class="reference external" href="https://sourceforge.net/projects/cctw/">SourceForge</a>. <em>NXRefine</em>
 generates the parameter file used by <em>CCTW</em> for each set of Φ-rotations
-launches the application, and links to the results. Once all the
-rotation scans are processed, they are merged into a single reciprocal
-space grid. On a multi-core system, it is possible to accomplish the
-complete transformation process in less time than it takes to collect
-the data, even though the raw data can exceed 100 GB in size.</p>
+launches the application, and links to the results.</p>
+<div class="figure align-center" id="id2">
+<a class="reference internal image-reference" href="_images/rotation-transforms.png"><img alt="_images/rotation-transforms.png" src="_images/rotation-transforms.png" style="width: 100%;" /></a>
+<p class="caption"><span class="caption-text"><em>CCTW transforms from three rotation scans with detector
+translations.</em></span><a class="headerlink" href="#id2" title="Permalink to this image">¶</a></p>
+</div>
+<p>Once all the rotation scans are processed, they are merged into a single
+reciprocal space grid. On a multi-core system, it is possible to
+accomplish the complete transformation process in less time than it
+takes to collect the data, even though the raw data can exceed 100 GB in
+size.</p>
+<div class="figure align-center" id="id3">
+<a class="reference internal image-reference" href="_images/merged-transform.png"><img alt="_images/merged-transform.png" src="_images/merged-transform.png" style="width: 100%;" /></a>
+<p class="caption"><span class="caption-text"><em>CCTW transform after merging the three rotation scans.</em></span><a class="headerlink" href="#id3" title="Permalink to this image">¶</a></p>
+</div>
 </div>
 </div>
 

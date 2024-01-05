@@ -217,8 +217,23 @@ Coordinate Transformation Workflow* (*CCTW*), written by Guy Jennings
 *CCTW* needs to be built from the source code, which is available on
 `SourceForge <https://sourceforge.net/projects/cctw/>`_. *NXRefine*
 generates the parameter file used by *CCTW* for each set of Φ-rotations
-launches the application, and links to the results. Once all the
-rotation scans are processed, they are merged into a single reciprocal
-space grid. On a multi-core system, it is possible to accomplish the
-complete transformation process in less time than it takes to collect
-the data, even though the raw data can exceed 100 GB in size.
+launches the application, and links to the results. 
+
+.. figure:: /images/rotation-transforms.png
+   :align: center
+   :width: 100%
+
+   *CCTW transforms from three rotation scans with detector
+   translations.* 
+
+Once all the rotation scans are processed, they are merged into a single
+reciprocal space grid. On a multi-core system, it is possible to
+accomplish the complete transformation process in less time than it
+takes to collect the data, even though the raw data can exceed 100 GB in
+size.
+
+.. figure:: /images/merged-transform.png
+   :align: center
+   :width: 100%
+
+   *CCTW transform after merging the three rotation scans.* 
