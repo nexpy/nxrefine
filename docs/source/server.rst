@@ -3,15 +3,18 @@ Server Configuration
 *NXRefine* implements a data reduction workflow, which can be run as a
 series of line commands in the terminal. However, since some of the
 processes can take a long time to complete (from a few minutes to an
-hour, depending on the system being used), it is possible to queue these
-operations using the *NXRefine*'s queue manager, to be run locally using multiple cores or distributed to other nodes. The *NXRefine* queue manager can be configured to submit jobs to another job queue manager if one is available. 
+hour, depending on the process and system being used), it is possible to
+queue these operations using the *NXRefine*'s queue manager, to be run
+locally using multiple cores or distributed to other nodes. The
+*NXRefine* queue manager can be configured to submit jobs to another job
+queue manager if one is available. 
 
 Initial Setup
 -------------
 In order to allow *NXRefine* to be used on machines with multiple users,
-a directory is defined to store log files, task queues, and settings,
-which define how the queue is configured and log the results. However,
-if *NXRefine* is installed for use by a single user, this directory can
+a common directory is defined to store log files, task queues, and
+settings, which define how the queue is configured and log the results.
+If *NXRefine* is installed for use by a single user, this directory can
 be in their local home directory.
 
 The location of the server directory needs to be initialized on the command line by the 'nxserver' command:
