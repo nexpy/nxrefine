@@ -45,7 +45,8 @@ them to create a single 3D data volume.
    :align: center
    :width: 80%
 
-   *Experimental geometry used in NXRefine.* 
+   *Example of the eperimental geometry used in NXRefine, with the
+   Φ-axis horizontal (χ = -90°).* 
 
 The sample is at the center of a χ-circle, which can be rotated about
 the horizontal or vertical axes by θ or ω, respectively. When θ = ω = 0,
