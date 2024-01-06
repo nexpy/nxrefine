@@ -227,13 +227,14 @@ launches the application, and links to the results.
    translations.* 
 
 Once all the rotation scans are processed, they are merged into a single
-reciprocal space grid. On a multi-core system, it is possible to
-accomplish the complete transformation process in less time than it
-takes to collect the data, even though the raw data can exceed 100 GB in
-size.
+reciprocal space grid.
 
 .. figure:: /images/merged-transform.png
    :align: center
    :width: 100%
 
    *CCTW transform after merging the three rotation scans.* 
+
+On a multi-core system, it is possible to accomplish the complete
+transformation process in less time than it takes to collect the data,
+even though the raw data can exceed 100 GB in size.
