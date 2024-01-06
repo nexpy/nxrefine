@@ -2,7 +2,7 @@ Experiments
 ***********
 Data that are processed by the *NXRefine* package are stored as HDF5
 files stored according to the `NeXus format
-<http://www.nexusformat.org/>`_, which is an international standard for
+<http://www.nexusformat.org/>`__, which is an international standard for
 the storage of x-ray and neutron scattering data. *NXRefine* uses a
 hierarchical directory structure to store both the experimental data,
 ingested from the raw data generated on an x-ray beamline, and processed
