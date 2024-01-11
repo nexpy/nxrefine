@@ -38,12 +38,12 @@ class ImportScanDialog(NXDialog):
         super().choose_directory()
 
         settings = NXSettings().settings
-        self.analysis_home = Path(settings['instrument']['analysis_home'])
         self.analysis_path = settings['instrument']['analysis_path']
-        self.raw_home = Path(settings['instrument']['raw_home'])
-        self.raw_path = settings['instrument']['raw_path']
 
         settings = NXSettings(self.experiment_directory).settings
+        self.analysis_home = Path(settings['instrument']['analysis_home'])
+        self.raw_home = Path(settings['instrument']['raw_home'])
+        self.raw_path = settings['instrument']['raw_path']
         self.beamline = get_beamline(settings['instrument']['instrument'])
 
         if not self.raw_directory.exists():
@@ -76,7 +76,9 @@ class ImportScanDialog(NXDialog):
     def experiment_directory(self):
         directory = Path(self.get_directory())
         if self.analysis_path and directory.name != self.analysis_path:
-            directory = directory / self.analysis_path
+            analysis_directory = directory / self.analysis_path
+            if analysis_directory.exists():
+                return analysis_directory
         return directory
 
     @property
