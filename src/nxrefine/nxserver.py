@@ -194,7 +194,7 @@ class NXServer(NXDaemon):
         home_settings = ConfigParser()
         if home_settings_file.exists():
             home_settings.read(home_settings_file)
-        if 'setup' not in home_settings.section():
+        if 'setup' not in home_settings.sections():
             home_settings.add_section('setup')
         home_settings.set('setup', 'directory', str(self.directory))
         with open(home_settings_file, 'w') as f:
