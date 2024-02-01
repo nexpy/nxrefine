@@ -44,10 +44,13 @@ def import_beamlines():
 def get_beamline(instrument=None):
     if instrument is None:
         instrument = NXSettings().settings['instrument']['instrument']
-    for beamline in NXBeamLine.__subclasses__():
-        if beamline.name == instrument:
-            return beamline
-    raise NeXusError(f"No beamline defined for '{instrument}'")
+    if instrument == '':
+        raise NeXusError("No beamline defined in settings")
+    else:
+        for beamline in NXBeamLine.__subclasses__():
+            if beamline.name == instrument:
+                return beamline
+        raise NeXusError(f"No beamline defined for '{instrument}'")
 
 
 class NXBeamLine:
