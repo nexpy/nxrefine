@@ -17,16 +17,12 @@ else:
 
 from pathlib import Path
 
-import fabio
 import numpy as np
 from nexusformat.nexus import (NeXusError, NXattenuator, NXcollection, NXdata,
-                               NXentry, NXfield, NXfilter, NXgoniometer,
-                               NXinstrument, NXlink, NXmonitor, NXsample,
-                               NXsource, NXsubentry, nxopen)
-from nexusformat.nexus.tree import natural_sort
+                               NXfield, NXfilter, NXinstrument, NXmonitor,
+                               NXsource, nxopen)
 
 from .nxsettings import NXSettings
-from .nxutils import SpecParser
 
 prefix_pattern = re.compile(r'^([^.]+)(?:(?<!\d)|(?=_))')
 file_index_pattern = re.compile(r'^(.*?)([0-9]*)[.](.*)$')
@@ -44,10 +40,13 @@ def import_beamlines():
 def get_beamline(instrument=None):
     if instrument is None:
         instrument = NXSettings().settings['instrument']['instrument']
-    for beamline in NXBeamLine.__subclasses__():
-        if beamline.name == instrument:
-            return beamline
-    raise NeXusError(f"No beamline defined for '{instrument}'")
+    if instrument == '':
+        raise NeXusError("No beamline defined in settings")
+    else:
+        for beamline in NXBeamLine.__subclasses__():
+            if beamline.name == instrument:
+                return beamline
+        raise NeXusError(f"No beamline defined for '{instrument}'")
 
 
 class NXBeamLine:

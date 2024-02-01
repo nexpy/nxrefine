@@ -974,8 +974,8 @@ class NXReduce(QtCore.QObject):
                     self.logger.info("Scan logs imported")
                     self.record('nxlink', logs='Transferred')
                     self.record_end('nxlink')
-                except NeXusError:
-                    self.logger.info("Scan logs not imported")
+                except NeXusError as error:
+                    self.logger.info(str(error))
                     self.record_fail('nxlink')
             except Exception as error:
                 self.logger.info(str(error))
