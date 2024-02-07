@@ -11,32 +11,47 @@ queue manager if one is available.
 
 Initial Setup
 -------------
-In order to allow *NXRefine* to be used on machines with multiple users,
-a common directory is defined to store log files, task queues, and
-settings, which define how the queue is configured and log the results.
-If *NXRefine* is installed for use by a single user, this directory can
-be in their local home directory.
+In order to allow *NXRefine* to be used by multiple users on a single
+machine or cluster, a common directory is defined to store log files,
+task queues, and default settings. The location of this directory should
+be defined immediately after installing *NXRefine* for the first time.
+Since the files in this directory are modified by *NXRefine* commands
+that could be run by multiple users, it is recommended that all such
+users are members of the same group. When initialized by a member of
+that group, the files in the server directory have group read/write
+permissions by default.
 
-The location of the server directory needs to be initialized on the command line by the 'nxserver' command:
+The location of the server directory is initialized on the command line
+by the 'nxserver' command::
 
     $ nxserver -d /path/to/parent
 
 This will create a directory at ``/path/to/parent/nxserver`` containing
-the files that are required by *NXRefine* server.
+the files that are required by *NXRefine* server. 
 
 .. note:: If the supplied path already ends in ``nxserver``, it will not
           be appended.
 
-All the files in the ``nxserver`` directory will have group read/write
-permissions to allow them to be updated by multiple users in that group.
+Once the server directory has been initialized, it is necessary for its
+location to be defined for other users. This can be done in one of two
+ways. 
 
-This also adds a hidden file to the home directory, in 
-``~/.nxserver/settings.ini`` containing the path to the server
-directory, so that the server path can be read in future login sessions.
-Each user should then issue the same command to store the server
-directory in their own home directory. If the server directory already
-exists, it is not touched. In principle, this only needs to be run once,
-although it could also be added to a login script.
+1. If *NXRefine* is being configured by a system administrator, it is
+   possible to use a system-wide environment variable, ``NX_SERVER``, to
+   to define the path to the server directory. Alternatively, this
+   environment variable could be added to each user's login script.
+
+2. The ``nxserver`` command used to initialize the server directory also
+   adds a hidden file to the user's home directory,
+   ``~/.nxserver/settings.ini``, which contains the server directory
+   path. If the server directory already exists, the command can be run
+   again by other users without affecting the initial directory. In
+   principle, it only needs to be run once by each user, although it
+   could also be added to a login script if preferred.
+
+   .. note:: If the ``NX_SERVER`` environment variable is defined, it 
+             takes precedence over the path in
+             ``~/.nxserver/settings.ini``.
 
 *NXRefine* uses file-based locking to prevent corruption of data files.
 This system is provided by the 
@@ -98,7 +113,7 @@ Here is the structure of the ``nxserver`` directory::
 
     export NX_LOCKDIRECTORY=/path/to/parent/nxserver/locks
     export NX_LOCK=10
-    nxserver -d /path/to/parent/nxserver
+    export NX_SERVER=/path/to/parent/nxserver
 
   Other commands, *e.g.*, to initialize a particular conda environment,
   could be also be added to this file.
@@ -141,14 +156,15 @@ Default Settings
 The file, ``settings.ini`` in the server directory contains the default
 settings for the server, the beamline, and the workflow. These values
 can be changed, either by opening the "Edit Settings" dialog in the
-*NeXpy* "Server" menu or at the command line using ``nxsettings -i``.
-Hitting the [Return] key keeps the current value. 
+*NeXpy* "Server" menu or at the command line using ``nxsettings -i``,
+which lists all the settings one by one, allowing their values to be
+changed. Hitting the [Return] key keeps the current value. 
 
-The right-hand figure shows an example of the first two sections of the
+The figure shows an example of the first two sections of
 ``settings.ini``. The parameters in the first section are described
-here. The other sections contain information concerning the location
-of the data and default values of the data reduction parameters. They
-will be described later.
+here. The other sections contain information concerning the location of
+the data and default values of the data reduction parameters. They will
+be described later.
 
 Server Settings
 ^^^^^^^^^^^^^^^

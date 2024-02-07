@@ -349,3 +349,62 @@ template to be selected when setting up the scan. A separate template
 should be created for each configuration that requires a change in the
 instrument calibration (wavelength, detector distance, detector
 translation) or scan angles.
+
+Calibrate Powder
+----------------
+This dialog will import a TIFF or CBF file containing measurements of a
+powder calibrant and refine the detector position and coordinates, using
+the PyFAI API. Alternatively, if the calibration parameters are already
+available in a PONI file, they can be directly imported. The resulting
+powder data and calbration parameters are then saved to the
+configuration template previously created using the *New Configuration*
+dialog.
+
+.. figure:: /images/calibrate-powder.png
+   :align: center
+   :width: 80%
+
+After launching the dialog, select the entry in the configuration file
+to be calibrated by the powder measurement, *i.e.*, the one with the
+correct wavelength, detector distance and translations. This expands the
+dialog with the default parameters defined by the settings file. The
+checkboxes at the side of each parameter specify whether the parameter
+is to be refined. By default, the wavelength checkbox is de-selected,
+since this is normally defined accurately by other means. It is too
+highly correlated to the detector distance for both to be refined
+simultaneously. 
+
+Then click on "Import Powder Data" to select the powder calibration
+file. This will generate a plot containing the powder data on a log
+scale. Select the approprate powder calibrant from those specified in
+the Calibrant pull-down menu.
+
+To obtain an initial calibration, zoom into this plot to display
+the first few rings.
+
+.. figure:: /images/select-ring.png
+   :align: center
+   :width: 80%
+
+After clicking on "Select Points", click somewhere on the innermost
+ring. This triggers the PyFAI Massif module, which automatically detects
+other points on the Debye-Scherrer ring that are contiguous to the
+selected point. Because of the gaps between detector chips, the Massif
+detection is confined to pixels within a single chip, so it is normally
+necessary to select other points on neighboring chips to complete a
+single ring. In the above ring, four selections, corresponding to the
+brighter red circles, were made.
+
+It is only necessary to do this for a single ring. De-select the "Select
+Points" button and click "Calibrate" to perform an initial calibration.
+After this, it is possible to generate selections of the other rings
+using the "Autogenerate Rings" button. Select how many rings to
+generate, using the ring pull-down menu.
+
+.. figure:: /images/autogenerate-rings.png
+   :align: center
+   :width: 80%
+
+In this example, the pull-down menu was set to "Ring6". When enough
+rings have been defined, click "Calibrate" again to produce a more
+accurate refinement. 
