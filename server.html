@@ -52,15 +52,20 @@ locally using multiple cores or distributed to other nodes. The
 queue manager if one is available.</p>
 <div class="section" id="initial-setup">
 <h2>Initial Setup<a class="headerlink" href="#initial-setup" title="Permalink to this headline">¶</a></h2>
-<p>In order to allow <em>NXRefine</em> to be used on machines with multiple users,
-a common directory is defined to store log files, task queues, and
-settings, which define how the queue is configured and log the results.
-If <em>NXRefine</em> is installed for use by a single user, this directory can
-be in their local home directory.</p>
-<p>The location of the server directory needs to be initialized on the command line by the ‘nxserver’ command:</p>
-<blockquote>
-<div><p>$ nxserver -d /path/to/parent</p>
-</div></blockquote>
+<p>In order to allow <em>NXRefine</em> to be used by multiple users on a single
+machine or cluster, a common directory is defined to store log files,
+task queues, and default settings. The location of this directory should
+be defined immediately after installing <em>NXRefine</em> for the first time.
+Since the files in this directory are modified by <em>NXRefine</em> commands
+that could be run by multiple users, it is recommended that all such
+users are members of the same group. When initialized by a member of
+that group, the files in the server directory have group read/write
+permissions by default.</p>
+<p>The location of the server directory is initialized on the command line
+by the ‘nxserver’ command:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ nxserver -d /path/to/parent
+</pre></div>
+</div>
 <p>This will create a directory at <code class="docutils literal notranslate"><span class="pre">/path/to/parent/nxserver</span></code> containing
 the files that are required by <em>NXRefine</em> server.</p>
 <div class="admonition note">
@@ -68,15 +73,29 @@ the files that are required by <em>NXRefine</em> server.</p>
 <p>If the supplied path already ends in <code class="docutils literal notranslate"><span class="pre">nxserver</span></code>, it will not
 be appended.</p>
 </div>
-<p>All the files in the <code class="docutils literal notranslate"><span class="pre">nxserver</span></code> directory will have group read/write
-permissions to allow them to be updated by multiple users in that group.</p>
-<p>This also adds a hidden file to the home directory, in
-<code class="docutils literal notranslate"><span class="pre">~/.nxserver/settings.ini</span></code> containing the path to the server
-directory, so that the server path can be read in future login sessions.
-Each user should then issue the same command to store the server
-directory in their own home directory. If the server directory already
-exists, it is not touched. In principle, this only needs to be run once,
-although it could also be added to a login script.</p>
+<p>Once the server directory has been initialized, it is necessary for its
+location to be defined for other users. This can be done in one of two
+ways.</p>
+<ol class="arabic">
+<li><p>If <em>NXRefine</em> is being configured by a system administrator, it is
+possible to use a system-wide environment variable, <code class="docutils literal notranslate"><span class="pre">NX_SERVER</span></code>, to
+to define the path to the server directory. Alternatively, this
+environment variable could be added to each user’s login script.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">nxserver</span></code> command used to initialize the server directory also
+adds a hidden file to the user’s home directory,
+<code class="docutils literal notranslate"><span class="pre">~/.nxserver/settings.ini</span></code>, which contains the server directory
+path. If the server directory already exists, the command can be run
+again by other users without affecting the initial directory. In
+principle, it only needs to be run once by each user, although it
+could also be added to a login script if preferred.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If the <code class="docutils literal notranslate"><span class="pre">NX_SERVER</span></code> environment variable is defined, it
+takes precedence over the path in
+<code class="docutils literal notranslate"><span class="pre">~/.nxserver/settings.ini</span></code>.</p>
+</div>
+</li>
+</ol>
 <p><em>NXRefine</em> uses file-based locking to prevent corruption of data files.
 This system is provided by the
 <a class="reference external" href="https://nexpy.github.io/nexpy/">nexusformat package</a>, which defines
@@ -137,7 +156,7 @@ launch <em>NXRefine</em> workflow jobs (see below). Here is an example of
 what this file could contain.:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">export</span> <span class="n">NX_LOCKDIRECTORY</span><span class="o">=/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">parent</span><span class="o">/</span><span class="n">nxserver</span><span class="o">/</span><span class="n">locks</span>
 <span class="n">export</span> <span class="n">NX_LOCK</span><span class="o">=</span><span class="mi">10</span>
-<span class="n">nxserver</span> <span class="o">-</span><span class="n">d</span> <span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">parent</span><span class="o">/</span><span class="n">nxserver</span>
+<span class="n">export</span> <span class="n">NX_SERVER</span><span class="o">=/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">parent</span><span class="o">/</span><span class="n">nxserver</span>
 </pre></div>
 </div>
 <p>Other commands, <em>e.g.</em>, to initialize a particular conda environment,
@@ -183,13 +202,14 @@ menu in <em>NeXpy</em>.</p>
 <p>The file, <code class="docutils literal notranslate"><span class="pre">settings.ini</span></code> in the server directory contains the default
 settings for the server, the beamline, and the workflow. These values
 can be changed, either by opening the “Edit Settings” dialog in the
-<em>NeXpy</em> “Server” menu or at the command line using <code class="docutils literal notranslate"><span class="pre">nxsettings</span> <span class="pre">-i</span></code>.
-Hitting the [Return] key keeps the current value.</p>
-<p>The right-hand figure shows an example of the first two sections of the
+<em>NeXpy</em> “Server” menu or at the command line using <code class="docutils literal notranslate"><span class="pre">nxsettings</span> <span class="pre">-i</span></code>,
+which lists all the settings one by one, allowing their values to be
+changed. Hitting the [Return] key keeps the current value.</p>
+<p>The figure shows an example of the first two sections of
 <code class="docutils literal notranslate"><span class="pre">settings.ini</span></code>. The parameters in the first section are described
-here. The other sections contain information concerning the location
-of the data and default values of the data reduction parameters. They
-will be described later.</p>
+here. The other sections contain information concerning the location of
+the data and default values of the data reduction parameters. They will
+be described later.</p>
 </div>
 <div class="section" id="server-settings">
 <h3>Server Settings<a class="headerlink" href="#server-settings" title="Permalink to this headline">¶</a></h3>
