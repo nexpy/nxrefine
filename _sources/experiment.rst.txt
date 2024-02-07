@@ -392,7 +392,8 @@ the first few rings.
    :align: center
    :width: 80%
 
-   *Points generated for the innermost ring after selecting four points*
+   *Points generated for the innermost ring after manually selecting
+   four points*
 
 After clicking on "Select Points", click somewhere on the innermost
 ring. This triggers the PyFAI Massif module, which automatically detects
@@ -419,13 +420,16 @@ When enough rings have been defined, click "Calibrate" again to produce
 a more accurate refinement.
 
 The "Plot Cake" button can be used to generate a "cake" plot, in which
-all the powder rings, which are plotted against polar angle, should fall on vertical lines.
+all the powder rings, which are plotted against polar angle, should fall
+on vertical lines. 
 
 .. figure:: /images/cake-plot.png
    :align: center
    :width: 80%
 
-   *Cake Plot*
+   *Cake Plot which allows a comparison of the powder data, plotted as a
+   function of polar angle, with the theoretical powder lines (dotted
+   red lines).*
 
 This can be used to determine whether the calibration is sufficiently
 good over the entire angular range of the detector. If there is evidence
