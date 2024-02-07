@@ -379,6 +379,12 @@ file. This will generate a plot containing the powder data on a log
 scale. Select the approprate powder calibrant from those specified in
 the Calibrant pull-down menu.
 
+If a PONI file already exists from a prior calibration, it can be
+imported using the "Import Calibration" button. If this is sufficiently
+accurate, it is not necessary to perform further calibrations. Instead
+the calibration parameters can be saved to the configuration file by
+clicking on "Save" and the dialog can be closed.
+
 To obtain an initial calibration, zoom into this plot to display
 the first few rings.
 
@@ -397,8 +403,8 @@ brighter red circles, were made.
 
 It is only necessary to do this for a single ring. De-select the "Select
 Points" button and click "Calibrate" to perform an initial calibration.
-After this, it is possible to generate selections of the other rings
-using the "Autogenerate Rings" button. Select how many rings to
+After this, it is possible to generate points automatically on the other
+rings using the "Autogenerate Rings" button. Select how many rings to
 generate, using the ring pull-down menu.
 
 .. figure:: /images/autogenerate-rings.png
@@ -407,4 +413,21 @@ generate, using the ring pull-down menu.
 
 In this example, the pull-down menu was set to "Ring6". When enough
 rings have been defined, click "Calibrate" again to produce a more
-accurate refinement. 
+accurate refinement.
+
+The "Plot Cake" button can be used to generate a "cake" plot, in which
+all the powder rings, which are plotted against polar angle, should fall on vertical lines.
+
+.. figure:: /images/cake-plot.png
+   :align: center
+   :width: 80%
+
+This can be used to determine whether the calibration is sufficiently
+good over the entire angular range of the detector. If there is evidence
+of distortions at higher polar angle, it may be necessary to
+autogenerate more rings before an additional calibration.
+
+When the calibration is satisfactory, click "Save" to save both the
+powder calibration data and parameters to the configuration file. This
+process should be repeated for each entry, after which the dialog can be
+closed.
