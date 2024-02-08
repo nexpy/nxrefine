@@ -160,9 +160,12 @@ is accomplished through a set of matrix operations:</p>
 \frac{\left(\hat{\mathbf{d}}-\hat{\mathbf{x}}\right)}{\lambda}\]</div>
 <p>where</p>
 <div class="math notranslate nohighlight">
-\[\begin{split}\mathbf{d}(x_{p}, y_{p})=\mathcal{D}\mathcal{O}^{-1}_{det}
-\begin{pmatrix}{x_{p}-x_{c}}\\{y_{p}-y_{c}}\\0\end{pmatrix}-\mathcal{G}
-\begin{pmatrix}{x_{s}-l_{sd}}\\{y_{s}}\\{z_{s}}\end{pmatrix}\end{split}\]</div>
+\[\begin{split}\mathbf{d}(x_{p},
+y_{p})=\mathcal{D}\mathcal{O}^{-1}_{det}
+\begin{pmatrix}{x_{p}-x_{c}}\\{y_{p}-y_{c}}\\0\end{pmatrix}-
+\mathcal{G}
+\begin{pmatrix}{x_{s}}\\{y_{s}}\\{z_{s}}\end{pmatrix}-
+\begin{pmatrix}{l_{sd}}\\{0}\\{0}\end{pmatrix}\end{split}\]</div>
 <p>The <span class="math notranslate nohighlight">\(\mathcal{B}\)</span> matrix is defined by the lattice parameters of
 the sample, as described by Busing and Levy in Acta Cryst. <strong>22</strong>, 457
 (1967).  <span class="math notranslate nohighlight">\(\mathcal{G}\)</span> and <span class="math notranslate nohighlight">\(\mathcal{D}\)</span> describe two sets
