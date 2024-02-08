@@ -124,9 +124,12 @@ where
 
 .. math:: 
 
-    \mathbf{d}(x_{p}, y_{p})=\mathcal{D}\mathcal{O}^{-1}_{det}
-    \begin{pmatrix}{x_{p}-x_{c}}\\{y_{p}-y_{c}}\\0\end{pmatrix}-\mathcal{G}
-    \begin{pmatrix}{x_{s}-l_{sd}}\\{y_{s}}\\{z_{s}}\end{pmatrix}
+    \mathbf{d}(x_{p},
+    y_{p})=\mathcal{D}\mathcal{O}^{-1}_{det}
+    \begin{pmatrix}{x_{p}-x_{c}}\\{y_{p}-y_{c}}\\0\end{pmatrix}-
+    \mathcal{G}
+    \begin{pmatrix}{x_{s}}\\{y_{s}}\\{z_{s}}\end{pmatrix}-
+    \begin{pmatrix}{l_{sd}}\\{0}\\{0}\end{pmatrix}
 
 The :math:`\mathcal{B}` matrix is defined by the lattice parameters of
 the sample, as described by Busing and Levy in Acta Cryst. **22**, 457
