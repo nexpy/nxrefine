@@ -31,7 +31,7 @@ class SampleDialog(NXDialog):
         self.sample.add('label', 'label', 'Sample Label')
 
         self.set_layout(self.directorybox('Choose Experiment Directory',
-                                          default=False),
+                                          default=False), 
                         self.sample.grid(header=False),
                         self.action_buttons(('Create Sample Directory',
                                              self.create_sample_directory)),
