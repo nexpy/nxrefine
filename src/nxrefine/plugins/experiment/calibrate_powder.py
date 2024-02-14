@@ -21,6 +21,8 @@ from pyFAI.calibrant import ALL_CALIBRANTS
 from pyFAI.geometryRefinement import GeometryRefinement
 from pyFAI.massif import Massif
 
+from nxrefine.nxutils import detector_flipped
+
 
 def show_dialog():
     try:
@@ -166,7 +168,7 @@ class CalibrateDialog(NXDialog):
     def plot_data(self):
         self.pv.plot(self.data, log=True)
         self.pv.aspect = 'equal'
-        self.pv.ytab.flipped = True
+        self.pv.ytab.flipped = detector_flipped(self.entry)
         self.clear_points()
 
     def on_button_press(self, event):
