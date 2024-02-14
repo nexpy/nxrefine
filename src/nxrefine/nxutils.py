@@ -341,7 +341,7 @@ def parse_orientation(orientation):
 
     Parameters
     ----------
-    orientation : str or array_like
+    orientation : NXfield, str or array_like
         The description of the orientation as a string or a 3x3 array. 
 
     Returns
@@ -355,6 +355,8 @@ def parse_orientation(orientation):
         Invalid input value describing the orientation.
     """    
     try:
+        if isinstance(orientation, NXfield):
+            orientation = orientation.nxvalue
         if isinstance(orientation, str):
             _omat = np.zeros((3, 3), dtype=int)
             i = 0
@@ -374,6 +376,40 @@ def parse_orientation(orientation):
             return np.matrix(orientation)
     except Exception:
         raise NeXusError('Invalid detector orientation')
+
+
+def detector_flipped(entry):
+    """Return True if the y-axis is flipped.
+    
+    If images from the detector have their origin in the top-left
+    corner, their y-axis needs to be flipped in order to view the
+    physical geometry of the detector.
+    
+    Note
+    ----
+    The detector orientation has only recently been specified in the
+    NXRefine module. Before this, all the images were assumed to be
+    flipped.
+
+    Parameters
+    ----------
+    entry : NXentry
+        The NeXus entry group containing the detector information
+
+    Returns
+    -------
+    bool
+        True if the detector is flipped along the y-axis.
+    """    
+    if 'detector_orientation' in entry['instrument/detector']:
+        omat = np.array(parse_orientation(
+            self.entry['instrument/detector/detector_orientation']))
+        if omat[1][2] == -1:
+            return True
+        else:
+            return False
+    else:
+        return True
 
 
 class SpecParser:
