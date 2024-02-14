@@ -403,7 +403,7 @@ def detector_flipped(entry):
     """    
     if 'detector_orientation' in entry['instrument/detector']:
         omat = np.array(parse_orientation(
-            self.entry['instrument/detector/detector_orientation']))
+            entry['instrument/detector/detector_orientation']))
         if omat[1][2] == -1:
             return True
         else:
