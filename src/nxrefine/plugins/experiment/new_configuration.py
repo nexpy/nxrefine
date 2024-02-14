@@ -13,9 +13,10 @@ from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.utils import report_error
 from nexusformat.nexus import (NXdetector, NXentry, NXfield, NXgoniometer,
                                NXinstrument, NXmonochromator, NXparameters,
-                               NXsource, NXroot)
-from nxrefine.nxsettings import NXSettings
+                               NXroot, NXsource)
 from pyFAI.detectors import ALL_DETECTORS
+
+from nxrefine.nxsettings import NXSettings
 
 
 def show_dialog():
