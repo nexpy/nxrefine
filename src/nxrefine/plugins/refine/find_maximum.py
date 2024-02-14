@@ -15,7 +15,9 @@ from nexpy.gui.utils import (confirm_action, display_message, is_file_locked,
 from nexpy.gui.widgets import NXCheckBox, NXLabel
 from nexusformat.nexus import (NeXusError, NXdata, NXfield, NXinstrument,
                                NXsample)
+
 from nxrefine.nxreduce import NXReduce
+from nxrefine.nxutils import detector_flipped
 
 
 def show_dialog():
@@ -215,7 +217,7 @@ class MaximumDialog(NXDialog):
                                          name='x')),
                                 title='Summed Data'), log=True)
             self.pv.aspect = 'equal'
-            self.pv.ytab.flipped = True
+            self.pv.ytab.flipped = detector_flipped(self.entry)
         else:
             display_message('Summed_data not available')
 
@@ -257,7 +259,7 @@ class MaximumDialog(NXDialog):
                                      name='x')),
                             title='Transmission Mask'))
         self.pv.aspect = 'equal'
-        self.pv.ytab.flipped = True
+        self.pv.ytab.flipped = detector_flipped(self.entry)
 
     def calculate_transmission(self):
         self.reduce.partial_frames = self.partial_frames

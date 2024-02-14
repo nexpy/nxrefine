@@ -15,6 +15,8 @@ from nexpy.gui.utils import load_image, report_error
 from nexpy.gui.widgets import NXcircle, NXrectangle
 from nexusformat.nexus import NeXusError, NXdata, NXfield
 
+from nxrefine.nxutils import detector_flipped
+
 
 def show_dialog():
     try:
@@ -103,7 +105,7 @@ class MaskDialog(NXDialog):
             self.pv.plot(NXdata(self.mask, axes=self.data.nxaxes,
                                 title=self.title))
         self.pv.aspect = 'equal'
-        self.pv.ytab.flipped = True
+        self.pv.ytab.flipped = detector_flipped(self.entry)
         self.pv.draw()
 
     def plot_limits(self):
