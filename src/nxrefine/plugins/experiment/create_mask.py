@@ -5,7 +5,7 @@
 #
 # The full license is in the file COPYING, distributed with this software.
 # -----------------------------------------------------------------------------
-import os
+from pathlib import Path
 
 import numpy as np
 from nexpy.gui.datadialogs import GridParameters, NXDialog
@@ -43,7 +43,7 @@ class MaskDialog(NXDialog):
     def choose_entry(self):
         if self.layout.count() == 2:
             self.shape_box = self.select_box(['Rectangle', 'Circle'])
-            self.shape_choice = self.select_box([])
+            self.shape_choice = self.select_box([], slot=self.edit_shape)
             self.insert_layout(1,
                                self.action_buttons(
                                    ('Import Mask', self.import_mask),
@@ -53,9 +53,7 @@ class MaskDialog(NXDialog):
                                    self.action_buttons(
                                        ('Add Shape', self.add_shape)),
                                    self.shape_box))
-            self.pushbutton['Add Shape'].setCheckable(True)
         self.pixel_mask = self.entry['instrument/detector/pixel_mask'].nxvalue
-        self.shape = self.pixel_mask.shape
         self.load_calibration()
         self.plot_data()
         self.activate()
@@ -67,16 +65,17 @@ class MaskDialog(NXDialog):
             self.xc = self.entry['instrument/detector/beam_center_x'].nxvalue
             self.yc = self.entry['instrument/detector/beam_center_y'].nxvalue
         else:
-            self.counts = np.zeros(self.shape)
-            x = NXfield(np.arange(self.shape[1], dtype=int), name='x')
-            y = NXfield(np.arange(self.shape[0], dtype=int), name='y')
+            self.counts = np.zeros(self.pixel_mask.shape)
+            x = NXfield(np.arange(self.counts.shape[1], dtype=int), name='x')
+            y = NXfield(np.arange(self.counts.shape[0], dtype=int), name='y')
             z = NXfield(self.counts, name='z')
             self.data = NXdata(z, (y, x))
-            self.xc, self.yc = self.shape[1] / 2, self.shape[0] / 2
+            self.xc = self.counts.shape[1] / 2
+            self.yc = self.counts.shape[0] / 2
 
     def import_mask(self):
         mask_file = getOpenFileName(self, 'Open Mask File')
-        if os.path.exists(mask_file):
+        if Path(mask_file).exists():
             self.pixel_mask = load_image(mask_file).nxsignal.nxvalue
 
     @property
@@ -86,6 +85,11 @@ class MaskDialog(NXDialog):
         except Exception:
             return NXPlotView('Mask Editor')
 
+    @property
+    def title(self):
+        return '/'.join([self.entry.nxroot.nxname+self.entry.nxpath,
+                         'instrument/detector/pixel_mask'])
+
     def plot_data(self):
         self.create_mask()
         if self.counts.max() > 0.0:
@@ -93,9 +97,11 @@ class MaskDialog(NXDialog):
             idx = np.where(self.mask == 0)
             mask[idx] = 0.5 * self.counts[idx] / self.counts.max()
             mask += self.mask
-            self.pv.plot(NXdata(mask, axes=self.data.nxaxes), log=True)
+            self.pv.plot(NXdata(mask, axes=self.data.nxaxes, title=self.title),
+                         log=True)
         else:
-            self.pv.plot(NXdata(self.mask, axes=self.data.nxaxes))
+            self.pv.plot(NXdata(self.mask, axes=self.data.nxaxes,
+                                title=self.title))
         self.pv.aspect = 'equal'
         self.pv.ytab.flipped = True
         self.pv.draw()
@@ -104,47 +110,58 @@ class MaskDialog(NXDialog):
         return self.pv.xaxis.get_limits() + self.pv.yaxis.get_limits()
 
     def add_shape(self):
-        if self.pushbutton['Add Shape'].isChecked():
-            if self.shape_box.currentText() == 'Rectangle':
-                self.shape = MaskRectangle(self.xc-50, self.yc-50, 100, 100,
-                                           parent=self,
-                                           border_tol=0.1,
-                                           plotview=self.pv,
-                                           resize=True, facecolor='r',
-                                           edgecolor='k',
-                                           linewidth=1, alpha=0.3)
-            else:
-                self.shape = MaskCircle(self.xc, self.yc, 50,
-                                        parent=self,
-                                        border_tol=0.1,
-                                        plotview=self.pv, resize=True,
-                                        facecolor='r', edgecolor='k',
-                                        linewidth=1, alpha=0.3)
-            self.shape.label = repr(self.shape)
-            self.shape.connect()
-            self.shape_grid = self.shape_options(self.shape)
-            self.pv.draw()
-            if len(self.shapes) == 0:
-                self.insert_layout(3, self.shape_choice)
-                self.shape_choice.setVisible(False)
-                self.insert_layout(4, self.shape_grid)
-                self.insert_layout(5,self.action_buttons(('Remove Shape',
-                                                          self.remove_shape)))
-            else:
-                self.insert_layout(4, self.shape_grid)
-            self.pushbutton['Add Shape'].setText('Save Shape')
+        if self.shape is not None:
+            self.save_shape()
+        if self.shape_box.currentText() == 'Rectangle':
+            self.shape = MaskRectangle(self.xc-50, self.yc-50, 100, 100,
+                                       parent=self,
+                                       border_tol=0.1,
+                                       plotview=self.pv,
+                                       resize=True, facecolor='r',
+                                       edgecolor='k',
+                                       linewidth=1, alpha=0.3)
         else:
-            self.shape.label = repr(self.shape)
-            self.shapes.append(self.shape)
-            self.pv.shapes.append(self.shapes)
-            self.shape_choice.addItem(self.shape.label)
-            self.shape_choice.setVisible(True)
-            xmin, xmax, ymin, ymax = self.plot_limits()
-            self.plot_data()
-            self.pv.set_plot_limits(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
-            self.pv.otab.zoom()
-            self.delete_grid(self.shape_grid)
-            self.pushbutton['Add Shape'].setText('Add Shape')
+            self.shape = MaskCircle(self.xc, self.yc, 50,
+                                    parent=self,
+                                    border_tol=0.1,
+                                    plotview=self.pv, resize=True,
+                                    facecolor='r', edgecolor='k',
+                                    linewidth=1, alpha=0.3)
+        self.shape.connect()
+        self.pv.draw()
+        self.shapes.append(self.shape)
+        if self.layout.count() == 4:
+            self.shape_grid = self.shape_options(self.shape)
+            self.insert_layout(3, self.shape_choice)
+            self.insert_layout(4, self.shape_grid)
+            self.insert_layout(5, self.action_buttons(
+                ('Save Shape', self.save_shape),
+                ('Remove Shape', self.remove_shape)))
+        self.shape_choice.add(repr(self.shape))
+        self.shape_choice.select(repr(self.shape))
+        self.edit_shape()
+
+    def edit_shape(self):
+        current_shape = self.shape_choice.selected
+        for shape in list(self.shapes):
+            if current_shape == repr(shape):
+                try:
+                    self.delete_grid(self.shape_grid)
+                except Exception:
+                    pass
+                self.shape = shape
+                self.shape_choice.setVisible(True)
+                self.pushbutton['Save Shape'].setVisible(True)
+                self.pushbutton['Remove Shape'].setVisible(True)
+                self.shape_grid = self.shape_options(self.shape)
+                self.insert_layout(4, self.shape_grid)        
+
+    def save_shape(self):
+        self.pv.shapes.append(self.shapes)
+        xmin, xmax, ymin, ymax = self.plot_limits()
+        self.plot_data()
+        self.pv.set_plot_limits(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
+        self.pv.otab.zoom()
 
     def remove_shape(self):
         current_shape = self.shape_choice.selected
@@ -152,11 +169,15 @@ class MaskDialog(NXDialog):
             if current_shape == repr(shape):
                 self.shapes.remove(shape)
                 self.shape_choice.remove(current_shape)
+        self.save_shape()
         if len(self.shapes) == 0:
             self.shape_choice.setVisible(False)
-        xmin, xmax, ymin, ymax = self.plot_limits()
-        self.plot_data()
-        self.pv.set_plot_limits(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
+            self.pushbutton['Save Shape'].setVisible(False)
+            self.pushbutton['Remove Shape'].setVisible(False)
+            try:
+                self.delete_grid(self.shape_grid)
+            except Exception:
+                pass
 
     def change_shape(self):
         if isinstance(self.shape, NXrectangle):
@@ -171,25 +192,25 @@ class MaskDialog(NXDialog):
             self.shape.set_center(x, y)
             r = abs(self.parameters[self.shape]['r'].value)
             self.shape.set_radius(r)
-        self.update_shape()
+        self.update_shape(self.shape)
 
-    def update_shape(self):
-        if isinstance(self.shape, NXrectangle):
-            x, y = self.shape.xy
-            w, h = self.shape.width, self.shape.height
-            self.parameters[self.shape]['x'].value = x
-            self.parameters[self.shape]['y'].value = y
-            self.parameters[self.shape]['w'].value = w
-            self.parameters[self.shape]['h'].value = h
+    def update_shape(self, shape):
+        if isinstance(shape, NXrectangle):
+            x, y = shape.xy
+            w, h = shape.width, shape.height
+            self.parameters[shape]['x'].value = x
+            self.parameters[shape]['y'].value = y
+            self.parameters[shape]['w'].value = w
+            self.parameters[shape]['h'].value = h
         else:
-            x, y = self.shape.center
-            r = abs(self.shape.width) / 2
-            self.parameters[self.shape]['x'].value = x
-            self.parameters[self.shape]['y'].value = y
-            self.parameters[self.shape]['r'].value = r
-        self.shape.label = repr(self.shape)
+            x, y = shape.center
+            r = abs(shape.width) / 2
+            self.parameters[shape]['x'].value = x
+            self.parameters[shape]['y'].value = y
+            self.parameters[shape]['r'].value = r
         self.shape_choice.setItemText(
-            self.shape_choice.findText(self.shape.label), repr(self.shape))               
+            self.shape_choice.findText(shape.label), repr(shape))               
+        shape.label = repr(shape)
 
     def shape_options(self, shape):
         p = self.parameters[shape] = GridParameters()
@@ -256,10 +277,11 @@ class MaskRectangle(NXrectangle):
         self.parent = kwargs['parent']
         del kwargs['parent']
         super().__init__(x, y, dx, dy, **kwargs)
+        self.label = repr(self)
 
     def update(self, x, y):
         super().update(x, y)
-        self.parent.update_shape()
+        self.parent.update_shape(self)
 
 
 class MaskCircle(NXcircle):
@@ -268,7 +290,8 @@ class MaskCircle(NXcircle):
         self.parent = kwargs['parent']
         del kwargs['parent']
         super().__init__(x, y, r, **kwargs)
+        self.label = repr(self)
 
     def update(self, x, y):
         super().update(x, y)
-        self.parent.update_shape()
+        self.parent.update_shape(self)
