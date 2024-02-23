@@ -151,6 +151,8 @@ Here is the structure of the ``nxserver`` directory::
    :width: 90%
    :figwidth: 50%
 
+.. _default_settings:
+
 Default Settings
 ^^^^^^^^^^^^^^^^
 The file, ``settings.ini`` in the server directory contains the default
