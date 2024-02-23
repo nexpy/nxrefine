@@ -25,7 +25,7 @@ NeXpy              https://github.com/nexpy/nexpy/
 cctbx-base         https://cci.lbl.gov/cctbx_docs/
 pyfai              https://pyfai.readthedocs.io/
 sqlalchemy         https://docs.sqlalchemy.org/
-psutil             https://psutil.readthedocs.io/.io/
+psutil             https://psutil.readthedocs.io/
 persist-queue      https://github.com/peter-wangxu/persist-queue
 =================  =================================================
 
