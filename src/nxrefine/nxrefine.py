@@ -295,12 +295,13 @@ class NXRefine:
             self.entry = entry
         with self.entry.nxfile:
             self.name = self.entry.nxroot.nxname + "/" + self.entry.nxname
-            if 'unit_cell' in self.entry['sample']:
+            if 'sample' in self.entry and 'unit_cell' in self.entry['sample']:
                 lattice_parameters = self.read_parameter('sample/unit_cell')
                 if lattice_parameters is not None:
                     self.a, self.b, self.c = lattice_parameters[:3]
                     self.alpha, self.beta, self.gamma = lattice_parameters[3:]
-            elif 'unit_cell_abc' in self.entry['sample']:
+            elif ('sample' in self.entry
+                  and 'unit_cell_abc' in self.entry['sample']):
                 lattice_parameters = self.read_parameter(
                     'sample/unit_cell_abc')
                 if lattice_parameters is not None:
