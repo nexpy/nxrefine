@@ -1741,23 +1741,24 @@ class NXReduce(QtCore.QObject):
             self.logger.info(
                 f"Adding {self.entry_name} monitors in "
                 f"'{reduce.wrapper_file}'")
+            monitors = []
             if i == 0:
-                monitor1 = reduce.entry['monitor1/MCS1'].nxvalue
-                monitor2 = reduce.entry['monitor2/MCS2'].nxvalue
+                for monitor in reduce.entry.NXmonitor:
+                    monitors.append(monitor.nxsignal.nxvalue)
                 if 'monitor_weight' not in reduce.entry['data']:
                     reduce.get_normalization()
                 monitor_weight = reduce.entry['data/monitor_weight'].nxvalue
                 if os.path.exists(reduce.mask_file):
                     shutil.copyfile(reduce.mask_file, self.mask_file)
             else:
-                monitor1 += reduce.entry['monitor1/MCS1'].nxvalue
-                monitor2 += reduce.entry['monitor2/MCS2'].nxvalue
+                for i, monitor in enumerate(reduce.entry.NXmonitor):
+                    monitors[i] += monitor.nxsignal.nxvalue
                 if 'monitor_weight' not in reduce.entry['data']:
                     reduce.get_normalization()
                 monitor_weight += reduce.entry['data/monitor_weight'].nxvalue
         with self:
-            self.entry['monitor1/MCS1'] = monitor1
-            self.entry['monitor2/MCS2'] = monitor2
+            for i, monitor in enumerate(self.entry.NXmonitor):
+                self.entry[monitor.nxname].nxsignal = monitors[i]
             self.entry['data/monitor_weight'] = monitor_weight
 
     def nxreduce(self):
