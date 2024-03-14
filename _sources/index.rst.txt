@@ -3,6 +3,11 @@
 
 NXRefine
 ========
+.. figure:: /images/nxrefine-index-image.png
+   :align: right
+   :width: 100%
+   :figwidth: 40%
+
 Recent advances in synchrotron x-ray instrumentation have enabled the
 rapid acquisition of x-ray diffraction data from single crystals,
 allowing large contiguous volumes of scattering in reciprocal space to

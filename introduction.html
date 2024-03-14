@@ -82,7 +82,7 @@ reduces the data independently for each rotation scan before merging
 them to create a single 3D data volume.</p>
 <div class="figure align-center" id="id1">
 <a class="reference internal image-reference" href="_images/experimental-geometry.png"><img alt="_images/experimental-geometry.png" src="_images/experimental-geometry.png" style="width: 80%;" /></a>
-<p class="caption"><span class="caption-text"><em>Example of the eperimental geometry used in NXRefine, with the
+<p class="caption"><span class="caption-text"><em>Example of the experimental geometry used in NXRefine, with the
 Φ-axis horizontal (χ = -90°).</em></span><a class="headerlink" href="#id1" title="Permalink to this image">¶</a></p>
 </div>
 <p>The sample is at the center of a χ-circle, which can be rotated about
@@ -141,13 +141,11 @@ and +Z<sub>det</sub> = -X<sub>lab</sub></div>
 <p>To transform data collected in this experimental geometry, it is
 necessary to determine an orientation matrix using Bragg peaks measured
 in the course of the sample rotation. With high-energy x-rays, the area
-detector covers reciprocal space volumes that can exceed
-10×10×10Å<sup>3</sup>. Depending on the size of the crystal unit cell,
-such volumes contain hundreds, if not thousands, of Brillouin Zones.
-<em>NXRefine</em> has a peak-search algorithm for identifying all the peaks
-above a certain intensity threshold, which are then used to generate an
-orientation matrix, <span class="math notranslate nohighlight">\(\mathcal{U}\)</span>, which is refined using the
-positions of a large number of Bragg peaks.</p>
+detector covers reciprocal space volumes that can exceed 10×10×10Å<sup>-3</sup>. Depending on the size of the crystal unit cell, such volumes
+contain hundreds, if not thousands, of Brillouin Zones. <em>NXRefine</em> has a
+peak-search algorithm for identifying all the peaks above a certain
+intensity threshold. These peaks are then used to generate and then
+refine an orientation matrix, <span class="math notranslate nohighlight">\(\mathcal{U}\)</span>.</p>
 <p>Each Bragg peak is defined by its coordinates on the detector,
 <span class="math notranslate nohighlight">\(x_p\)</span> and <span class="math notranslate nohighlight">\(y_p\)</span>, and the goniometer angles <span class="math notranslate nohighlight">\(\theta\)</span>,
 <span class="math notranslate nohighlight">\(\omega\)</span>, <span class="math notranslate nohighlight">\(\chi\)</span>, and <span class="math notranslate nohighlight">\(\phi\)</span> of the diffractometer
@@ -226,8 +224,8 @@ selected, they are used to produce an initial estimate of
 number of peaks are used to refine both the instrumental and sample
 parameters in order to minimize discrepancies between the calculated and
 measured peak positions, allowing <span class="math notranslate nohighlight">\(\mathcal{U}\)</span> to be optimized.
-If too few peaks are assigned by the initial peak selection, it is
-necessary to select different peaks.</p>
+If few peaks are assigned with reasonable accuracy by the selection of
+the initial two peaks, it is necessary to select two different peaks.</p>
 <p>The refinement process, along with the tools that <em>NXRefine</em> provide to
 facilitate peak assignments, are described in a later section.</p>
 </div>
