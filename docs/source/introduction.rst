@@ -45,7 +45,7 @@ them to create a single 3D data volume.
    :align: center
    :width: 80%
 
-   *Example of the eperimental geometry used in NXRefine, with the
+   *Example of the experimental geometry used in NXRefine, with the
    Φ-axis horizontal (χ = -90°).* 
 
 The sample is at the center of a χ-circle, which can be rotated about
@@ -99,13 +99,12 @@ Sample Orientation
 To transform data collected in this experimental geometry, it is
 necessary to determine an orientation matrix using Bragg peaks measured
 in the course of the sample rotation. With high-energy x-rays, the area
-detector covers reciprocal space volumes that can exceed
-10×10×10Å\ :sup:`3`. Depending on the size of the crystal unit cell,
-such volumes contain hundreds, if not thousands, of Brillouin Zones.
-*NXRefine* has a peak-search algorithm for identifying all the peaks
-above a certain intensity threshold, which are then used to generate an
-orientation matrix, :math:`\mathcal{U}`, which is refined using the
-positions of a large number of Bragg peaks.
+detector covers reciprocal space volumes that can exceed 10×10×10Å\
+:sup:`-3`. Depending on the size of the crystal unit cell, such volumes
+contain hundreds, if not thousands, of Brillouin Zones. *NXRefine* has a
+peak-search algorithm for identifying all the peaks above a certain
+intensity threshold. These peaks are then used to generate and then
+refine an orientation matrix, :math:`\mathcal{U}`.
 
 Each Bragg peak is defined by its coordinates on the detector,
 :math:`x_p` and :math:`y_p`, and the goniometer angles :math:`\theta`,
@@ -203,8 +202,8 @@ selected, they are used to produce an initial estimate of
 number of peaks are used to refine both the instrumental and sample
 parameters in order to minimize discrepancies between the calculated and
 measured peak positions, allowing :math:`\mathcal{U}` to be optimized.
-If too few peaks are assigned by the initial peak selection, it is
-necessary to select different peaks. 
+If few peaks are assigned with reasonable accuracy by the selection of
+the initial two peaks, it is necessary to select two different peaks. 
 
 The refinement process, along with the tools that *NXRefine* provide to
 facilitate peak assignments, are described in a later section.
