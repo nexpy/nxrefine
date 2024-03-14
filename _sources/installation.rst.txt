@@ -22,6 +22,7 @@ The following packages are listed as dependencies.
 Library            URL
 =================  =================================================
 NeXpy              https://github.com/nexpy/nexpy/
+nexusformat        https://github.com/nexpy/nexusformat/
 cctbx-base         https://cci.lbl.gov/cctbx_docs/
 pyfai              https://pyfai.readthedocs.io/
 sqlalchemy         https://docs.sqlalchemy.org/
