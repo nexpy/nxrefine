@@ -123,9 +123,6 @@ class WorkflowDialog(NXDialog):
         reduce = NXMultiReduce(self.get_scan(self.get_filename()),
                                overwrite=True)
         reduce.make_parent()
-        self.db.update_file(reduce.wrapper_file)
-        if self.parent_file:
-            self.db.update_file(self.parent_file)
         self.parent_file = reduce.wrapper_file
         self.filename.setText(os.path.basename(self.parent_file))
         self.update()

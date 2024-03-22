@@ -7,9 +7,9 @@
 # -----------------------------------------------------------------------------
 
 from nexpy.gui.datadialogs import GridParameters, NXDialog
-from nexpy.gui.utils import report_error
+from nexpy.gui.utils import confirm_action, report_error
 from nexusformat.nexus import NeXusError, NXparameters
-from nxrefine.nxreduce import NXReduce
+from nxrefine.nxreduce import NXMultiReduce, NXReduce
 from nxrefine.nxsettings import NXSettings
 
 
@@ -56,6 +56,8 @@ class ParametersDialog(NXDialog):
                         for entry in self.root if entry[-1].isdigit()]
         if self.layout.count() == 2:
             self.layout.insertLayout(1, self.parameters.grid(header=False))
+            self.layout.insertLayout(2, 
+                self.checkboxes(('parent', 'Set As Parent', False)))
         self.read_parameters()
 
     def read_parameters(self):
@@ -163,9 +165,22 @@ class ParametersDialog(NXDialog):
     def radius(self):
         return float(self.parameters['radius'].value)
 
+    def make_parent(self):
+        from pathlib import Path
+        scan_file = Path(self.root.nxfilename)
+        sample = scan_file.stem[:scan_file.stem.rindex('_')] 
+        directory = str(scan_file.parent.joinpath(
+            scan_file.stem.replace(sample+'_', '')))
+        reduce = NXMultiReduce(directory, overwrite=True)
+        reduce.make_parent()
+
     def accept(self):
         try:
             self.write_parameters()
+            if self.checkbox['parent'].isChecked():
+                if self.confirm_action(
+                    f"Set '{self.root.nxfilename}' as parent", answer='yes'):
+                    self.make_parent()
             super().accept()
         except NeXusError as error:
             report_error("Choosing Parameters", error)

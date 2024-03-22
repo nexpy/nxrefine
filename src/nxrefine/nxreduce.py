@@ -513,11 +513,13 @@ class NXReduce(QtCore.QObject):
         elif os.path.exists(self.parent_file):
             if self.overwrite:
                 os.remove(self.parent_file)
+                self.db.update_file(os.path.realpath(self.parent_file))
             else:
                 raise NeXusError(f"'{os.path.realpath(self.parent_file)}' "
                                  "already set as parent")
         self.record_start('nxcopy')
         os.symlink(os.path.basename(self.wrapper_file), self.parent_file)
+        self.db.update_file(self.wrapper_file)
         self.record('nxcopy', parent=self.wrapper_file)
         self.record_end('nxcopy')
         self._parent = None
