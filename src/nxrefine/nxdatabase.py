@@ -601,5 +601,9 @@ class NXDatabase:
         filepath = self.get_filepath(filename)
         sample_dir = filepath.parent
         sample = sample_dir.parent.name
-        parent_file = Path(sample_dir).joinpath(sample + '_parent.nxs')
-        return filepath == parent_file
+        try:
+            parent_file = Path(sample_dir).joinpath(
+                sample + '_parent.nxs').resolve(strict=True)
+            return filepath == parent_file
+        except FileNotFoundError:
+            return False
