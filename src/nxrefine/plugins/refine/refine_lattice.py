@@ -622,7 +622,6 @@ class RefineLatticeDialog(NXDialog):
             self.close_peaks_box()
             self.list_peaks()
         self.transfer_parameters()
-        self.refine.hkl_tolerance = self.get_hkl_tolerance()
         self.table_model.peak_list = self.refine.get_peaks()
         self.refine.assign_rings()
         self.ring_list = self.refine.get_ring_list()
