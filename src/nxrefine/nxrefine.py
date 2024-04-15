@@ -9,6 +9,7 @@
 import os
 
 import numpy as np
+import numpy.ma as ma
 from nexusformat.nexus import (NeXusError, NXdata, NXdetector, NXentry,
                                NXfield, NXgoniometer, NXgroup, NXinstrument,
                                NXlink, NXmonochromator, NXroot, NXsample)
@@ -194,13 +195,13 @@ class NXRefine:
         self.intensity = None
         self.pixel_size = 0.1
         self.shape = [1679, 1475]
-        self.polar_max = None
+        self._polar_max = 10.0
         self.Umat = None
         self.primary = None
         self.secondary = None
         self.polar_tolerance = 0.1
         self.peak_tolerance = 5.0
-        self.hkl_tolerance = 0.05
+        self._hkl_tolerance = 0.05
         self.output_chunks = None
         self.grid_origin = None
         self.grid_basis = None
@@ -402,15 +403,25 @@ class NXRefine:
                 'instrument/detector/orientation_matrix')
             if isinstance(self.polar_angle, np.ndarray):
                 try:
-                    self.set_polar_max(np.sort(self.polar_angle)[200] + 0.1)
+                    self.polar_max = np.sort(self.polar_angle)[200] + 0.1
                 except IndexError:
-                    self.set_polar_max(self.polar_angle.max())
+                    self.polar_max = self.polar_angle.max()
             else:
-                self.set_polar_max(10.0)
+                self.polar_max = 10.0
             self.Qh = self.read_parameter('transform/Qh')
             self.Qk = self.read_parameter('transform/Qk')
             self.Ql = self.read_parameter('transform/Ql')
             self.initialize_peaks()
+
+    def initialize_peaks(self):
+        try:
+            peaks = list(zip(self.xp,  self.yp, self.zp, self.intensity))
+            self.peaks = dict(zip(range(len(peaks)),
+                                  [NXPeak(*p, parent=self) for p in peaks]))
+            self.initialize_idx()
+        except Exception:
+            self.peaks = None
+            self._idx = None
 
     def write_parameter(self, path, value, attr=None):
         """Write a value to the NeXus object defined by its path.
@@ -740,14 +751,6 @@ class NXRefine:
             self.write_parameter('peaks/polar_angle', polar_angles)
             self.write_parameter('peaks/azimuthal_angle', azimuthal_angles)
 
-    def initialize_peaks(self):
-        try:
-            peaks = list(zip(self.xp,  self.yp, self.zp, self.intensity))
-            self.peaks = dict(zip(range(len(peaks)),
-                                  [NXPeak(*p, parent=self) for p in peaks]))
-        except Exception:
-            self.peaks = None
-
     def stepsize(self, value):
         import math
         stepsizes = np.array([1, 2, 5, 10])
@@ -927,7 +930,12 @@ class NXRefine:
         else:
             return 'triclinic'
 
-    def set_polar_max(self, polar_max):
+    @property
+    def polar_max(self):
+        return self._polar_max
+
+    @polar_max.setter
+    def polar_max(self, polar_max):
         """Set the maximum polar angle to be used in calculations.
 
         Parameters
@@ -947,8 +955,24 @@ class NXRefine:
                     self.y.append(self.yp[i])
         except Exception:
             pass
-        self.polar_max = polar_max
-        self._idx = None
+        self._polar_max = polar_max
+        self.initialize_idx()
+
+    @property
+    def hkl_tolerance(self):
+        return self._hkl_tolerance
+
+    @hkl_tolerance.setter
+    def hkl_tolerance(self, hkl_tolerance):
+        """Set the HKL tolerance to be used in refinements.
+
+        Parameters
+        ----------
+        hkl_tolerance : float
+            Tolerance for calculated Q in Ang-1.
+        """
+        self._hkl_tolerance = hkl_tolerance
+        self.initialize_idx()
 
     @property
     def lattice_parameters(self):
@@ -1577,8 +1601,7 @@ class NXRefine:
 
     def score(self):
         """Return the goodness of fit of the calculated peak positions."""
-        self.set_idx()
-        if self.idx:
+        if self.idx is not None:
             diffs = self.diffs()
             weights = self.weights
             return np.sum(weights * diffs) / np.sum(weights)
@@ -1588,16 +1611,20 @@ class NXRefine:
     @property
     def idx(self):
         """List of peaks whose polar angles are less than the maximum."""
-        if self._idx is None:
-            self._idx = list(np.where(self.polar_angle < self.polar_max)[0])
-        return self._idx
+        if self._idx is not None:
+            return self._idx.compressed()
+        else:
+            return None
 
-    def set_idx(self, hkl_tolerance=None):
+    def initialize_idx(self, hkl_tolerance=None):
         """Define the peaks whose positions are within the HKL tolerance."""
-        if hkl_tolerance is None:
-            hkl_tolerance = self.hkl_tolerance
-        _idx = list(np.where(self.polar_angle < self.polar_max)[0])
-        self._idx = [i for i in _idx if self.diff(i) < hkl_tolerance]
+        self._idx = ma.arange(self.npks, dtype=int)
+        self._idx[self.polar_angle>self.polar_max] = ma.masked
+        if hkl_tolerance is not None:
+            self.hkl_tolerance = hkl_tolerance
+        mask = [i for i in self._idx.compressed()
+                if self.diff(i) > self.hkl_tolerance]
+        self._idx[mask] = ma.masked
 
     @property
     def weights(self):
@@ -1751,7 +1778,6 @@ class NXRefine:
         method : str, optional
             LMFIT minimizer method, by default 'leastsq'
         """
-        self.set_idx()
         from lmfit import fit_report, minimize
         if self.Umat is None:
             raise NeXusError('No orientation matrix defined')
@@ -1787,7 +1813,6 @@ class NXRefine:
         method : str, optional
             LMFIT minimizer method, by default 'nelder'
         """
-        self.set_idx()
         from lmfit import fit_report, minimize
         p0 = self.define_parameters(**opts)
         self.result = minimize(self.angle_residuals, p0, method=method)
@@ -1855,7 +1880,6 @@ class NXRefine:
         method : str, optional
             LMFIT minimizer method, by default 'leastsq'
         """
-        self.set_idx()
         from lmfit import fit_report, minimize
         p0 = self.define_orientation_matrix()
         self.result = minimize(self.orient_residuals, p0, method=method)
