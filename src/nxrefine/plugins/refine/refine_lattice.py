@@ -193,10 +193,8 @@ class RefineLatticeDialog(NXDialog):
         self.refine.xs, self.refine.ys, self.refine.zs = (
             self.get_sample_shift())
         self.refine.detector_orientation = self.get_omat()
-        self.refine.polar_max = self.get_polar_max()
         self.refine.polar_tolerance = self.get_polar_tolerance()
         self.refine.peak_tolerance = self.get_peak_tolerance()
-        self.refine.hkl_tolerance = self.get_hkl_tolerance()
 
     def write_parameters(self):
         if self.entry.nxfilemode == 'r':
@@ -423,6 +421,8 @@ class RefineLatticeDialog(NXDialog):
 
     def set_polar_max(self):
         self.refine.polar_max = self.get_polar_max()
+        self.refine.initialize_idx()
+        self.update_table()
 
     def get_polar_tolerance(self):
         return self.parameters['polar_tolerance'].value
@@ -441,6 +441,8 @@ class RefineLatticeDialog(NXDialog):
     def set_hkl_tolerance(self):
         try:
             self.tolerance_box.setText(self.parameters['hkl_tolerance'].value)
+            self.refine.hkl_tolerance = self.get_hkl_tolerance()
+            self.refine.initialize_idx()
             self.update_table()
         except Exception:
             pass
@@ -584,6 +586,7 @@ class RefineLatticeDialog(NXDialog):
                                          orient_button, align='right')
 
         self.table_view = QtWidgets.QTableView()
+        self.table_view.setMinimumWidth(610)
         self.table_model = NXTableModel(self, peak_list, header)
         self.table_view.setModel(self.table_model)
         self.table_view.resizeColumnsToContents()
@@ -795,22 +798,21 @@ class NXTableModel(QtCore.QAbstractTableModel):
         self.header = header
         self.parent = parent
 
-    def rowCount(self, parent):
+    def rowCount(self, parent=QtCore.QModelIndex()):
         return len(self.peak_list)
 
-    def columnCount(self, parent):
+    def columnCount(self, parent=QtCore.QModelIndex()):
         return len(self.peak_list[0])
 
     def data(self, index, role):
+        row, col = index.row(), index.column()
+        peak = int(self.peak_list[row][0])
         if not index.isValid():
             return None
         elif role == QtCore.Qt.ToolTipRole:
-            row, col = index.row(), index.column()
-            peak = self.peak_list[row][0]
             return str(
                 self.parent.ring_list[self.parent.refine.rp[peak]])[1: -1]
         elif role == QtCore.Qt.DisplayRole:
-            row, col = index.row(), index.column()
             value = self.peak_list[row][col]
             if col < 4:
                 return str(value)
@@ -820,11 +822,14 @@ class NXTableModel(QtCore.QAbstractTableModel):
                 return f"{value:.3f}"
             else:
                 return f"{value:.2f}"
+        elif index.column() == 0 and role == QtCore.Qt.CheckStateRole:
+            if self.parent.refine._idx.mask[peak]:
+                return QtCore.Qt.Unchecked
+            else:
+                return QtCore.Qt.Checked
         elif role == QtCore.Qt.TextAlignmentRole:
             return int(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         elif role == QtCore.Qt.BackgroundRole:
-            row, col = index.row(), index.column()
-            peak = self.peak_list[row][0]
             if (peak == self.parent.refine.primary or
                     peak == self.parent.refine.secondary):
                 return QtGui.QColor(QtCore.Qt.lightGray)
@@ -834,11 +839,32 @@ class NXTableModel(QtCore.QAbstractTableModel):
                 return None
         return None
 
+    def setData(self, index, value, role):
+        row = index.row()
+        if not index.isValid():
+            return False
+        elif index.column() == 0 and role == QtCore.Qt.CheckStateRole:
+            i = int(self.peak_list[row][0])
+            if value == QtCore.Qt.Checked:
+                self.parent.refine._idx.mask[i] = False
+            elif value == QtCore.Qt.Unchecked:
+                self.parent.refine._idx.mask[i] = True
+            self.dataChanged.emit(index, index)
+            self.parent.report_score()
+            return True
+        return False
+
     def headerData(self, col, orientation, role):
         if (orientation == QtCore.Qt.Horizontal and
                 role == QtCore.Qt.DisplayRole):
             return self.header[col]
         return None
+
+    def flags(self, index):
+        if index.column() == 0:
+            return super().flags(index) | QtCore.Qt.ItemIsUserCheckable
+        else:
+            return super().flags(index)
 
     def sort(self, col, order):
         """sort table by given column number col"""
