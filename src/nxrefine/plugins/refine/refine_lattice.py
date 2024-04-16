@@ -431,21 +431,21 @@ class RefineLatticeDialog(NXDialog):
         return self.parameters['peak_tolerance'].value
 
     def get_hkl_tolerance(self):
-        try:
-            value = float(self.tolerance_box.text())
-            self.parameters['hkl_tolerance'].value = value
-            return value
-        except Exception:
-            return self.parameters['hkl_tolerance'].value
+        return float(self.parameters['hkl_tolerance'].value)
 
     def set_hkl_tolerance(self):
+        self.refine.hkl_tolerance = self.get_hkl_tolerance()
+        self.update_table()
         try:
-            self.tolerance_box.setText(self.parameters['hkl_tolerance'].value)
-            self.refine.hkl_tolerance = self.get_hkl_tolerance()
-            self.refine.initialize_idx()
-            self.update_table()
+            self.tolerance_box.setText(self.refine.hkl_tolerance)
         except Exception:
             pass
+
+    def read_tolerance_box(self):
+        value = float(self.tolerance_box.text())
+        self.parameters['hkl_tolerance'].value = value
+        self.refine.hkl_tolerance = value
+        self.update_table()
 
     def plot_lattice(self):
         self.transfer_parameters()
@@ -586,11 +586,12 @@ class RefineLatticeDialog(NXDialog):
                                          orient_button, align='right')
 
         self.table_view = QtWidgets.QTableView()
-        self.table_view.setMinimumWidth(610)
         self.table_model = NXTableModel(self, peak_list, header)
         self.table_view.setModel(self.table_model)
         self.table_view.resizeColumnsToContents()
-        self.table_view.horizontalHeader().stretchLastSection()
+        self.table_view.horizontalHeader().resizeSections(
+            QtWidgets.QHeaderView.ResizeToContents)
+        self.table_view.setMinimumWidth(570)
         self.table_view.setSelectionBehavior(
             QtWidgets.QAbstractItemView.SelectRows)
         self.table_view.doubleClicked.connect(self.plot_peak)
@@ -598,7 +599,8 @@ class RefineLatticeDialog(NXDialog):
         self.table_view.sortByColumn(0, QtCore.Qt.AscendingOrder)
         self.status_text = NXLabel(f'Score: {self.refine.score():.4f}')
         self.tolerance_box = NXLineEdit(self.refine.hkl_tolerance, width=80,
-                                        slot=self.update_table, align='right')
+                                        slot=self.read_tolerance_box,
+                                        align='right')
         self.tolerance_box.setMaxLength(5)
         export_button = NXPushButton('Export', self.export_peaks)
         save_button = NXPushButton('Save', self.save_orientation)
@@ -622,7 +624,6 @@ class RefineLatticeDialog(NXDialog):
             self.close_peaks_box()
             self.list_peaks()
         self.transfer_parameters()
-        self.refine.hkl_tolerance = self.get_hkl_tolerance()
         self.table_model.peak_list = self.refine.get_peaks()
         self.refine.assign_rings()
         self.ring_list = self.refine.get_ring_list()
