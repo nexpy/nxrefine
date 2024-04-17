@@ -403,11 +403,11 @@ class NXRefine:
                 'instrument/detector/orientation_matrix')
             if isinstance(self.polar_angle, np.ndarray):
                 try:
-                    self.polar_max = np.sort(self.polar_angle)[200] + 0.1
+                    self._polar_max = np.sort(self.polar_angle)[200] + 0.1
                 except IndexError:
-                    self.polar_max = self.polar_angle.max()
+                    self._polar_max = self.polar_angle.max()
             else:
-                self.polar_max = 10.0
+                self._polar_max = 10.0
             self.Qh = self.read_parameter('transform/Qh')
             self.Qk = self.read_parameter('transform/Qk')
             self.Ql = self.read_parameter('transform/Ql')
@@ -1619,12 +1619,13 @@ class NXRefine:
     def initialize_idx(self, hkl_tolerance=None):
         """Define the peaks whose positions are within the HKL tolerance."""
         self._idx = ma.arange(self.npks, dtype=int)
-        self._idx[self.polar_angle>self.polar_max] = ma.masked
-        if hkl_tolerance is not None:
-            self.hkl_tolerance = hkl_tolerance
-        mask = [i for i in self._idx.compressed()
-                if self.diff(i) > self.hkl_tolerance]
-        self._idx[mask] = ma.masked
+        if self.polar_angle is not None:
+            self._idx[self.polar_angle>self.polar_max] = ma.masked
+            if hkl_tolerance is not None:
+                self._hkl_tolerance = hkl_tolerance
+            mask = [i for i in self._idx.compressed()
+                    if self.diff(i) > self.hkl_tolerance]
+            self._idx[mask] = ma.masked
 
     @property
     def weights(self):
