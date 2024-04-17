@@ -565,7 +565,7 @@ class RefineLatticeDialog(NXDialog):
         self.peaks_box = NXDialog(self)
         self.peaks_box.setMinimumWidth(600)
         self.peaks_box.setMinimumHeight(600)
-        header = ['i', 'x', 'y', 'z', 'Polar', 'Azi', 'Intensity',
+        header = ['Peak', 'x', 'y', 'z', 'Polar', 'Azi', 'Intensity',
                   'H', 'K', 'L', 'Diff']
         peak_list = self.refine.get_peaks()
         self.refine.assign_rings()
@@ -589,9 +589,6 @@ class RefineLatticeDialog(NXDialog):
         self.table_model = NXTableModel(self, peak_list, header)
         self.table_view.setModel(self.table_model)
         self.table_view.resizeColumnsToContents()
-        self.table_view.horizontalHeader().resizeSections(
-            QtWidgets.QHeaderView.ResizeToContents)
-        self.table_view.setMinimumWidth(570)
         self.table_view.setSelectionBehavior(
             QtWidgets.QAbstractItemView.SelectRows)
         self.table_view.doubleClicked.connect(self.plot_peak)
@@ -613,6 +610,7 @@ class RefineLatticeDialog(NXDialog):
         self.peaks_box.set_layout(orient_layout, self.table_view, close_layout)
         self.peaks_box.set_title(f'{self.refine.name} Peak Table')
         self.peaks_box.adjustSize()
+        self.peaks_box.setMinimumWidth(self.peaks_box.width()+10)
         self.peaks_box.show()
         self.peakview = None
         self.report_score()
