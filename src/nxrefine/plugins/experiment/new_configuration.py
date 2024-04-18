@@ -130,7 +130,7 @@ class ConfigurationDialog(NXDialog):
                           'Maximum Polar Angle')
         self.analysis.add('hkl_tolerance', entry['nxreduce/hkl_tolerance'],
                           'HKL Tolerance (Å-1)')
-        self.analysis.add('monitor', ['monitor1', 'monitor2'],
+        self.analysis.add('monitor', entry['nxreduce/monitor'],
                           'Normalization Monitor')
         self.analysis['monitor'].value = default['monitor']
         self.analysis.add('norm', entry['nxreduce/norm'],

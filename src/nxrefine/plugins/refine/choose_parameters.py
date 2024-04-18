@@ -38,7 +38,7 @@ class ParametersDialog(NXDialog):
                             'Max. Polar Angle')
         self.parameters.add('hkl_tolerance', default['hkl_tolerance'],
                             'HKL Tolerance (Å-1)')
-        self.parameters.add('monitor', ['monitor1', 'monitor2'],
+        self.parameters.add('monitor', default['monitor'],
                             'Normalization Monitor')
         self.parameters['monitor'].value = default['monitor']
         self.parameters.add('norm', default['norm'], 'Normalization Value')
