@@ -10,10 +10,11 @@ import os
 from pathlib import Path
 
 from nexpy.gui.datadialogs import GridParameters, NXDialog
-from nexpy.gui.utils import report_error
+from nexpy.gui.utils import display_message, report_error
 from nexpy.gui.widgets import NXScrollArea
 from nexusformat.nexus import NeXusError
 
+from nxrefine.nxbeamline import get_beamlines
 from nxrefine.nxsettings import NXSettings
 
 
@@ -38,6 +39,8 @@ class ServerSettingsDialog(NXDialog):
         defaults = self.settings.settings['instrument']
         for p in defaults:
             self.instrument_parameters.add(p, defaults[p], p)
+        self.instrument_parameters['instrument'].box.editingFinished.connect(
+            self.check_beamline)
         self.refine_parameters = GridParameters()
         defaults = self.settings.settings['nxrefine']
         for p in defaults:
@@ -57,6 +60,13 @@ class ServerSettingsDialog(NXDialog):
                         self.close_layout(save=True))
         self.setMinimumWidth(300)
         self.set_title('Edit Settings')
+
+    def check_beamline(self):
+        beamlines = get_beamlines()
+        if self.instrument_parameters['instrument'].value not in beamlines:
+            display_message("Beamline Not Supported",
+                            "Supported beamlines are: "
+                            f"{', '.join(str(i) for i in get_beamlines())}")
 
     def accept(self):
         try:
