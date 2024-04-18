@@ -37,7 +37,31 @@ def import_beamlines():
             pass
 
 
+def get_beamlines():
+    """Return a list of available beamline names
+
+    Returns
+    -------
+    list of str
+        Names of beamlines defined by NXBeamLine subclasses
+    """    
+    return [beamline.name for beamline in NXBeamLine.__subclasses__()]
+
+
 def get_beamline(instrument=None):
+    """Return subclass of NXBeamLine for a particular instrument
+
+    Parameters
+    ----------
+    instrument : str, optional
+        Name of the instrument, by default None. If not specified, the
+        instrument defined by the default server settings is used.
+
+    Returns
+    -------
+    NXBeamLine
+        Subclass of NXBeamLine for the requested instrument
+    """    
     if instrument is None:
         instrument = NXSettings().settings['instrument']['instrument']
     if instrument == '':
