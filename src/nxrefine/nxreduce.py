@@ -346,7 +346,7 @@ class NXReduce(QtCore.QObject):
         """NXBeamLine class for importing data and logs."""
         if self._beamline is None:
             instrument = self.settings['instrument']['instrument']
-            self._beamline = get_beamline(instrument=instrument)(self)
+            self._beamline = get_beamline(instrument=instrument)(reduce=self)
         return self._beamline
 
     @property
@@ -552,7 +552,7 @@ class NXReduce(QtCore.QObject):
             field_name = name
         if (self.parent and 'nxreduce' in self.parent_root['entry']
                 and field_name in self.parent_root['entry/nxreduce']):
-            parameter = self.parent_root['entry/nxreduce'][field_name]
+            parameter = self.parent_root['entry/nxreduce'][field_name].nxvalue
         elif ('nxreduce' in self.root['entry']
               and field_name in self.root['entry/nxreduce']):
             parameter = self.root['entry/nxreduce'][field_name].nxvalue
@@ -1287,19 +1287,9 @@ class NXReduce(QtCore.QObject):
 
     def read_monitor(self):
         try:
-            from scipy.signal import savgol_filter
-            monitor_signal = self.entry[self.monitor].nxsignal / self.norm
-            monitor_signal[0] = monitor_signal[1]
-            monitor_signal[-1] = monitor_signal[-2]
-            if monitor_signal.size > 1000:
-                filter_size = 501
-            elif monitor_signal.size > 200:
-                filter_size = 101
-            else:
-                filter_size = monitor_signal.size
-            return savgol_filter(monitor_signal, filter_size, 2)
+            return self.beamline.read_monitor(self.monitor)
         except Exception:
-            return np.ones(shape=(self.nframes))
+            return np.ones(shape=(self.nframes), dtype=float)
 
     def nxfind(self):
         if self.not_processed('nxfind') and self.find:

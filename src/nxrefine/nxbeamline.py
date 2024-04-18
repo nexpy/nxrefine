@@ -92,14 +92,17 @@ class NXBeamLine:
             self.scan = self.reduce.scan
             self.sample = self.reduce.sample
             self.label = self.reduce.label
+            self.monitor = self.reduce.monitor
         elif directory:
-            self.base_directory = Path(directory)
+            self.directory = Path(directory)
+            self.base_directory = self.directory
             self.label = self.base_directory.name
             self.sample = self.base_directory.parent.name
-        settings = NXSettings(self.base_directory.parent.parent).settings
-        self.experiment = settings['instrument']['experiment']
-        self.raw_home = Path(settings['instrument']['raw_home'])
-        self.raw_path = settings['instrument']['raw_path']
+            self.root = self.entry = self.scan = self.monitor = None
+        self.settings = NXSettings(self.base_directory.parent.parent).settings
+        self.experiment = self.settings['instrument']['experiment']
+        self.raw_home = Path(self.settings['instrument']['raw_home'])
+        self.raw_path = self.settings['instrument']['raw_path']
         self.raw_directory = self.raw_home / self.experiment / self.raw_path
         self.probe = 'xrays'
 
@@ -121,6 +124,9 @@ class NXBeamLine:
             return False
 
     def read_logs(self, *args, **kwargs):
+        pass
+
+    def read_monitor(self, monitor=None):
         pass
 
 
@@ -274,6 +280,33 @@ class Sector6Beamline(NXBeamLine):
                 start_time = start.replace(year=start.year+20).isoformat()
                 self.entry['start_time'] = start_time
                 self.entry['data/frame_time'].attrs['start'] = start_time
+
+    def read_monitor(self, monitor=None):
+        try:
+            from scipy.signal import savgol_filter
+            if monitor is None:
+                if self.monitor is None:
+                    monitor = self.settings['nxreduce']['monitor']
+                else:
+                    monitor = self.monitor
+            if monitor in self.entry:
+                monitor_signal = self.entry[monitor].nxsignal
+            elif monitor in self.entry['instrument/logs']:
+                monitor_signal = self.entry[
+                    f'instrument/logs/{monitor}']
+            monitor_signal = monitor_signal.nxvalue[:self.reduce.nframes]
+            monitor_signal[0] = monitor_signal[1]
+            monitor_signal[-1] = monitor_signal[-2]
+            monitor_signal = monitor_signal / self.reduce.norm
+            if monitor_signal.size > 1000:
+                filter_size = 501
+            elif monitor_signal.size > 200:
+                filter_size = 101
+            else:
+                filter_size = monitor_signal.size
+            return savgol_filter(monitor_signal, filter_size, 2)
+        except Exception as error:
+            return np.ones(shape=(self.reduce.nframes), dtype=float)
 
 
 import_beamlines()
