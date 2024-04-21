@@ -6,11 +6,11 @@
 # The full license is in the file COPYING, distributed with this software.
 # -----------------------------------------------------------------------------
 
-from configparser import ConfigParser
+import asyncio
 import os
-import subprocess
 import tempfile
 import time
+from configparser import ConfigParser
 from datetime import datetime
 from pathlib import Path
 from queue import Queue
@@ -99,17 +99,17 @@ class NXWorker(Thread):
         return f"NXWorker(cpu='{self.cpu}')"
 
     def run(self):
-        self.log(f"Starting worker on {self.cpu} (pid={os.getpid()})")
+        self.log(f"Starting worker on {self.cpu}")
         while True:
             time.sleep(5)
             next_task = self.worker_queue.get()
             if next_task is None:
-                self.log(f"Stopping worker on {self.cpu} (pid={os.getpid()})")
+                self.log(f"Stopping worker on {self.cpu}")
                 self.worker_queue.task_done()
                 break
             else:
                 self.log(f"{self.cpu}: Executing '{next_task.command}'")
-                next_task.execute(self.cpu, self.cpu_log)
+                next_task.run(self.cpu, self.cpu_log)
             self.worker_queue.task_done()
             self.log(f"{self.cpu}: Finished '{next_task.command}'")
         return
@@ -151,16 +151,25 @@ class NXTask:
                            f"-N {cpu} -hold_jid {cpu} -S /bin/bash {command}")
         return command
 
-    def execute(self, cpu, cpu_log):
+    async def execute(self, cpu, cpu_log):        
         with open(cpu_log, 'a') as f:
             f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' +
                     self.command + '\n')
-        process = subprocess.run(self.executable_command(cpu, cpu_log),
-                                 shell=True,
-                                 stdout=subprocess.PIPE,
-                                 stderr=subprocess.STDOUT)
-        with open(cpu_log, 'a') as f:
-            f.write(process.stdout.decode() + '\n')
+        process = await asyncio.create_subprocess_shell(
+            self.executable_command(cpu, cpu_log),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE)
+        stdout, stderr = await process.communicate()
+        if stdout:
+            with open(cpu_log, 'a') as f:
+                f.write('[stdout]\n' + stdout.decode() + '\n')
+        if stderr:
+            with open(cpu_log, 'a') as f:
+                f.write('[stderr]\n' + stderr.decode() + '\n')
+
+    def run(self, cpu, cpu_log):
+        with NXLock(cpu_log, timeout=300):
+            asyncio.run(self.execute(cpu, cpu_log))
         if self.script and self.script.exists():
             self.script.unlink()
 
@@ -214,8 +223,10 @@ class NXServer(NXDaemon):
             self.settings.save()
         elif self.settings.has_option('server', 'type'):
             self.server_type = self.settings.get('server', 'type')
+            if self.server_type == 'None' or self.server_type == 'none':
+                self.server_type = None
         else:
-            raise NeXusError('Server type not specified')
+            self.server_type = None
         if self.server_type == 'multinode':
             if 'nodes' not in self.settings.sections():
                 self.settings.add_section('nodes')
@@ -231,7 +242,7 @@ class NXServer(NXDaemon):
         self.concurrent = self.settings.get('server', 'concurrent')
         self.run_command = self.settings.get('server', 'run_command')
         self.template = self.settings.get('server', 'template')
-        self.log_file = self.directory / 'nxserver.log'
+        self.server_log = self.directory / 'nxserver.log'
         self.pid_file = self.directory / 'nxserver.pid'
         self.queue_directory = self.directory / 'task_list'
         self.task_queue = NXFileQueue(self.queue_directory)
@@ -269,8 +280,14 @@ class NXServer(NXDaemon):
         self.settings.save()
         self.cpus = ['cpu'+str(cpu) for cpu in range(1, cpu_count+1)]
 
+    @property
+    def cpu_logs(self):
+        log_files = [Path(self.server_log).parent.joinpath(cpu+'.log')
+                     for cpu in self.cpus]
+        return [log_file for log_file in log_files if log_file.exists()]
+
     def log(self, message):
-        with open(self.log_file, 'a') as f:
+        with open(self.server_log, 'a') as f:
             f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' +
                     str(message) + '\n')
 
@@ -284,12 +301,12 @@ class NXServer(NXDaemon):
         self.log(f'Starting server (pid={os.getpid()})')
         self.task_queue = NXFileQueue(self.queue_directory, autosave=True)
         self.worker_queue = Queue()
-        self.workers = [NXWorker(cpu, self.worker_queue, self.log_file)
+        self.workers = [NXWorker(cpu, self.worker_queue, self.server_log)
                         for cpu in self.cpus]
         for worker in self.workers:
             worker.start()
         while True:
-            time.sleep(5)
+            time.sleep(10)
             command = self.read_task()
             if command == 'stop':
                 break
@@ -308,7 +325,10 @@ class NXServer(NXDaemon):
         if isinstance(tasks, str):
             tasks = tasks.split('\n')
         for task in tasks:
-            if task == 'stop':
+            if self.server_type == None:
+                time.sleep(10)
+                self.run_task(task)
+            elif task == 'stop':
                 self.task_queue.put(task)
             elif task not in self.queued_tasks():
                 self.task_queue.put(task)
@@ -333,6 +353,21 @@ class NXServer(NXDaemon):
         for task in tasks:
             self.add_task(task)
 
+    def run_task(self, task):
+        """Run the task directly in the shell."""
+        try:
+            last_cpu = int(max(self.cpu_logs,
+                               key=lambda x: x.stat().st_mtime).stem[3:])
+            cpu = 'cpu' + str(last_cpu % len(self.cpus) + 1)
+        except Exception as error:
+            cpu = 'cpu1'
+        cpu_log = Path(self.server_log).parent.joinpath(cpu+'.log')
+        cpu_log.touch(exist_ok=True)
+        worker_queue = Queue()
+        worker = NXWorker(cpu, worker_queue, self.server_log)
+        worker.start()
+        worker_queue.put(NXTask(task, self))
+        
     def queued_tasks(self):
         """List tasks remaining on the server queue."""
         queue = NXFileQueue(self.queue_directory, autosave=False)
