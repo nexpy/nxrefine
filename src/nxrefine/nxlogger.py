@@ -50,7 +50,7 @@ class LogRecordStreamHandler(StreamRequestHandler):
             name = record.name
         logger = logging.getLogger(name)
         if not logger.hasHandlers():
-            handler = logging.FileHandler(self.server.log_file)
+            handler = logging.FileHandler(self.server.server_log)
             formatter = logging.Formatter(
                             '%(asctime)s %(name)-12s: %(message)s',
                             datefmt='%Y-%m-%d %H:%M:%S')
