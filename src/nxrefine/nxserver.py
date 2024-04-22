@@ -6,8 +6,8 @@
 # The full license is in the file COPYING, distributed with this software.
 # -----------------------------------------------------------------------------
 
-import asyncio
 import os
+import subprocess
 import tempfile
 import time
 from configparser import ConfigParser
@@ -109,7 +109,8 @@ class NXWorker(Thread):
                 break
             else:
                 self.log(f"{self.cpu}: Executing '{next_task.command}'")
-                next_task.run(self.cpu, self.cpu_log)
+                with NXLock(self.cpu_log, timeout=3600, expiry=3600):
+                    next_task.execute(self.cpu, self.cpu_log)
             self.worker_queue.task_done()
             self.log(f"{self.cpu}: Finished '{next_task.command}'")
         return
@@ -151,25 +152,20 @@ class NXTask:
                            f"-N {cpu} -hold_jid {cpu} -S /bin/bash {command}")
         return command
 
-    async def execute(self, cpu, cpu_log):        
+    def execute(self, cpu, cpu_log):        
         with open(cpu_log, 'a') as f:
             f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' +
                     self.command + '\n')
-        process = await asyncio.create_subprocess_shell(
-            self.executable_command(cpu, cpu_log),
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE)
-        stdout, stderr = await process.communicate()
-        if stdout:
+        process = subprocess.run(self.executable_command(cpu, cpu_log),
+                                 shell=True,
+                                 stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE)
+        if process.stdout:
             with open(cpu_log, 'a') as f:
-                f.write('[stdout]\n' + stdout.decode() + '\n')
-        if stderr:
+                f.write('[stdout]\n' + process.stdout.decode() + '\n')
+        if process.stderr:
             with open(cpu_log, 'a') as f:
-                f.write('[stderr]\n' + stderr.decode() + '\n')
-
-    def run(self, cpu, cpu_log):
-        with NXLock(cpu_log, timeout=300):
-            asyncio.run(self.execute(cpu, cpu_log))
+                f.write('[stderr]\n' + process.stderr.decode() + '\n')
         if self.script and self.script.exists():
             self.script.unlink()
 
@@ -218,6 +214,8 @@ class NXServer(NXDaemon):
             self.directory = self.settings.directory
             self.save_directory()
         if server_type:
+            if server_type == 'None' or server_type == 'none':
+                server_type = None
             self.server_type = server_type
             self.settings.set('server', 'type', server_type)
             self.settings.save()
@@ -367,6 +365,7 @@ class NXServer(NXDaemon):
         worker = NXWorker(cpu, worker_queue, self.server_log)
         worker.start()
         worker_queue.put(NXTask(task, self))
+        worker_queue.put(None)
         
     def queued_tasks(self):
         """List tasks remaining on the server queue."""
