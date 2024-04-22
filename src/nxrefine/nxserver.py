@@ -367,6 +367,7 @@ class NXServer(NXDaemon):
         worker = NXWorker(cpu, worker_queue, self.server_log)
         worker.start()
         worker_queue.put(NXTask(task, self))
+        worker_queue.put(None)
         
     def queued_tasks(self):
         """List tasks remaining on the server queue."""
