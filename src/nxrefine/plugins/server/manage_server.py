@@ -36,10 +36,6 @@ class ServerDialog(NXDialog):
         self.server_type = self.server.server_type
         if self.server_type:
             self.server_status = self.label(self.server.status())
-            if self.server.is_running():
-                self.pushbutton['server'].setText('Stop Server')
-            else:
-                self.pushbutton['server'].setText('Start Server')
             server_actions = self.action_buttons(('server',
                                                   self.toggle_server))
             server_layout = self.make_layout(self.server_status,
@@ -53,6 +49,10 @@ class ServerDialog(NXDialog):
             for button in ['Server Log', 'Server Queue', 'Server Processes',
                            'Server Locks', 'Server Nodes']:
                 self.pushbutton[button].setCheckable(True)
+            if self.server.is_running():
+                self.pushbutton['server'].setText('Stop Server')
+            else:
+                self.pushbutton['server'].setText('Start Server')
         else:
             text_actions = self.action_buttons(
                                ('Server Log', self.show_log),
