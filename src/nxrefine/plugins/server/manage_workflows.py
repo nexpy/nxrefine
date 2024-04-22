@@ -634,7 +634,7 @@ class WorkflowDialog(NXDialog):
         patterns = ['nxcombine', 'nxcopy', 'nxfind', 'nxlink', 'nxload',
                     'nxmax', 'nxpdf', 'nxprepare', 'nxreduce', 'nxrefine',
                     'nxsum', 'nxtransform']
-        if self.server.server_type == 'multicore':
+        if self.server.server_type == 'multicore' or self.server_type == None:
             command = f"ps -auxww | grep -e {' -e '.join(patterns)}"
         else:
             command = "pdsh -w {} 'ps -f' | grep -e {}".format(

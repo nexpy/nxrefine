@@ -20,7 +20,7 @@ def main():
     parser.add_argument('-d', '--directory', nargs='?', const='.',
                         help='Start the server in this directory')
     parser.add_argument('-t', '--type',
-                        help='Server type: multicore|multinode')
+                        help='Server type: multicore|multinode|none')
     parser.add_argument('-n', '--nodes', default=[], nargs='+',
                         help='Add nodes')
     parser.add_argument('-c', '--cores', help='Number of cores')
