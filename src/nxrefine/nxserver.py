@@ -109,7 +109,8 @@ class NXWorker(Thread):
                 break
             else:
                 self.log(f"{self.cpu}: Executing '{next_task.command}'")
-                next_task.run(self.cpu, self.cpu_log)
+                with NXLock(self.cpu_log, timeout=3600, expiry=3600):
+                    next_task.execute(self.cpu, self.cpu_log)
             self.worker_queue.task_done()
             self.log(f"{self.cpu}: Finished '{next_task.command}'")
         return
