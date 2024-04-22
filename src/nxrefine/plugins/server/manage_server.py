@@ -33,19 +33,33 @@ class ServerDialog(NXDialog):
         super().__init__(parent)
 
         self.server = NXServer()
-        server_actions = self.action_buttons(('server', self.toggle_server))
-        self.server_status = self.label(self.server.status())
-        if self.server.is_running():
-            self.pushbutton['server'].setText('Stop Server')
+        self.server_type = self.server.server_type
+        if self.server_type:
+            self.server_status = self.label(self.server.status())
+            if self.server.is_running():
+                self.pushbutton['server'].setText('Stop Server')
+            else:
+                self.pushbutton['server'].setText('Start Server')
+            server_actions = self.action_buttons(('server',
+                                                  self.toggle_server))
+            server_layout = self.make_layout(self.server_status,
+                                             server_actions)
+            text_actions = self.action_buttons(
+                               ('Server Log', self.show_log),
+                               ('Server Queue', self.show_queue),
+                               ('Server Processes', self.show_processes),
+                               ('Server Locks', self.show_locks),
+                               ('Server Nodes', self.show_nodes))
+            for button in ['Server Log', 'Server Queue', 'Server Processes',
+                           'Server Locks', 'Server Nodes']:
+                self.pushbutton[button].setCheckable(True)
         else:
-            self.pushbutton['server'].setText('Start Server')
-        server_layout = self.make_layout(self.server_status, server_actions)
-        text_actions = self.action_buttons(
-                           ('Server Log', self.show_log),
-                           ('Server Queue', self.show_queue),
-                           ('Server Processes', self.show_processes),
-                           ('Server Locks', self.show_locks),
-                           ('Server Nodes', self.show_nodes))
+            text_actions = self.action_buttons(
+                               ('Server Log', self.show_log),
+                               ('Server Processes', self.show_processes),
+                               ('Server Locks', self.show_locks))
+            for button in ['Server Log', 'Server Processes', 'Server Locks']:
+                self.pushbutton[button].setCheckable(True)
         self.text_box = NXPlainTextEdit(wrap=False)
         self.text_box.setReadOnly(True)
         self.log_combo = self.select_box(['nxserver'] + self.server.cpus,
@@ -58,12 +72,12 @@ class ServerDialog(NXDialog):
                                         update_actions, 'stretch',
                                         self.close_buttons(close=True),
                                         align='justified')
-        self.set_layout(server_layout, text_actions, self.text_box,
-                        close_layout)
-        for button in ['Server Log', 'Server Queue', 'Server Processes',
-                       'Server Locks', 'Server Nodes']:
-            self.pushbutton[button].setCheckable(True)
-        if self.server.server_type == 'multicore':
+        if self.server_type:
+            self.set_layout(server_layout, text_actions, self.text_box,
+                            close_layout)
+        else:
+            self.set_layout(text_actions, self.text_box, close_layout)
+        if self.server_type == 'multicore':
             self.pushbutton['Server Nodes'].setVisible(False)
             self.pushbutton['Update Nodes'].setVisible(False)
         self.lockdirectory = nxgetconfig('lockdirectory')
@@ -94,11 +108,12 @@ class ServerDialog(NXDialog):
             self.pushbutton['server'].setText('Start Server')
 
     def update_text(self):
-        self.server_status.setText(self.server.status())
-        if self.server.is_running():
-            self.pushbutton['server'].setText('Stop Server')
-        else:
-            self.pushbutton['server'].setText('Start Server')
+        if self.server_type:
+            self.server_status.setText(self.server.status())
+            if self.server.is_running():
+                self.pushbutton['server'].setText('Stop Server')
+            else:
+                self.pushbutton['server'].setText('Start Server')
         if self.pushbutton['Server Log'].isChecked():
             self.show_log()
         elif self.pushbutton['Server Queue'].isChecked():
@@ -111,9 +126,13 @@ class ServerDialog(NXDialog):
             self.show_nodes()
 
     def reset_buttons(self):
-        for button in ['Server Log', 'Server Queue', 'Server Processes',
-                       'Server Nodes', 'Server Locks']:
-            self.pushbutton[button].setChecked(False)
+        if self.server_type:
+            for button in ['Server Log', 'Server Queue', 'Server Processes',
+                           'Server Nodes', 'Server Locks']:
+                self.pushbutton[button].setChecked(False)
+        else:
+            for button in ['Server Log', 'Server Processes', 'Server Locks']:
+                self.pushbutton[button].setChecked(False)
         self.log_combo.setEnabled(False)
         self.pushbutton['Clear Queue'].setEnabled(False)
         self.pushbutton['Clear Locks'].setEnabled(False)
@@ -152,7 +171,7 @@ class ServerDialog(NXDialog):
         patterns = ['nxcombine', 'nxcopy', 'nxfind', 'nxlink', 'nxmax',
                     'nxpdf', 'nxprepare', 'nxreduce', 'nxrefine', 'nxsum',
                     'nxtransform']
-        if self.server.server_type == 'multicore':
+        if self.server_type == 'multicore' or self.server_type is None :
             command = f"ps auxww | grep -e {' -e '.join(patterns)}"
         else:
             command = "pdsh -w {} 'ps -f' | grep -e {}".format(
