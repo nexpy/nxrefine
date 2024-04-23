@@ -116,13 +116,13 @@ class ServerDialog(NXDialog):
                 self.pushbutton['server'].setText('Start Server')
         if self.pushbutton['Server Log'].isChecked():
             self.show_log()
-        elif self.pushbutton['Server Queue'].isChecked():
+        elif self.server_type and self.pushbutton['Server Queue'].isChecked():
             self.show_queue()
         elif self.pushbutton['Server Processes'].isChecked():
             self.show_processes()
         elif self.pushbutton['Server Locks'].isChecked():
             self.show_locks()
-        elif self.pushbutton['Server Nodes'].isChecked():
+        elif self.server_type and self.pushbutton['Server Nodes'].isChecked():
             self.show_nodes()
 
     def reset_buttons(self):
@@ -256,3 +256,13 @@ class ServerDialog(NXDialog):
     def clear_queue(self):
         if confirm_action('Clear server queue?'):
             self.server.clear()
+
+    def closeEvent(self, event):
+        if self.server and self.server.controller:
+            self.server.add_task('stop')
+        super().closeEvent(event)
+
+    def reject(self):
+        if self.server and self.server.controller:
+            self.server.add_task('stop')
+        super().reject()        
