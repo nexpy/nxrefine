@@ -19,7 +19,7 @@ from threading import Thread
 import psutil
 from nexusformat.nexus import NeXusError, NXLock
 from persistqueue import Queue as FileQueue
-from persistqueue.exceptions import Empty
+from persistqueue.exceptions import Empty as FileEmpty
 from persistqueue.serializers import json
 
 from .nxdaemon import NXDaemon
@@ -82,6 +82,60 @@ class NXFileQueue(FileQueue):
                 self.directory.joinpath(f).chmod(0o777)
             except Exception:
                 pass
+
+
+class NXController(Thread):
+    """Class to process tasks submitted using an internal queue."""
+
+    def __init__(self, controller_queue, server):
+        super().__init__()
+        self.controller_queue = controller_queue
+        self.server = server
+        self.server_log = self.server.server_log
+
+    def __repr__(self):
+        return f"NXController(pid={os.getpid()})"
+
+    def run(self):
+        self.log(f"Starting controller on pid={os.getpid()}")
+        while True:
+            time.sleep(10)
+            next_task = self.controller_queue.get()
+            if next_task is None or next_task == 'stop':
+                self.log(f"Stopping controller on pid={os.getpid()}")
+                self.controller_queue.task_done()
+                break
+            else:
+                self.submit_task(next_task)
+            self.controller_queue.task_done()
+        return
+
+    def submit_task(self, task):
+        """Run the task directly in the shell."""
+        try:
+            last_cpu = int(max(self.cpu_logs,
+                               key=lambda x: x.stat().st_mtime).stem[3:])
+            cpu = 'cpu' + str(last_cpu % len(self.server.cpus) + 1)
+        except Exception as error:
+            cpu = 'cpu1'
+        cpu_log = Path(self.server_log).parent.joinpath(cpu+'.log')
+        cpu_log.touch(exist_ok=True)
+        worker_queue = Queue()
+        worker = NXWorker(cpu, worker_queue, self.server_log)
+        worker.start()
+        worker_queue.put(NXTask(task, self.server))
+        worker_queue.put(None)
+
+    @property
+    def cpu_logs(self):
+        log_files = [Path(self.server_log).parent.joinpath(cpu+'.log')
+                     for cpu in self.server.cpus]
+        return [log_file for log_file in log_files if log_file.exists()]
+
+    def log(self, message):
+        with open(self.server_log, 'a') as f:
+            f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' +
+                    str(message) + '\n')
 
 
 class NXWorker(Thread):
@@ -243,7 +297,13 @@ class NXServer(NXDaemon):
         self.server_log = self.directory / 'nxserver.log'
         self.pid_file = self.directory / 'nxserver.pid'
         self.queue_directory = self.directory / 'task_list'
-        self.task_queue = NXFileQueue(self.queue_directory)
+        if self.server_type:
+            self.task_queue = NXFileQueue(self.queue_directory)
+            self.controller = None
+        else:
+            self.task_queue = Queue()
+            self.controller = NXController(self.task_queue, self)
+            self.controller.start()
 
     def read_nodes(self):
         """Read available nodes"""
@@ -277,12 +337,6 @@ class NXServer(NXDaemon):
         self.settings.set('server', 'cores', cpu_count)
         self.settings.save()
         self.cpus = ['cpu'+str(cpu) for cpu in range(1, cpu_count+1)]
-
-    @property
-    def cpu_logs(self):
-        log_files = [Path(self.server_log).parent.joinpath(cpu+'.log')
-                     for cpu in self.cpus]
-        return [log_file for log_file in log_files if log_file.exists()]
 
     def log(self, message):
         with open(self.server_log, 'a') as f:
@@ -323,19 +377,16 @@ class NXServer(NXDaemon):
         if isinstance(tasks, str):
             tasks = tasks.split('\n')
         for task in tasks:
-            if self.server_type == None:
-                time.sleep(10)
-                self.run_task(task)
-            elif task == 'stop':
+            if task == 'stop':
                 self.task_queue.put(task)
-            elif task not in self.queued_tasks():
+            elif self.server_type is None or task not in self.queued_tasks():
                 self.task_queue.put(task)
 
     def read_task(self):
         """Read the next task from the server queue"""
         try:
             task = self.task_queue.get(block=False)
-        except Empty:
+        except FileEmpty:
             return None
         except Exception as error:
             self.log(str(error))
@@ -351,22 +402,6 @@ class NXServer(NXDaemon):
         for task in tasks:
             self.add_task(task)
 
-    def run_task(self, task):
-        """Run the task directly in the shell."""
-        try:
-            last_cpu = int(max(self.cpu_logs,
-                               key=lambda x: x.stat().st_mtime).stem[3:])
-            cpu = 'cpu' + str(last_cpu % len(self.cpus) + 1)
-        except Exception as error:
-            cpu = 'cpu1'
-        cpu_log = Path(self.server_log).parent.joinpath(cpu+'.log')
-        cpu_log.touch(exist_ok=True)
-        worker_queue = Queue()
-        worker = NXWorker(cpu, worker_queue, self.server_log)
-        worker.start()
-        worker_queue.put(NXTask(task, self))
-        worker_queue.put(None)
-        
     def queued_tasks(self):
         """List tasks remaining on the server queue."""
         queue = NXFileQueue(self.queue_directory, autosave=False)

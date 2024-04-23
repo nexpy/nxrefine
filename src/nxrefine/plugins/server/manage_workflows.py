@@ -44,6 +44,7 @@ class WorkflowDialog(NXDialog):
         self.scroll_area = None
         self.sample_directory = None
         self.entries = ['f1', 'f2', 'f3']
+        self.server = None
 
     def choose_directory(self):
         super().choose_directory()
@@ -75,7 +76,8 @@ class WorkflowDialog(NXDialog):
             os.mkdir(self.task_directory)
         db_file = os.path.join(self.task_directory, 'nxdatabase.db')
         self.db = NXDatabase(db_file)
-        self.server = NXServer()
+        if self.server is None:
+            self.server = NXServer()
         self.update()
 
     def add_grid_headers(self):
@@ -665,3 +667,13 @@ class WorkflowDialog(NXDialog):
     def refreshview(self):
         if self.defaultview:
             self.defaultview()
+
+    def closeEvent(self, event):
+        if self.server and self.server.controller:
+            self.server.add_task('stop')
+        super().closeEvent(event)
+
+    def reject(self):
+        if self.server and self.server.controller:
+            self.server.add_task('stop')
+        super().reject()        
