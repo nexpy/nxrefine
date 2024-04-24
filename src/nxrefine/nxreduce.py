@@ -120,6 +120,8 @@ class NXReduce(QtCore.QObject):
             Monitor progress at the command line, by default False
         gui : bool, optional
             Use PyQt signals to monitor progress, by default False
+        server : NXServer
+            NXServer instance if available, by default None
         """
 
     def __init__(
@@ -133,7 +135,7 @@ class NXReduce(QtCore.QObject):
             maxcount=False, find=False, refine=False, prepare=False,
             transform=False, combine=False, pdf=False,
             lattice=False, regular=False, mask=False, overwrite=False,
-            monitor_progress=False, gui=False):
+            monitor_progress=False, gui=False, server=None):
 
         super(NXReduce, self).__init__()
 
@@ -232,6 +234,8 @@ class NXReduce(QtCore.QObject):
         self.overwrite = overwrite
         self.monitor_progress = monitor_progress
         self.gui = gui
+        self._server = server
+
         self.timer = {}
 
         self.summed_frames = None
@@ -242,7 +246,6 @@ class NXReduce(QtCore.QObject):
         self._process_count = None
 
         self._default = None
-        self._server = None
         self._db = None
         self._logger = None
         self._cctw = None
