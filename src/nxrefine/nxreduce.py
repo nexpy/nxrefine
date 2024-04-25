@@ -1616,8 +1616,8 @@ class NXReduce(QtCore.QObject):
 
     def get_normalization(self):
         with self:
-            if self.norm and self.monitor in self.entry:
-                self.data['monitor_weight'] = self.read_monitor()
+            try:
+                monitor_weight = self.read_monitor()
                 inst = self.entry['instrument']
                 transmission = np.ones(self.nframes, dtype=np.float32)
                 try:
@@ -1632,12 +1632,15 @@ class NXReduce(QtCore.QObject):
                     transmission *= self.sample_transmission()
                 except Exception:
                     pass
-                self.data['monitor_weight'] *= transmission
-            else:
-                self.data['monitor_weight'] = np.ones(self.nframes,
-                                                      dtype=np.float32)
-            self.data['monitor_weight'][:self.first] = 0.0
-            self.data['monitor_weight'][self.last+1:] = 0.0
+                monitor_weight *= transmission
+            except Exception as error:
+                self.logger.info('Unable to determine monitor weights')
+                monitor_weight = np.ones(self.nframes, dtype=np.float32)
+            monitor_weight[:self.first] = 0.0
+            monitor_weight[self.last+1:] = 0.0
+            if 'monitor_weight' in self.data:
+                del self.data['monitor_weight']
+            self.data['monitor_weight'] = monitor_weight
             self.data['monitor_weight'].attrs['axes'] = 'frame_number'
 
     def prepare_transform(self, mask=False):
