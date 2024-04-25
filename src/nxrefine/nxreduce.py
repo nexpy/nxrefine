@@ -120,6 +120,8 @@ class NXReduce(QtCore.QObject):
             Monitor progress at the command line, by default False
         gui : bool, optional
             Use PyQt signals to monitor progress, by default False
+        server : NXServer
+            NXServer instance if available, by default None
         """
 
     def __init__(
@@ -133,7 +135,7 @@ class NXReduce(QtCore.QObject):
             maxcount=False, find=False, refine=False, prepare=False,
             transform=False, combine=False, pdf=False,
             lattice=False, regular=False, mask=False, overwrite=False,
-            monitor_progress=False, gui=False):
+            monitor_progress=False, gui=False, server=None):
 
         super(NXReduce, self).__init__()
 
@@ -232,6 +234,8 @@ class NXReduce(QtCore.QObject):
         self.overwrite = overwrite
         self.monitor_progress = monitor_progress
         self.gui = gui
+        self._server = server
+
         self.timer = {}
 
         self.summed_frames = None
@@ -242,7 +246,6 @@ class NXReduce(QtCore.QObject):
         self._process_count = None
 
         self._default = None
-        self._server = None
         self._db = None
         self._logger = None
         self._cctw = None
@@ -1613,8 +1616,8 @@ class NXReduce(QtCore.QObject):
 
     def get_normalization(self):
         with self:
-            if self.norm and self.monitor in self.entry:
-                self.data['monitor_weight'] = self.read_monitor()
+            try:
+                monitor_weight = self.read_monitor()
                 inst = self.entry['instrument']
                 transmission = np.ones(self.nframes, dtype=np.float32)
                 try:
@@ -1629,12 +1632,15 @@ class NXReduce(QtCore.QObject):
                     transmission *= self.sample_transmission()
                 except Exception:
                     pass
-                self.data['monitor_weight'] *= transmission
-            else:
-                self.data['monitor_weight'] = np.ones(self.nframes,
-                                                      dtype=np.float32)
-            self.data['monitor_weight'][:self.first] = 0.0
-            self.data['monitor_weight'][self.last+1:] = 0.0
+                monitor_weight *= transmission
+            except Exception as error:
+                self.logger.info('Unable to determine monitor weights')
+                monitor_weight = np.ones(self.nframes, dtype=np.float32)
+            monitor_weight[:self.first] = 0.0
+            monitor_weight[self.last+1:] = 0.0
+            if 'monitor_weight' in self.data:
+                del self.data['monitor_weight']
+            self.data['monitor_weight'] = monitor_weight
             self.data['monitor_weight'].attrs['axes'] = 'frame_number'
 
     def prepare_transform(self, mask=False):

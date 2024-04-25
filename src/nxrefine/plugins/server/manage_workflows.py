@@ -456,7 +456,7 @@ class WorkflowDialog(NXDialog):
                     else:
                         break
                 else:
-                    reduce = NXReduce(entry, scan)
+                    reduce = NXReduce(entry, scan, server=self.server)
                     reduce.regular = reduce.mask = False
                     if self.selected(scan, 'load'):
                         reduce.load = True
@@ -636,11 +636,11 @@ class WorkflowDialog(NXDialog):
         patterns = ['nxcombine', 'nxcopy', 'nxfind', 'nxlink', 'nxload',
                     'nxmax', 'nxpdf', 'nxprepare', 'nxreduce', 'nxrefine',
                     'nxsum', 'nxtransform']
-        if self.server.server_type == 'multicore' or self.server_type == None:
-            command = f"ps -auxww | grep -e {' -e '.join(patterns)}"
-        else:
+        if self.server.run_command.startswith('pdsh'):
             command = "pdsh -w {} 'ps -f' | grep -e {}".format(
                 ",".join(self.server.cpus), " -e ".join(patterns))
+        else:
+            command = f"ps auxww | grep -e {' -e '.join(patterns)}"
         process = subprocess.run(command, shell=True, stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE)
         if process.returncode == 0:
