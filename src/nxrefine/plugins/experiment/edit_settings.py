@@ -63,6 +63,7 @@ class ExperimentSettingsDialog(NXDialog):
         self.set_layout(self.make_layout(self.directory_button),
                         self.close_layout(save=True))
         self.set_title('Edit Experiment Settings')
+        self.setMinimumWidth(350)
 
     def choose_directory(self):
         if self.default_directory:

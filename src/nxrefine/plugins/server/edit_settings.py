@@ -58,7 +58,7 @@ class ServerSettingsDialog(NXDialog):
             vertical=True)
         self.set_layout(NXScrollArea(scroll_layout),
                         self.close_layout(save=True))
-        self.setMinimumWidth(300)
+        self.setMinimumWidth(350)
         self.set_title('Edit Settings')
 
     def check_beamline(self):
