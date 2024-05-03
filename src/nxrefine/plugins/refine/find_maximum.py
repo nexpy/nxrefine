@@ -40,6 +40,7 @@ class MaximumDialog(NXDialog):
         self.progress_bar.setValue(0)
         self.set_title('Find Maximum Value')
         self.reduce = None
+        self.label = ''
         self.summed_data = None
         self.summed_frames = None
         self.partial_frames = None
@@ -47,6 +48,7 @@ class MaximumDialog(NXDialog):
 
     def choose_entry(self):
         self.reduce = NXReduce(self.entry)
+        self.label = self.reduce.name
         if self.layout.count() == 2:
             self.output = NXLabel('Maximum Value:')
             self.parameters = GridParameters()
@@ -215,7 +217,8 @@ class MaximumDialog(NXDialog):
                                          name='y'),
                                  NXfield(np.arange(self.reduce.shape[2]),
                                          name='x')),
-                                title='Summed Data'), log=True)
+                                title=f'Summed Data: {self.label}'),
+                         log=True)
             self.pv.aspect = 'equal'
             self.pv.ytab.flipped = detector_flipped(self.entry)
         else:
@@ -230,7 +233,7 @@ class MaximumDialog(NXDialog):
                                     NXfield(np.arange(self.reduce.nframes),
                                             name='nframes',
                                             long_title='Frame No.'),
-                                    title='Summed Frames'),
+                                    title=f'Summed Frames: {self.label}'),
                              markersize=2)
         else:
             display_message('Summed Frames not available')
@@ -244,7 +247,7 @@ class MaximumDialog(NXDialog):
                                     NXfield(np.arange(self.reduce.nframes),
                                             name='nframes',
                                             long_title='Frame No.'),
-                                    title='Partial Frames'),
+                                    title=f'Partial Frames: {self.label}'),
                              markersize=2)
         else:
             display_message('Partial Frames not available')
@@ -257,7 +260,7 @@ class MaximumDialog(NXDialog):
                                      name='y'),
                              NXfield(np.arange(self.reduce.shape[2]),
                                      name='x')),
-                            title='Transmission Mask'))
+                            title=f'Transmission Mask: {self.label}'))
         self.pv.aspect = 'equal'
         self.pv.ytab.flipped = detector_flipped(self.entry)
 

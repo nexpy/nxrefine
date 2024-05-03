@@ -469,7 +469,7 @@ class RefineLatticeDialog(NXDialog):
             else:
                 self.ringview = NXPlotView('Ring Plot')
             self.ringview.plot(NXdata(azimuthal_field, polar_field,
-                               title=f'{self.refine.name} Peak Angles'),
+                               title=f'Peak Angles: {self.refine.name}'),
                                xmax=self.get_polar_max())
             self.ringview.vlines(self.refine.two_thetas,
                                  colors='r', linestyles='dotted')

@@ -258,11 +258,17 @@ class ServerDialog(NXDialog):
             self.server.clear()
 
     def closeEvent(self, event):
-        if self.server and self.server.controller:
-            self.server.add_task('stop')
+        try:
+            if self.server is not None and self.server.controller:
+                self.server.add_task('stop')
+        except Exception:
+            pass
         super().closeEvent(event)
 
     def reject(self):
-        if self.server and self.server.controller:
-            self.server.add_task('stop')
+        try:
+            if self.server is not None and self.server.controller:
+                self.server.add_task('stop')
+        except Exception:
+            pass
         super().reject()        

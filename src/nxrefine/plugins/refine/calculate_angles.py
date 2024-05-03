@@ -40,7 +40,7 @@ class CalculateDialog(NXDialog):
         self.action_buttons = self.action_buttons(
             ('Plot', self.plot_lattice), ('Save', self.write_parameters))
         self.set_layout(self.entry_layout, self.close_buttons())
-        self.set_title('Calculate Angles')
+        self.set_title(f'{self.label} Calculate Angles')
 
     def choose_entry(self):
         self.refine = NXRefine(self.entry)
@@ -98,7 +98,7 @@ class CalculateDialog(NXDialog):
             polar_field.long_name = 'Polar Angle'
             plotview = get_plotview()
             plotview.plot(NXdata(azimuthal_field, polar_field,
-                                 title='Peak Angles'))
+                                 title=f'Peak Angles: {self.refine.name}'))
         except NeXusError as error:
             report_error("Plotting Lattice", error)
 
