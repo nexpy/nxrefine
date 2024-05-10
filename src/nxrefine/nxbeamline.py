@@ -192,10 +192,10 @@ class Sector6Beamline(NXBeamLine):
             logs = NXcollection()
         else:
             if not head_file.exists():
-                self.logger.info(
+                self.reduce.log(
                     f"'{self.entry.nxname}_head.txt' does not exist")
             if not meta_file.exists():
-                self.logger.info(
+                self.reduce.log(
                     f"'{self.entry.nxname}_meta.txt' does not exist")
             raise NeXusError('Metadata files not available')
         with open(head_file) as f:
@@ -306,7 +306,7 @@ class Sector6Beamline(NXBeamLine):
                 filter_size = monitor_signal.size
             return savgol_filter(monitor_signal, filter_size, 2)
         except Exception as error:
-            self.reduce.logger.info(f"Cannot identify monitor {self.monitor}")
+            self.reduce.log(f"Cannot identify monitor {self.monitor}")
             return np.ones(shape=(self.reduce.nframes), dtype=float)
 
 
