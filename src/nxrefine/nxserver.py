@@ -92,6 +92,7 @@ class NXController(Thread):
         self.controller_queue = controller_queue
         self.server = server
         self.server_log = self.server.server_log
+        self.cpu_file = Path(self.server_log).parent.joinpath('last_cpu')
 
     def __repr__(self):
         return f"NXController(pid={os.getpid()})"
@@ -112,19 +113,25 @@ class NXController(Thread):
 
     def submit_task(self, task):
         """Run the task directly in the shell."""
-        try:
-            last_cpu = int(max(self.cpu_logs,
-                               key=lambda x: x.stat().st_mtime).stem[3:])
-            cpu = 'cpu' + str(last_cpu % len(self.server.cpus) + 1)
-        except Exception as error:
-            cpu = 'cpu1'
-        cpu_log = Path(self.server_log).parent.joinpath(cpu+'.log')
-        cpu_log.touch(exist_ok=True)
+        cpu = self.get_cpu()
         worker_queue = Queue()
         worker = NXWorker(cpu, worker_queue, self.server_log)
         worker.start()
         worker_queue.put(NXTask(task, self.server))
         worker_queue.put(None)
+
+    def get_cpu(self):
+        with NXLock(self.cpu_file, timeout=60, expiry=60):
+            try:
+                with open(self.cpu_file, 'r') as f:
+                    last_cpu = f.read()
+                cpu = 'cpu' + str(int(last_cpu) % len(self.server.cpus) + 1)
+            except Exception as error:
+                last_cpu = len(self.server.cpus)
+                cpu = 'cpu1'
+            with open(self.cpu_file, 'w+') as f:
+                f.write(str(int(last_cpu) % len(self.server.cpus) + 1))
+        return cpu
 
     @property
     def cpu_logs(self):
@@ -233,7 +240,8 @@ class NXServer(NXDaemon):
         self.initialize(directory, server_type)
         self.worker_queue = None
         self.workers = []
-        super(NXServer, self).__init__(self.pid_name, self.pid_file)
+        if self.server_type:
+            super(NXServer, self).__init__(self.pid_name, self.pid_file)
 
     def __repr__(self):
         return f"NXServer(directory='{self.directory}')"
