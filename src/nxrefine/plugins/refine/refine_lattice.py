@@ -215,7 +215,7 @@ class RefineLatticeDialog(NXDialog):
         self.reduce.record('nxrefine', polar_max=self.reduce.polar_max,
                            hkl_tolerance=self.reduce.hkl_tolerance,
                            fit_report='\n'.join(self.fit_report))
-        self.reduce.logger.info('Orientation refined in NeXpy')
+        self.reduce.log('Orientation refined in NeXpy')
         self.reduce.record_end('nxrefine')
         root = self.entry.nxroot
         entries = [entry for entry in root.entries

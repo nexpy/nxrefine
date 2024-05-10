@@ -133,9 +133,10 @@ class NXController(Thread):
         return [log_file for log_file in log_files if log_file.exists()]
 
     def log(self, message):
-        with open(self.server_log, 'a') as f:
-            f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' +
-                    str(message) + '\n')
+        with NXLock(self.server_log, timeout=60, expiry=60):
+            with open(self.server_log, 'a') as f:
+                f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' +
+                        str(message) + '\n')
 
 
 class NXWorker(Thread):
@@ -170,8 +171,9 @@ class NXWorker(Thread):
         return
 
     def log(self, message):
-        with open(self.server_log, 'a') as f:
-            f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' +
+        with NXLock(self.server_log, timeout=60, expiry=60):
+            with open(self.server_log, 'a') as f:
+                f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' +
                     str(message) + '\n')
 
 
@@ -339,9 +341,10 @@ class NXServer(NXDaemon):
         self.cpus = ['cpu'+str(cpu) for cpu in range(1, cpu_count+1)]
 
     def log(self, message):
-        with open(self.server_log, 'a') as f:
-            f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' +
-                    str(message) + '\n')
+        with NXLock(self.server_log, timeout=60, expiry=60):
+            with open(self.server_log, 'a') as f:
+                f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' +
+                        str(message) + '\n')
 
     def run(self):
         """
