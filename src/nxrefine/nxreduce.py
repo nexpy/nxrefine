@@ -250,6 +250,7 @@ class NXReduce(QtCore.QObject):
         self._default = None
         self._db = None
         self._logger = None
+        self._concurrent = None
         self._cctw = None
 
         nxsetconfig(lock=3600, lockexpiry=28800)
@@ -778,6 +779,22 @@ class NXReduce(QtCore.QObject):
     def maximum(self, value):
         self._maximum = value
 
+    @property
+    def concurrent(self):
+        if self._concurrent is None:
+            if ('concurrent' in self.server_settings and
+                    self.server_settings['concurrent']):
+                value = self.server_settings['concurrent']
+                if value in ['True', 'true', 'Yes', 'yes', 'Y', 'y']:
+                    self._concurrent = 'spawn'
+                elif value in ['False', 'false', 'No', 'no', 'N', 'n']:
+                    self._concurrent = False
+                else:
+                    self._concurrent = value
+            else:
+                self._concurrent = False
+        return self._concurrent
+            
     @property
     def cctw(self):
         if self._cctw is None:
@@ -1324,10 +1341,11 @@ class NXReduce(QtCore.QObject):
         self.log("Finding peaks")
         tic = self.start_progress(self.first, self.last)
         self.blobs = []
-        if self.server.concurrent:
+        if self.concurrent:
             from nxrefine.nxutils import NXExecutor, as_completed
             from multiprocessing import get_context
-            with NXExecutor(max_workers=self.process_count) as executor:
+            with NXExecutor(max_workers=self.process_count,
+                            mp_context=self.concurrent) as executor:
                 futures = []
                 for i in range(self.first, self.last+1, 50):
                     j, k = i - min(5, i), min(i+55, self.last+5, self.nframes)
@@ -1476,9 +1494,10 @@ class NXReduce(QtCore.QObject):
         mask_root['entry/mask'] = (
             NXfield(shape=self.shape, dtype=np.int8, fillvalue=0))
 
-        if self.server.concurrent:
+        if self.concurrent:
             from nxrefine.nxutils import NXExecutor, as_completed
-            with NXExecutor(max_workers=self.process_count) as executor:
+            with NXExecutor(max_workers=self.process_count,
+                            mp_context=self.concurrent) as executor:
                 futures = []
                 for i in range(self.first, self.last+1, 10):
                     j, k = i - min(1, i), min(i+11, self.last+1, self.nframes)

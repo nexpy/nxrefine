@@ -682,8 +682,11 @@ class SpecParser:
 class NXExecutor(ProcessPoolExecutor):
     """ProcessPoolExecutor class using 'spawn' for new processes."""
 
-    def __init__(self, max_workers=None):
-        mp_context = get_context('spawn')
+    def __init__(self, max_workers=None, mp_context='spawn'):
+        if mp_context:
+            mp_context = get_context(mp_context)
+        else:
+            mp_context = None
         super().__init__(max_workers=max_workers, mp_context=mp_context)
 
     def __repr__(self):
