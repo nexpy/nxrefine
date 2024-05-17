@@ -6,7 +6,7 @@
 # The full license is in the file COPYING, distributed with this software.
 # -----------------------------------------------------------------------------
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from multiprocessing import get_context
+from multiprocessing import get_context, resource_tracker
 
 import numpy as np
 from nexusformat.nexus import (NeXusError, NXdata, NXentry, NXfield, NXlog,
@@ -691,3 +691,8 @@ class NXExecutor(ProcessPoolExecutor):
 
     def __repr__(self):
         return f"NXExecutor(max_workers={self._max_workers})"
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.shutdown(wait=True)
+        resource_tracker._resource_tracker._stop()
+        return False
