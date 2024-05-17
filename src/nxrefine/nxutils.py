@@ -694,5 +694,6 @@ class NXExecutor(ProcessPoolExecutor):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.shutdown(wait=True)
-        resource_tracker._resource_tracker._stop()
+        if self._mp_context.get_start_method(allow_none=False) != 'fork':
+            resource_tracker._resource_tracker._stop()
         return False
