@@ -5,12 +5,15 @@
 #
 # The full license is in the file COPYING, distributed with this software.
 # -----------------------------------------------------------------------------
-
+import numpy as np
 from nexpy.gui.datadialogs import GridParameters, NXDialog
-from nexpy.gui.utils import confirm_action, report_error
-from nexusformat.nexus import NeXusError, NXparameters
+from nexpy.gui.plotview import NXPlotView
+from nexpy.gui.utils import report_error
+from nexusformat.nexus import NeXusError, NXdata, NXfield, NXparameters
+
 from nxrefine.nxreduce import NXMultiReduce, NXReduce
 from nxrefine.nxsettings import NXSettings
+from nxrefine.nxutils import detector_flipped
 
 
 def show_dialog():
@@ -54,9 +57,12 @@ class ParametersDialog(NXDialog):
     def choose_root(self):
         self.entries = [self.root[entry]
                         for entry in self.root if entry[-1].isdigit()]
+        self.reduce = NXReduce(self.root[self.entries[0]])
         if self.layout.count() == 2:
             self.layout.insertLayout(1, self.parameters.grid(header=False))
-            self.layout.insertLayout(2, 
+            self.layout.insertLayout(2, self.action_buttons(
+                ('Plot Q-Limits', self.plot_Q_limits)))
+            self.layout.insertLayout(3, 
                 self.checkboxes(('parent', 'Set As Parent', False)))
         self.read_parameters()
 
@@ -173,6 +179,25 @@ class ParametersDialog(NXDialog):
             scan_file.stem.replace(sample+'_', '')))
         reduce = NXMultiReduce(directory, overwrite=True)
         reduce.make_parent()
+
+    @property
+    def pv(self):
+        if 'Q-Limits' in self.plotviews:
+            return self.plotviews['Q-Limits']
+        else:
+            return NXPlotView('Q-Limits')
+
+    def plot_Q_limits(self):
+        self.reduce.qmin = self.qmin
+        self.reduce.qmax = self.qmax
+        self.pv.plot(NXdata(self.reduce.transmission_coordinates(),
+                            (NXfield(np.arange(self.reduce.shape[1]),
+                                     name='y'),
+                             NXfield(np.arange(self.reduce.shape[2]),
+                                     name='x')),
+                            title=f'Q-Limits: {self.root.nxname}'))
+        self.pv.aspect = 'equal'
+        self.pv.ytab.flipped = detector_flipped(self.reduce.entry)
 
     def accept(self):
         try:
