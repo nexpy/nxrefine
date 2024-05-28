@@ -44,7 +44,6 @@ class MaximumDialog(NXDialog):
         self.summed_data = None
         self.summed_frames = None
         self.partial_frames = None
-        self._plotview = None
 
     def choose_entry(self):
         self.reduce = NXReduce(self.entry)
@@ -198,9 +197,10 @@ class MaximumDialog(NXDialog):
 
     @property
     def pv(self):
-        if self._plotview is None:
-            self._plotview = NXPlotView('Maximum')
-        return self._plotview
+        if 'Maximum' in self.plotviews:
+            return self.plotviews['Maximum']
+        else:
+            return NXPlotView('Maximum')
 
     @property
     def over(self):
