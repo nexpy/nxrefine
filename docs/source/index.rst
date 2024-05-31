@@ -18,13 +18,16 @@ arrays and transformed from detector coordinates to reciprocal space
 coordinates, using an orientation matrix derived from the measured
 Bragg peaks.
 
-NXRefine implements a complete workflow for both data acquisition and 
-reduction of single crystal x-ray scattering. Advanced workflows exist
-for the generation of Bragg peak intensities used by crystallographers
-to solve the average crystalline structure. However, the goal of
-NXRefine is to generate a three-dimensional mesh of scattering intensity
-that includes both Bragg peaks and the diffuse scattering that arises
-from deviations from the average structure. 
+*NXRefine* implements a complete workflow for both data acquisition and
+reduction of single crystal x-ray scattering. Workflows developed for
+crystallography typically have the goal of generating Bragg peak
+intensities used to determine the average crystalline structure, but the
+goal of *NXRefine* is to produce a three-dimensional mesh of scattering
+intensity in reciprocal space that includes both Bragg peaks *and* the
+diffuse scattering that arises from deviations from the average
+structure. The workflow also generates three-dimensional
+pair-distribution-function maps (PDFs), both total PDF and 3D-ΔPDF, to
+determine interatomic vector probabilities in real space.
 
 The workflow is written as a set of Python modules that can either be
 run from the command line, launched from a GUI that is implemented as a
@@ -40,9 +43,11 @@ temperature, are complete.
 
    introduction
    installation
-   server
    experiment
-   refine
+   sample
+   reduction
+   server
+   glossary
 
 Indices and tables
 ==================
