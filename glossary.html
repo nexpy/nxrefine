@@ -1,0 +1,147 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Glossary of Terms &#8212; NXRefine 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinxdoc.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Server Management" href="server.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="server.html" title="Server Management"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">NXRefine 0.1.0 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Glossary of Terms</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="glossary-of-terms">
+<h1>Glossary of Terms<a class="headerlink" href="#glossary-of-terms" title="Permalink to this headline">¶</a></h1>
+<p>This section contains a list of terms used in the preceding sections of the documentation, along with brief descriptions and links to where they are explained in more detail.</p>
+<dl>
+<dt><strong>Experiment</strong></dt><dd><p>Each experiment consists of measurements performed within a specific
+time period, which share a common set of instrument configurations and
+calibration files. The measurements could be performed on multiple
+samples.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="experiment.html#experiment-layout"><span class="std std-ref">Experiment Layout</span></a></p>
+</div>
+</dd>
+<dt><strong>Experiment Directory</strong></dt><dd><p>This is the directory containing all the files and sub-directories associated with a single experiment.</p>
+</dd>
+<dt><strong>Sample</strong></dt><dd><p>Each experiment typcially contains measurements on one or more
+samples, which are labelled by their chemical formula or a descriptive
+name, <em>e.g.,</em> “TiSe2” or “LBCO”. It is common to perform measurements
+on multiple crystals that are nominally the same material, each with a
+unique label, <em>e.g.</em>, defined by the crystal grower, before deciding which crystal to use.</p>
+</dd>
+<dt><strong>Sample Directory</strong></dt><dd><p>In the “Experiment Directory”, each sample has its own sub-directory, within which are one or more sub-directories for each measured crystal. For example, in the following directory tree, there are two possible “Sample Directories”, either <code class="docutils literal notranslate"><span class="pre">experiment/sample/label1</span></code> or <code class="docutils literal notranslate"><span class="pre">experiment/sample/label2</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>experiment
+└── sample
+    └── label1
+    └── label2
+</pre></div>
+</div>
+</dd>
+<dt><strong>Scan File</strong></dt><dd><p>This is the NeXus file that contains all the information required to reduce, analyze, and interpret the data measured at a single temperature or other instrumental setting. This is stored in one of the “Sample Directories”, with a name given by combining the sample name and scan parameter, <em>e.g.</em> for measurements at 100K, the following NeXus file is defined.:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>experiment
+└── sample
+    └── label
+        └── sample_100K.nxs
+</pre></div>
+</div>
+</dd>
+<dt><strong>Scan Directory</strong></dt><dd><p>Each NeXus file contains external links to HDF5 files containing the raw data and larger processed data files. These are stored in “Scan Directories”, whose names must match the corresponding “Scan File”:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>experiment
+└── sample
+    └── label
+        ├── sample_100K.nxs
+        └── 100K
+            ├── f1.h5
+            ...
+</pre></div>
+</div>
+</dd>
+<dt><strong>Server Directory</strong></dt><dd><p>This directory is defined when <em>NXRefine</em> is first installed in order to store log files, task queues, and default settings. On systems with multiple users, this must be in a shared location. It is recommended that all users are members of the same group, which has read/write privileges in the “Server Directory”.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="server.html#server-management"><span class="std std-ref">Server Management</span></a></p>
+</div>
+</dd>
+</dl>
+</div>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="server.html"
+                          title="previous chapter">Server Management</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/glossary.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="server.html" title="Server Management"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">NXRefine 0.1.0 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Glossary of Terms</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2023, Ray Osborn.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

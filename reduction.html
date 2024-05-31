@@ -1,0 +1,394 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Reduction &#8212; NXRefine 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinxdoc.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Server Management" href="server.html" />
+    <link rel="prev" title="Sample Refinement" href="sample.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="server.html" title="Server Management"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="sample.html" title="Sample Refinement"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">NXRefine 0.1.0 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Data Reduction</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="data-reduction">
+<h1>Data Reduction<a class="headerlink" href="#data-reduction" title="Permalink to this headline">¶</a></h1>
+<p>In order to reduce raw data collected as images (or frames) on an area
+detector as a function of sample rotation angle and transform the
+results into reciprocal space maps, <em>i.e.</em>, S(<strong>Q</strong>), <em>NXRefine</em>
+performs the following steps:</p>
+<ul class="simple">
+<li><p>combining the frames into a single three-dimensional array.</p></li>
+<li><p>harvesting metadata collected during the sample rotations.</p></li>
+<li><p>summing detector frames to facilitate absorption corrections.</p></li>
+<li><p>searching for Bragg peaks embedded within the raw data.</p></li>
+<li><p>defining an orientation matrix.</p></li>
+<li><p>transforming the raw data into reciprocal space coordinates.</p></li>
+</ul>
+<p>When multiple sample rotations are performed to collect a single data
+set, these steps have to be applied to each rotation scan and the
+results merged to produce a single three-dimensional array representing
+S(<strong>Q</strong>). Optionally, <em>NXRefine</em> also transforms the data after applying
+masks that eliminate spurious signals caused by the scattering of Bragg
+peaks within the detector sensor layer.</p>
+<p>Once the data has been transformed into S(<strong>Q</strong>), it is possible to
+generate 3D-ΔPDF maps, which transform the data back into real space,
+producing difference Patterson maps, <em>i.e.</em>, maps of interatomic vector
+probabilities, which differ from the average crystalline structure. In
+this way, continuous distributions of diffuse scattering intensity are
+typically reduced to discrete peaks, with positive and negative
+intensities, representing these probability differences. <em>NXRefine</em>
+implements the “punch-and-fill” method, described by <a class="reference external" href="https:dx.doi.org.10.1524/zkri.2012.1504">Weber and Simonov</a>.</p>
+<p>Nearly all of the steps in the <em>NXRefine</em> data reduction workflow can
+either be performed from the command line or launched from a NeXpy GUI.
+The exception is determining the crystal orientation, which must first
+be performed using the <cite>Refine Lattice</cite> dialog in NeXpy. Once the sample
+orientation has been determined from one of the measurements, <em>e.g.</em>, at
+room temperature, it can be copied and refined automatically when
+reducing the data from other measurements, provided the space group has
+not changed or is still compatible with the observed Bragg peaks.</p>
+<div class="section" id="nxload">
+<h2>nxload<a class="headerlink" href="#nxload" title="Permalink to this headline">¶</a></h2>
+<p>Load data</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxload</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
+
+<span class="n">Load</span> <span class="n">raw</span> <span class="n">data</span>
+
+<span class="n">optional</span> <span class="n">arguments</span><span class="p">:</span>
+  <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
+  <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
+                        <span class="n">scan</span> <span class="n">directory</span>
+  <span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">],</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
+                        <span class="n">names</span> <span class="n">of</span> <span class="n">entries</span> <span class="n">to</span> <span class="n">be</span> <span class="n">loaded</span>
+  <span class="o">-</span><span class="n">o</span><span class="p">,</span> <span class="o">--</span><span class="n">overwrite</span>       <span class="n">overwrite</span> <span class="n">existing</span> <span class="n">peaks</span>
+  <span class="o">-</span><span class="n">q</span><span class="p">,</span> <span class="o">--</span><span class="n">queue</span>           <span class="n">add</span> <span class="n">to</span> <span class="n">server</span> <span class="n">task</span> <span class="n">queue</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="nxlink">
+<h2>nxlink<a class="headerlink" href="#nxlink" title="Permalink to this headline">¶</a></h2>
+<p>Link metadata</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxlink</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
+
+<span class="n">Link</span> <span class="n">data</span> <span class="ow">and</span> <span class="n">metadata</span> <span class="n">to</span> <span class="n">NeXus</span> <span class="n">file</span>
+
+<span class="n">optional</span> <span class="n">arguments</span><span class="p">:</span>
+  <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
+  <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
+                        <span class="n">scan</span> <span class="n">directory</span>
+<span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">],</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
+                        <span class="n">names</span> <span class="n">of</span> <span class="n">entries</span> <span class="n">to</span> <span class="n">be</span> <span class="n">searched</span>
+<span class="o">-</span><span class="n">o</span><span class="p">,</span> <span class="o">--</span><span class="n">overwrite</span>         <span class="n">overwrite</span> <span class="n">existing</span> <span class="n">peaks</span>
+<span class="o">-</span><span class="n">q</span><span class="p">,</span> <span class="o">--</span><span class="n">queue</span>             <span class="n">add</span> <span class="n">to</span> <span class="n">server</span> <span class="n">task</span> <span class="n">queue</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="nxcopy">
+<h2>nxcopy<a class="headerlink" href="#nxcopy" title="Permalink to this headline">¶</a></h2>
+<p>Copy data</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxcopy</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">p</span> <span class="n">PARENT</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
+
+<span class="n">Copy</span> <span class="n">instrument</span> <span class="n">parameters</span> <span class="kn">from</span> <span class="nn">a</span> <span class="n">parent</span> <span class="n">file</span>
+
+<span class="n">optional</span> <span class="n">arguments</span><span class="p">:</span>
+  <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
+  <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
+                        <span class="n">scan</span> <span class="n">directory</span>
+  <span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">],</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
+                        <span class="n">names</span> <span class="n">of</span> <span class="n">entries</span> <span class="n">to</span> <span class="n">be</span> <span class="n">searched</span>
+  <span class="o">-</span><span class="n">p</span> <span class="n">PARENT</span><span class="p">,</span> <span class="o">--</span><span class="n">parent</span> <span class="n">PARENT</span>
+                        <span class="n">file</span> <span class="n">name</span> <span class="n">of</span> <span class="n">file</span> <span class="n">to</span> <span class="n">copy</span> <span class="kn">from</span>
+  <span class="o">-</span><span class="n">o</span><span class="p">,</span> <span class="o">--</span><span class="n">overwrite</span>       <span class="n">overwrite</span> <span class="n">existing</span> <span class="n">peaks</span>
+  <span class="o">-</span><span class="n">q</span><span class="p">,</span> <span class="o">--</span><span class="n">queue</span>           <span class="n">add</span> <span class="n">to</span> <span class="n">server</span> <span class="n">task</span> <span class="n">queue</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="nxmax">
+<h2>nxmax<a class="headerlink" href="#nxmax" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxmax</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">f</span> <span class="n">FIRST</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">l</span> <span class="n">LAST</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
+
+<span class="n">Find</span> <span class="n">maximum</span> <span class="n">counts</span> <span class="n">of</span> <span class="n">the</span> <span class="n">signal</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">specified</span> <span class="n">path</span>
+
+<span class="n">optional</span> <span class="n">arguments</span><span class="p">:</span>
+  <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
+  <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
+                        <span class="n">scan</span> <span class="n">directory</span>
+  <span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">],</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
+                        <span class="n">names</span> <span class="n">of</span> <span class="n">entries</span> <span class="n">to</span> <span class="n">be</span> <span class="n">processed</span>
+  <span class="o">-</span><span class="n">f</span> <span class="n">FIRST</span><span class="p">,</span> <span class="o">--</span><span class="n">first</span> <span class="n">FIRST</span>
+                        <span class="n">first</span> <span class="n">frame</span>
+  <span class="o">-</span><span class="n">l</span> <span class="n">LAST</span><span class="p">,</span> <span class="o">--</span><span class="n">last</span> <span class="n">LAST</span>  <span class="n">last</span> <span class="n">frame</span>
+  <span class="o">-</span><span class="n">o</span><span class="p">,</span> <span class="o">--</span><span class="n">overwrite</span>       <span class="n">overwrite</span> <span class="n">existing</span> <span class="n">maximum</span>
+  <span class="o">-</span><span class="n">m</span><span class="p">,</span> <span class="o">--</span><span class="n">monitor</span>         <span class="n">monitor</span> <span class="n">progress</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">command</span> <span class="n">line</span>
+  <span class="o">-</span><span class="n">q</span><span class="p">,</span> <span class="o">--</span><span class="n">queue</span>           <span class="n">add</span> <span class="n">to</span> <span class="n">server</span> <span class="n">task</span> <span class="n">queue</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="nxfind">
+<h2>nxfind<a class="headerlink" href="#nxfind" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxfind</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">THRESHOLD</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">f</span> <span class="n">FIRST</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">l</span> <span class="n">LAST</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">P</span> <span class="n">PIXELS</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">p</span> <span class="n">PARENT</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
+
+<span class="n">Find</span> <span class="n">peaks</span> <span class="n">within</span> <span class="n">the</span> <span class="n">NeXus</span> <span class="n">data</span>
+
+<span class="n">optional</span> <span class="n">arguments</span><span class="p">:</span>
+  <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
+  <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
+                        <span class="n">scan</span> <span class="n">directory</span>
+  <span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">],</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
+                        <span class="n">names</span> <span class="n">of</span> <span class="n">entries</span> <span class="n">to</span> <span class="n">be</span> <span class="n">searched</span>
+  <span class="o">-</span><span class="n">t</span> <span class="n">THRESHOLD</span><span class="p">,</span> <span class="o">--</span><span class="n">threshold</span> <span class="n">THRESHOLD</span>
+                        <span class="n">peak</span> <span class="n">threshold</span>
+  <span class="o">-</span><span class="n">f</span> <span class="n">FIRST</span><span class="p">,</span> <span class="o">--</span><span class="n">first</span> <span class="n">FIRST</span>
+                        <span class="n">first</span> <span class="n">frame</span>
+  <span class="o">-</span><span class="n">l</span> <span class="n">LAST</span><span class="p">,</span> <span class="o">--</span><span class="n">last</span> <span class="n">LAST</span>  <span class="n">last</span> <span class="n">frame</span>
+  <span class="o">-</span><span class="n">P</span> <span class="n">PIXELS</span><span class="p">,</span> <span class="o">--</span><span class="n">pixels</span> <span class="n">PIXELS</span>
+                        <span class="n">minimum</span> <span class="n">pixels</span> <span class="n">between</span> <span class="n">peaks</span>
+  <span class="o">-</span><span class="n">o</span><span class="p">,</span> <span class="o">--</span><span class="n">overwrite</span>       <span class="n">overwrite</span> <span class="n">existing</span> <span class="n">peaks</span>
+  <span class="o">-</span><span class="n">p</span> <span class="n">PARENT</span><span class="p">,</span> <span class="o">--</span><span class="n">parent</span> <span class="n">PARENT</span>
+                        <span class="n">The</span> <span class="n">parent</span> <span class="o">.</span><span class="n">nxs</span> <span class="n">file</span> <span class="n">to</span> <span class="n">use</span>
+  <span class="o">-</span><span class="n">m</span><span class="p">,</span> <span class="o">--</span><span class="n">monitor</span>         <span class="n">monitor</span> <span class="n">progress</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">command</span> <span class="n">line</span>
+  <span class="o">-</span><span class="n">q</span><span class="p">,</span> <span class="o">--</span><span class="n">queue</span>           <span class="n">add</span> <span class="n">to</span> <span class="n">server</span> <span class="n">task</span> <span class="n">queue</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="nxrefine">
+<h2>nxrefine<a class="headerlink" href="#nxrefine" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxrefine</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">l</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">p</span> <span class="n">POLAR_MAX</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">T</span> <span class="n">HKL_TOLERANCE</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
+
+<span class="n">Refine</span> <span class="n">lattice</span> <span class="n">parameters</span> <span class="ow">and</span> <span class="n">goniometer</span> <span class="n">angles</span>
+
+<span class="n">optional</span> <span class="n">arguments</span><span class="p">:</span>
+  <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
+  <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
+                        <span class="n">scan</span> <span class="n">directory</span>
+  <span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">],</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
+                        <span class="n">names</span> <span class="n">of</span> <span class="n">entries</span> <span class="n">to</span> <span class="n">be</span> <span class="n">processed</span>
+  <span class="o">-</span><span class="n">l</span><span class="p">,</span> <span class="o">--</span><span class="n">lattice</span>         <span class="n">refine</span> <span class="n">lattice</span> <span class="n">parameters</span>
+  <span class="o">-</span><span class="n">p</span> <span class="n">POLAR_MAX</span><span class="p">,</span> <span class="o">--</span><span class="n">polar_max</span> <span class="n">POLAR_MAX</span>
+                        <span class="n">maximum</span> <span class="n">polar</span> <span class="n">angle</span> <span class="ow">in</span> <span class="n">degrees</span>
+  <span class="o">-</span><span class="n">T</span> <span class="n">HKL_TOLERANCE</span><span class="p">,</span> <span class="o">--</span><span class="n">hkl_tolerance</span> <span class="n">HKL_TOLERANCE</span>
+                        <span class="n">tolerance</span> <span class="k">for</span> <span class="n">including</span> <span class="n">peak</span> <span class="ow">in</span> <span class="n">Å</span><span class="o">-</span><span class="mi">1</span>
+  <span class="o">-</span><span class="n">o</span><span class="p">,</span> <span class="o">--</span><span class="n">overwrite</span>       <span class="n">overwrite</span> <span class="n">existing</span> <span class="n">maximum</span>
+  <span class="o">-</span><span class="n">q</span><span class="p">,</span> <span class="o">--</span><span class="n">queue</span>           <span class="n">add</span> <span class="n">to</span> <span class="n">server</span> <span class="n">task</span> <span class="n">queue</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="nxprepare">
+<h2>nxprepare<a class="headerlink" href="#nxprepare" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxprepare</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span> <span class="p">[</span><span class="o">--</span><span class="n">t1</span> <span class="n">T1</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">h1</span> <span class="n">H1</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">t2</span> <span class="n">T2</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">h2</span> <span class="n">H2</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
+
+<span class="n">Prepare</span> <span class="mi">3</span><span class="n">D</span> <span class="n">mask</span> <span class="n">around</span> <span class="n">Bragg</span> <span class="n">peaks</span>
+
+<span class="n">optional</span> <span class="n">arguments</span><span class="p">:</span>
+  <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
+  <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
+                        <span class="n">scan</span> <span class="n">directory</span>
+  <span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">],</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
+                        <span class="n">names</span> <span class="n">of</span> <span class="n">entries</span> <span class="n">to</span> <span class="n">be</span> <span class="n">processed</span>
+  <span class="o">--</span><span class="n">t1</span> <span class="n">T1</span>               <span class="n">threshold</span> <span class="k">for</span> <span class="n">smaller</span> <span class="n">convolution</span>
+  <span class="o">--</span><span class="n">h1</span> <span class="n">H1</span>               <span class="n">size</span> <span class="n">of</span> <span class="n">smaller</span> <span class="n">convolution</span>
+  <span class="o">--</span><span class="n">t2</span> <span class="n">T2</span>               <span class="n">threshold</span> <span class="k">for</span> <span class="n">larger</span> <span class="n">convolution</span>
+  <span class="o">--</span><span class="n">h2</span> <span class="n">H2</span>               <span class="n">size</span> <span class="n">of</span> <span class="n">larger</span> <span class="n">convolution</span>
+  <span class="o">-</span><span class="n">o</span><span class="p">,</span> <span class="o">--</span><span class="n">overwrite</span>       <span class="n">overwrite</span> <span class="n">existing</span> <span class="n">mask</span>
+  <span class="o">-</span><span class="n">m</span><span class="p">,</span> <span class="o">--</span><span class="n">monitor</span>         <span class="n">monitor</span> <span class="n">progress</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">command</span> <span class="n">line</span>
+  <span class="o">-</span><span class="n">q</span><span class="p">,</span> <span class="o">--</span><span class="n">queue</span>           <span class="n">add</span> <span class="n">to</span> <span class="n">server</span> <span class="n">task</span> <span class="n">queue</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="nxtransform">
+<h2>nxtransform<a class="headerlink" href="#nxtransform" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxtransform</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">qh</span> <span class="n">QH</span> <span class="n">QH</span> <span class="n">QH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">qk</span> <span class="n">QK</span> <span class="n">QK</span> <span class="n">QK</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">ql</span> <span class="n">QL</span> <span class="n">QL</span> <span class="n">QL</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">R</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">M</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
+
+<span class="n">Perform</span> <span class="n">CCTW</span> <span class="n">transform</span>
+
+<span class="n">optional</span> <span class="n">arguments</span><span class="p">:</span>
+  <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
+  <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
+                        <span class="n">scan</span> <span class="n">directory</span>
+  <span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">],</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
+                        <span class="n">names</span> <span class="n">of</span> <span class="n">entries</span> <span class="n">to</span> <span class="n">be</span> <span class="n">processed</span>
+  <span class="o">-</span><span class="n">qh</span> <span class="n">QH</span> <span class="n">QH</span> <span class="n">QH</span>          <span class="n">Qh</span> <span class="o">-</span> <span class="nb">min</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="nb">max</span>
+  <span class="o">-</span><span class="n">qk</span> <span class="n">QK</span> <span class="n">QK</span> <span class="n">QK</span>          <span class="n">Qk</span> <span class="o">-</span> <span class="nb">min</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="nb">max</span>
+  <span class="o">-</span><span class="n">ql</span> <span class="n">QL</span> <span class="n">QL</span> <span class="n">QL</span>          <span class="n">Ql</span> <span class="o">-</span> <span class="nb">min</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="nb">max</span>
+  <span class="o">-</span><span class="n">R</span><span class="p">,</span> <span class="o">--</span><span class="n">regular</span>         <span class="n">perform</span> <span class="n">regular</span> <span class="n">transform</span>
+  <span class="o">-</span><span class="n">M</span><span class="p">,</span> <span class="o">--</span><span class="n">mask</span>            <span class="n">perform</span> <span class="n">transform</span> <span class="k">with</span> <span class="mi">3</span><span class="n">D</span> <span class="n">mask</span>
+  <span class="o">-</span><span class="n">o</span><span class="p">,</span> <span class="o">--</span><span class="n">overwrite</span>       <span class="n">overwrite</span> <span class="n">existing</span> <span class="n">transforms</span>
+  <span class="o">-</span><span class="n">q</span><span class="p">,</span> <span class="o">--</span><span class="n">queue</span>           <span class="n">add</span> <span class="n">to</span> <span class="n">server</span> <span class="n">task</span> <span class="n">queue</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="nxcombine">
+<h2>nxcombine<a class="headerlink" href="#nxcombine" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxcombine</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">R</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">M</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
+
+<span class="n">Combine</span> <span class="n">CCTW</span> <span class="n">transforms</span>
+
+<span class="n">optional</span> <span class="n">arguments</span><span class="p">:</span>
+  <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
+  <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
+                        <span class="n">scan</span> <span class="n">directory</span>
+  <span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">],</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
+                        <span class="n">names</span> <span class="n">of</span> <span class="n">entries</span> <span class="n">to</span> <span class="n">be</span> <span class="n">combined</span><span class="o">.</span>
+  <span class="o">-</span><span class="n">R</span><span class="p">,</span> <span class="o">--</span><span class="n">regular</span>         <span class="n">combine</span> <span class="n">transforms</span>
+  <span class="o">-</span><span class="n">M</span><span class="p">,</span> <span class="o">--</span><span class="n">mask</span>            <span class="n">combine</span> <span class="n">transforms</span> <span class="k">with</span> <span class="mi">3</span><span class="n">D</span> <span class="n">mask</span>
+  <span class="o">-</span><span class="n">o</span><span class="p">,</span> <span class="o">--</span><span class="n">overwrite</span>       <span class="n">overwrite</span> <span class="n">existing</span> <span class="n">transform</span>
+  <span class="o">-</span><span class="n">q</span><span class="p">,</span> <span class="o">--</span><span class="n">queue</span>           <span class="n">add</span> <span class="n">to</span> <span class="n">server</span> <span class="n">task</span> <span class="n">queue</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="nxpdf">
+<h2>nxpdf<a class="headerlink" href="#nxpdf" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxpdf</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">l</span> <span class="p">[</span><span class="n">LAUE</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">r</span> <span class="n">RADIUS</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">Q</span> <span class="n">QMAX</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">R</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">M</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
+
+<span class="n">Calculate</span> <span class="n">PDF</span> <span class="n">transforms</span>
+
+<span class="n">optional</span> <span class="n">arguments</span><span class="p">:</span>
+  <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
+  <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
+                        <span class="n">scan</span> <span class="n">directory</span>
+  <span class="o">-</span><span class="n">l</span> <span class="p">[</span><span class="n">LAUE</span><span class="p">],</span> <span class="o">--</span><span class="n">laue</span> <span class="p">[</span><span class="n">LAUE</span><span class="p">]</span>
+                        <span class="n">Laue</span> <span class="n">group</span> <span class="n">to</span> <span class="n">be</span> <span class="n">used</span> <span class="k">if</span> <span class="n">different</span> <span class="kn">from</span> <span class="nn">file</span>
+  <span class="o">-</span><span class="n">r</span> <span class="n">RADIUS</span><span class="p">,</span> <span class="o">--</span><span class="n">radius</span> <span class="n">RADIUS</span>
+                        <span class="n">radius</span> <span class="n">of</span> <span class="n">punched</span> <span class="n">holes</span> <span class="ow">in</span> <span class="n">Å</span><span class="o">-</span><span class="mi">1</span>
+  <span class="o">-</span><span class="n">Q</span> <span class="n">QMAX</span><span class="p">,</span> <span class="o">--</span><span class="n">Qmax</span> <span class="n">QMAX</span>  <span class="n">Maximum</span> <span class="n">Q</span> <span class="ow">in</span> <span class="n">Å</span><span class="o">-</span><span class="mi">1</span> <span class="n">used</span> <span class="ow">in</span> <span class="n">PDF</span> <span class="n">tapers</span>
+  <span class="o">-</span><span class="n">R</span><span class="p">,</span> <span class="o">--</span><span class="n">regular</span>         <span class="n">Calculate</span> <span class="n">using</span> <span class="n">regular</span> <span class="n">transforms</span>
+  <span class="o">-</span><span class="n">M</span><span class="p">,</span> <span class="o">--</span><span class="n">mask</span>            <span class="n">Calculate</span> <span class="n">using</span> <span class="n">masked</span> <span class="n">transforms</span>
+  <span class="o">-</span><span class="n">o</span><span class="p">,</span> <span class="o">--</span><span class="n">overwrite</span>       <span class="n">overwrite</span> <span class="n">existing</span> <span class="n">transforms</span>
+  <span class="o">-</span><span class="n">q</span><span class="p">,</span> <span class="o">--</span><span class="n">queue</span>           <span class="n">add</span> <span class="n">to</span> <span class="n">server</span> <span class="n">task</span> <span class="n">queue</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="nxserver">
+<h2>nxserver<a class="headerlink" href="#nxserver" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxserver</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">d</span> <span class="p">[</span><span class="n">DIRECTORY</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TYPE</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">n</span> <span class="n">NODES</span> <span class="p">[</span><span class="n">NODES</span> <span class="o">...</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">c</span> <span class="n">CORES</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">r</span> <span class="n">REMOVE</span> <span class="p">[</span><span class="n">REMOVE</span> <span class="o">...</span><span class="p">]]</span> <span class="p">[</span><span class="n">command</span><span class="p">]</span>
+
+<span class="n">Launch</span> <span class="n">server</span> <span class="k">for</span> <span class="n">data</span> <span class="n">reduction</span> <span class="n">workflow</span>
+
+<span class="n">positional</span> <span class="n">arguments</span><span class="p">:</span>
+  <span class="n">command</span>               <span class="n">status</span><span class="o">|</span><span class="n">start</span><span class="o">|</span><span class="n">stop</span><span class="o">|</span><span class="nb">list</span><span class="o">|</span><span class="n">clear</span><span class="o">|</span><span class="n">kill</span>
+
+<span class="n">optional</span> <span class="n">arguments</span><span class="p">:</span>
+  <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
+  <span class="o">-</span><span class="n">d</span> <span class="p">[</span><span class="n">DIRECTORY</span><span class="p">],</span> <span class="o">--</span><span class="n">directory</span> <span class="p">[</span><span class="n">DIRECTORY</span><span class="p">]</span>
+                        <span class="n">Start</span> <span class="n">the</span> <span class="n">server</span> <span class="ow">in</span> <span class="n">this</span> <span class="n">directory</span>
+  <span class="o">-</span><span class="n">t</span> <span class="n">TYPE</span><span class="p">,</span> <span class="o">--</span><span class="nb">type</span> <span class="n">TYPE</span>  <span class="n">Server</span> <span class="nb">type</span><span class="p">:</span> <span class="n">multicore</span><span class="o">|</span><span class="n">multinode</span>
+  <span class="o">-</span><span class="n">n</span> <span class="n">NODES</span> <span class="p">[</span><span class="n">NODES</span> <span class="o">...</span><span class="p">],</span> <span class="o">--</span><span class="n">nodes</span> <span class="n">NODES</span> <span class="p">[</span><span class="n">NODES</span> <span class="o">...</span><span class="p">]</span>
+                        <span class="n">Add</span> <span class="n">nodes</span>
+  <span class="o">-</span><span class="n">c</span> <span class="n">CORES</span><span class="p">,</span> <span class="o">--</span><span class="n">cores</span> <span class="n">CORES</span>
+                        <span class="n">Number</span> <span class="n">of</span> <span class="n">cores</span>
+  <span class="o">-</span><span class="n">r</span> <span class="n">REMOVE</span> <span class="p">[</span><span class="n">REMOVE</span> <span class="o">...</span><span class="p">],</span> <span class="o">--</span><span class="n">remove</span> <span class="n">REMOVE</span> <span class="p">[</span><span class="n">REMOVE</span> <span class="o">...</span><span class="p">]</span>
+                        <span class="n">Remove</span> <span class="n">nodes</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Data Reduction</a><ul>
+<li><a class="reference internal" href="#nxload">nxload</a></li>
+<li><a class="reference internal" href="#nxlink">nxlink</a></li>
+<li><a class="reference internal" href="#nxcopy">nxcopy</a></li>
+<li><a class="reference internal" href="#nxmax">nxmax</a></li>
+<li><a class="reference internal" href="#nxfind">nxfind</a></li>
+<li><a class="reference internal" href="#nxrefine">nxrefine</a></li>
+<li><a class="reference internal" href="#nxprepare">nxprepare</a></li>
+<li><a class="reference internal" href="#nxtransform">nxtransform</a></li>
+<li><a class="reference internal" href="#nxcombine">nxcombine</a></li>
+<li><a class="reference internal" href="#nxpdf">nxpdf</a></li>
+<li><a class="reference internal" href="#nxserver">nxserver</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="sample.html"
+                          title="previous chapter">Sample Refinement</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="server.html"
+                          title="next chapter">Server Management</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/reduction.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="server.html" title="Server Management"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="sample.html" title="Sample Refinement"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">NXRefine 0.1.0 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Data Reduction</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2023, Ray Osborn.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

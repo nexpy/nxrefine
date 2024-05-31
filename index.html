@@ -50,13 +50,16 @@ fast area detector. These images are stacked into three-dimensional
 arrays and transformed from detector coordinates to reciprocal space
 coordinates, using an orientation matrix derived from the measured
 Bragg peaks.</p>
-<p>NXRefine implements a complete workflow for both data acquisition and
-reduction of single crystal x-ray scattering. Advanced workflows exist
-for the generation of Bragg peak intensities used by crystallographers
-to solve the average crystalline structure. However, the goal of
-NXRefine is to generate a three-dimensional mesh of scattering intensity
-that includes both Bragg peaks and the diffuse scattering that arises
-from deviations from the average structure.</p>
+<p><em>NXRefine</em> implements a complete workflow for both data acquisition and
+reduction of single crystal x-ray scattering. Workflows developed for
+crystallography typically have the goal of generating Bragg peak
+intensities used to determine the average crystalline structure, but the
+goal of <em>NXRefine</em> is to produce a three-dimensional mesh of scattering
+intensity in reciprocal space that includes both Bragg peaks <em>and</em> the
+diffuse scattering that arises from deviations from the average
+structure. The workflow also generates three-dimensional
+pair-distribution-function maps (PDFs), both total PDF and 3D-ΔPDF, to
+determine interatomic vector probabilities in real space.</p>
 <p>The workflow is written as a set of Python modules that can either be
 run from the command line, launched from a GUI that is implemented as a
 plugin to <a class="reference external" href="https://nexpy.github.io.nexpy/">NeXpy</a>, or by submitting
@@ -77,21 +80,43 @@ temperature, are complete.</p>
 <li class="toctree-l2"><a class="reference internal" href="installation.html#required-libraries">Required Libraries</a></li>
 <li class="toctree-l2"><a class="reference internal" href="installation.html#nexpy">NeXpy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="installation.html#cctw">CCTW</a></li>
-<li class="toctree-l2"><a class="reference internal" href="installation.html#user-support">User Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#initial-setup">Initial Setup</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="server.html">Server Configuration</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="server.html#initial-setup">Initial Setup</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="experiment.html">Experiments</a><ul>
+<li class="toctree-l1"><a class="reference internal" href="experiment.html">Experiment Configuration</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="experiment.html#experiment-layout">Experiment Layout</a></li>
 <li class="toctree-l2"><a class="reference internal" href="experiment.html#experiment-sub-directories">Experiment Sub-Directories</a></li>
 <li class="toctree-l2"><a class="reference internal" href="experiment.html#instrument-setup">Instrument Setup</a></li>
 <li class="toctree-l2"><a class="reference internal" href="experiment.html#experiment-menu">Experiment Menu</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="refine.html">Data Reduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sample.html">Sample Refinement</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="sample.html#nexus-files">NeXus files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sample.html#refine-menu">Refine Menu</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="reduction.html">Data Reduction</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="reduction.html#nxload">nxload</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reduction.html#nxlink">nxlink</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reduction.html#nxcopy">nxcopy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reduction.html#nxmax">nxmax</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reduction.html#nxfind">nxfind</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reduction.html#nxrefine">nxrefine</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reduction.html#nxprepare">nxprepare</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reduction.html#nxtransform">nxtransform</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reduction.html#nxcombine">nxcombine</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reduction.html#nxpdf">nxpdf</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reduction.html#nxserver">nxserver</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="server.html">Server Management</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="server.html#server-directory">Server Directory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="server.html#default-settings">Default Settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="server.html#server-settings">Server Settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="server.html#server-menu">Server Menu</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">Glossary of Terms</a></li>
 </ul>
 </div>
 </div>

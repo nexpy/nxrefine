@@ -1,5 +1,5 @@
-Server Configuration
-====================
+Server Management
+*****************
 *NXRefine* implements a data reduction workflow, which can be run as a
 series of line commands in the terminal. However, since some of the
 processes can take a long time to complete (from a few minutes to an
@@ -7,66 +7,10 @@ hour, depending on the process and system being used), it is possible to
 queue these operations using the *NXRefine*'s queue manager, to be run
 locally using multiple cores or distributed to other nodes. The
 *NXRefine* queue manager can be configured to submit jobs to another job
-queue manager if one is available. 
-
-Initial Setup
--------------
-In order to allow *NXRefine* to be used by multiple users on a single
-machine or cluster, a common directory is defined to store log files,
-task queues, and default settings. The location of this directory should
-be defined immediately after installing *NXRefine* for the first time.
-Since the files in this directory are modified by *NXRefine* commands
-that could be run by multiple users, it is recommended that all such
-users are members of the same group. When initialized by a member of
-that group, the files in the server directory have group read/write
-permissions by default.
-
-The location of the server directory is initialized on the command line
-by the 'nxserver' command::
-
-    $ nxserver -d /path/to/parent
-
-This will create a directory at ``/path/to/parent/nxserver`` containing
-the files that are required by *NXRefine* server. 
-
-.. note:: If the supplied path already ends in ``nxserver``, it will not
-          be appended.
-
-Once the server directory has been initialized, it is necessary for its
-location to be defined for other users. This can be done in one of two
-ways. 
-
-1. If *NXRefine* is being configured by a system administrator, it is
-   possible to use a system-wide environment variable, ``NX_SERVER``, to
-   to define the path to the server directory. Alternatively, this
-   environment variable could be added to each user's login script.
-
-2. The ``nxserver`` command used to initialize the server directory also
-   adds a hidden file to the user's home directory,
-   ``~/.nxserver/settings.ini``, which contains the server directory
-   path. If the server directory already exists, the command can be run
-   again by other users without affecting the initial directory. In
-   principle, it only needs to be run once by each user, although it
-   could also be added to a login script if preferred.
-
-   .. note:: If the ``NX_SERVER`` environment variable is defined, it 
-             takes precedence over the path in
-             ``~/.nxserver/settings.ini``.
-
-*NXRefine* uses file-based locking to prevent corruption of data files.
-This system is provided by the 
-`nexusformat package <https://nexpy.github.io/nexpy/>`_, which defines
-the directory to contain the lock files using the ``NX_LOCKDIRECTORY``
-environment variable. It is recommended that this directory be placed
-within the server directory.
-
-.. note:: The *NeXpy* GUI has a settings file that can be used to define
-          the lock directory, but it is overridden by the environment
-          variable if it is defined. This allows system administrators
-          to set up a unique lock file directory for all their users.
+queue manager if one is available.
 
 Server Directory
-^^^^^^^^^^^^^^^^
+================
 Here is the structure of the ``nxserver`` directory::
 
     nxserver
@@ -154,7 +98,7 @@ Here is the structure of the ``nxserver`` directory::
 .. _default_settings:
 
 Default Settings
-^^^^^^^^^^^^^^^^
+================
 The file, ``settings.ini`` in the server directory contains the default
 settings for the server, the beamline, and the workflow. These values
 can be changed, either by opening the "Edit Settings" dialog in the
@@ -169,7 +113,7 @@ the data and default values of the data reduction parameters. They will
 be described later.
 
 Server Settings
-^^^^^^^^^^^^^^^
+===============
 The server settings are used by the workflow server, which is described
 in a later section. They define the server configuration, such as the
 number of simultaneous jobs that may be run, the command required to
@@ -208,3 +152,22 @@ be wrapped in a shell script.
 
 :cctw: This is the path to the CCTW executable used to transform data
        from instrumental coordinates to reciprocal space.
+
+Server Menu
+===========
+The *NXRefine* plugin to *NeXpy* installs a top-level menu labelled
+"Server", which is used to launch and monitor data reduction operations performed as part of the workflow.
+
+Manage Workflows
+----------------
+This dialog shows the workflow status for all the scans stored in a
+particular sample directory. When the dialog is launched, click on
+"Choose Sample Directory" to launch the system file browser in order to
+select a directory containing a set of NeXus scan files. This opens the
+"Manage Workflows" dialog, in which the status of every component of the
+*NXRefine* workflow is listed for all the scan files in the sample
+directory. 
+
+Manage Server
+-------------
+This dialog allows the status of the server to be monitored.

@@ -1,0 +1,352 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Experiment Menu &#8212; NXRefine 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinxdoc.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="nav-item nav-item-0"><a href="index.html">NXRefine 0.1.0 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Experiment Menu</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="experiment-menu">
+<h1>Experiment Menu<a class="headerlink" href="#experiment-menu" title="Permalink to this headline">¶</a></h1>
+<p>The <em>NXRefine</em> plugin to <em>NeXpy</em> installs a top-level menu labelled
+“Experiment”. The sub-menus run operations to initialize the experiment
+layout, create experimental data templates, calibrate powder data, and
+initialize new data files.</p>
+<div class="section" id="new-experiment">
+<h2>New Experiment<a class="headerlink" href="#new-experiment" title="Permalink to this headline">¶</a></h2>
+<p>This dialog initializes a new experiment directory layout using the
+server settings to initialize default locations. When the dialog is
+launched, click on “Choose Experiment Directory” to launch the system
+file browser in order to select or create the new experiment  directory.</p>
+<div class="figure align-center">
+<a class="reference internal image-reference" href="_images/new-experiment-CHESS.png"><img alt="_images/new-experiment-CHESS.png" src="_images/new-experiment-CHESS.png" style="width: 80%;" /></a>
+</div>
+<p>There are two scenarios.</p>
+<ol class="arabic simple">
+<li><p>If <code class="docutils literal notranslate"><span class="pre">raw_home</span></code> is not blank in the server settings, the file browser
+will default to the <code class="docutils literal notranslate"><span class="pre">raw_home</span></code> directory, in which an experiment
+directory, containing the raw image files, should already exist. This
+experiment directory is then selected, after which the dialog above
+is created, with the experiment name (<em>i.e.</em>, the base name of the
+experiment directory path) already filled in, along with the path to
+analysis home directory (<code class="docutils literal notranslate"><span class="pre">analysis_home</span></code> in the server settings)
+and the name of the analysis sub-directory if required. When the
+“Save” button is pressed, the new experiment directory is created
+within the analysis home directory if it does not already exist, and
+the experiment directory tree is initialized with the
+<code class="docutils literal notranslate"><span class="pre">calibrations</span></code>, <code class="docutils literal notranslate"><span class="pre">configurations</span></code>, <code class="docutils literal notranslate"><span class="pre">scripts</span></code> and <code class="docutils literal notranslate"><span class="pre">tasks</span></code>
+sub-directories.</p></li>
+<li><p>If <code class="docutils literal notranslate"><span class="pre">raw_home</span></code> is blank, the file browser will default to the
+<code class="docutils literal notranslate"><span class="pre">analysis_home</span></code> directory, but another location can be selected if
+required. The file browser can be used either to select an existing
+experiment directory or to create a new one. The above dialog is then
+created with the experiment name given by the base name of the
+selected experiment directory path, and the analysis home directory
+defined by its parent. When the “Save” button is pressed, the
+experiment directory tree is initialized with the <code class="docutils literal notranslate"><span class="pre">calibrations</span></code>,
+<code class="docutils literal notranslate"><span class="pre">configurations</span></code>, <code class="docutils literal notranslate"><span class="pre">scripts</span></code> and <code class="docutils literal notranslate"><span class="pre">tasks</span></code> sub-directories.</p></li>
+</ol>
+<p>A new <code class="docutils literal notranslate"><span class="pre">settings.ini</span></code> file is created in the <code class="docutils literal notranslate"><span class="pre">tasks</span></code> sub-directory,
+with values copied from the equivalent file in the server directory,
+excluding the “Server” section. This allows the refinement parameters to
+be customized for each experiment.</p>
+</div>
+<div class="section" id="new-configuration">
+<h2>New configuration<a class="headerlink" href="#new-configuration" title="Permalink to this headline">¶</a></h2>
+<p>This dialog creates NeXus files that are used as templates for the
+experimental files that are used to store all the data and metadata
+associated with a particular set of rotation scans. The initial metadata
+is defined by parameters in the settings file in the <code class="docutils literal notranslate"><span class="pre">tasks</span></code>
+sub-directory, which can be modified by the “Edit Settings” sub-menu
+described below. However, some of the metadata will be refined using a
+powder calibration, whose results are then stored in this file.</p>
+<p>After selecting the experiment directory, the following dialog is created.</p>
+<div class="figure align-center">
+<a class="reference internal image-reference" href="_images/new-configuration-CHESS.png"><img alt="_images/new-configuration-CHESS.png" src="_images/new-configuration-CHESS.png" style="width: 80%;" /></a>
+</div>
+<p>This allows the settings used in subsequent analysis to be initialized,
+the parameters defining the rotation scans (range, step size, frame
+rate) to be set, the detector configuration to be defined, and the
+angles and/or detector positions to be used in one or more rotation
+scans. These are all saved to the NeXus template. The wavelength and
+detector distance can be nominal values at this stage, since they are
+updated by performing a powder calibration. Similarly, the instrument
+angles, <span class="math notranslate nohighlight">\(\theta\)</span>, <span class="math notranslate nohighlight">\(\omega\)</span>, and <span class="math notranslate nohighlight">\(\chi\)</span> are set to the
+angles set by the motors, but will usually be refined when the sample
+orientation is determined.</p>
+<p>It is possible to create more than one configuration template, if, for
+example, different angles and/or detector positions are used in
+different phases of an experiment. <em>NXRefine</em> allows the appropriate
+template to be selected when setting up the scan. A separate template
+should be created for each configuration that requires a change in the
+instrument calibration (wavelength, detector distance, detector
+translation) or scan angles.</p>
+<p>The detector is chosen from a pull-down menu that contains all the
+detectors defined in the <em>PyFAI</em> package. This defines the number of
+pixels, their size, and a mask array used to exclude all the pixels
+within gaps between the detector chips.</p>
+</div>
+<div class="section" id="calibrate-powder">
+<h2>Calibrate Powder<a class="headerlink" href="#calibrate-powder" title="Permalink to this headline">¶</a></h2>
+<p>This dialog will import a TIFF or CBF file containing measurements of a
+powder calibrant and refine the detector position and coordinates, using
+the <em>PyFAI</em> API. Alternatively, if the calibration parameters are
+already available in a PONI file, they can be directly imported. The
+resulting powder data and calbration parameters are then saved to the
+configuration template previously created using the <em>New Configuration</em>
+dialog.</p>
+<div class="figure align-center">
+<a class="reference internal image-reference" href="_images/calibrate-powder.png"><img alt="_images/calibrate-powder.png" src="_images/calibrate-powder.png" style="width: 80%;" /></a>
+</div>
+<p>After launching the dialog, select the entry in the configuration file
+to be calibrated by the powder measurement, <em>i.e.</em>, the one with the
+correct wavelength, detector distance and translations. This expands the
+dialog with the default parameters defined by the settings file. The
+checkboxes at the side of each parameter specify whether the parameter
+is to be refined. By default, the wavelength checkbox is de-selected,
+since this is normally defined accurately by other means. It is too
+highly correlated to the detector distance for both to be refined
+simultaneously.</p>
+<p>Then click on “Import Powder Data” to select the powder calibration
+file. This will generate a plot containing the powder data on a log
+scale. Select the approprate powder calibrant from those specified in
+the Calibrant pull-down menu.</p>
+<p>If a PONI file already exists from a prior calibration, it can be
+imported using the “Import Calibration” button. If this is sufficiently
+accurate, it is not necessary to perform further calibrations. Instead
+the calibration parameters can be saved to the configuration file by
+clicking on “Save” and the dialog can be closed.</p>
+<p>To obtain an initial calibration, zoom into this plot to display
+the first few rings.</p>
+<div class="figure align-center" id="id1">
+<a class="reference internal image-reference" href="_images/select-ring.png"><img alt="_images/select-ring.png" src="_images/select-ring.png" style="width: 80%;" /></a>
+<p class="caption"><span class="caption-text"><em>Points generated for the innermost ring after manually selecting
+four points</em></span><a class="headerlink" href="#id1" title="Permalink to this image">¶</a></p>
+</div>
+<p>After clicking on “Select Points”, click somewhere on the innermost
+ring. This triggers the PyFAI Massif module, which automatically detects
+other points on the Debye-Scherrer ring that are contiguous to the
+selected point. Because of the gaps between detector chips, the Massif
+detection is confined to pixels within a single chip, so it is normally
+necessary to select other points on neighboring chips to complete a
+single ring. In the above ring, four selections, corresponding to the
+brighter red circles, were made.</p>
+<p>It is only necessary to do this for a single ring. De-select the “Select
+Points” button and click “Calibrate” to perform an initial calibration.
+After this, it is possible to generate points automatically on the other
+rings using the “Autogenerate Rings” button. Select how many rings to
+generate, using the ring pull-down menu.</p>
+<div class="figure align-center" id="id2">
+<a class="reference internal image-reference" href="_images/autogenerate-rings.png"><img alt="_images/autogenerate-rings.png" src="_images/autogenerate-rings.png" style="width: 80%;" /></a>
+<p class="caption"><span class="caption-text"><em>Autogenerated rings after selecting “Ring6” on the pull-down menu</em></span><a class="headerlink" href="#id2" title="Permalink to this image">¶</a></p>
+</div>
+<p>When enough rings have been defined, click “Calibrate” again to produce
+a more accurate refinement.</p>
+<p>The “Plot Cake” button can be used to generate a “cake” plot, in which
+all the powder rings, which are plotted against polar angle, should fall
+on vertical lines.</p>
+<div class="figure align-center" id="id3">
+<a class="reference internal image-reference" href="_images/cake-plot.png"><img alt="_images/cake-plot.png" src="_images/cake-plot.png" style="width: 80%;" /></a>
+<p class="caption"><span class="caption-text"><em>Cake Plot which allows a comparison of the powder data, plotted as a
+function of polar angle, with the theoretical powder lines (dotted
+red lines).</em></span><a class="headerlink" href="#id3" title="Permalink to this image">¶</a></p>
+</div>
+<p>This can be used to determine whether the calibration is sufficiently
+good over the entire angular range of the detector. If there is evidence
+of distortions at higher polar angle, it may be necessary to
+autogenerate more rings before an additional calibration.</p>
+<p>When the calibration is satisfactory, click “Save” to save both the
+powder calibration data and parameters to the configuration file. The
+calibration parameters can also be saved to a PONI file, using the
+“Export Calibration” button. This process should be repeated for each
+entry, after which the dialog can be closed.</p>
+</div>
+<div class="section" id="create-mask">
+<h2>Create Mask<a class="headerlink" href="#create-mask" title="Permalink to this headline">¶</a></h2>
+<p>This dialog creates a pixel mask that is used to exclude bad pixels from
+further analysis. As described above, when a new configuration file is
+created, a pixel mask that excludes gaps between detector chips is
+automatically added. Additional pixels can be excluded using this
+dialog, either by adding editable shapes that are constructively added
+to the existing mask or by importing the mask from an external file,
+which can store the mask in any image format. The latter is useful if a
+beamline regularly updates a particular detector’s mask as bad pixels are identified.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>If an external mask is input using “Import Mask”, it will
+overwrite the existing mask. It is important therefore that
+the external pixel mask also excludes the detector gaps.</p>
+</div>
+<p>After launching the dialog, the current mask is automatically plotted,
+as an overlay on the powder diffraction data to enable the center of the
+beam and other features of the data to be identified.</p>
+<div class="figure align-center" id="id4">
+<a class="reference internal image-reference" href="_images/create-mask.png"><img alt="_images/create-mask.png" src="_images/create-mask.png" style="width: 80%;" /></a>
+<p class="caption"><span class="caption-text"><em>Create Mask dialog. The translucent shape shows the rectangle
+created by clicking “Add Shape”.</em></span><a class="headerlink" href="#id4" title="Permalink to this image">¶</a></p>
+</div>
+<p>By clicking on “Add Shape” with either a rectangle or circle selected, a
+translucent shape is added to the plot. By default, it is centered on
+the beam center, but may be moved by dragging the center of the shape
+and/or resized by dragging one of the shape edges. When the shape has
+the correct position and size, click on “Save Shape” for the shape to be
+added to the current list. A pull-down menu allows existing shapes to be
+selected for further edits or removal</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>After saving the shape, it is no longer draggable. However,
+the shape can still be modified by adjusting the shape
+parameters and then clicking on “Save Shape” again.</p>
+</div>
+<p>If a more complicated mask is required, it can be generated by an
+external image editor and imported using “Import Mask”.</p>
+<p>When the mask is complete, click “Save” to save it to the configuration
+file.</p>
+</div>
+<div class="section" id="new-sample">
+<h2>New Sample<a class="headerlink" href="#new-sample" title="Permalink to this headline">¶</a></h2>
+<p>This dialog has the single purpose of creating a directory tree for a
+new sample. The dialog enables the creation of a sample directory within
+the requested experiment directory and a sub-directory with a unique
+label for each instance of that sample measured during an experiment.</p>
+<div class="figure align-center">
+<a class="reference internal image-reference" href="_images/new-sample.png"><img alt="_images/new-sample.png" src="_images/new-sample.png" style="width: 60%;" /></a>
+</div>
+</div>
+<div class="section" id="new-scan">
+<h2>New Scan<a class="headerlink" href="#new-scan" title="Permalink to this headline">¶</a></h2>
+<p>This dialog is used to create a NeXus file in preparation for an
+experimental measurement. The file will be based on the selected
+configuration file and be saved in the specified sample/label directory.
+The name of the file will be “&lt;sample&gt;_&lt;scan&gt;.nxs”, where &lt;scan&gt; is the
+Scan Label specified in the dialog (‘300K’ in the image below).</p>
+<div class="figure align-center">
+<a class="reference internal image-reference" href="_images/new-scan.png"><img alt="_images/new-scan.png" src="_images/new-scan.png" style="width: 80%;" /></a>
+</div>
+<p>The NeXus file is left open in the NeXpy tree. Multiple files can be
+created within the dialog, with different scan labels and, typically,
+different temperatures, before the dialog is closed.</p>
+<p>External links to the raw data file are created in the NeXus file, even
+if the data does not yet exist. In the example above, the external link
+for the first detector position will be to <code class="docutils literal notranslate"><span class="pre">f1.h5</span></code>, in the <code class="docutils literal notranslate"><span class="pre">&lt;scan&gt;</span></code>
+subdirectory. Similarly, the external link for the second detector
+position would be to <code class="docutils literal notranslate"><span class="pre">&lt;scan&gt;/f2.h5</span></code>, <em>etc</em>. This experimental layout
+is described in more detail in the <a href="#id5"><span class="problematic" id="id6">`Experiment Layout`_</span></a> section above.</p>
+</div>
+<div class="section" id="import-scans">
+<h2>Import Scans<a class="headerlink" href="#import-scans" title="Permalink to this headline">¶</a></h2>
+<p>This dialog is for instruments in which the scans are already defined
+using different methods to those above. For example, on the QM2
+instrument at CHESS, the scans are defined in SPEC files, with the data
+stored separately in a separate read-only directory. With this dialog,
+the directories containing the raw images are associated with the
+corresponding SPEC scan, allowing NeXus files to be automatically
+generated. This customization is encoded in a QM2 sub-class of the
+<code class="docutils literal notranslate"><span class="pre">NXBeamLine</span></code> class, which is installed separately as a NXRefine
+plugin. The process for customizing other beamlines is described later.</p>
+</div>
+<div class="section" id="sum-scans">
+<h2>Sum Scans<a class="headerlink" href="#sum-scans" title="Permalink to this headline">¶</a></h2>
+<p>This dialog allows data in NeXus files collected under identical
+conditions to be summed to produce a single NeXus file that can be
+processed using the usual workflow.</p>
+</div>
+<div class="section" id="edit-settings">
+<h2>Edit Settings<a class="headerlink" href="#edit-settings" title="Permalink to this headline">¶</a></h2>
+<p>This dialog allows the settings, whose default values are defined in the
+server directory (see <a class="reference internal" href="server.html#default-settings"><span class="std std-ref">Default Settings</span></a>), to be customized for the
+data reduction performed in the selected experiment. The settings are
+stored in <code class="docutils literal notranslate"><span class="pre">&lt;experiment&gt;/tasks/settings.ini</span></code>. The meanings of each
+setting are described in the next section.</p>
+</div>
+</div>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Experiment Menu</a><ul>
+<li><a class="reference internal" href="#new-experiment">New Experiment</a></li>
+<li><a class="reference internal" href="#new-configuration">New configuration</a></li>
+<li><a class="reference internal" href="#calibrate-powder">Calibrate Powder</a></li>
+<li><a class="reference internal" href="#create-mask">Create Mask</a></li>
+<li><a class="reference internal" href="#new-sample">New Sample</a></li>
+<li><a class="reference internal" href="#new-scan">New Scan</a></li>
+<li><a class="reference internal" href="#import-scans">Import Scans</a></li>
+<li><a class="reference internal" href="#sum-scans">Sum Scans</a></li>
+<li><a class="reference internal" href="#edit-settings">Edit Settings</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/experiment-menu.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="nav-item nav-item-0"><a href="index.html">NXRefine 0.1.0 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Experiment Menu</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2023, Ray Osborn.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

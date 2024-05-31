@@ -1,0 +1,187 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Refine Menu &#8212; NXRefine 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinxdoc.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="nav-item nav-item-0"><a href="index.html">NXRefine 0.1.0 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Refine Menu</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="refine-menu">
+<h1>Refine Menu<a class="headerlink" href="#refine-menu" title="Permalink to this headline">¶</a></h1>
+<p>The <em>NXRefine</em> plugin to <em>NeXpy</em> installs a top-level menu labelled
+“Refine”, which initializes parameters required for the data reduction workflow, determines . Some o.</p>
+<div class="section" id="choose-parameters">
+<h2>Choose Parameters<a class="headerlink" href="#choose-parameters" title="Permalink to this headline">¶</a></h2>
+<p>This dialog initializes a new experiment directory layout using the
+server settings to initialize default locations. When the dialog is
+launched, click on “Choose Experiment Directory” to launch the system
+file browser in order to select or create the new experiment  directory.</p>
+</div>
+<div class="section" id="copy-parameters">
+<h2>Copy Parameters<a class="headerlink" href="#copy-parameters" title="Permalink to this headline">¶</a></h2>
+<p>This dialog creates NeXus files that are used as templates for the
+experimental files that are used to store all the data and metadata
+associated with a particular set of rotation scans. The initial metadata
+is defined by parameters in the settings file in the <code class="docutils literal notranslate"><span class="pre">tasks</span></code>
+sub-directory, which can be modified by the “Edit Settings” sub-menu
+described below. However, some of the metadata will be refined using a
+powder calibration, whose results are then stored in this file.</p>
+</div>
+<div class="section" id="find-maximum">
+<h2>Find Maximum<a class="headerlink" href="#find-maximum" title="Permalink to this headline">¶</a></h2>
+<p>This dialog will import a TIFF or CBF file containing measurements of a
+powder calibrant and refine the detector position and coordinates, using
+the <em>PyFAI</em> API. Alternatively, if the calibration parameters are
+already available in a PONI file, they can be directly imported. The
+resulting powder data and calbration parameters are then saved to the
+configuration template previously created using the <em>New Configuration</em>
+dialog.</p>
+<div class="figure align-center">
+<a class="reference internal image-reference" href="_images/calibrate-powder.png"><img alt="_images/calibrate-powder.png" src="_images/calibrate-powder.png" style="width: 80%;" /></a>
+</div>
+</div>
+<div class="section" id="find-peaks">
+<h2>Find Peaks<a class="headerlink" href="#find-peaks" title="Permalink to this headline">¶</a></h2>
+<p>This dialog creates a pixel mask that is used to exclude bad pixels from
+further analysis. As described above, when a new configuration file is
+created, a pixel mask that excludes gaps between detector chips is
+automatically added. Additional pixels can be excluded using this
+dialog, either by adding editable shapes that are constructively added
+to the existing mask or by importing the mask from an external file,
+which can store the mask in any image format. The latter is useful if a
+beamline regularly updates a particular detector’s mask as bad pixels are identified.</p>
+</div>
+<div class="section" id="prepare-3d-mask">
+<h2>Prepare 3D Mask<a class="headerlink" href="#prepare-3d-mask" title="Permalink to this headline">¶</a></h2>
+<p>This dialog has the single purpose of creating a directory tree for a
+new sample. The dialog enables the creation of a sample directory within
+the requested experiment directory and a sub-directory with a unique
+label for each instance of that sample measured during an experiment.</p>
+<div class="figure align-center">
+<a class="reference internal image-reference" href="_images/new-sample.png"><img alt="_images/new-sample.png" src="_images/new-sample.png" style="width: 60%;" /></a>
+</div>
+</div>
+<div class="section" id="calculate-angles">
+<h2>Calculate Angles<a class="headerlink" href="#calculate-angles" title="Permalink to this headline">¶</a></h2>
+<p>This dialog is used to create a NeXus file in preparation for an
+experimental measurement. The file will be based on the selected
+configuration file and be saved in the specified sample/label directory.
+The name of the file will be “&lt;sample&gt;_&lt;scan&gt;.nxs”, where &lt;scan&gt; is the
+Scan Label specified in the dialog (‘300K’ in the image below).</p>
+</div>
+<div class="section" id="define-lattice">
+<h2>Define Lattice<a class="headerlink" href="#define-lattice" title="Permalink to this headline">¶</a></h2>
+<p>This dialog is for instruments in which the scans are already defined
+using different methods to those above. For example, on the QM2
+instrument at CHESS, the scans are defined in SPEC files, with the data
+stored separately in a separate read-only directory. With this dialog,
+the directories containing the raw images are associated with the
+corresponding SPEC scan, allowing NeXus files to be automatically
+generated. This customization is encoded in a QM2 sub-class of the
+<code class="docutils literal notranslate"><span class="pre">NXBeamLine</span></code> class, which is installed separately as a NXRefine
+plugin. The process for customizing other beamlines is described later.</p>
+</div>
+<div class="section" id="refine-lattice">
+<h2>Refine Lattice<a class="headerlink" href="#refine-lattice" title="Permalink to this headline">¶</a></h2>
+<p>This dialog allows data in NeXus files collected under identical
+conditions to be summed to produce a single NeXus file that can be
+processed using the usual workflow.</p>
+</div>
+<div class="section" id="transform-data">
+<h2>Transform Data<a class="headerlink" href="#transform-data" title="Permalink to this headline">¶</a></h2>
+<p>This dialog allows the settings, whose default values are defined in the
+server directory (see <a class="reference internal" href="server.html#default-settings"><span class="std std-ref">Default Settings</span></a>), to be customized for the
+data reduction performed in the selected experiment. The settings are
+stored in <code class="docutils literal notranslate"><span class="pre">&lt;experiment&gt;/tasks/settings.ini</span></code>. The meanings of each
+setting are described in the next section.</p>
+</div>
+</div>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Refine Menu</a><ul>
+<li><a class="reference internal" href="#choose-parameters">Choose Parameters</a></li>
+<li><a class="reference internal" href="#copy-parameters">Copy Parameters</a></li>
+<li><a class="reference internal" href="#find-maximum">Find Maximum</a></li>
+<li><a class="reference internal" href="#find-peaks">Find Peaks</a></li>
+<li><a class="reference internal" href="#prepare-3d-mask">Prepare 3D Mask</a></li>
+<li><a class="reference internal" href="#calculate-angles">Calculate Angles</a></li>
+<li><a class="reference internal" href="#define-lattice">Define Lattice</a></li>
+<li><a class="reference internal" href="#refine-lattice">Refine Lattice</a></li>
+<li><a class="reference internal" href="#transform-data">Transform Data</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/refine-menu.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="nav-item nav-item-0"><a href="index.html">NXRefine 0.1.0 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Refine Menu</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2023, Ray Osborn.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

@@ -15,7 +15,7 @@
     <link rel="shortcut icon" href="_static/favicon.ico"/>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Server Configuration" href="server.html" />
+    <link rel="next" title="Experiment Configuration" href="experiment.html" />
     <link rel="prev" title="Introduction" href="introduction.html" /> 
   </head><body>
     <div class="related" role="navigation" aria-label="related navigation">
@@ -25,7 +25,7 @@
           <a href="genindex.html" title="General Index"
              accesskey="I">index</a></li>
         <li class="right" >
-          <a href="server.html" title="Server Configuration"
+          <a href="experiment.html" title="Experiment Configuration"
              accesskey="N">next</a> |</li>
         <li class="right" >
           <a href="introduction.html" title="Introduction"
@@ -137,12 +137,72 @@ is launched as a separate process by <em>NXRefine</em>, which uses the
 experimental metadata to define the settings file used to define the
 input and output grids. It has to be separately installed.</p>
 </div>
+<div class="section" id="initial-setup">
+<h2>Initial Setup<a class="headerlink" href="#initial-setup" title="Permalink to this headline">¶</a></h2>
+<p>In order to allow <em>NXRefine</em> to be used by multiple users on a single
+machine or cluster, a common directory is defined to store log files,
+task queues, and default settings. The location of this directory should
+be defined immediately after installing <em>NXRefine</em> for the first time.
+Since the files in this directory are modified by <em>NXRefine</em> commands
+that could be run by multiple users, it is recommended that all such
+users are members of the same group. When initialized by a member of
+that group, the files in the server directory have group read/write
+permissions by default.</p>
+<p>The location of the server directory is initialized on the command line
+by the ‘nxserver’ command:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ nxserver -d /path/to/parent
+</pre></div>
+</div>
+<p>This will create a directory at <code class="docutils literal notranslate"><span class="pre">/path/to/parent/nxserver</span></code> containing
+the files that are required by <em>NXRefine</em> server.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If the supplied path already ends in <code class="docutils literal notranslate"><span class="pre">nxserver</span></code>, it will not
+be appended.</p>
+</div>
+<p>Once the server directory has been initialized, it is necessary for its
+location to be defined for other users. This can be done in one of two
+ways.</p>
+<ol class="arabic">
+<li><p>If <em>NXRefine</em> is being configured by a system administrator, it is
+possible to use a system-wide environment variable, <code class="docutils literal notranslate"><span class="pre">NX_SERVER</span></code>, to
+to define the path to the server directory. Alternatively, this
+environment variable could be added to each user’s login script.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">nxserver</span></code> command used to initialize the server directory also
+adds a hidden file to the user’s home directory,
+<code class="docutils literal notranslate"><span class="pre">~/.nxserver/settings.ini</span></code>, which contains the server directory
+path. If the server directory already exists, the command can be run
+again by other users without affecting the initial directory. In
+principle, it only needs to be run once by each user, although it
+could also be added to a login script if preferred.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If the <code class="docutils literal notranslate"><span class="pre">NX_SERVER</span></code> environment variable is defined, it
+takes precedence over the path in
+<code class="docutils literal notranslate"><span class="pre">~/.nxserver/settings.ini</span></code>.</p>
+</div>
+</li>
+</ol>
+<p><em>NXRefine</em> uses file-based locking to prevent corruption of data files.
+This system is provided by the
+<a class="reference external" href="https://nexpy.github.io/nexpy/">nexusformat package</a>, which defines
+the directory to contain the lock files using the <code class="docutils literal notranslate"><span class="pre">NX_LOCKDIRECTORY</span></code>
+environment variable. It is recommended that this directory be placed
+within the server directory.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <em>NeXpy</em> GUI has a settings file that can be used to define
+the lock directory, but it is overridden by the environment
+variable if it is defined. This allows system administrators
+to set up a unique lock file directory for all their users.</p>
+</div>
 <div class="section" id="user-support">
-<h2>User Support<a class="headerlink" href="#user-support" title="Permalink to this headline">¶</a></h2>
+<h3>User Support<a class="headerlink" href="#user-support" title="Permalink to this headline">¶</a></h3>
 <p>If you are interested in using this package, please contact Ray Osborn
 (<a class="reference external" href="mailto:ROsborn&#37;&#52;&#48;anl&#46;gov">ROsborn<span>&#64;</span>anl<span>&#46;</span>gov</a>). Please report any bugs as a
 <a class="reference external" href="https://github.com/nxrefine/nxrefine/issues">Github issue</a>, with
 relevant tracebacks.</p>
+</div>
 </div>
 </div>
 
@@ -160,7 +220,10 @@ relevant tracebacks.</p>
 <li><a class="reference internal" href="#required-libraries">Required Libraries</a></li>
 <li><a class="reference internal" href="#nexpy">NeXpy</a></li>
 <li><a class="reference internal" href="#cctw">CCTW</a></li>
+<li><a class="reference internal" href="#initial-setup">Initial Setup</a><ul>
 <li><a class="reference internal" href="#user-support">User Support</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -173,8 +236,8 @@ relevant tracebacks.</p>
   </div>
   <div>
     <h4>Next topic</h4>
-    <p class="topless"><a href="server.html"
-                          title="next chapter">Server Configuration</a></p>
+    <p class="topless"><a href="experiment.html"
+                          title="next chapter">Experiment Configuration</a></p>
   </div>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -204,7 +267,7 @@ relevant tracebacks.</p>
           <a href="genindex.html" title="General Index"
              >index</a></li>
         <li class="right" >
-          <a href="server.html" title="Server Configuration"
+          <a href="experiment.html" title="Experiment Configuration"
              >next</a> |</li>
         <li class="right" >
           <a href="introduction.html" title="Introduction"

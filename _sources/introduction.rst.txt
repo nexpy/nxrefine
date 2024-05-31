@@ -13,8 +13,8 @@ those probabilities that deviate from the average crystalline structure
 are retained. The final stage of the *NXRefine* workflow is to generate
 such 3D-ΔPDF maps.
 
-The uncompressed raw data from such measurements comprise tens (and
-sometimes hundreds) of gigabytes, which are often collected in under 30
+The uncompressed raw data from such measurements comprise tens, and
+sometimes hundreds, of gigabytes, which can be collected in under 30
 minutes. The speed of data collection allows such measurements to be
 repeated multiple times as a function of a parametric variable, such as
 temperature. Such data needs to be transformed into reciprocal space as
@@ -63,7 +63,7 @@ of the merged data, for reasons that are explained in a later section.
           defined by H. You [see Fig. 1 in J. Appl. Cryst. **32**, 614
           (1999)], with θ and ω corresponding to η and μ, respectively.
           At present, *NXRefine* assumes that the two angles coupled to
-          the detector (δ and ν in You's paper), are fixed to 0°, with
+          the detector (δ and ν in You's paper), are fixed at 0°, with
           detector misalignments handled by the yaw and pitch angles
           refined in powder calibrations.
 
