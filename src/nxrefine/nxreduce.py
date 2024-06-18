@@ -1352,7 +1352,8 @@ class NXReduce(QtCore.QObject):
                     futures.append(executor.submit(
                         peak_search,
                         self.field.nxfilename, self.field.nxfilepath,
-                        i, j, k, self.threshold, min_pixels=self.min_pixels))
+                        i, j, k, self.threshold, mask=self.pixel_mask,
+                        min_pixels=self.min_pixels))
                 for future in as_completed(futures):
                     z, blobs = future.result()
                     self.blobs += [b for b in blobs if b.z >= z
@@ -1364,7 +1365,8 @@ class NXReduce(QtCore.QObject):
                 j, k = i - min(5, i), min(i+55, self.last+5, self.nframes)
                 z, blobs = peak_search(
                     self.field.nxfilename, self.field.nxfilepath,
-                    i, j, k, self.threshold, min_pixels=self.min_pixels)
+                    i, j, k, self.threshold, mask=self.pixel_mask,
+                    min_pixels=self.min_pixels)
                 self.blobs += [b for b in blobs if b.z >= z
                                and b.z < min(z+50, self.last)]
                 self.update_progress(z)

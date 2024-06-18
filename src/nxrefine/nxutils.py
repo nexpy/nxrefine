@@ -14,7 +14,8 @@ from nexusformat.nexus import (NeXusError, NXdata, NXentry, NXfield, NXlog,
 from skimage.feature import peak_local_max
 
 
-def peak_search(data_file, data_path, i, j, k, threshold, min_pixels=10):
+def peak_search(data_file, data_path, i, j, k, threshold, mask=None,
+                min_pixels=10):
     """Identify peaks in the slab of raw data
 
     Parameters
@@ -31,6 +32,10 @@ def peak_search(data_file, data_path, i, j, k, threshold, min_pixels=10):
         Index of last z-value of processed slab
     threshold : float
         Peak threshold
+    mask : array-like
+        Pixel mask for detector
+    min_pixels : int
+        Minimum pixel separation of peaks, default=10
 
     Returns
     -------
@@ -41,6 +46,9 @@ def peak_search(data_file, data_path, i, j, k, threshold, min_pixels=10):
 
     with nxopen(data_file, "r") as data_root:
         data = data_root[data_path][j:k].nxvalue.clip(0)
+
+    if mask is not None:
+        data = np.where(mask, 0, data)
 
     nframes = data.shape[0]
     saved_blobs = []
