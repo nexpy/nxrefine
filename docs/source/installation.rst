@@ -137,5 +137,5 @@ User Support
 ------------
 If you are interested in using this package, please contact Ray Osborn 
 (ROsborn@anl.gov). Please report any bugs as a 
-`Github issue <https://github.com/nxrefine/nxrefine/issues>`_, with
+`Github issue <https://github.com/nexpy/nxrefine/issues>`_, with
 relevant tracebacks.
