@@ -259,6 +259,7 @@ class NXServer(NXDaemon):
             return None
 
     def save_directory(self):
+        Path.home().joinpath('.nxserver').mkdir(exist_ok=True)
         home_settings_file = Path.home() / '.nxserver' / 'settings.ini'
         home_settings = ConfigParser()
         if home_settings_file.exists():
