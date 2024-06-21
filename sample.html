@@ -73,7 +73,7 @@ the parent for scans performed above or below the transition.</p>
 <div class="section" id="nexus-files">
 <h2>NeXus files<a class="headerlink" href="#nexus-files" title="Permalink to this headline">¶</a></h2>
 <p>The scan files are stored using the hierarchical <a class="reference external" href="http://www.nexusformat.org/">NeXus format</a>, in which the data for each scan are stored in groups, or entries, conforming to the <cite>NXentry</cite> base class. There is one entry for each sample rotation scan, usually labelled <cite>f1</cite>, <cite>f2</cite>, <cite>f3</cite>, <em>etc.</em>, although the number of such scans can vary. There is also a top-level entry (called ‘entry’), which contains the metadata that is common to all the rotation scans, as well as the results of merging the reduced data from each one.</p>
-<p>In the example on the right, most of the items are also groups corresponding to different base classes, that contain either raw data, reduced data, metadata, or information resulting from each component of the workflow. When the NeXus file is loaded into NeXpy, its contents can be inspected in a tree view, such as the one shown here. Here are a few examples.</p>
+<p>In the example on the right, most of the items are also groups corresponding to different base classes, that contain either raw data, reduced data, metadata, or information resulting from each component of the workflow. When the NeXus file is loaded into <em>NeXpy</em>, its contents can be inspected in a tree view, such as the one shown here. Here are a few examples.</p>
 <dl class="field-list simple">
 <dt class="field-odd">instrument</dt>
 <dd class="field-odd"><p>This is a group that contains instrumental parameters, such
@@ -90,14 +90,42 @@ of the particular rotation scan, so all the sample groups are
 linked to the one stored in the ‘entry’ group.</p>
 </dd>
 </dl>
-<p>There are a number of groups that contain the results of some of the analysis.</p>
+<p>If the beam supports the import of monitor data from metadata files, there will be one or more groups, called <cite>monitor1</cite>, <cite>monitor2</cite>, <em>etc</em>, in the entries for each rotation scan. These contain the beamline monitor values for each frame, which can be used to normalize to changes in the incident flux during the rotation.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The import of monitor data is governed by the
+<span class="xref std std-ref">NXBeamLine</span> class, or its sub-class customized for a
+specific beamline.</p>
+</div>
+<p>There are a number of groups in the entries for each rotation scan that
+contain the results of some of the analysis.</p>
 <dl class="field-list simple">
 <dt class="field-odd">peaks</dt>
 <dd class="field-odd"><p>This group contains the results of all the Bragg peaks
 identified by the peak search, such as their pixel coordinates
 on the detector, their polar and azimuthal angles, and
 intensities. These are used to determine the sample orientation
-matrix. The group</p>
+matrix, using the ‘Refine Lattice’ dialog.</p>
+</dd>
+<dt class="field-even">radial_sum</dt>
+<dd class="field-even"><p>This group contains a sum of all the frames after
+azimuthal averaging using the powder calibration to define the beam center. The sum is stored in a NXdata group for
+plotting as a function of polar angle. This should be
+approximately equivalent to a powder average of the single
+crystal data.</p>
+</dd>
+<dt class="field-odd">summed_data</dt>
+<dd class="field-odd"><p>This group contains a sum of all the frames in a NXdata
+group for plotting as a 2D image, with the pixel numbers
+as axes.</p>
+</dd>
+<dt class="field-even">summed_frames</dt>
+<dd class="field-even"><p>This group contains a one-dimensional array produced by
+summing each frame. It is stored in a NXdata group for
+plotting against the frame number. In more recent
+versions of <em>NXRefine</em>, it also contains a partial sum
+produced by summing the frames between the specified
+Q-limits.</p>
 </dd>
 </dl>
 </div>
@@ -134,8 +162,8 @@ in subsequent analyses. The default is 3640, based on the assumption that a comp
 <dd class="field-even"><p>This is the maximum scattering angle that is to be
 included in refinments of the orientation matrix.</p>
 </dd>
-<dt class="field-odd">analysis_path</dt>
-<dd class="field-odd"><p>This is the path within the experiment directory to the
+<dt class="field-odd">HKL Tolerance</dt>
+<dd class="field-odd"><p>This tolerance in  path within the experiment directory to the
 <em>NXRefine</em> sub-directories. In the above example, this
 would be <code class="docutils literal notranslate"><span class="pre">nxrefine</span></code>.</p>
 </dd>

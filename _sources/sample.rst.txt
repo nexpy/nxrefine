@@ -39,7 +39,7 @@ NeXus files
 The scan files are stored using the hierarchical `NeXus format
 <http://www.nexusformat.org/>`__, in which the data for each scan are stored in groups, or entries, conforming to the `NXentry` base class. There is one entry for each sample rotation scan, usually labelled `f1`, `f2`, `f3`, *etc.*, although the number of such scans can vary. There is also a top-level entry (called 'entry'), which contains the metadata that is common to all the rotation scans, as well as the results of merging the reduced data from each one.
 
-In the example on the right, most of the items are also groups corresponding to different base classes, that contain either raw data, reduced data, metadata, or information resulting from each component of the workflow. When the NeXus file is loaded into NeXpy, its contents can be inspected in a tree view, such as the one shown here. Here are a few examples.
+In the example on the right, most of the items are also groups corresponding to different base classes, that contain either raw data, reduced data, metadata, or information resulting from each component of the workflow. When the NeXus file is loaded into *NeXpy*, its contents can be inspected in a tree view, such as the one shown here. Here are a few examples.
 
 :instrument: This is a group that contains instrumental parameters, such
              as the incident wavelength, detector distance, goniometer
@@ -53,16 +53,37 @@ In the example on the right, most of the items are also groups corresponding to 
          of the particular rotation scan, so all the sample groups are
          linked to the one stored in the 'entry' group.
 
-There are a number of groups that contain the results of some of the analysis.
+If the beam supports the import of monitor data from metadata files, there will be one or more groups, called `monitor1`, `monitor2`, *etc*, in the entries for each rotation scan. These contain the beamline monitor values for each frame, which can be used to normalize to changes in the incident flux during the rotation.
+
+.. note:: The import of monitor data is governed by the 
+          :ref:`NXBeamLine` class, or its sub-class customized for a 
+          specific beamline.
+
+There are a number of groups in the entries for each rotation scan that
+contain the results of some of the analysis.
 
 :peaks: This group contains the results of all the Bragg peaks
         identified by the peak search, such as their pixel coordinates
         on the detector, their polar and azimuthal angles, and
         intensities. These are used to determine the sample orientation
-        matrix. The group 
+        matrix, using the 'Refine Lattice' dialog.
 
+:radial_sum: This group contains a sum of all the frames after 
+             azimuthal averaging using the powder calibration to define the beam center. The sum is stored in a NXdata group for 
+             plotting as a function of polar angle. This should be 
+             approximately equivalent to a powder average of the single 
+             crystal data.
 
+:summed_data: This group contains a sum of all the frames in a NXdata 
+              group for plotting as a 2D image, with the pixel numbers 
+              as axes.
 
+:summed_frames: This group contains a one-dimensional array produced by
+                summing each frame. It is stored in a NXdata group for
+                plotting against the frame number. In more recent
+                versions of *NXRefine*, it also contains a partial sum
+                produced by summing the frames between the specified
+                Q-limits.
 
 Refine Menu
 ===========
@@ -96,7 +117,7 @@ The following parameters are defined.
 :Max. Polar Angle: This is the maximum scattering angle that is to be 
                    included in refinments of the orientation matrix.
 
-:analysis_path: This is the path within the experiment directory to the
+:HKL Tolerance: This tolerance in  path within the experiment directory to the
                 *NXRefine* sub-directories. In the above example, this
                 would be ``nxrefine``.
 
