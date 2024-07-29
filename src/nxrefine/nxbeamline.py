@@ -273,7 +273,7 @@ class Sector6Beamline(NXBeamLine):
                     del self.entry['instrument/filter/transmission']
                 self.entry['instrument/filter/transmission'] = (
                     NXdata(transmission, frames))
-                time_path = 'entry/instrument/NDAttributes/NDArrayTimeStamp'
+            time_path = 'entry/instrument/NDAttributes/NDArrayTimeStamp'
             if time_path in self.root:
                 start = datetime.fromtimestamp(f[time_path][0])
                 # In EPICS, the epoch started in 1990, not 1970
