@@ -1343,7 +1343,6 @@ class NXReduce(QtCore.QObject):
         self.blobs = []
         if self.concurrent:
             from nxrefine.nxutils import NXExecutor, as_completed
-            from multiprocessing import get_context
             with NXExecutor(max_workers=self.process_count,
                             mp_context=self.concurrent) as executor:
                 futures = []
