@@ -18,13 +18,14 @@ designated the "parent" file, from which all the other scans copy their
 initial orientation before the automated refinement. This allows the
 data from the remaining scans to be reduced by the automated workflow.
 
-The only requirement is that the parent shares the same space group as
-the scans that are reduced by the automated workflow. The unit cell
-parameters and orientation matrix are refined by a least-squares
-optimization of the Bragg peak locations identified in each new scan.
-If there is a significant change in the space group at a structural
-phase transition, it may be necessary to define a different scan file as
-the parent for scans performed above or below the transition.
+The only requirement is that all the scans use the same experimental
+configuration as the parent and that the same sample space group can be
+used to orient all the scans. The unit cell parameters and orientation
+matrix are refined by a least-squares optimization of the Bragg peak
+locations identified in each new scan. If there is a significant change
+in the space group at a structural phase transition, it may be necessary
+to define different scan files as the parent for scans performed above
+or below the transition, respectively.
 
 In this section, we will describe the structure of the NeXus files as well as details of how the *NeXpy* GUI dialogs in the :ref:`Refine
 Menu` can be used to prepare the files for subsequent analyis.
@@ -88,7 +89,7 @@ contain the results of some of the analysis.
 Refine Menu
 ===========
 The *NXRefine* plugin to *NeXpy* installs a top-level menu labelled
-"Refine", which initializes parameters required for the data reduction workflow, determines 
+"Refine", which allows parameters required for the data reduction workflow to be initialized.
 
 Choose Parameters
 -----------------
@@ -125,19 +126,19 @@ The following parameters are defined.
 
 Copy Parameters
 ---------------
-This dialog allows parameters to be copied from a parent scan file.
+This dialog allows parameters to be copied from a parent scan file. This step is normally performed automatically as part of the data reduction workflow.
 
 Find Maximum
 ------------
-This dialog will import a TIFF or CBF file containing measurements of a
-powder calibrant and refine the detector position and coordinates, using
-the *PyFAI* API. Alternatively, if the calibration parameters are
-already available in a PONI file, they can be directly imported. The
-resulting powder data and calbration parameters are then saved to the
-configuration template previously created using the *New Configuration*
-dialog.
+This dialog performs a scan of all the collected frames in order to generate different views of the raw data for diagnostic purposes. The dialog allows a number of frames at the beginning and end of the rotation scan to be excluded. 
 
-.. figure:: /images/calibrate-powder.png
+.. figure:: /images/find-maximum-dialog.png
+   :align: center
+   :width: 80%
+
+
+
+.. figure:: /images/transmission-mask.png
    :align: center
    :width: 80%
 
