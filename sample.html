@@ -59,13 +59,14 @@ process are stored in the associated NeXus scan file, which then is
 designated the “parent” file, from which all the other scans copy their
 initial orientation before the automated refinement. This allows the
 data from the remaining scans to be reduced by the automated workflow.</p>
-<p>The only requirement is that the parent shares the same space group as
-the scans that are reduced by the automated workflow. The unit cell
-parameters and orientation matrix are refined by a least-squares
-optimization of the Bragg peak locations identified in each new scan.
-If there is a significant change in the space group at a structural
-phase transition, it may be necessary to define a different scan file as
-the parent for scans performed above or below the transition.</p>
+<p>The only requirement is that all the scans use the same experimental
+configuration as the parent and that the same sample space group can be
+used to orient all the scans. The unit cell parameters and orientation
+matrix are refined by a least-squares optimization of the Bragg peak
+locations identified in each new scan. If there is a significant change
+in the space group at a structural phase transition, it may be necessary
+to define different scan files as the parent for scans performed above
+or below the transition, respectively.</p>
 <p>In this section, we will describe the structure of the NeXus files as well as details of how the <em>NeXpy</em> GUI dialogs in the <a class="reference internal" href="#refine-menu"><span class="std std-ref">Refine Menu</span></a> can be used to prepare the files for subsequent analyis.</p>
 <div class="figure align-right" style="width: 40%">
 <a class="reference internal image-reference" href="_images/scan-file.png"><img alt="_images/scan-file.png" src="_images/scan-file.png" style="width: 90%;" /></a>
@@ -132,7 +133,7 @@ Q-limits.</p>
 <div class="section" id="refine-menu">
 <h2>Refine Menu<a class="headerlink" href="#refine-menu" title="Permalink to this headline">¶</a></h2>
 <p>The <em>NXRefine</em> plugin to <em>NeXpy</em> installs a top-level menu labelled
-“Refine”, which initializes parameters required for the data reduction workflow, determines</p>
+“Refine”, which allows parameters required for the data reduction workflow to be initialized.</p>
 <div class="section" id="choose-parameters">
 <h3>Choose Parameters<a class="headerlink" href="#choose-parameters" title="Permalink to this headline">¶</a></h3>
 <p>This dialog allows the parameters used in the data reduction workflow to
@@ -171,19 +172,16 @@ would be <code class="docutils literal notranslate"><span class="pre">nxrefine</
 </div>
 <div class="section" id="copy-parameters">
 <h3>Copy Parameters<a class="headerlink" href="#copy-parameters" title="Permalink to this headline">¶</a></h3>
-<p>This dialog allows parameters to be copied from a parent scan file.</p>
+<p>This dialog allows parameters to be copied from a parent scan file. This step is normally performed automatically as part of the data reduction workflow.</p>
 </div>
 <div class="section" id="find-maximum">
 <h3>Find Maximum<a class="headerlink" href="#find-maximum" title="Permalink to this headline">¶</a></h3>
-<p>This dialog will import a TIFF or CBF file containing measurements of a
-powder calibrant and refine the detector position and coordinates, using
-the <em>PyFAI</em> API. Alternatively, if the calibration parameters are
-already available in a PONI file, they can be directly imported. The
-resulting powder data and calbration parameters are then saved to the
-configuration template previously created using the <em>New Configuration</em>
-dialog.</p>
+<p>This dialog performs a scan of all the collected frames in order to generate different views of the raw data for diagnostic purposes. The dialog allows a number of frames at the beginning and end of the rotation scan to be excluded.</p>
 <div class="figure align-center">
-<a class="reference internal image-reference" href="_images/calibrate-powder.png"><img alt="_images/calibrate-powder.png" src="_images/calibrate-powder.png" style="width: 80%;" /></a>
+<a class="reference internal image-reference" href="_images/find-maximum-dialog.png"><img alt="_images/find-maximum-dialog.png" src="_images/find-maximum-dialog.png" style="width: 80%;" /></a>
+</div>
+<div class="figure align-center">
+<a class="reference internal image-reference" href="_images/transmission-mask.png"><img alt="_images/transmission-mask.png" src="_images/transmission-mask.png" style="width: 80%;" /></a>
 </div>
 </div>
 <div class="section" id="find-peaks">

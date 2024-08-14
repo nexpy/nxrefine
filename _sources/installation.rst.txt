@@ -30,6 +30,12 @@ psutil             https://psutil.readthedocs.io/
 persist-queue      https://github.com/peter-wangxu/persist-queue
 =================  =================================================
 
+.. note:: The `CCTBX library  <https://cci.lbl.gov/cctbx_docs/>`_ 
+          cannot currently be installed using 'pip', so it cannot be 
+          listed as a dependency in 'setuptools'. It has to be 
+          installed either using conda or by `building from source
+          <https://cctbx.github.io/installation.html>`_.
+
 NeXpy
 =====
 Although much of the *NXRefine* workflow can be performed using
