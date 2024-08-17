@@ -1,13 +1,10 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2015-2023, NeXpy Development Team.
+# Copyright (c) 2022, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
-
-import os
-from pathlib import Path
 
 from nexpy.gui.datadialogs import GridParameters, NXDialog
 from nexpy.gui.utils import display_message, report_error
