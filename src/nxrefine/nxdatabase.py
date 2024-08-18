@@ -514,15 +514,14 @@ class NXDatabase:
 
         Parameters
         ----------
-        sample_dir : str
+        sample_dir : str or Path
             Directory containing the NeXus wrapper files.
         """
         # Get a list of all the .nxs wrapper files
+        sample_dir = Path(sample_dir)
         wrapper_files = [
-            os.path.join(sample_dir, filename)
-            for filename in os.listdir(sample_dir)
-            if filename.endswith('.nxs') and
-            all(x not in filename for x in ('parent', 'mask'))]
+            sample_dir / filename for filename in sample_dir.glob('*.nxs')
+            if 'parent' not in filename.name and 'mask' not in filename.name]
         with NXLock(self.database):
             for wrapper_file in wrapper_files:
                 self.sync_file(self.get_file(wrapper_file))
