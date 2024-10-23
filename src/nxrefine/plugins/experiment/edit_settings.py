@@ -36,6 +36,8 @@ class ExperimentSettingsDialog(NXDialog):
         settings = NXSettings().settings
         self.default_directory = settings['instrument']['analysis_home']
         self.analysis_path = settings['instrument']['analysis_path']
+        if self.analysis_path is False or self.analysis_path == 'None':
+            self.analysis_path = None
         self.instrument_parameters = GridParameters()
         defaults = settings['instrument']
         if 'experiment' not in defaults:
