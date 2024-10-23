@@ -172,9 +172,10 @@ class ServerDialog(NXDialog):
         patterns = ['nxcombine', 'nxcopy', 'nxfind', 'nxlink', 'nxmax',
                     'nxpdf', 'nxprepare', 'nxreduce', 'nxrefine', 'nxsum',
                     'nxtransform']
-        if self.server.run_command.startswith('pdsh'):
-            command = "pdsh -w {} 'ps -f' | grep -e {}".format(
-                ",".join(self.server.cpus), " -e ".join(patterns))
+        if self.server.run_command:
+            if self.server.run_command.startswith('pdsh'):
+                command = (f"pdsh -w {','.join(self.server.cpus)} 'ps -f' | "
+                           f"grep -e {' -e '.join(patterns)}")
         elif self.server_type == 'multicore' or self.server_type is None :
             command = f"ps auxww | grep -e {' -e '.join(patterns)}"
         process = subprocess.run(command, shell=True, stdout=subprocess.PIPE,
