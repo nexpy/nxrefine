@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 # -----------------------------------------------------------------------------
-# Copyright (c) 2018-2021, NeXpy Development Team.
+# Copyright (c) 2022, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
 import argparse
-import os
+from pathlib import Path
 
 from nxrefine.nxserver import NXServer
 
@@ -32,8 +32,9 @@ def main():
 
     args = parser.parse_args()
 
-    if args.directory:
-        server = NXServer(directory=os.path.realpath(args.directory),
+    directory = Path(args.directory) if args.directory else None
+    if directory:
+        server = NXServer(directory=directory.resolve(),
                           server_type=args.type)
     elif args.type:
         server = NXServer(server_type=args.type)

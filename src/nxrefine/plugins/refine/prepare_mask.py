@@ -1,9 +1,9 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2015-2022, AXMAS Development Team.
+# Copyright (c) 2022, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
 from nexpy.gui.datadialogs import GridParameters, NXDialog

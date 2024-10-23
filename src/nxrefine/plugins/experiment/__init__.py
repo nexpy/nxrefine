@@ -1,9 +1,9 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2013-2023, AXMAS Development Team.
-#‚
-# Distributed under the terms of the Modified BSD License.
+# Copyright (c) 2022, Argonne National Laboratory.
 #
-# The full license is in the file COPYING, distributed with this software.
+# Distributed under the terms of an Open Source License.
+#
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
 from . import (calibrate_powder, create_mask, edit_settings, import_scans,

@@ -1,14 +1,22 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2015-2022, AXMAS Development Team.
+# Copyright (c) 2022, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
+
+import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import get_context, resource_tracker
 
 import numpy as np
+
+if sys.version_info < (3, 10):
+    from importlib_resources import files as package_files
+else:
+    from importlib.resources import files as package_files
+
 from nexusformat.nexus import (NeXusError, NXdata, NXentry, NXfield, NXlog,
                                NXroot, nxopen, nxsetconfig)
 from skimage.feature import peak_local_max
@@ -327,12 +335,9 @@ def init_julia():
 
 
 def load_julia(resources):
-    import importlib.resources
-
     from julia import Main
     for resource in resources:
-        Main.include(
-            str(importlib.resources.files('nxrefine.julia') / resource))
+        Main.include(str(package_files('nxrefine.julia') / resource))
 
 
 def parse_orientation(orientation):

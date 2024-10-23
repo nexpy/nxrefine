@@ -1,10 +1,11 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2013-2022, NeXpy Development Team.
+# Copyright (c) 2022, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
+
 import os
 import tempfile
 
@@ -68,14 +69,19 @@ def hexagonal(data):
 def cubic(data):
     """Laue group: m-3 or m-3m"""
     outarr = np.nan_to_num(data)
-    outarr += (np.transpose(outarr, axes=(1, 2, 0)) +
-               np.transpose(outarr, axes=(2, 0, 1)))
+    if len(set(outarr.shape)) > 1:
+        max_dim = max(outarr.shape)
+        padding =[(0, max_dim - dim) for dim in outarr.shape]
+        pad_width = [(amount // 2, amount - amount // 2)
+                     for _, amount in padding]
+        outarr = np.pad(outarr, pad_width, mode='constant')
+    outarr += np.transpose(outarr, axes=(1, 2, 0))
+    outarr += np.transpose(outarr, axes=(2, 0, 1))
     outarr += np.transpose(outarr, axes=(0, 2, 1))
     outarr += np.flip(outarr, 0)
     outarr += np.flip(outarr, 1)
     outarr += np.flip(outarr, 2)
     return outarr
-
 
 def symmetrize_entries(symm_function, data_type, data_file, data_path):
     nxsetconfig(lock=3600, lockexpiry=28800)

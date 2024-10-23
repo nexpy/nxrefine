@@ -1,9 +1,9 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2015-2021, NeXpy Development Team.
+# Copyright (c) 2022, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
 import os
@@ -36,6 +36,8 @@ class ExperimentSettingsDialog(NXDialog):
         settings = NXSettings().settings
         self.default_directory = settings['instrument']['analysis_home']
         self.analysis_path = settings['instrument']['analysis_path']
+        if self.analysis_path is False or self.analysis_path == 'None':
+            self.analysis_path = None
         self.instrument_parameters = GridParameters()
         defaults = settings['instrument']
         if 'experiment' not in defaults:

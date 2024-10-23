@@ -1,30 +1,29 @@
 #!/usr/bin/env python
 # -----------------------------------------------------------------------------
-# Copyright (c) 2015-2021, NeXpy Development Team.
+# Copyright (c) 2022, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
 import argparse
-import os
+from pathlib import Path
 
 from nxrefine.nxdatabase import NXDatabase
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Populate the database based \
-            on local NeXus files")
+    parser = argparse.ArgumentParser(
+        description="Populate the database based on local NeXus files")
     parser.add_argument('-d', '--directory', required=True,
                         help='scan directory')
 
     args = parser.parse_args()
 
-    dir = os.path.realpath(args.directory)
-    print('Looking in directory {}'.format(dir))
-    db_path = os.path.join(os.path.dirname(os.path.dirname(dir)), 'tasks',
-                           'nxdatabase.db')
+    directory = Path(args.directory).resolve()
+    print(f'Looking in directory {directory}')
+    db_path = directory.parent.parent / 'tasks' / 'nxdatabase.db'
     nxdb = NXDatabase(db_path)
     nxdb.sync_db(args.directory)
 

@@ -1,10 +1,11 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2015-2022, NeXpy Development Team.
+# Copyright (c) 2022, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
+
 import os
 import subprocess
 from pathlib import Path
@@ -171,9 +172,10 @@ class ServerDialog(NXDialog):
         patterns = ['nxcombine', 'nxcopy', 'nxfind', 'nxlink', 'nxmax',
                     'nxpdf', 'nxprepare', 'nxreduce', 'nxrefine', 'nxsum',
                     'nxtransform']
-        if self.server.run_command.startswith('pdsh'):
-            command = "pdsh -w {} 'ps -f' | grep -e {}".format(
-                ",".join(self.server.cpus), " -e ".join(patterns))
+        if self.server.run_command:
+            if self.server.run_command.startswith('pdsh'):
+                command = (f"pdsh -w {','.join(self.server.cpus)} 'ps -f' | "
+                           f"grep -e {' -e '.join(patterns)}")
         elif self.server_type == 'multicore' or self.server_type is None :
             command = f"ps auxww | grep -e {' -e '.join(patterns)}"
         process = subprocess.run(command, shell=True, stdout=subprocess.PIPE,

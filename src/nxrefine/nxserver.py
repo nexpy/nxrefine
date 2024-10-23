@@ -1,9 +1,9 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2013-2022, NeXpy Development Team.
+# Copyright (c) 2022, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
 import os
@@ -266,7 +266,7 @@ class NXServer(NXDaemon):
             home_settings.read(home_settings_file)
         if 'setup' not in home_settings.sections():
             home_settings.add_section('setup')
-        home_settings.set('setup', 'directory', str(self.directory))
+        home_settings.set('setup', 'directory', self.directory)
         with open(home_settings_file, 'w') as f:
             home_settings.write(f)
 

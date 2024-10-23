@@ -1,6 +1,81 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2", "numpy"]
+requires = ["setuptools >= 64", "setuptools_scm >= 8"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "NXRefine"
+dynamic = ["version"]
+description = "Data reduction for single crystal x-ray scattering"
+readme = "README.md"
+license = {file = "LICENSE.pdf"}
+authors = [{name = "Raymond Osborn", email = "rayosborn@mac.com"}]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "License :: OSI Approved :: BSD License",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Physics",
+]
+
+keywords = [
+    "x-ray scattering",
+    "data analysis",
+    "visualization",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "nexpy",
+    "pyfai",
+    "julia",
+    "persist-queue",
+    "sqlalchemy",
+    "matplotlib",
+    "psutil",
+    "scikit-image",
+    "xtec",
+]
+
+[project.urls]
+Homepage = "https://nexpy.github.io/nxrefine"
+Repository = "https://github.com/nexpy/nxrefine.git"
+Issues = "https://github.com/nexpy/nxrefine/issues"
+Documentation = "https://nexpy.github.io/nxrefine"
+Changelog = "https://github.com/nexpy/nxrefine/releases"
+
+[project.scripts]
+nxchoose = "nxrefine.scripts.nxchoose:main"
+nxcombine = "nxrefine.scripts.nxcombine:main"
+nxcopy = "nxrefine.scripts.nxcopy:main"
+nxdatabase = "nxrefine.scripts.nxdatabase:main"
+nxfind = "nxrefine.scripts.nxfind:main"
+nxlink = "nxrefine.scripts.nxlink:main"
+nxload = "nxrefine.scripts.nxload:main"
+nxmax = "nxrefine.scripts.nxmax:main"
+nxparent = "nxrefine.scripts.nxparent:main"
+nxpdf = "nxrefine.scripts.nxpdf:main"
+nxprepare = "nxrefine.scripts.nxprepare:main"
+nxreduce = "nxrefine.scripts.nxreduce:main"
+nxrefine = "nxrefine.scripts.nxrefine:main"
+nxserver = "nxrefine.scripts.nxserver:main"
+nxsettings = "nxrefine.scripts.nxsettings:main"
+nxsum = "nxrefine.scripts.nxsum:main"
+nxtransform = "nxrefine.scripts.nxtransform:main"
+
+[project.entry-points."nexpy.plugins"]
+experiment = "nxrefine.plugins.experiment:plugin_menu"
+refine = "nxrefine.plugins.refine:plugin_menu"
+server = "nxrefine.plugins.server:plugin_menu"
+
 [tool.setuptools_scm]
-write_to = "src/nxrefine/_version.py"
+version_file = "src/nxrefine/_version.py"
+
+[tool.setuptools.package-data]
+"nxrefine.julia" = ["*.jl"]
