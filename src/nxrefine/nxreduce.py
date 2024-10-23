@@ -14,7 +14,6 @@ import platform
 import shutil
 import subprocess
 import timeit
-from datetime import datetime
 
 import h5py as h5
 import numpy as np
@@ -1650,7 +1649,7 @@ class NXReduce(QtCore.QObject):
                 except Exception:
                     pass
                 monitor_weight *= transmission
-            except Exception as error:
+            except Exception:
                 self.log('Unable to determine monitor weights')
                 monitor_weight = np.ones(self.nframes, dtype=np.float32)
             monitor_weight[:self.first] = 0.0
