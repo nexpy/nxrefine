@@ -227,7 +227,8 @@ class MaximumDialog(NXDialog):
     def plot_summed_frames(self):
         if self.summed_frames:
             if self.over:
-                NXdata(self.summed_frames / self.monitor).oplot(markersize=2)
+                self.pv.plot(NXdata(self.summed_frames / self.monitor),
+                             over=True, markersize=2)
             else:
                 self.pv.plot(NXdata(self.summed_frames / self.monitor,
                                     NXfield(np.arange(self.reduce.nframes),
@@ -241,7 +242,8 @@ class MaximumDialog(NXDialog):
     def plot_partial_frames(self):
         if self.partial_frames:
             if self.over:
-                NXdata(self.partial_frames / self.monitor).oplot(markersize=2)
+                self.pv.plot(NXdata(self.partial_frames / self.monitor),
+                             over=True,markersize=2)
             else:
                 self.pv.plot(NXdata(self.partial_frames / self.monitor,
                                     NXfield(np.arange(self.reduce.nframes),
@@ -277,7 +279,7 @@ class MaximumDialog(NXDialog):
             if 'maximum' in transmission.nxsignal.attrs:
                 transmission *= transmission.nxsignal.attrs['maximum']
             if self.over:
-                transmission.oplot(markersize=2)
+                self.pv.plot(transmission, over=True, markersize=2)
             else:
                 self.pv.plot(transmission, markersize=2)
         else:
@@ -291,7 +293,7 @@ class MaximumDialog(NXDialog):
             if 'sample' not in self.entry['instrument']:
                 self.entry['instrument/sample'] = NXsample()
             if 'transmission' in self.entry['instrument/sample']:
-                if confirm_action(f"Overwrite transmission?"):
+                if confirm_action("Overwrite transmission?"):
                     del self.entry['instrument/sample/transmission']
                 else:
                     return
