@@ -44,84 +44,84 @@ class NXReduce(QtCore.QObject):
     is instantiated by the entry in the experimental NeXus file corresponding
     to a single 360° rotation of the crystal.
 
-        Parameters
-        ----------
-        entry : NXentry or str, optional
-            Entry containing the rotation scan, by default None
-        directory : str, optional
-            Path to the directory containing the raw data, by default None
-        parent : str, optional
-            File path to the parent NeXus file, by default None
-        entries : list of str, optional
-            List of all the rotation scan entries in the file, by default None
-        threshold : float, optional
-            Threshold used to in Bragg peak searches, by default None
-        min_pixels : int, optional
-            Minimum number of pixels required in Bragg peak searches, by
-            default 10
-        first : int, optional
-            First frame included in the data reduction, by default None
-        last : int, optional
-            Last frame included in the data reduction, by default None
-        polar_max : float, optional
-            Maximum polar angle in peak refinements, by default None
-        hkl_tolerance : float, optional
-            Q-tolerance in Å-1 for including a peak in a refinement,
-            by default None
-        monitor : str, optional
-            Name of monitor used in normalizations, by default None
-        norm : float, optional
-            Value used to normalize monitor counts, by default None
-        polarization : float, optional
-            Value of beam polarization, by default None
-        qmin : float, optional
-            Minimum Q used in calculating transmissions, by default None
-        qmax : float, optional
-            Maximum Q used in PDF taper function, by default None
-        radius : float, optional
-            Radius used in punching holes in inverse Angstroms, by default None
-        mask_parameters : dict, optional
-            Thresholds and convolution sizes used to prepare 3D masks, by
-            default None.
-        Qh : tuple of floats, optional
-            Minimum, step size, and maximum value of Qh array, by default None
-        Qk : tuple of floats, optional
-            Minimum, step size, and maximum value of Qk array, by default None
-        Ql : tuple of floats, optional
-            Minimum, step size, and maximum value of Ql array, by default None
-        load : bool, optional
-            Load raw data files, by default False
-        link : bool, optional
-            Link metadata, by default False
-        copy : bool, optional
-            Copy refinement and transform parameters, by default False
-        maxcount : bool, optional
-            Determine maximum counts, by default False
-        find : bool, optional
-            Find Bragg peaks, by default False
-        refine : bool, optional
-            Refine lattice parameters and orientation matrix, by default False
-        prepare : bool, optional
-            Prepare the 3D data mask, by default False
-        transform : bool, optional
-            Transform the data into Q, by default False
-        combine: bool, optional
-            Combine transformed data
-        pdf: bool, optional
-            Create PDF transforms
-        lattice : bool, optional
-            Refine the lattice parameters, by default False
-        mask : bool, optional
-            Use mask in performing transforms, by default False
-        overwrite : bool, optional
-            Overwrite previous analyses, by default False
-        monitor_progress : bool, optional
-            Monitor progress at the command line, by default False
-        gui : bool, optional
-            Use PyQt signals to monitor progress, by default False
-        server : NXServer
-            NXServer instance if available, by default None
-        """
+    Parameters
+    ----------
+    entry : NXentry or str, optional
+        Entry containing the rotation scan, by default None
+    directory : str, optional
+        Path to the directory containing the raw data, by default None
+    parent : str, optional
+        File path to the parent NeXus file, by default None
+    entries : list of str, optional
+        List of all the rotation scan entries in the file, by default None
+    threshold : float, optional
+        Threshold used to in Bragg peak searches, by default None
+    min_pixels : int, optional
+        Minimum number of pixels required in Bragg peak searches, by
+        default 10
+    first : int, optional
+        First frame included in the data reduction, by default None
+    last : int, optional
+        Last frame included in the data reduction, by default None
+    polar_max : float, optional
+        Maximum polar angle in peak refinements, by default None
+    hkl_tolerance : float, optional
+        Q-tolerance in Å-1 for including a peak in a refinement,
+        by default None
+    monitor : str, optional
+        Name of monitor used in normalizations, by default None
+    norm : float, optional
+        Value used to normalize monitor counts, by default None
+    polarization : float, optional
+        Value of beam polarization, by default None
+    qmin : float, optional
+        Minimum Q used in calculating transmissions, by default None
+    qmax : float, optional
+        Maximum Q used in PDF taper function, by default None
+    radius : float, optional
+        Radius used in punching holes in inverse Angstroms, by default None
+    mask_parameters : dict, optional
+        Thresholds and convolution sizes used to prepare 3D masks, by
+        default None.
+    Qh : tuple of floats, optional
+        Minimum, step size, and maximum value of Qh array, by default None
+    Qk : tuple of floats, optional
+        Minimum, step size, and maximum value of Qk array, by default None
+    Ql : tuple of floats, optional
+        Minimum, step size, and maximum value of Ql array, by default None
+    load : bool, optional
+        Load raw data files, by default False
+    link : bool, optional
+        Link metadata, by default False
+    copy : bool, optional
+        Copy refinement and transform parameters, by default False
+    maxcount : bool, optional
+        Determine maximum counts, by default False
+    find : bool, optional
+        Find Bragg peaks, by default False
+    refine : bool, optional
+        Refine lattice parameters and orientation matrix, by default False
+    prepare : bool, optional
+        Prepare the 3D data mask, by default False
+    transform : bool, optional
+        Transform the data into Q, by default False
+    combine: bool, optional
+        Combine transformed data
+    pdf: bool, optional
+        Create PDF transforms
+    lattice : bool, optional
+        Refine the lattice parameters, by default False
+    mask : bool, optional
+        Use mask in performing transforms, by default False
+    overwrite : bool, optional
+        Overwrite previous analyses, by default False
+    monitor_progress : bool, optional
+        Monitor progress at the command line, by default False
+    gui : bool, optional
+        Use PyQt signals to monitor progress, by default False
+    server : NXServer
+        NXServer instance if available, by default None
+    """
 
     def __init__(
             self, entry=None, directory=None, parent=None, entries=None,
