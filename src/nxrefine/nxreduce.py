@@ -15,9 +15,11 @@ import shutil
 import subprocess
 import timeit
 
+import dask.array as da
 import h5py as h5
 import numpy as np
 import scipy.fft
+from dask.distributed import Client
 from h5py import is_hdf5
 from nexusformat.nexus import (NeXusError, NXcollection, NXdata, NXentry,
                                NXfield, NXlink, NXLock, NXnote, NXparameters,
@@ -242,6 +244,8 @@ class NXReduce(QtCore.QObject):
         self.summed_frames = None
         self.partial_frames = None
         self.summed_data = None
+
+        self.dask_client = None
 
         self._stopped = False
         self._process_count = None
@@ -1113,13 +1117,12 @@ class NXReduce(QtCore.QObject):
     def find_maximum(self):
         self.log("Finding maximum counts")
         with self.field.nxfile:
-            maximum = 0.0
-            chunk_size = self.field.chunks[0]
-            if chunk_size < 20:
-                chunk_size = 50
-            data = self.field.nxfile[self.raw_path]
-            fsum = np.zeros(self.nframes, dtype=np.float64)
-            psum = np.zeros(self.nframes, dtype=np.float64)
+            self.dask_client = Client(n_workers=self.process_count)
+            chunk_size = [10*chunk for chunk in self.field.chunks]
+            data = da.from_array(self.field.nxfile[self.raw_path],
+                                 chunks=chunk_size)
+            fsum = da.zeros(self.nframes, dtype=np.float64)
+            psum = da.zeros(self.nframes, dtype=np.float64)
             pixel_mask = self.pixel_mask
             # Add constantly firing pixels to the mask
             pixel_max = np.zeros((self.shape[1], self.shape[2]))
@@ -1130,40 +1133,29 @@ class NXReduce(QtCore.QObject):
             mask = np.zeros((self.shape[1], self.shape[2]), dtype=np.int8)
             mask[np.where(pixel_max == pixel_mean)] = 1
             mask[np.where(pixel_mean < 100)] = 0
-            pixel_mask = pixel_mask | mask
-            transmission_mask = self.transmission_coordinates()
-            # Start looping over the data
-            tic = self.start_progress(self.first, self.last)
-            for i in range(self.first, self.last, chunk_size):
-                if self.stopped:
-                    return None
-                self.update_progress(i)
-                try:
-                    v = data[i:i+chunk_size, :, :]
-                except IndexError:
-                    pass
-                if i == self.first:
-                    vsum = v.sum(0)
-                else:
-                    vsum += v.sum(0)
-                v = np.ma.masked_array(v)
-                v.mask = pixel_mask
-                fsum[i:i+chunk_size] = v.sum((1, 2))
-                v.mask = pixel_mask | transmission_mask
-                psum[i:i+chunk_size] = v.sum((1, 2))
-                if maximum < v.max():
-                    maximum = v.max()
-                del v
-        self.pixel_mask = pixel_mask
-        vsum = np.ma.masked_array(vsum)
-        vsum.mask = pixel_mask
-        self.maximum = maximum
+            self.pixel_mask = pixel_mask | mask
+            transmission_mask = (self.transmission_coordinates() |
+                                 self.pixel_mask)
+            tic = self.start_progress()
+            v = da.ma.masked_array(data,
+                mask=da.broadcast_to(pixel_mask, data.shape))
+            vmax = v[self.first:self.last].max()
+            vsum = v[self.first:self.last].sum(0)
+            fsum[self.first:self.last] = v[self.first:self.last].sum((1, 2))
+            w = da.ma.masked_array(data,
+                mask=da.broadcast_to(transmission_mask, data.shape))
+            psum[self.first:self.last] = w[self.first:self.last].sum((1, 2))
+            sums = self.dask_client.persist((vmax, vsum, fsum, psum))
+            self.update_progress(sums)
+            vmax, vsum, fsum, psum = [s.compute() for s in sums]
+            self.dask_client.shutdown()
+        self.maximum = vmax
         self.summed_data = NXfield(vsum, name='summed_data')
         self.summed_frames = NXfield(fsum, name='summed_frames')
         self.partial_frames = NXfield(psum, name='partial_frames')
         toc = self.stop_progress()
-        self.log(f"Maximum counts: {maximum} ({(toc-tic):g} seconds)")
-        result = NXcollection(NXfield(maximum, name='maximum'),
+        self.log(f"Maximum counts: {self.maximum} ({(toc-tic):g} seconds)")
+        result = NXcollection(NXfield(self.maximum, name='maximum'),
                               self.summed_data, self.summed_frames,
                               self.partial_frames)
         return result
