@@ -239,7 +239,7 @@ class NXReduce(QtCore.QObject):
         self.server_settings = NXSettings().settings['server']
         self.log_file = os.path.join(self.task_directory, 'nxlogger.log')
 
-        self.timer = {}
+        self.task_timer = {}
 
         self.summed_frames = None
         self.partial_frames = None
@@ -834,7 +834,7 @@ class NXReduce(QtCore.QObject):
                 'detector' in self.entry['instrument'] and
                 'orientation_matrix' in self.entry['instrument/detector'])
 
-    def start_progress(self, start, stop):
+    def start_progress(self, start=0, stop=100):
         """Initialize a counter to monitor progress completing a task.
 
         Parameters
@@ -859,21 +859,23 @@ class NXReduce(QtCore.QObject):
         self.stopped = False
         return timeit.default_timer()
 
-    def update_progress(self, i):
+    def update_progress(self, value):
         """Update the progress counter."""
         if self.gui:
-            _value = int(i/self._step)
+            _value = int(value/self._step)
             if _value > self._value:
                 self.update.emit(_value)
                 self._value = _value
         elif self.monitor_progress:
-            print(f"\rFrame {i}", end="")
+            print(f"\rFrame {value}", end="")
 
     def stop_progress(self):
         """Stop the progress counter and return the timer value."""
+        if self.gui:
+            self.stop.emit()
+            self.stopped = True
         if self.monitor_progress:
             print('')
-        self.stopped = True
         return timeit.default_timer()
 
     @property
@@ -930,7 +932,7 @@ class NXReduce(QtCore.QObject):
         """ Record that a task has started in the database """
         try:
             self.db.start_task(self.wrapper_file, task, self.entry_name)
-            self.timer[task] = timeit.default_timer()
+            self.task_timer[task] = timeit.default_timer()
             self.log(f"{self.name}: '{task}' started")
         except Exception as error:
             self.log(str(error))
@@ -939,7 +941,7 @@ class NXReduce(QtCore.QObject):
         """ Record that a task has ended in the database """
         try:
             self.db.end_task(self.wrapper_file, task, self.entry_name)
-            elapsed_time = timeit.default_timer() - self.timer[task]
+            elapsed_time = timeit.default_timer() - self.task_timer[task]
             self.log(
                 f"{self.name}: '{task}' complete ({elapsed_time:g} seconds)")
         except Exception as error:
@@ -949,7 +951,7 @@ class NXReduce(QtCore.QObject):
         """ Record that a task has failed in the database """
         try:
             self.db.fail_task(self.wrapper_file, task, self.entry_name)
-            elapsed_time = timeit.default_timer() - self.timer[task]
+            elapsed_time = timeit.default_timer() - self.task_timer[task]
             self.log(f"'{task}' failed ({elapsed_time:g} seconds)")
         except Exception as error:
             self.log(str(error))
@@ -1099,7 +1101,6 @@ class NXReduce(QtCore.QObject):
                 if self.gui:
                     if result:
                         self.result.emit(result)
-                    self.stop.emit()
                 else:
                     self.write_maximum()
                     self.write_parameters(first=self.first, last=self.last)
@@ -1310,7 +1311,6 @@ class NXReduce(QtCore.QObject):
                 if self.gui:
                     if peaks:
                         self.result.emit(peaks)
-                    self.stop.emit()
                 elif peaks:
                     self.write_peaks(peaks)
                     self.write_parameters(threshold=self.threshold,
