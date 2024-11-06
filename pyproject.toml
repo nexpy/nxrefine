@@ -39,6 +39,7 @@ dependencies = [
     "sqlalchemy",
     "matplotlib",
     "psutil",
+    "dask",
     "scikit-image",
     "xtec",
 ]
