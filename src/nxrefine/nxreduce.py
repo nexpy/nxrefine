@@ -1332,13 +1332,16 @@ class NXReduce(QtCore.QObject):
         self.log("Finding peaks")
         tic = self.start_progress(self.first, self.last)
         self.blobs = []
+        chunk = 100
+        border = self.min_pixels
         if self.concurrent:
             from nxrefine.nxutils import NXExecutor, as_completed
             with NXExecutor(max_workers=self.process_count,
                             mp_context=self.concurrent) as executor:
                 futures = []
-                for i in range(self.first, self.last+1, 50):
-                    j, k = i - min(5, i), min(i+55, self.last+5, self.nframes)
+                for i in range(self.first, self.last+1, chunk):
+                    j = i - min(border, i)
+                    k = min(i+chunk+border, self.last+border, self.nframes)
                     futures.append(executor.submit(
                         peak_search,
                         self.field.nxfilename, self.field.nxfilepath,
@@ -1347,18 +1350,19 @@ class NXReduce(QtCore.QObject):
                 for future in as_completed(futures):
                     z, blobs = future.result()
                     self.blobs += [b for b in blobs if b.z >= z
-                                   and b.z < min(z+50, self.last)]
+                                   and b.z < min(z+chunk, self.last)]
                     self.update_progress(z)
                     futures.remove(future)
         else:
-            for i in range(self.first, self.last+1, 50):
-                j, k = i - min(5, i), min(i+55, self.last+5, self.nframes)
+            for i in range(self.first, self.last+1, chunk):
+                j = i - min(border, i)
+                k = min(i+chunk+border, self.last+border, self.nframes)
                 z, blobs = peak_search(
                     self.field.nxfilename, self.field.nxfilepath,
                     i, j, k, self.threshold, mask=self.pixel_mask,
                     min_pixels=self.min_pixels)
                 self.blobs += [b for b in blobs if b.z >= z
-                               and b.z < min(z+50, self.last)]
+                               and b.z < min(z+chunk, self.last)]
                 self.update_progress(z)
 
         peaks = sorted([b for b in self.blobs], key=operator.attrgetter('z'))

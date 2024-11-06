@@ -58,29 +58,18 @@ def peak_search(data_file, data_path, i, j, k, threshold, mask=None,
     if mask is not None:
         data = np.where(mask, 0, data)
 
-    nframes = data.shape[0]
-    saved_blobs = []
-    last_blobs = []
-    for z in range(nframes):
-        blobs = [
-            NXBlob(x, y, z, data[z, int(y), int(x)], min_pixels=min_pixels)
-            for y, x in peak_local_max(
-                data[z], min_distance=min_pixels, threshold_abs=threshold
-            )
+    blobs = [
+        NXBlob(x, y, z, data[int(z), int(y), int(x)], min_pixels=min_pixels)
+            for z, y, x in peak_local_max(data,
+                                          min_distance=min_pixels,
+                                          threshold_abs=threshold)
         ]
-        for lb in last_blobs:
-            found = False
-            for b in blobs:
-                if lb == b:
-                    found = True
-                    b.update(lb)
-            if not found:
-                lb.refine(data)
-                if lb.is_valid():
-                    saved_blobs.append(lb)
-        last_blobs = blobs
-    for blob in saved_blobs:
-        blob.z += j
+    saved_blobs = []
+    for blob in blobs:
+        blob.refine(data)
+        if blob.is_valid():
+            blob.z += j
+            saved_blobs.append(blob)
     return i, saved_blobs
 
 
