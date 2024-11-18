@@ -34,7 +34,8 @@ from .nxrefine import NXRefine
 from .nxserver import NXServer
 from .nxsettings import NXSettings
 from .nxsymmetry import NXSymmetry
-from .nxutils import init_julia, load_julia, mask_volume, peak_search
+from .nxutils import (NXProgressBar, init_julia, load_julia, mask_volume,
+                      peak_search)
 
 
 class NXReduce(QtCore.QObject):
@@ -246,6 +247,7 @@ class NXReduce(QtCore.QObject):
         self.summed_data = None
 
         self.dask_client = None
+        self.dask_progress = None
 
         self._stopped = False
         self._process_count = None
@@ -874,6 +876,9 @@ class NXReduce(QtCore.QObject):
         if self.gui:
             self.stop.emit()
             self.stopped = True
+            if self.dask_client:
+                self.dask_client = None
+                self.dask_progress = None
         if self.monitor_progress:
             print('')
         return timeit.default_timer()
@@ -1147,7 +1152,7 @@ class NXReduce(QtCore.QObject):
                 mask=da.broadcast_to(transmission_mask, data.shape))
             psum[self.first:self.last] = w[self.first:self.last].sum((1, 2))
             sums = self.dask_client.persist((vmax, vsum, fsum, psum))
-            self.update_progress(sums)
+            self.dask_progress = NXProgressBar(sums, update=self.update)
             vmax, vsum, fsum, psum = [s.compute() for s in sums]
             self.dask_client.shutdown()
         self.maximum = vmax

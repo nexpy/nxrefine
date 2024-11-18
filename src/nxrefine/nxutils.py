@@ -11,6 +11,9 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import get_context, resource_tracker
 
 import numpy as np
+from dask import array as da
+from dask.distributed.client import futures_of
+from dask.distributed.diagnostics.progressbar import TextProgressBar
 
 if sys.version_info < (3, 10):
     from importlib_resources import files as package_files
@@ -699,3 +702,24 @@ class NXExecutor(ProcessPoolExecutor):
         if self._mp_context.get_start_method(allow_none=False) != 'fork':
             resource_tracker._resource_tracker._stop()
         return False
+
+
+class NXProgressBar(TextProgressBar):
+
+    def __init__(self, futures, update=None, **kwargs):
+        self.update = update
+        super().__init__(futures_of(futures), **kwargs)
+
+    def _draw_bar(self, remaining, all, **kwargs):
+        frac = (1 - remaining / all) if all else 1.0
+        try:
+            self.update.emit(int(100 * frac))
+        except ValueError:
+            pass
+        
+    def _draw_stop(self, **kwargs):
+        try:
+            self.update.emit(100)
+        except ValueError:
+            pass
+

@@ -179,6 +179,7 @@ class MaximumDialog(NXDialog):
         self.reduce.update.connect(self.update_progress)
         self.reduce.result.connect(self.get_result)
         self.reduce.stop.connect(self.stop)
+        self.output.setText('Finding Maximum...')
         self.thread.started.connect(self.reduce.nxmax)
         self.thread.finished.connect(self.stop)
         self.thread.start(QtCore.QThread.LowestPriority)
