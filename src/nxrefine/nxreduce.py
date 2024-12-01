@@ -19,7 +19,7 @@ import dask.array as da
 import h5py as h5
 import numpy as np
 import scipy.fft
-from dask.distributed import Client
+from dask.distributed import Client, progress
 from h5py import is_hdf5
 from nexusformat.nexus import (NeXusError, NXcollection, NXdata, NXentry,
                                NXfield, NXlink, NXLock, NXnote, NXparameters,
@@ -863,7 +863,12 @@ class NXReduce(QtCore.QObject):
 
     def update_progress(self, value):
         """Update the progress counter."""
-        if self.gui:
+        if self.dask_client:
+            if self.gui:
+                self.dask_progress = NXProgressBar(value, update=self.update)
+            else:
+                progress(value, notebook=False)
+        elif self.gui:
             _value = int(value/self._step)
             if _value > self._value:
                 self.update.emit(_value)
@@ -1152,7 +1157,7 @@ class NXReduce(QtCore.QObject):
                 mask=da.broadcast_to(transmission_mask, data.shape))
             psum[self.first:self.last] = w[self.first:self.last].sum((1, 2))
             sums = self.dask_client.persist((vmax, vsum, fsum, psum))
-            self.dask_progress = NXProgressBar(sums, update=self.update)
+            self.update_progress(sums)
             vmax, vsum, fsum, psum = [s.compute() for s in sums]
             self.dask_client.shutdown()
         self.maximum = vmax
@@ -1484,48 +1489,43 @@ class NXReduce(QtCore.QObject):
 
     def prepare_mask(self):
         """Prepare 3D mask"""
-        tic = self.start_progress(self.first, self.last)
         t1 = self.mask_parameters['threshold_1']
         h1 = self.mask_parameters['horizontal_size_1']
         t2 = self.mask_parameters['threshold_2']
         h2 = self.mask_parameters['horizontal_size_2']
+        pixel_mask = self.pixel_mask
 
-        mask_root = nxopen(self.mask_file+'.h5', 'w')
-        mask_root['entry'] = NXentry()
-        mask_root['entry/mask'] = (
-            NXfield(shape=self.shape, dtype=np.int8, fillvalue=0))
-
-        if self.concurrent:
-            from nxrefine.nxutils import NXExecutor, as_completed
-            with NXExecutor(max_workers=self.process_count,
-                            mp_context=self.concurrent) as executor:
-                futures = []
-                for i in range(self.first, self.last+1, 10):
-                    j, k = i - min(1, i), min(i+11, self.last+1, self.nframes)
-                    futures.append(executor.submit(
-                        mask_volume,
-                        self.field.nxfilename, self.field.nxfilepath,
-                        mask_root.nxfilename, 'entry/mask', i, j, k,
-                        self.pixel_mask, t1, h1, t2, h2))
-                for future in as_completed(futures):
-                    k = future.result()
-                    self.update_progress(k)
-                    futures.remove(future)
-        else:
-            for i in range(self.first, self.last+1, 10):
-                j, k = i - min(1, i), min(i+11, self.last+1, self.nframes)
-                k = mask_volume(self.field.nxfilename, self.field.nxfilepath,
-                                mask_root.nxfilename, 'entry/mask', i, j, k,
-                                self.pixel_mask, t1, h1, t2, h2)
-                self.update_progress(k)
-
-        frame_mask = np.ones(shape=self.shape[1:], dtype=np.int8)
-        with mask_root.nxfile:
-            mask_root['entry/mask'][:self.first] = frame_mask
-            mask_root['entry/mask'][self.last+1:] = frame_mask
-
+        tic = self.start_progress()
+        self.dask_client = Client(n_workers=self.process_count)
+        with self.field.nxfile:
+            chunk_size = [2 * self.field.chunks[0],
+                          10 * self.field.chunks[1],
+                          10 * self.field.chunks[2]]
+            data = da.from_array(self.field.nxfile[self.raw_path],
+                                 chunks=chunk_size)
+            masked_data = da.ma.masked_array(data,
+                mask=da.broadcast_to(pixel_mask, data.shape))
+            starts = range(self.first, self.last+1, chunk_size[0])
+            futures = []
+            for start in starts:
+                j = start - min(1, start)
+                k = min(start+chunk_size[0], self.last+1, self.nframes)
+                mask = mask_volume(masked_data[j:k], pixel_mask,
+                                   t1, h1, t2, h2)
+                future = self.dask_client.persist(mask)
+                futures.append(future)
+            self.update_progress(futures)
+            with nxopen(self.mask_file, 'w') as mask_root:
+                mask_root['entry'] = NXentry()
+                mask_root['entry/mask'] = (
+                    NXfield(shape=self.shape, dtype=np.int8, fillvalue=1))
+                for start, mask in zip(starts, futures):
+                    j = start - min(1, start)
+                    k = min(start+chunk_size[0], self.last+1, self.nframes)
+                    mask_root['entry/mask'][j+1:k-1] = mask.compute()
+        self.dask_client.shutdown()
         toc = self.stop_progress()
-
+    
         self.log(f"3D Mask prepared in {toc-tic:g} seconds")
 
         return mask_root['entry/mask']
