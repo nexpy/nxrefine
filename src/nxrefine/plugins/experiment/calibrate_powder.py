@@ -6,7 +6,8 @@
 # The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
-import os
+import logging
+from pathlib import Path
 
 import numpy as np
 import pyFAI
@@ -64,6 +65,7 @@ class CalibrateDialog(NXDialog):
         self.set_layout(self.select_entry(self.choose_entry),
                         self.progress_layout(close=True))
         self.set_title('Calibrate Powder')
+        logging.getLogger('pyFAI.massif').setLevel(logging.ERROR)
 
     def choose_entry(self):
         if self.layout.count() == 2:
