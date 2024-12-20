@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2022, Argonne National Laboratory.
+# Copyright (c) 2022-2024, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
@@ -22,7 +22,7 @@ from pyFAI.calibrant import ALL_CALIBRANTS
 from pyFAI.geometryRefinement import GeometryRefinement
 from pyFAI.massif import Massif
 
-from nxrefine.nxutils import detector_flipped
+from nxrefine.nxutils import NXExecutor, as_completed, detector_flipped
 
 
 def show_dialog():
@@ -44,6 +44,7 @@ class CalibrateDialog(NXDialog):
         self.ai = None
         self.cake_geometry = None
         self.polarization = None
+        self.ring = 0
         self.phi_max = -np.pi
 
         cstr = str(ALL_CALIBRANTS)
@@ -98,7 +99,6 @@ class CalibrateDialog(NXDialog):
         self.pixel_size = (
             self.entry['instrument/detector/pixel_size'].nxvalue * 1e-3)
         self.pixel_mask = self.entry['instrument/detector/pixel_mask'].nxvalue
-        self.ring = self.selected_ring
         if 'calibration' in self.entry['instrument']:
             signal = self.entry['instrument/calibration'].nxsignal
             axes = self.entry['instrument/calibration'].nxaxes
@@ -121,6 +121,7 @@ class CalibrateDialog(NXDialog):
                     pixel1=parameters['PixelSize1'].nxvalue,
                     pixel2=parameters['PixelSize2'].nxvalue,
                     wavelength=parameters['Wavelength'].nxvalue)
+            self.activate()
         else:
             self.close_plots()
 
@@ -180,22 +181,23 @@ class CalibrateDialog(NXDialog):
             self.xp, self.yp = 0, 0
 
     def on_button_release(self, event):
-        self.ring = self.selected_ring
         if event.inaxes:
             if abs(event.x - self.xp) > 5 or abs(event.y - self.yp) > 5:
                 return
             x, y = self.pv.inverse_transform(event.xdata, event.ydata)
             for i, point in enumerate(self.points):
-                circle = point[0]
+                circle = point[1][0]
                 if circle.shape.contains_point(
                         self.pv.ax.transData.transform((x, y))):
                     circle.remove()
-                    for circle in point[2]:
+                    for circle in point[1][1:]:
                         circle.remove()
                     del self.points[i]
                     return
+            self.ring = self.selected_ring
             try:
-                self.add_points(x, y)
+                points = self.get_points(x, y)
+                self.add_points(points)
             except Exception:
                 return
 
@@ -218,62 +220,46 @@ class CalibrateDialog(NXDialog):
         xc, yc = self.parameters['xc'].value, self.parameters['yc'].value
         wavelength = self.parameters['wavelength'].value
         distance = self.parameters['distance'].value * 1e-3
-        self.start_progress((0, self.selected_ring+1))
-        for ring in range(self.selected_ring+1):
-            self.update_progress(ring)
-            if len([p for p in self.points if p[3] == ring]) > 0:
-                continue
-            self.ring = ring
-            theta = 2 * np.arcsin(wavelength /
-                                  (2*self.calibrant.dSpacing[ring]))
-            r = distance * np.tan(theta) / self.pixel_size
-            phi = self.phi_max = -np.pi
-            while phi < np.pi:
-                x, y = int(xc + r*np.cos(phi)), int(yc + r*np.sin(phi))
-                if ((x > 0 and x < self.data.x.max()) and
-                    (y > 0 and y < self.data.y.max()) and
-                        not self.pixel_mask[y, x]):
-                    self.add_points(x, y, phi)
-                    phi = self.phi_max + 0.2
-                else:
-                    phi = phi + 0.2
+        nrings = self.selected_ring + 1
+
+        self.status_message.setText("Generating rings...")
+        self.start_progress((0, nrings))
+        with NXExecutor() as executor:
+            futures = []
+            for ring in range(self.selected_ring+1):
+                if len([p for p in self.points if p[0] == ring]) > 0:
+                    continue
+                theta = 2 * np.arcsin(wavelength /
+                                      (2*self.calibrant.dSpacing[ring]))
+                radius = distance * np.tan(theta) / self.pixel_size
+                futures.append(executor.submit(
+                    generate_ring, self.counts, ring, radius, xc, yc,
+                    self.pixel_mask, self.search_size))            
+            for i, future in enumerate(as_completed(futures)):
+                ring, points = future.result()
+                self.ring = ring
+                self.add_points(points)
+                self.update_progress(i)
+                futures.remove(future)
         self.stop_progress()
+        self.status_message.setText("Rings complete")
 
-    def add_points(self, x, y, phi=0.0):
-        xc, yc = self.parameters['xc'].value, self.parameters['yc'].value
-        idx, idy = self.find_peak(x, y)
-        points = [(idy, idx)]
-        circles = []
+    def get_points(self, x, y):
+        idx, idy = find_peak(x, y, self.counts, self.search_size)
+        points = [(float(idy), float(idx))]
         massif = Massif(self.counts)
-        extra_points = massif.find_peaks((idy, idx))
-        for point in extra_points:
-            points.append(point)
-            circles.append(self.circle(point[1], point[0], alpha=0.3))
-        phis = np.array([np.arctan2(p[0]-yc, p[1]-xc) for p in points])
-        if phi < -0.5*np.pi:
-            phis[np.where(phis > 0.0)] -= 2 * np.pi
-        self.phi_max = max(*phis, self.phi_max)
-        self.points.append([self.circle(idx, idy), points, circles, self.ring])
+        points.extend(massif.find_peaks((idy, idx), stdout=False))
+        return points
 
-    def find_peak(self, x, y):
-        s = self.search_size
-        left = int(np.round(x - s * 0.5))
-        if left < 0:
-            left = 0
-        top = int(np.round(y - s * 0.5))
-        if top < 0:
-            top = 0
-        region = self.counts[top:(top+s), left:(left+s)]
-        idy, idx = np.where(region == region.max())
-        idx = left + idx[0]
-        idy = top + idy[0]
-        return idx, idy
+    def add_points(self, points):
+        y, x = points[0]
+        circles = [self.circle(x, y)]
+        circles.extend(self.circle(x, y, alpha=0.3) for y, x in points[1:])
+        self.points.append([self.ring, circles])
 
     def clear_points(self):
         for i, point in enumerate(self.points):
-            circle = point[0]
-            circle.remove()
-            for circle in point[2]:
+            for circle in point[1]:
                 circle.remove()
         self.points = []
 
@@ -285,8 +271,10 @@ class CalibrateDialog(NXDialog):
     def point_array(self):
         points = []
         for point in self.points:
+            ring = point[0]
             for p in point[1]:
-                points.append((p[0], p[1], point[3]))
+                x, y = [round(v) for v in p.center]
+                points.append((x, y, ring))
         return np.array(points)
 
     def prepare_parameters(self):
@@ -450,3 +438,50 @@ class CalibrateDialog(NXDialog):
     def reject(self):
         super().reject()
         self.close_plots()
+
+
+def generate_ring(counts, ring, radius, xc, yc, pixel_mask, search_size):
+    points = []
+    phi = -np.pi
+    while phi < np.pi:
+        x, y = int(xc + radius*np.cos(phi)), int(yc + radius*np.sin(phi))
+        if ((x > 0 and x < counts.shape[1]) and (y > 0 and y < counts.shape[0])
+                and not pixel_mask[y, x]):
+            phi, extra_points = get_points(x, y, counts, xc=xc, yc=yc, phi=phi,
+                                           search_size=search_size)
+            points.extend(extra_points)
+        phi += 0.2
+    return ring, points
+ 
+
+def get_points(x, y, counts, xc=None, yc=None, phi=None, search_size=10):
+    logging.getLogger('pyFAI.massif').setLevel(logging.ERROR)
+    if phi is None:
+        phi = 0.0
+    idx, idy = find_peak(x, y, counts, search_size)
+    points = [(float(idy), float(idx))]
+    massif = Massif(counts)
+    points.extend(massif.find_peaks((idy, idx), stdout=False))
+    if xc is not None and yc is not None:
+        phis = np.array([np.arctan2(p[0]-yc, p[1]-xc) for p in points])
+        if phi < -0.5*np.pi:
+            phis[np.where(phis > 0.0)] -= 2 * np.pi
+        phi = max(*phis, phi)
+        phis = [np.degrees(p) for p in phis]
+    return phi, points
+           
+
+def find_peak(x, y, counts, search_size=10):
+    s = search_size
+    left = int(np.round(x - s * 0.5))
+    if left < 0:
+        left = 0
+    top = int(np.round(y - s * 0.5))
+    if top < 0:
+        top = 0
+    region = counts[top:(top+s), left:(left+s)]
+    idy, idx = np.where(region == region.max())
+    idx = left + idx[0]
+    idy = top + idy[0]
+    return idx, idy
+
