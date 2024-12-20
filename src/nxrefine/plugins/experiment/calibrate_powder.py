@@ -103,10 +103,12 @@ class CalibrateDialog(NXDialog):
             signal = self.entry['instrument/calibration'].nxsignal
             axes = self.entry['instrument/calibration'].nxaxes
             self.counts = signal.nxvalue
-            self.data = NXdata(signal, axes)
-            self.plot_data()
             self.parameters['calibrant'].value = (
                 self.entry['instrument/calibration/calibrant'])
+            self.data = NXdata(signal, axes,
+                title=f'{self.calibrant.name} Powder Calibration')
+            self.shape = self.counts.shape
+            self.plot_data()
             if 'refinement' in self.entry['instrument/calibration']:
                 parameters = (
                     self.entry['instrument/calibration/refinement/parameters'])
@@ -127,14 +129,16 @@ class CalibrateDialog(NXDialog):
 
     def import_powder(self):
         powder_file = getOpenFileName(self, 'Open Powder Data File')
-        if os.path.exists(powder_file):
+        if Path(powder_file).exists():
             self.data = load_image(powder_file)
+            self.data['title'] = f'{self.calibrant.name} Powder Calibration'
             self.counts = self.data.nxsignal.nxvalue
+            self.shape = self.counts.shape
             self.plot_data()
 
     def import_calibration(self):
         calibration_file = getOpenFileName(self, 'Open Calibration File')
-        if os.path.exists(calibration_file):
+        if Path(calibration_file).exists():
             self.ai = pyFAI.load(calibration_file)
             self.read_parameters()
 
@@ -330,7 +334,7 @@ class CalibrateDialog(NXDialog):
         self.cake_data = NXdata(res[0],
                                 (NXfield(res[2], name='azimumthal_angle'),
                                  NXfield(res[1], name='polar_angle')))
-        self.cake_data['title'] = 'Cake Plot'
+        self.cake_data['title'] = f'{self.calibrant.name} Cake Plot'
         plotview.plot(self.cake_data, log=True)
         wavelength = self.parameters['wavelength'].value
         polar_angles = [2 * np.degrees(np.arcsin(wavelength/(2*d)))
