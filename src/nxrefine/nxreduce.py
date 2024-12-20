@@ -2148,13 +2148,16 @@ class NXMultiReduce(NXReduce):
 
     def symmetrize_transform(self):
         self.log(f"{self.title}: Transform being symmetrized")
-        tic = timeit.default_timer()
         symm_root = nxopen(self.symm_file, 'w')
         symm_root['entry'] = NXentry()
         symm_root['entry/data'] = NXdata()
+        self.dask_client = Client(n_workers=self.process_count)
+        tic = self.start_progress()
         symmetry = NXSymmetry(self.entry[self.transform_path],
                               laue_group=self.refine.laue_group)
-        symm_root['entry/data/data'] = symmetry.symmetrize(entries=True)
+        result = symmetry.symmetrize(entries=True)
+        symm_root['entry/data/data'] = result.compute()
+        self.dask_client.shutdown()
         symm_root['entry/data'].nxsignal = symm_root['entry/data/data']
         symm_root['entry/data'].nxweights = 1.0 / self.taper
         symm_root['entry/data'].nxaxes = self.entry[self.transform_path].nxaxes
@@ -2169,7 +2172,7 @@ class NXMultiReduce(NXReduce):
                 '/entry/data/data_weights', file=self.symm_file)
             self.add_title(self.entry[self.symm_data])
         self.log(f"'{self.symm_data}' added to entry")
-        toc = timeit.default_timer()
+        toc = self.stop_progress()
         self.log(f"{self.title}: Symmetrization completed "
                          f"({toc-tic:g} seconds)")
 
@@ -2201,19 +2204,20 @@ class NXMultiReduce(NXReduce):
         tic = timeit.default_timer()
         if qmax is None:
             qmax = self.qmax
-        Z, Y, X = np.meshgrid(self.Ql * self.refine.cstar,
+        Z, Y, X = da.meshgrid(self.Ql * self.refine.cstar,
                               self.Qk * self.refine.bstar,
                               self.Qh * self.refine.astar,
                               indexing='ij')
-        taper = np.ones(X.shape, dtype=np.float32)
-        R = 2 * np.sqrt(X**2 + Y**2 + Z**2) / qmax
-        idx = (R > 1.0) & (R < 2.0)
-        taper[idx] = 0.5 * (1 - np.cos(R[idx] * np.pi))
+        taper = da.ones(X.shape, dtype=np.float32)
+        R = 2 * da.sqrt(X**2 + Y**2 + Z**2) / qmax
+        condition = (R > 1.0) & (R < 2.0)
+        new_values = 0.5 * (1 - da.cos(R * np.pi))
+        taper = da.where(condition, new_values, taper)
         taper[R >= 2.0] = taper.min()
         toc = timeit.default_timer()
         self.log(f"{self.title}: Taper function calculated "
                          f"({toc-tic:g} seconds)")
-        return taper
+        return taper.compute()
 
     def total_pdf(self):
         if os.path.exists(self.total_pdf_file):
@@ -2319,11 +2323,11 @@ class NXMultiReduce(NXReduce):
         fill_data = np.zeros(shape=symm_data.shape, dtype=symm_data.dtype)
         self.refine.polar_max = max([NXRefine(self.root[e]).two_theta_max()
                                      for e in self.entries])
-        for h, k, l in self.indices:
+        for H, K, L in self.indices:
             try:
-                ih = np.argwhere(np.isclose(Qh, h))[0][0]
-                ik = np.argwhere(np.isclose(Qk, k))[0][0]
-                il = np.argwhere(np.isclose(Ql, l))[0][0]
+                ih = np.argwhere(np.isclose(Qh, H))[0][0]
+                ik = np.argwhere(np.isclose(Qk, K))[0][0]
+                il = np.argwhere(np.isclose(Ql, L))[0][0]
                 lslice = slice(il-ml, il+ml+1)
                 kslice = slice(ik-mk, ik+mk+1)
                 hslice = slice(ih-mh, ih+mh+1)

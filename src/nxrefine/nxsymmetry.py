@@ -7,83 +7,97 @@
 # -----------------------------------------------------------------------------
 
 import os
-import tempfile
 
+import dask.array as da
 import numpy as np
+from dask.distributed import Client
 from nexusformat.nexus import nxopen, nxsetconfig
-
-from .nxutils import NXExecutor, as_completed
 
 
 def triclinic(data):
     """Laue group: -1"""
-    outarr = np.nan_to_num(data)
-    outarr += np.flip(outarr)
+    outarr = da.nan_to_num(data)
+    outarr += da.flip(outarr)
     return outarr
 
 
 def monoclinic(data):
     """Laue group: 2/m"""
-    outarr = np.nan_to_num(data)
-    outarr += np.rot90(outarr, 2, (0, 2))
-    outarr += np.flip(outarr, 1)
+    outarr = da.nan_to_num(data)
+    outarr += da.rot90(outarr, 2, (0, 2))
+    outarr += da.flip(outarr, 1)
     return outarr
 
 
 def orthorhombic(data):
     """Laue group: mmm"""
-    outarr = np.nan_to_num(data)
-    outarr += np.flip(outarr, 0)
-    outarr += np.flip(outarr, 1)
-    outarr += np.flip(outarr, 2)
+    outarr = da.nan_to_num(data)
+    outarr += da.flip(outarr, 0)
+    outarr += da.flip(outarr, 1)
+    outarr += da.flip(outarr, 2)
     return outarr
 
 
 def tetragonal1(data):
     """Laue group: 4/m"""
-    outarr = np.nan_to_num(data)
-    outarr += np.rot90(outarr, 1, (1, 2))
-    outarr += np.rot90(outarr, 2, (1, 2))
-    outarr += np.flip(outarr, 0)
+    outarr = da.nan_to_num(data)
+    outarr += da.rot90(outarr, 1, (1, 2))
+    outarr += da.rot90(outarr, 2, (1, 2))
+    outarr += da.flip(outarr, 0)
     return outarr
 
 
 def tetragonal2(data):
     """Laue group: 4/mmm"""
-    outarr = np.nan_to_num(data)
-    outarr += np.rot90(outarr, 1, (1, 2))
-    outarr += np.rot90(outarr, 2, (1, 2))
-    outarr += np.rot90(outarr, 2, (0, 1))
-    outarr += np.flip(outarr, 0)
+    outarr = da.nan_to_num(data)
+    outarr += da.rot90(outarr, 1, (1, 2))
+    outarr += da.rot90(outarr, 2, (1, 2))
+    outarr += da.rot90(outarr, 2, (0, 1))
+    outarr += da.flip(outarr, 0)
     return outarr
 
 
 def hexagonal(data):
     """Laue group: 6/m, 6/mmm (modeled as 2/m along the c-axis)"""
-    outarr = np.nan_to_num(data)
-    outarr += np.rot90(outarr, 2, (1, 2))
-    outarr += np.flip(outarr, 0)
+    outarr = da.nan_to_num(data)
+    outarr += da.rot90(outarr, 2, (1, 2))
+    outarr += da.flip(outarr, 0)
     return outarr
 
 
 def cubic(data):
     """Laue group: m-3 or m-3m"""
-    outarr = np.nan_to_num(data)
-    if len(set(outarr.shape)) > 1:
-        max_dim = max(outarr.shape)
-        padding =[(0, max_dim - dim) for dim in outarr.shape]
-        pad_width = [(amount // 2, amount - amount // 2)
-                     for _, amount in padding]
-        outarr = np.pad(outarr, pad_width, mode='constant')
-    outarr += np.transpose(outarr, axes=(1, 2, 0))
-    outarr += np.transpose(outarr, axes=(2, 0, 1))
-    outarr += np.transpose(outarr, axes=(0, 2, 1))
-    outarr += np.flip(outarr, 0)
-    outarr += np.flip(outarr, 1)
-    outarr += np.flip(outarr, 2)
+    outarr = da.nan_to_num(data)
+    outarr += da.transpose(outarr, axes=(1, 2, 0))
+    outarr += da.transpose(outarr, axes=(2, 0, 1))
+    outarr += da.transpose(outarr, axes=(0, 2, 1))
+    outarr += da.flip(outarr, 0)
+    outarr += da.flip(outarr, 1)
+    outarr += da.flip(outarr, 2)
     return outarr
 
 def symmetrize_entries(symm_function, data_type, data_file, data_path):
+    """
+    Symmetrize data from multiple entries in a file.
+
+    Parameters
+    ----------
+    symm_function : function
+        The function to use for symmetrizing the data.
+    data_type : str
+        The type of data to symmetrize; either 'signal' or 'weights'.
+    data_file : str
+        The name of the file containing the data to symmetrize.
+    data_path : str
+        The path to the data in the file.
+
+    Returns
+    -------
+    data_type : str
+        The type of data that was symmetrized.
+    filename : str
+        The name of the file containing the symmetrized data.
+    """
     nxsetconfig(lock=3600, lockexpiry=28800)
     with nxopen(data_file, 'r') as data_root:
         data_path = os.path.basename(data_path)
@@ -93,39 +107,61 @@ def symmetrize_entries(symm_function, data_type, data_file, data_path):
             nxsetconfig(memory=data_size)
             if i == 0:
                 if data_type == 'signal':
-                    data = data_root[entry][data_path].nxsignal.nxvalue
+                    signal_path = data_root[entry][data_path].nxsignal.nxpath
+                    data = da.from_array(data_root.nxfile[signal_path])
                 elif data_root[entry][data_path].nxweights:
-                    data = data_root[entry][data_path].nxweights.nxvalue
+                    weights_path = data_root[entry][data_path].nxweights.nxpath
+                    data = da.from_array(data_root.nxfile[weights_path])
                 else:
-                    signal = data_root[entry][data_path].nxsignal.nxvalue
-                    data = np.zeros(signal.shape, dtype=signal.dtype)
-                    data[np.where(signal > 0)] = 1
+                    signal_path = data_root[entry][data_path].nxsignal.nxpath
+                    signal = da.from_array(data_root.nxfile[signal_path])
+                    data = da.zeros(signal.shape, dtype=signal.dtype)
+                    data[da.where(signal > 0)] = 1
             else:
                 if data_type == 'signal':
-                    data += data_root[entry][data_path].nxsignal.nxvalue
+                    signal_path = data_root[entry][data_path].nxsignal.nxpath
+                    data += da.from_array(data_root.nxfile[signal_path])
                 elif data_root[entry][data_path].nxweights:
-                    data += data_root[entry][data_path].nxweights.nxvalue
+                    weights_path = data_root[entry][data_path].nxweights.nxpath
+                    data += da.from_array(data_root.nxfile[weights_path])
     result = symm_function(data)
-    with nxopen(tempfile.mkstemp(suffix='.nxs')[1], mode='w') as root:
-        root['data'] = result
-    return data_type, root.nxfilename
+    return data_type, result
 
 
 def symmetrize_data(symm_function, data_type, data_file, data_path):
+    """
+    Symmetrize data from a single entry in a file.
+
+    Parameters
+    ----------
+    symm_function : function
+        The function to use for symmetrizing the data.
+    data_type : str
+        The type of data to symmetrize; either 'signal' or 'weights'.
+    data_file : str
+        The name of the file containing the data to symmetrize.
+    data_path : str
+        The path to the data in the file.
+
+    Returns
+    -------
+    data_type : str
+        The type of data that was symmetrized.
+    filename : str
+        The name of the file containing the symmetrized data.
+    """
     nxsetconfig(lock=3600, lockexpiry=28800)
     with nxopen(data_file, 'r') as data_root:
         data_size = int(data_root[data_path].nbytes / 1e6) + 1000
         nxsetconfig(memory=data_size)
         if data_type == 'signal':
-            data = data_root[data_path].nxvalue
+            data = da.from_array(data_root.nxfile[data_path])
         else:
-            signal = data_root[data_path].nxvalue
-            data = np.zeros(signal.shape, signal.dtype)
-            data[np.where(signal > 0)] = 1
+            signal = da.from_array(data_root.nxfile[data_path])
+            data = da.zeros(signal.shape, signal.dtype)
+            data[da.where(signal > 0)] = 1
     result = symm_function(data)
-    with nxopen(tempfile.mkstemp(suffix='.nxs')[1], mode='w') as root:
-        root['data'] = result
-    return data_type, root.nxfilename
+    return data_type, result
 
 
 laue_functions = {'-1': triclinic,
@@ -144,6 +180,24 @@ laue_functions = {'-1': triclinic,
 class NXSymmetry:
 
     def __init__(self, data, laue_group=None):
+        """
+        Parameters
+        ----------
+        data : NXdata
+            The data to be symmetrized.
+        laue_group : str, optional
+            The Laue group of the crystal structure of the sample. If not
+            specified, a triclinic crystal structure is assumed.
+
+        Attributes
+        ----------
+        symm_function : function
+            The function to use for symmetrizing the data.
+        data_file : str
+            The name of the file containing the data to symmetrize.
+        data_path : str
+            The path to the data in the file.
+        """
         if laue_group and laue_group in laue_functions:
             self.symm_function = laue_functions[laue_group]
         else:
@@ -152,24 +206,30 @@ class NXSymmetry:
         self.data_path = data.nxpath
 
     def symmetrize(self, entries=False):
+        """
+        Symmetrize the data.
+
+        Parameters
+        ----------
+        entries : bool, optional
+            Flag to indicate whether to symmetrize multiple entries in a file,
+            by default False.
+
+        Returns
+        -------
+        array-like
+            The symmetrized data.
+        """
         if entries:
             symmetrize = symmetrize_entries
         else:
             symmetrize = symmetrize_data
-        with NXExecutor(max_workers=2) as executor:
-            futures = []
-            for data_type in ['signal', 'weights']:
-                futures.append(executor.submit(
-                    symmetrize, self.symm_function, data_type,
-                    self.data_file, self.data_path))
-        for future in as_completed(futures):
-            data_type, result_file = future.result()
-            with nxopen(result_file, 'r') as result_root:
-                if data_type == 'signal':
-                    signal = result_root['data'].nxvalue
-                else:
-                    weights = result_root['data'].nxvalue
-            os.remove(result_file)
+        client = Client(n_workers=6)
+        signal = symmetrize(self.symm_function, 'signal',
+                            self.data_file, self.data_path)
+        weights = symmetrize(self.symm_function, 'weights',
+                            self.data_file, self.data_path)
         with np.errstate(divide='ignore', invalid='ignore'):
-            result = np.where(weights > 0, signal / weights, 0.0)
+            result = da.where(weights[1] > 0, signal[1] / weights[1], 0.0)
+        result = client.persist(result)
         return result
