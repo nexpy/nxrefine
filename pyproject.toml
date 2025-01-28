@@ -7,7 +7,7 @@ name = "NXRefine"
 dynamic = ["version"]
 description = "Data reduction for single crystal x-ray scattering"
 readme = "README.md"
-license = {file = "LICENSE.pdf"}
+license = {file = "LICENSE"}
 authors = [{name = "Raymond Osborn", email = "rayosborn@mac.com"}]
 classifiers = [
   "Development Status :: 4 - Beta",
