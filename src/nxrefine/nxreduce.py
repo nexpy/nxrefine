@@ -2318,11 +2318,11 @@ class NXMultiReduce(NXReduce):
         fill_data = np.zeros(shape=symm_data.shape, dtype=symm_data.dtype)
         self.refine.polar_max = max([NXRefine(self.root[e]).two_theta_max()
                                      for e in self.entries])
-        for h, k, l in self.indices:
+        for H, K, L in self.indices:
             try:
-                ih = np.argwhere(np.isclose(Qh, h))[0][0]
-                ik = np.argwhere(np.isclose(Qk, k))[0][0]
-                il = np.argwhere(np.isclose(Ql, l))[0][0]
+                ih = np.argwhere(np.isclose(Qh, H))[0][0]
+                ik = np.argwhere(np.isclose(Qk, K))[0][0]
+                il = np.argwhere(np.isclose(Ql, L))[0][0]
                 lslice = slice(il-ml, il+ml+1)
                 kslice = slice(ik-mk, ik+mk+1)
                 hslice = slice(ih-mh, ih+mh+1)
