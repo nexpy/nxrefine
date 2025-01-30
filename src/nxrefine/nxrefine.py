@@ -1116,17 +1116,17 @@ class NXRefine:
             max_radius * self.pixel_size / self.distance) * degrees
 
     def make_rings(self):
-        """Generate the two-thetas and HKLs for each ring of Bragg peaks.
+        """Generate two-thetas and HKLs for each ring of Bragg peaks.
 
-        Each ring contains the average two-theta value in degrees for all
-        Bragg peaks that are within the polar angle tolerance, and all the
-        symmetry-equivalent HKLs.
+        Each ring contains the average two-theta value in degrees for
+        all Bragg peaks that are within the polar angle tolerance, and
+        all the symmetry-equivalent HKLs.
 
         Returns
         -------
         dict of lists
-            Map of ring indices to lists containing their two-theta values
-            and symmetry-equivalent HKLs.
+            Map of ring indices to lists containing their two-theta
+            values and symmetry-equivalent HKLs.
         """
         _rings = {}
         _r = 0
