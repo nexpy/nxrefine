@@ -6,14 +6,14 @@
 # The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
-from pathlib import Path
 from operator import attrgetter
+from pathlib import Path
 
-from nexpy.gui.datadialogs import GridParameters, NXDialog, NXWidget
 from nexpy.gui.pyqt import getSaveFileName
 from nexpy.gui.utils import display_message, natural_sort, report_error
-from nexpy.gui.widgets import NXScrollArea
+from nexpy.gui.widgets import GridParameters, NXDialog, NXScrollArea, NXWidget
 from nexusformat.nexus import NeXusError
+
 from nxrefine.nxbeamline import get_beamline
 from nxrefine.nxsettings import NXSettings
 

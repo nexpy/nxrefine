@@ -6,10 +6,9 @@
 # The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
-import os
 from pathlib import Path
 
-from nexpy.gui.datadialogs import GridParameters, NXDialog
+from nexpy.gui.dialogs import GridParameters, NXDialog
 from nexpy.gui.utils import display_message, report_error
 from nexpy.gui.widgets import NXLabel, NXPushButton, NXScrollArea
 from nexusformat.nexus import NeXusError

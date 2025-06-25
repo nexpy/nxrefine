@@ -86,6 +86,13 @@ class NXDaemon:
             return False
 
     def status(self):
+        """Report on the status of the daemon.
+
+        If the daemon is running on a different node, the node name is
+        returned. If it is running on the current node, the process id is
+        returned. If the daemon is not running, return a message to that
+        effect.
+        """
         pid, node = self.get_process()
         if pid and node and node != self.pid_node:
             return self.pid_name + " launched on " + node
@@ -96,7 +103,6 @@ class NXDaemon:
 
     def start(self):
         """Start the daemon."""
-
         # Check for a pid_file to see if the daemon already runs
         pid, node = self.get_process()
         if node and node != self.pid_node:

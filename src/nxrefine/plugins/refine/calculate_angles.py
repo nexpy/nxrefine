@@ -6,7 +6,7 @@
 # The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
-from nexpy.gui.datadialogs import GridParameters, NXDialog
+from nexpy.gui.dialogs import GridParameters, NXDialog
 from nexpy.gui.plotview import get_plotview
 from nexpy.gui.utils import report_error
 from nexusformat.nexus import NeXusError, NXdata, NXfield

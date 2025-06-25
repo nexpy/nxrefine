@@ -8,7 +8,7 @@
 
 from pathlib import Path
 
-from nexpy.gui.datadialogs import NXDialog
+from nexpy.gui.dialogs import NXDialog
 from nexpy.gui.utils import display_message, report_error
 from nexpy.gui.widgets import NXLabel
 from nexusformat.nexus import NeXusError

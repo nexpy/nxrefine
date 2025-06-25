@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2022-2024, Argonne National Laboratory.
+# Copyright (c) 2022-2025, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
@@ -11,12 +11,12 @@ from pathlib import Path
 
 import numpy as np
 import pyFAI
-from nexpy.gui.datadialogs import GridParameters, NXDialog
+from nexpy.gui.dialogs import GridParameters, NXDialog
 from nexpy.gui.plotview import NXPlotView, plotviews
 from nexpy.gui.pyqt import getOpenFileName, getSaveFileName
 from nexpy.gui.utils import (confirm_action, display_message, load_image,
                              report_error)
-from nexusformat.nexus import (NeXusError, NXcollection, NXdata, NXfield,
+from nexusformat.nexus import (NeXusError, NXdata, NXfield, NXparameters,
                                NXprocess)
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 from pyFAI.calibrant import ALL_CALIBRANTS
@@ -375,7 +375,7 @@ class CalibrateDialog(NXDialog):
         process = NXprocess()
         process.program = 'pyFAI'
         process.version = pyFAI.version
-        process.parameters = NXcollection()
+        process.parameters = NXparameters()
         process.parameters['Detector'] = instrument['detector/description']
         process.parameters['PixelSize1'] = self.ai.pixel1
         process.parameters['PixelSize2'] = self.ai.pixel2

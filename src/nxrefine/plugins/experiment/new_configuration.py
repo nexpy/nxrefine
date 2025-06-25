@@ -9,7 +9,7 @@
 from pathlib import Path
 
 import numpy as np
-from nexpy.gui.datadialogs import GridParameters, NXDialog
+from nexpy.gui.dialogs import GridParameters, NXDialog
 from nexpy.gui.utils import report_error
 from nexusformat.nexus import (NXdetector, NXentry, NXfield, NXgoniometer,
                                NXinstrument, NXmonochromator, NXparameters,

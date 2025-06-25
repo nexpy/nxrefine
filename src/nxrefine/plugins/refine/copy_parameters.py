@@ -6,7 +6,7 @@
 # The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
-from nexpy.gui.datadialogs import NXDialog
+from nexpy.gui.dialogs import NXDialog
 from nexpy.gui.utils import report_error
 from nexusformat.nexus import NeXusError
 from nxrefine.nxreduce import NXReduce

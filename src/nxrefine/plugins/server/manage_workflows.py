@@ -10,13 +10,13 @@ import os
 import subprocess
 import time
 
-from nexpy.gui.datadialogs import NXDialog, NXWidget
 from nexpy.gui.pyqt import QtCore, QtWidgets
 from nexpy.gui.utils import (format_mtime, human_size, natural_sort,
                              report_error)
-from nexpy.gui.widgets import (NXLabel, NXPlainTextEdit, NXPushButton,
-                               NXScrollArea)
+from nexpy.gui.widgets import (NXDialog, NXLabel, NXPlainTextEdit,
+                               NXPushButton, NXScrollArea, NXWidget)
 from nexusformat.nexus import NeXusError, nxload
+
 from nxrefine.nxdatabase import NXDatabase
 from nxrefine.nxreduce import NXMultiReduce, NXReduce
 from nxrefine.nxserver import NXServer

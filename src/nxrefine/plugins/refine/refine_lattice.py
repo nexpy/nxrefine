@@ -9,7 +9,7 @@
 import operator
 
 import numpy as np
-from nexpy.gui.datadialogs import ExportDialog, GridParameters, NXDialog
+from nexpy.gui.dialogs import ExportDialog, GridParameters, NXDialog
 from nexpy.gui.plotview import NXPlotView
 from nexpy.gui.pyqt import QtCore, QtGui, QtWidgets
 from nexpy.gui.utils import display_message, report_error

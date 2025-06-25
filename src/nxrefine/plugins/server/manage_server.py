@@ -10,12 +10,12 @@ import os
 import subprocess
 from pathlib import Path
 
-from nexpy.gui.datadialogs import NXDialog, NXWidget
 from nexpy.gui.pyqt import QtCore
 from nexpy.gui.utils import (confirm_action, format_mtime, get_mtime,
                              report_error)
-from nexpy.gui.widgets import NXPlainTextEdit, NXScrollArea
+from nexpy.gui.widgets import NXDialog, NXPlainTextEdit, NXScrollArea, NXWidget
 from nexusformat.nexus import NeXusError, nxgetconfig
+
 from nxrefine.nxserver import NXServer
 
 
