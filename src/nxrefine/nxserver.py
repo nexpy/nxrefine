@@ -26,10 +26,31 @@ from .nxdaemon import NXDaemon
 from .nxsettings import NXSettings
 
 
+def get_servers():
+    """Return a list of available server types
+
+    Returns
+    -------
+    list of str
+        Names of valid server types
+    """    
+    return ['direct', 'multicore', 'multinode']
+
+
 class NXFileQueue(FileQueue):
     """A file-based queue with locked access"""
 
     def __init__(self, directory, autosave=False):
+        """
+        Create a file-based queue with locked access.
+
+        Parameters
+        ----------
+        directory : str or Path
+            Path to the directory for the queue.
+        autosave : bool, optional
+            Autosave the queue after every put or get operation, by default False
+        """        
         self.directory = Path(directory)
         self.directory.mkdir(mode=0o777, exist_ok=True)
         tempdir = self.directory / 'tempdir'
@@ -85,7 +106,7 @@ class NXFileQueue(FileQueue):
 
 
 class NXController(Thread):
-    """Class to process tasks submitted using an internal queue."""
+    """Class to run tasks submitted to an internal queue in the shell."""
 
     def __init__(self, controller_queue, server):
         super().__init__()
@@ -111,6 +132,9 @@ class NXController(Thread):
             self.controller_queue.task_done()
         return
 
+    def stop(self):
+        self.controller_queue.put('stop')
+
     def submit_task(self, task):
         """Run the task directly in the shell."""
         cpu = self.get_cpu()
@@ -126,7 +150,7 @@ class NXController(Thread):
                 with open(self.cpu_file, 'r') as f:
                     last_cpu = f.read()
                 cpu = 'cpu' + str(int(last_cpu) % len(self.server.cpus) + 1)
-            except Exception as error:
+            except Exception:
                 last_cpu = len(self.server.cpus)
                 cpu = 'cpu1'
             with open(self.cpu_file, 'w+') as f:
@@ -240,7 +264,9 @@ class NXServer(NXDaemon):
         self.initialize(directory, server_type)
         self.worker_queue = None
         self.workers = []
-        if self.server_type:
+        self._task_queue = None
+        self._controller = None
+        if self.server_type != 'direct':
             super(NXServer, self).__init__(self.pid_name, self.pid_file)
 
     def __repr__(self):
@@ -266,7 +292,7 @@ class NXServer(NXDaemon):
             home_settings.read(home_settings_file)
         if 'setup' not in home_settings.sections():
             home_settings.add_section('setup')
-        home_settings.set('setup', 'directory', self.directory)
+        home_settings.set('setup', 'directory', str(self.directory))
         with open(home_settings_file, 'w') as f:
             home_settings.write(f)
 
@@ -280,16 +306,16 @@ class NXServer(NXDaemon):
             self.save_directory()
         if server_type:
             if server_type == 'None' or server_type == 'none':
-                server_type = None
+                server_type = 'direct'
             self.server_type = server_type
             self.settings.set('server', 'type', server_type)
             self.settings.save()
         elif self.settings.has_option('server', 'type'):
             self.server_type = self.settings.get('server', 'type')
             if self.server_type == 'None' or self.server_type == 'none':
-                self.server_type = None
+                self.server_type = 'direct'
         else:
-            self.server_type = None
+            self.server_type = 'direct'
         if self.server_type == 'multinode':
             if 'nodes' not in self.settings.sections():
                 self.settings.add_section('nodes')
@@ -308,13 +334,23 @@ class NXServer(NXDaemon):
         self.server_log = self.directory / 'nxserver.log'
         self.pid_file = self.directory / 'nxserver.pid'
         self.queue_directory = self.directory / 'task_list'
-        if self.server_type:
-            self.task_queue = NXFileQueue(self.queue_directory)
-            self.controller = None
-        else:
-            self.task_queue = Queue()
-            self.controller = NXController(self.task_queue, self)
-            self.controller.start()
+
+    @property
+    def task_queue(self):
+        if self._task_queue is None:
+            if self.server_type == 'direct':
+                self._task_queue = Queue()
+                self.controller.start()
+            else:
+                self._task_queue = NXFileQueue(self.queue_directory,
+                                               autosave=True)            
+        return self._task_queue
+
+    @property
+    def controller(self):
+        if self._controller is None:
+            self._controller = NXController(self._task_queue, self)
+        return self._controller
 
     def read_nodes(self):
         """Read available nodes"""
@@ -363,7 +399,6 @@ class NXServer(NXDaemon):
         queue, and add an NXTask for each command to a Queue.
         """
         self.log(f'Starting server (pid={os.getpid()})')
-        self.task_queue = NXFileQueue(self.queue_directory, autosave=True)
         self.worker_queue = Queue()
         self.workers = [NXWorker(cpu, self.worker_queue, self.server_log)
                         for cpu in self.cpus]
@@ -391,7 +426,7 @@ class NXServer(NXDaemon):
         for task in tasks:
             if task == 'stop':
                 self.task_queue.put(task)
-            elif self.server_type is None or task not in self.queued_tasks():
+            elif task not in self.queued_tasks():
                 self.task_queue.put(task)
 
     def read_task(self):
@@ -416,8 +451,31 @@ class NXServer(NXDaemon):
 
     def queued_tasks(self):
         """List tasks remaining on the server queue."""
-        queue = NXFileQueue(self.queue_directory, autosave=False)
-        return queue.queued_items()
+        if self.server_type == 'direct':
+            return list(self.task_queue.queue)
+        else:
+            queue = NXFileQueue(self.queue_directory, autosave=False)
+            return queue.queued_items()
+
+    def status(self):
+        if self.server_type == 'direct':
+            return "Server is configured to run commands directly"
+        else:
+            return super(NXServer, self).status()            
+
+    def is_running(self):
+        """
+        Check if the server is running.
+
+        If the server is running in direct mode, this is done by checking
+        if the controller thread is alive. Otherwise, it is done by calling
+        the NXDaemon class method.
+        """
+        if self.server_type == 'direct':
+            return self.controller.is_alive()
+        else:
+            return super(NXServer, self).is_running()
+            
 
     def stop(self):
         """Stop the server when active tasks are completed."""
@@ -426,11 +484,14 @@ class NXServer(NXDaemon):
 
     def clear(self):
         """Clear the server queue."""
-        with self.task_queue.lock:
-            if self.queue_directory.exists():
-                import shutil
-                shutil.rmtree(self.queue_directory, ignore_errors=True)
-        self.task_queue = NXFileQueue(self.queue_directory)
+        if self.server_type == 'direct':
+            self._task_queue = Queue()
+        else:
+            with self.task_queue.lock:
+                if self.queue_directory.exists():
+                    import shutil
+                    shutil.rmtree(self.queue_directory, ignore_errors=True)
+            self._task_queue = NXFileQueue(self.queue_directory)
 
     def kill(self):
         """Kill the server process.
@@ -438,4 +499,5 @@ class NXServer(NXDaemon):
         This provides a backup mechanism for terminating the server if
         adding 'stop' to the task list does not work.
         """
-        super(NXServer, self).stop()
+        if self.server_type != 'direct':
+            super(NXServer, self).stop()
