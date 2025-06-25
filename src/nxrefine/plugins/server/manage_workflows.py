@@ -669,11 +669,11 @@ class WorkflowDialog(NXDialog):
             self.defaultview()
 
     def closeEvent(self, event):
-        if self.server and self.server.controller:
-            self.server.add_task('stop')
+        if self.server is not None and self.server.server_type == 'direct':
+            self.server.stop()
         super().closeEvent(event)
 
     def reject(self):
-        if self.server and self.server.controller:
-            self.server.add_task('stop')
+        if self.server is not None and self.server.server_type == 'direct':
+            self.server.stop()
         super().reject()        
