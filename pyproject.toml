@@ -32,7 +32,7 @@ keywords = [
 ]
 requires-python = ">=3.8"
 dependencies = [
-    "nexpy",
+    "nexpy >= 2.0.0b4",
     "pyfai",
     "julia",
     "persist-queue",

@@ -702,14 +702,14 @@ class NXRefine:
         lines.append(
             f'parameters.orientErrorGonPitch = {self.theta * radians};')
         lines.append('parameters.twoThetaCorrection = 0;')
-        lines.append(f'parameters.twoThetaNom = 0;')
-        lines.append(f'parameters.twoThetaStep = 0;')
+        lines.append('parameters.twoThetaNom = 0;')
+        lines.append('parameters.twoThetaStep = 0;')
         lines.append('parameters.omegaCorrection = 0;')
         lines.append(f'parameters.omegaNom = {self.omega * radians};')
-        lines.append(f'parameters.omegaStep = 0;')
+        lines.append('parameters.omegaStep = 0;')
         lines.append('parameters.chiCorrection = 0;')
         lines.append(f'parameters.chiNom = {self.chi * radians};')
-        lines.append(f'parameters.chiStep = 0;')
+        lines.append('parameters.chiStep = 0;')
         lines.append('parameters.phiCorrection = 0;')
         lines.append(f'parameters.phiNom = {self.phi * radians};')
         lines.append(f'parameters.phiStep = {self.phi_step * radians};')
@@ -1116,17 +1116,17 @@ class NXRefine:
             max_radius * self.pixel_size / self.distance) * degrees
 
     def make_rings(self):
-        """Generate the two-thetas and HKLs for each ring of Bragg peaks.
+        """Generate two-thetas and HKLs for each ring of Bragg peaks.
 
-        Each ring contains the average two-theta value in degrees for all
-        Bragg peaks that are within the polar angle tolerance, and all the
-        symmetry-equivalent HKLs.
+        Each ring contains the average two-theta value in degrees for
+        all Bragg peaks that are within the polar angle tolerance, and
+        all the symmetry-equivalent HKLs.
 
         Returns
         -------
         dict of lists
-            Map of ring indices to lists containing their two-theta values
-            and symmetry-equivalent HKLs.
+            Map of ring indices to lists containing their two-theta
+            values and symmetry-equivalent HKLs.
         """
         _rings = {}
         _r = 0

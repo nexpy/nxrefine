@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2022, Argonne National Laboratory.
+# Copyright (c) 2022-2025, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
@@ -9,8 +9,8 @@
 import os
 
 import numpy as np
-from nexpy.gui.datadialogs import NXDialog
-from nexpy.gui.pyqt import QtGui, QtWidgets
+from nexpy.gui.dialogs import NXDialog
+from nexpy.gui.pyqt import QtWidgets
 from nexpy.gui.utils import report_error
 from nexpy.gui.widgets import NXLabel, NXLineEdit
 from nexusformat.nexus import NeXusError

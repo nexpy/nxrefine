@@ -9,7 +9,7 @@
 import operator
 
 import numpy as np
-from nexpy.gui.datadialogs import ExportDialog, GridParameters, NXDialog
+from nexpy.gui.dialogs import ExportDialog, GridParameters, NXDialog
 from nexpy.gui.plotview import NXPlotView
 from nexpy.gui.pyqt import QtCore, QtGui, QtWidgets
 from nexpy.gui.utils import display_message, report_error
@@ -30,6 +30,20 @@ def show_dialog():
 class RefineLatticeDialog(NXDialog):
 
     def __init__(self, parent=None):
+        """
+        Initialize the Refine Lattice dialog.
+
+        This dialog provides a set of tools for refining the lattice
+        parameters of a diffraction experiment. The user can select an
+        entry to refine, and then choose to refine the lattice angles,
+        HKLs, or orientation matrix. The refined lattice parameters can
+        be saved to a file, and the peaks can be plotted or listed.
+
+        Parameters
+        ----------
+        parent : QWidget
+            The parent widget for the dialog.
+        """
         super().__init__(parent)
 
         self.select_entry(self.choose_entry)
@@ -65,6 +79,53 @@ class RefineLatticeDialog(NXDialog):
         self.ringview = None
 
     def define_parameters(self):
+        """
+        Define the parameters for refining the lattice.
+
+        The parameters are defined in the refine module of the nxrefine
+        package. The parameters are displayed in a grid layout in the
+        dialog box.
+
+        Parameters
+        ----------
+        symmetry : str
+            The symmetry of the lattice.
+        a, b, c : float
+            The lattice parameters of the unit cell.
+        alpha, beta, gamma : float
+            The lattice angles of the unit cell.
+        wavelength : float
+            The wavelength of the x-rays used in the diffraction
+            experiment.
+        distance : float
+            The distance from the detector to the sample.
+        yaw, pitch, roll : float
+            The orientation of the detector with respect to the sample.
+        xc, yc : float
+            The coordinates of the beam center on the detector.
+        phi : float
+            The angle of rotation of the sample.
+        phi_step : float
+            The angle of rotation of the sample per frame.
+        chi : float
+            The angle of rotation of the sample about the vertical axis.
+        omega : float
+            The angle of rotation of the sample about the horizontal axis.
+        theta : float
+            The angle of rotation of the sample about the beam axis.
+        xs, ys, zs : float
+            The coordinates of the sample in the laboratory frame.
+        omat : list
+            The detector orientation matrix.
+        polar : float
+            The maximum polar angle of the detector.
+        polar_tolerance : float
+            The tolerance for the polar angle of the detector.
+        peak_tolerance : float
+            The tolerance for the angle of the peaks.
+        hkl_tolerance : float
+            The tolerance for the HKL values of the peaks.
+        """
         self.parameters = GridParameters()
         self.parameters.add('symmetry', self.refine.symmetries, 'Symmetry',
                             None, self.set_lattice_parameters)
@@ -114,6 +175,12 @@ class RefineLatticeDialog(NXDialog):
         self.parameters.grid_layout.setVerticalSpacing(1)
 
     def choose_entry(self):
+        """
+        Reads in the parameters from the selected entry.
+
+        This method reads the parameters from the NXRefine object,
+        updates the parameters table, and updates the buttons.
+        """
         try:
             refine = NXRefine(self.entry)
             if refine.xp is None:
@@ -136,14 +203,23 @@ class RefineLatticeDialog(NXDialog):
         self.update_table()
 
     def report_score(self):
+        """Updates the score in the status bar and the peaks box."""
+        
         try:
             self.status_message.setText(f'Score: {self.refine.score():.4f}')
             if self.peaks_box in self.mainwindow.dialogs:
                 self.status_text.setText(f'Score: {self.refine.score():.4f}')
-        except Exception as error:
+        except Exception:
             pass
 
     def update_parameters(self):
+        """
+        Updates the parameters table from the NXRefine object.
+
+        This method is called whenever the parameters of the NXRefine
+        object are changed. It updates the parameters table with the
+        current values of the parameters and updates the fit report.
+        """
         self.parameters['a'].value = self.refine.a
         self.parameters['b'].value = self.refine.b
         self.parameters['c'].value = self.refine.c
@@ -178,6 +254,13 @@ class RefineLatticeDialog(NXDialog):
         self.report_score()
 
     def transfer_parameters(self):
+        """
+        Transfers the parameters from the GUI to the NXRefine object.
+
+        This method copies the values from the GUI into the NXRefine
+        object. It is called whenever the user changes a parameter in
+        the GUI and wants to update the NXRefine object.
+        """
         self.refine.symmetry = self.get_symmetry()
         self.refine.a, self.refine.b, self.refine.c, \
             self.refine.alpha, self.refine.beta, self.refine.gamma = \
@@ -197,6 +280,17 @@ class RefineLatticeDialog(NXDialog):
         self.refine.peak_tolerance = self.get_peak_tolerance()
 
     def write_parameters(self):
+        """
+        Write the refined parameters to the NeXus file.
+
+        This method writes the refined parameters, including the
+        orientation matrix, to the NeXus file. It first checks that
+        the file is not open in readonly mode, and then asks the
+        user to confirm overwriting any existing refinement. If the
+        user confirms, it transfers the parameters from the GUI to
+        the NXRefine object and writes them to the file. It also
+        records the refinement step in the NeXus file.
+        """
         if self.entry.nxfilemode == 'r':
             display_message("NeXus file opened as readonly")
             return
@@ -231,6 +325,19 @@ class RefineLatticeDialog(NXDialog):
             self.update_scaling()
 
     def update_scaling(self):
+        """
+        Updates the scaling factors for the data groups.
+
+        This method is called after refinement of the lattice parameters.
+        It finds all data groups in the current NeXus file that have
+        Ql, Qk, Qh or l, k, h axes and asks the user to update the
+        scaling factors for these data groups. The user is shown a
+        list of data groups and can check or uncheck any of them. When
+        the user clicks OK, the scaling factors are updated in the
+        NeXus file. If any of the selected data groups have not been
+        processed for peak search, the peak search is run before the
+        scaling factors are updated.
+        """
         self.define_data()
         if len(self.paths) == 0:
             display_message("Refining Lattice", "No data groups to update")
@@ -249,7 +356,14 @@ class RefineLatticeDialog(NXDialog):
         self.update_box.show()
 
     def define_data(self):
-
+        """
+        Finds all data groups in the current NeXus file that have
+        Ql, Qk, Qh or l, k, h axes and stores their paths in the
+        self.paths GridParameters object. This method is called
+        when the Refine Lattice dialog is first opened and after
+        refinement of the lattice parameters.
+        """
+        
         def is_valid(data):
             try:
                 valid_axes = [['Ql', 'Qk', 'Qh'], ['l', 'k', 'h'],
@@ -268,6 +382,19 @@ class RefineLatticeDialog(NXDialog):
                 self.paths.add(i, data.nxpath, i, True, width=200)
 
     def update_data(self):
+        """
+        Updates the scaling factors for the data groups.
+
+        This method is called when the user clicks the OK button in the
+        Update Scaling Factors dialog. It finds all data groups in the
+        current NeXus file that have Ql, Qk, Qh or l, k, h axes and
+        updates their scaling factors. The user is shown a list of data
+        groups and can check or uncheck any of them. When the user
+        clicks OK, the scaling factors are updated in the NeXus file.
+        If any of the selected data groups have not been processed for
+        peak search, the peak search is run before the scaling factors
+        are updated.
+        """
         try:
             for path in [self.paths[p].value for p in self.paths
                          if self.paths[p].vary]:
@@ -284,9 +411,27 @@ class RefineLatticeDialog(NXDialog):
             report_error("Updating Groups", error)
 
     def get_symmetry(self):
+        """
+        Returns the current symmetry of the refinement.
+
+        Returns
+        -------
+        str
+            Current symmetry of the refinement.
+        """
         return self.parameters['symmetry'].value
 
     def set_symmetry(self):
+        """
+        Sets the symmetry of the refinement from the value of the
+        'symmetry' parameter.
+
+        This method is called when the user selects a different
+        symmetry from the combo box. It sets the symmetry of the
+        refinement, updates the parameters, and sets the 'vary'
+        attribute of the parameters to False based on the selected
+        symmetry.
+        """
         self.refine.symmetry = self.get_symmetry()
         self.refine.set_symmetry()
         self.update_parameters()
@@ -315,6 +460,15 @@ class RefineLatticeDialog(NXDialog):
             self.parameters['gamma'].vary = False
 
     def get_lattice_parameters(self):
+        """
+        Returns the current lattice parameters as a tuple of
+        (a, b, c, alpha, beta, gamma) values.
+
+        Returns
+        -------
+        tuple
+            The current lattice parameters.
+        """
         return (self.parameters['a'].value,
                 self.parameters['b'].value,
                 self.parameters['c'].value,
@@ -323,6 +477,7 @@ class RefineLatticeDialog(NXDialog):
                 self.parameters['gamma'].value)
 
     def set_lattice_parameters(self):
+        """Set the lattice parameters for the given symmetry."""
         symmetry = self.get_symmetry()
         if symmetry == 'cubic':
             self.parameters['b'].value = self.parameters['a'].value
@@ -696,6 +851,7 @@ class RefineLatticeDialog(NXDialog):
             self.orient_box.close()
 
     def setup_secondary_grid(self):
+        """Set up the secondary grid for choosing a secondary peak."""        
         ps_angle = self.refine.angle_peaks(self.primary, self.secondary)
         n_phkl = len(self.ring_list[self.refine.rp[self.primary]])
         self.hkl_parameters = [GridParameters() for i in range(n_phkl)]
@@ -726,6 +882,7 @@ class RefineLatticeDialog(NXDialog):
         self.choose_secondary_grid()
 
     def choose_secondary_grid(self):
+        """Show the secondary grid for the primary HKL"""
         box = self.peak_parameters['primary_hkl'].box
         for i in [i for i in range(box.count()) if i != box.currentIndex()]:
             self.hkl_parameters[i].hide_grid()

@@ -10,13 +10,13 @@ import os
 import subprocess
 import time
 
-from nexpy.gui.datadialogs import NXDialog, NXWidget
 from nexpy.gui.pyqt import QtCore, QtWidgets
 from nexpy.gui.utils import (format_mtime, human_size, natural_sort,
                              report_error)
-from nexpy.gui.widgets import (NXLabel, NXPlainTextEdit, NXPushButton,
-                               NXScrollArea)
+from nexpy.gui.widgets import (NXDialog, NXLabel, NXPlainTextEdit,
+                               NXPushButton, NXScrollArea, NXWidget)
 from nexusformat.nexus import NeXusError, nxload
+
 from nxrefine.nxdatabase import NXDatabase
 from nxrefine.nxreduce import NXMultiReduce, NXReduce
 from nxrefine.nxserver import NXServer
@@ -669,11 +669,11 @@ class WorkflowDialog(NXDialog):
             self.defaultview()
 
     def closeEvent(self, event):
-        if self.server and self.server.controller:
-            self.server.add_task('stop')
+        if self.server is not None and self.server.server_type == 'direct':
+            self.server.stop()
         super().closeEvent(event)
 
     def reject(self):
-        if self.server and self.server.controller:
-            self.server.add_task('stop')
+        if self.server is not None and self.server.server_type == 'direct':
+            self.server.stop()
         super().reject()        

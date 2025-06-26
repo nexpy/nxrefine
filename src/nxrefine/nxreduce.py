@@ -302,11 +302,19 @@ class NXReduce(QtCore.QObject):
         return self._logger
 
     def log(self, message):
+        """Write a message to the task log file."""
         with NXLock(self.log_file, timeout=60, expiry=60):
             self.logger.info(message)
 
     @property
     def settings(self):
+        """NXSettings object containing the reduction parameters.
+
+        Returns
+        -------
+        settings : NXSettings
+            The reduction parameters.
+        """
         if self._settings is None:
             self._settings = NXSettings(self.task_directory).settings
         return self._settings
@@ -699,7 +707,7 @@ class NXReduce(QtCore.QObject):
 
     @property
     def monitor(self):
-        """Name of the field to be used to correct for the incident flux."""
+        """Field to be used to correct for the incident flux."""
         if self._monitor is None:
             self._monitor = str(self.get_parameter('monitor'))
         return self._monitor
@@ -769,6 +777,12 @@ class NXReduce(QtCore.QObject):
 
     @property
     def maximum(self):
+        """The maximum of the data array.
+
+        This value is used to scale the data if normalization is not
+        specified.  It is also used to calculate the sample
+        transmission.
+        """
         if self._maximum is None:
             if 'data' in self.entry and 'maximum' in self.entry['data'].attrs:
                 self._maximum = self.entry['data'].attrs['maximum']
@@ -780,6 +794,17 @@ class NXReduce(QtCore.QObject):
 
     @property
     def concurrent(self):
+        """True if the data are to be reduced in parallel.
+
+        The default is `False` unless the 'concurrent' parameter is set
+        in the server settings.  If `True`, then the data are reduced in
+        parallel using multiple processes spawned using the
+        `multiprocessing` module.  If `the parameter is set to `False`,
+        then the data are reduced sequentially.  If the parameter is set
+        to any other value, then it is interpreted as the type of
+        multiprocessing context to use.  Possible values are 'fork',
+        'spawn', and 'forkserver'.
+        """
         if self._concurrent is None:
             if ('concurrent' in self.server_settings and
                     self.server_settings['concurrent']):
@@ -796,6 +821,12 @@ class NXReduce(QtCore.QObject):
             
     @property
     def cctw(self):
+        """Return the command for the CCTW transform.
+
+        The command is retrieved from the server settings if specified; 
+        otherwise, a default value of 'cctw' is used.
+        """
+
         if self._cctw is None:
             if ('cctw' in self.server_settings and 
                     self.server_settings['cctw']):
@@ -818,8 +849,8 @@ class NXReduce(QtCore.QObject):
     def not_processed(self, task):
         """True if the NXprocess group for this task has not been created.
 
-        This is used to prevent existing analyses from being overwritten,
-        unless `overwrite` is set to True.
+        This is used to prevent existing analyses from being
+        overwritten, unless `overwrite` is set to True.
         """
         return task not in self.entry or self.overwrite
 
@@ -923,7 +954,7 @@ class NXReduce(QtCore.QObject):
                 self.entry[process][key] = kwargs[key]
 
     def record_start(self, task):
-        """ Record that a task has started in the database """
+        """Record that a task has started in the database """
         try:
             self.db.start_task(self.wrapper_file, task, self.entry_name)
             self.timer[task] = timeit.default_timer()
@@ -932,7 +963,7 @@ class NXReduce(QtCore.QObject):
             self.log(str(error))
 
     def record_end(self, task):
-        """ Record that a task has ended in the database """
+        """Record that a task has ended in the database """
         try:
             self.db.end_task(self.wrapper_file, task, self.entry_name)
             elapsed_time = timeit.default_timer() - self.timer[task]
@@ -942,7 +973,7 @@ class NXReduce(QtCore.QObject):
             self.log(str(error))
 
     def record_fail(self, task):
-        """ Record that a task has failed in the database """
+        """Record that a task has failed in the database """
         try:
             self.db.fail_task(self.wrapper_file, task, self.entry_name)
             elapsed_time = timeit.default_timer() - self.timer[task]
@@ -953,8 +984,8 @@ class NXReduce(QtCore.QObject):
     def nxload(self):
         """Perform nxload operation in the workflow.
 
-        This checks for the presence of raw data files and, on some beamlines,
-        loads them if necessary.
+        This checks for the presence of raw data files and, on some
+        beamlines, loads them if necessary.
         """
         if not self.raw_data_exists() or self.overwrite:
             self.record_start('nxload')
@@ -977,7 +1008,8 @@ class NXReduce(QtCore.QObject):
     def nxlink(self):
         """Perform nxlink operation in the workflow.
 
-        This reads external metadata from the beamline into the current entry.
+        This reads external metadata from the beamline into the current
+        entry.
         """
         if self.not_processed('nxlink') and self.link:
             if not self.raw_data_exists():
@@ -1003,6 +1035,23 @@ class NXReduce(QtCore.QObject):
             self.log("Data already linked")
 
     def link_data(self):
+        """
+        Link raw data to the NeXus data group.
+
+        The data is linked in the 'data' group of the entry and the
+        frame number axis is created. If the frame number axis already
+        exists but has the wrong length, it is replaced.
+
+        If the frame time axis does not exist, it is created with a
+        default value of 0.1 seconds per frame.
+
+        The frame time axis is always linked to the frame number axis.
+
+        The data group is given the axes of frame number, y pixel, and x
+        pixel.
+
+        If no raw data is available, a message is logged.
+        """
         if self.field:
             with self:
                 frames = np.arange(self.shape[0], dtype=np.int32)
@@ -1042,6 +1091,7 @@ class NXReduce(QtCore.QObject):
             self.log("No raw data loaded")
 
     def nxcopy(self):
+        """Copy parameters from parent."""
         if not self.copy:
             return
         elif self.is_parent():
@@ -1065,6 +1115,18 @@ class NXReduce(QtCore.QObject):
             self.log("Parameters already copied")
 
     def copy_parameters(self):
+        """
+        Copy the parameters from the parent.
+
+        This method copies the parameters from the parent to the current
+        entry.  This includes both the experimental parameters (sample,
+        instrument, beamline) and the data reduction parameters
+        (threshold, first, last, polar_max, hkl_tolerance, monitor,
+        norm, qmin, qmax, radius).
+
+        A message is logged to indicate that the parameters have been
+        copied.
+        """
         parent = self.parent_root
         parent_refine = NXRefine(parent[self.entry_name])
         parent_reduce = NXReduce(parent[self.entry_name])
@@ -1085,6 +1147,7 @@ class NXReduce(QtCore.QObject):
             f"'{os.path.basename(os.path.realpath(self.parent))}'")
 
     def nxmax(self):
+        """Find the maximum counts in the data."""
         if self.not_processed('nxmax') and self.maxcount:
             if not self.raw_data_exists():
                 self.log("Data file not available")
@@ -1111,6 +1174,21 @@ class NXReduce(QtCore.QObject):
             self.log("Maximum counts already found")
 
     def find_maximum(self):
+        """
+        Find the maximum counts in the data.
+
+        This method reads the data file in chunks of a specified size
+        (default is 50 frames) and finds the maximum counts in each
+        chunk. The chunk with the maximum counts is kept and the process
+        is repeated until the maximum counts are found or the end of the
+        file is reached. The maximum counts are then written to the
+        'maximum' field of the 'data' group in the entry.
+
+        If the gui flag is set, the result is emitted as a signal.
+
+        A message is logged to indicate that the maximum counts have been
+        found.
+        """
         self.log("Finding maximum counts")
         with self.field.nxfile:
             maximum = 0.0
@@ -1169,6 +1247,17 @@ class NXReduce(QtCore.QObject):
         return result
 
     def write_maximum(self):
+        """
+        Write the maximum counts and the summed data to the file.
+
+        This includes the maximum counts found, the first and last
+        frames processed, the pixel mask, the summed data, the summed
+        frames, and the partial frames. Then it calculates the radial
+        sums.
+
+        After writing the data, the parameters that were used
+        to select the frames are cleared from the 'peaks' group.
+        """
         with self:
             self.entry['data'].attrs['maximum'] = self.maximum
             self.entry['data'].attrs['first'] = self.first
@@ -1187,6 +1276,19 @@ class NXReduce(QtCore.QObject):
         self.clear_parameters(['first', 'last'])
 
     def calculate_radial_sums(self):
+        """
+        Calculate the radial sum of the data using pyFAI.
+
+        This takes the two-dimensional data, masks the pixels that are
+        outside the detector, and integrates the remaining data over
+        the azimuthal angle. The resulting one-dimensional data is
+        stored in a new 'radial_sum' group, which includes the
+        intensity, polar angle, and scattering vector.
+
+        The detector mask is used to remove pixels that are not part
+        of the detector. The pyFAI radial sum includes the solid angle
+        correction, and the polarization factor is also applied.
+        """
         try:
             from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
             parameters = (
@@ -1247,6 +1349,28 @@ class NXReduce(QtCore.QObject):
             return transmission
 
     def calculate_transmission(self, frame_window=5, filter_size=20):
+        """
+        Calculate sample transmission from partial frames.
+
+        The sample transmission is calculated by smoothing the minimum
+        of partial frames over a specified window. The result is
+        normalized to the maximum transmission value.
+
+        Parameters
+        ----------
+        frame_window : integer, optional
+            Number of frames to average for minimum transmission
+            calculation. Default is 5.
+        filter_size : integer, optional
+            Size of median filter to apply to minimum transmission
+            values. Default is 20.
+
+        Returns
+        -------
+        NXdata
+            Contains the calculated transmission values with the frame
+            number as the x-axis.
+        """
         if self.partial_frames is None:
             if ('summed_frames' in self.entry
                     and 'partial_frames' in self.entry['summed_frames']):
@@ -1288,6 +1412,21 @@ class NXReduce(QtCore.QObject):
         return group
 
     def transmission_coordinates(self):
+        """
+        Generate a mask array for excluding pixels outside of the
+        specified transmission coordinate range.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        array-like
+            A 2D boolean mask array with the same shape as the data. The
+            mask is True for pixels with transmission coordinates
+            outside of the specified range and False otherwise.
+        """
         refine = NXRefine(self.entry)
         min_radius = (self.qmin * refine.wavelength * refine.distance
                       / (2 * np.pi * refine.pixel_size))
@@ -1302,12 +1441,28 @@ class NXReduce(QtCore.QObject):
         return min_mask | max_mask
 
     def read_monitor(self):
+        """
+        Reads the monitor signal from the beamline.
+
+        This function attempts to read the monitor signal using the
+        beamline's read_monitor method. If an exception occurs, it
+        returns an array of ones with a shape corresponding to the
+        number of frames.
+
+        Returns
+        -------
+        ndarray
+            The monitor signal as a numpy array, or an array of ones if
+            reading the monitor fails.
+        """
+
         try:
             return self.beamline.read_monitor(self.monitor)
         except Exception:
             return np.ones(shape=(self.nframes), dtype=float)
 
     def nxfind(self):
+        """Find the peaks in the data and write them to the output file."""
         if self.not_processed('nxfind') and self.find:
             if not self.raw_data_exists():
                 self.log("Data file not available")
@@ -1337,6 +1492,21 @@ class NXReduce(QtCore.QObject):
             self.log("Peaks already found")
 
     def find_peaks(self):
+        """
+        Find peaks in the data.
+
+        This function reads the data file in chunks of 50 frames at a
+        time and finds peaks in each chunk. The peaks are stored in a
+        list, sorted by frame number.
+
+        If the gui flag is set, the function emits a result signal with
+        the list of peaks.
+
+        Returns
+        -------
+        list
+            A list of peaks, sorted by frame number.
+        """
         self.log("Finding peaks")
         tic = self.start_progress(self.first, self.last)
         self.blobs = []
@@ -1376,6 +1546,28 @@ class NXReduce(QtCore.QObject):
         return peaks
 
     def write_peaks(self, peaks):
+        """
+        Writes peak data to the NXreflections group.
+
+        Parameters
+        ----------
+        peaks : list
+            A list of peak objects, each containing intensity, x, y, z,
+            sigx, sigy, and sigz attributes.
+
+        Notes
+        -----
+        - The method creates a new NXreflections group and populates it
+          with the peak data.
+        - The 'first', 'last', and 'threshold' attributes are set from
+          the instance attributes.
+        - If a 'peaks' group already exists in the entry, it is deleted
+          before adding the new group.
+        - The method also calculates polar and azimuthal angles using
+          the NXRefine class and writes them.
+        - Finally, it clears the 'threshold', 'first', and 'last'
+          parameters from the instance.
+        """
         group = NXreflections()
         group['intensity'] = NXfield([peak.intensity for peak in peaks],
                                      dtype=float)
@@ -1399,6 +1591,20 @@ class NXReduce(QtCore.QObject):
         self.clear_parameters(['threshold', 'first', 'last'])
 
     def nxrefine(self):
+        """
+        Refines the sample orientation based on the peak search results.
+
+        This method performs the refinement process if the sample has
+        not been processed for refinement and the refinement flag is
+        set. It ensures that the peak search is completed before
+        starting the refinement. The method logs the start and end of
+        the refinement process, and records the refinement parameters
+        and results.
+
+        If the refinement is successful, it writes the parameters to a
+        file and records the refinement details. If the refinement
+        fails, it logs the error and records the failure.
+        """
         if self.not_processed('nxrefine') and self.refine:
             if not self.complete('nxfind'):
                 self.log(
@@ -1431,6 +1637,26 @@ class NXReduce(QtCore.QObject):
             self.log("HKL values already refined")
 
     def refine_parameters(self, lattice=False):
+        """
+        Refines the parameters of the sample orientation.
+
+        This method performs multiple refinement steps on the HKL values
+        and the orientation matrix of the NXRefine object. The
+        refinement process includes adjusting the chi, omega, and theta
+        angles. The fit reports from each refinement step are
+        concatenated and stored in the NXRefine object.
+
+        Parameters
+        ----------
+        lattice : bool, optional
+            If True, the lattice parameters will also be refined.
+
+        Returns
+        -------
+        NXRefine or None
+            The refined NXRefine object if the refinement is successful,
+            otherwise None.
+        """
         refine = NXRefine(self.entry)
         refine.polar_max = self.polar_max
         refine.hkl_tolerance = self.hkl_tolerance
@@ -2318,11 +2544,11 @@ class NXMultiReduce(NXReduce):
         fill_data = np.zeros(shape=symm_data.shape, dtype=symm_data.dtype)
         self.refine.polar_max = max([NXRefine(self.root[e]).two_theta_max()
                                      for e in self.entries])
-        for h, k, l in self.indices:
+        for H, K, L in self.indices:
             try:
-                ih = np.argwhere(np.isclose(Qh, h))[0][0]
-                ik = np.argwhere(np.isclose(Qk, k))[0][0]
-                il = np.argwhere(np.isclose(Ql, l))[0][0]
+                ih = np.argwhere(np.isclose(Qh, H))[0][0]
+                ik = np.argwhere(np.isclose(Qk, K))[0][0]
+                il = np.argwhere(np.isclose(Ql, L))[0][0]
                 lslice = slice(il-ml, il+ml+1)
                 kslice = slice(ik-mk, ik+mk+1)
                 hslice = slice(ih-mh, ih+mh+1)

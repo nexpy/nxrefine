@@ -6,12 +6,13 @@
 # The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
-from nexpy.gui.datadialogs import GridParameters, NXDialog
+from nexpy.gui.dialogs import GridParameters, NXDialog
 from nexpy.gui.utils import display_message, report_error
 from nexpy.gui.widgets import NXScrollArea
 from nexusformat.nexus import NeXusError
 
 from nxrefine.nxbeamline import get_beamlines
+from nxrefine.nxserver import get_servers
 from nxrefine.nxsettings import NXSettings
 
 
@@ -32,6 +33,8 @@ class ServerSettingsDialog(NXDialog):
         defaults = self.settings.settings['server']
         for p in defaults:
             self.server_parameters.add(p, defaults[p], p)
+        self.server_parameters['type'].box.editingFinished.connect(
+            self.check_server)
         self.instrument_parameters = GridParameters()
         defaults = self.settings.settings['instrument']
         for p in defaults:
@@ -58,12 +61,23 @@ class ServerSettingsDialog(NXDialog):
         self.setMinimumWidth(350)
         self.set_title('Edit Settings')
 
+    def check_server(self):
+        server_types = get_servers()
+        if self.server_parameters['type'].value not in server_types:
+            display_message("Server Type Not Supported",
+                            "Supported servers are: "
+                            f"{', '.join(str(i) for i in server_types)}")
+            self.server_parameters['type'].value = (
+                self.settings['server']['type'])
+
     def check_beamline(self):
         beamlines = get_beamlines()
         if self.instrument_parameters['instrument'].value not in beamlines:
             display_message("Beamline Not Supported",
                             "Supported beamlines are: "
-                            f"{', '.join(str(i) for i in get_beamlines())}")
+                            f"{', '.join(str(i) for i in beamlines)}")
+            self.instrument_parameters['instrument'].value = (
+                self.settings['instrument']['instrument'])
 
     def accept(self):
         try:

@@ -20,7 +20,7 @@ def main():
     parser.add_argument('-d', '--directory', nargs='?', const='.',
                         help='Start the server in this directory')
     parser.add_argument('-t', '--type',
-                        help='Server type: multicore|multinode|none')
+                        help='Server type: multicore|multinode|direct')
     parser.add_argument('-n', '--nodes', default=[], nargs='+',
                         help='Add nodes')
     parser.add_argument('-c', '--cores', help='Number of cores')
@@ -47,7 +47,7 @@ def main():
     elif args.cores:
         server.set_cores(args.cores)
 
-    if args.command == 'status':
+    if args.command == 'status' or args.command is None:
         print(server.status())
     elif args.command == 'start':
         server.start()
@@ -61,11 +61,6 @@ def main():
         server.clear()
     elif args.command == 'kill':
         server.kill()
-    elif args.command == 'status':
-        if server.is_running():
-            print(f"Server is running (pid={server.get_pid()})")
-        else:
-            print("Server is not running")
 
 
 if __name__ == "__main__":

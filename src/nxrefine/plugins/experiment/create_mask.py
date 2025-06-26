@@ -9,7 +9,7 @@
 from pathlib import Path
 
 import numpy as np
-from nexpy.gui.datadialogs import GridParameters, NXDialog
+from nexpy.gui.dialogs import GridParameters, NXDialog
 from nexpy.gui.plotview import NXPlotView, plotviews
 from nexpy.gui.pyqt import getOpenFileName
 from nexpy.gui.utils import load_image, report_error

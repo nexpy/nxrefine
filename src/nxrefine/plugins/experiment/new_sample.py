@@ -8,7 +8,7 @@
 
 from pathlib import Path
 
-from nexpy.gui.datadialogs import GridParameters, NXDialog
+from nexpy.gui.dialogs import GridParameters, NXDialog
 from nexpy.gui.utils import report_error
 from nexusformat.nexus import NeXusError
 

@@ -8,7 +8,7 @@
 
 import os
 
-from nexpy.gui.datadialogs import GridParameters, NXDialog
+from nexpy.gui.dialogs import GridParameters, NXDialog
 from nexpy.gui.pyqt import getOpenFileName
 from nexpy.gui.utils import report_error
 from nexpy.gui.widgets import NXCheckBox, NXPushButton

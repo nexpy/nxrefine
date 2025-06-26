@@ -9,10 +9,11 @@
 from pathlib import Path
 
 import numpy as np
-from nexpy.gui.datadialogs import GridParameters, NXDialog
+from nexpy.gui.dialogs import GridParameters, NXDialog
 from nexpy.gui.utils import report_error
 from nexusformat.nexus import (NeXusError, NXdata, NXgoniometer, NXlink,
                                NXroot, NXsample, nxload)
+
 from nxrefine.nxsettings import NXSettings
 
 

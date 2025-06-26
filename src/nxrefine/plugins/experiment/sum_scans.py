@@ -8,11 +8,12 @@
 
 import os
 
-from nexpy.gui.datadialogs import NXDialog, NXWidget
 from nexpy.gui.pyqt import getSaveFileName
 from nexpy.gui.utils import natural_sort, report_error
-from nexpy.gui.widgets import NXLabel, NXLineEdit, NXScrollArea
+from nexpy.gui.widgets import (NXDialog, NXLabel, NXLineEdit, NXScrollArea,
+                               NXWidget)
 from nexusformat.nexus import NeXusError
+
 from nxrefine.nxreduce import NXMultiReduce
 from nxrefine.nxserver import NXServer
 
