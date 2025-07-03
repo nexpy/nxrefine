@@ -684,7 +684,6 @@ class SpecParser:
 
     def metadata_NXlog(self, spec_metadata, description):
         """Return the specific metadata in an NXlog object."""
-        from spec2nexus import utils
         nxlog = NXlog()
         nxlog.attrs['description'] = description
         for subkey, value in spec_metadata.items():
