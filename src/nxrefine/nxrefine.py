@@ -713,7 +713,7 @@ class NXRefine:
         lines.append('parameters.phiCorrection = 0;')
         lines.append(f'parameters.phiNom = {self.phi * radians};')
         lines.append(f'parameters.phiStep = {self.phi_step * radians};')
-        lines.append(f'parameters.gridOrigin = {self.grid_origin};')
+        lines.append(f'parameters.gridOrigin = {self.grid_origin.tolist()};')
         lines.append(f'parameters.gridBasis = {self.grid_basis};')
         lines.append(f'parameters.gridDim = {self.grid_step};')
         lines.append('parameters.gridOffset = [0,0,0];')
