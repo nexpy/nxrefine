@@ -1029,33 +1029,33 @@ class NXRefine:
         return self.reciprocal_lattice_parameters[5]
 
     @property
-    def sgi(self):
+    def sg(self):
         """Gemmi space group information."""
         if self.space_group == '':
-            sg = self.space_groups[self.centring]
+            _sg = self.space_groups[self.centring]
         else:
-            sg = self.space_group
-        return gemmi.SpaceGroup(sg)
+            _sg = self.space_group
+        return gemmi.SpaceGroup(_sg)
 
-    @sgi.setter
-    def sgi(self, value):
+    @sg.setter
+    def sg(self, value):
         if isinstance(value, gemmi.SpaceGroup):
-            _sgi = value
+            _sg = value
         else:
-            _sgi = gemmi.SpaceGroup(value)
-        if _sgi.is_reference_setting() == False:
-            _sgi = gemmi.get_spacegroup_reference_setting(_sgi.number)
-        self.space_group = _sgi.xhm()
-        self.symmetry = _sgi.crystal_system_str().lower()
-        self.laue_group = _sgi.laue_str()
-        self.centring = _sgi.centring_type()
+            _sg = gemmi.SpaceGroup(value)
+        if _sg.is_reference_setting() == False:
+            _sg = gemmi.get_spacegroup_reference_setting(_sg.number)
+        self.space_group = _sg.xhm()
+        self.symmetry = _sg.crystal_system_str().lower()
+        self.laue_group = _sg.laue_str()
+        self.centring = _sg.centring_type()
 
     @property
     def miller(self):
         """Set of allowed Miller indices."""
         indices = gemmi.make_miller_array(
             cell=self.unit_cell,
-            spacegroup=self.sgi,
+            spacegroup=self.sg,
             dmin=self.wavelength / (2 * np.sin(self.polar_max * radians / 2)),
         )
         return indices[np.argsort(
@@ -1075,7 +1075,7 @@ class NXRefine:
 
     def indices_hkl(self, H, K, L):
         """Return the symmetry-equivalent HKL indices."""
-        ops = self.sgi.operations()
+        ops = self.sg.operations()
         _indices = sorted(
             list(set([tuple(op.apply_to_hkl((H, K, L)))
                       for op in ops.sym_ops])),
@@ -1273,7 +1273,7 @@ class NXRefine:
 
     def absent(self, H, K, L):
         """Return True if the HKL indices are systematically absent."""
-        return self.sgi.operations().is_systematically_absent(
+        return self.sg.operations().is_systematically_absent(
             (int(H), int(K), int(L)))
 
     @property

@@ -106,21 +106,21 @@ class LatticeDialog(NXDialog):
             self.refine.beta = value(cif_block.find_pair('_cell_angle_beta')[1])
             self.refine.gamma = value(cif_block.find_pair('_cell_angle_gamma')[1])
             if (cif_pair := cif_block.find_pair('_space_group_IT_number')):
-                self.refine.sgi = gemmi.SpaceGroup(cif_pair[1])
+                self.refine.sg = gemmi.SpaceGroup(cif_pair[1])
             elif (cif_pair := cif_block.find_pair('_symmetry_Int_Tables_number')):
-                self.refine.sgi = gemmi.SpaceGroup(cif_pair[1])
+                self.refine.sg = gemmi.SpaceGroup(cif_pair[1])
             elif (cif_pair := cif_block.find_pair('_space_group_name_H-M_alt')):
-                self.refine.sgi = gemmi.SpaceGroup(cif_pair[1])
+                self.refine.sg = gemmi.SpaceGroup(cif_pair[1])
             elif (cif_pair := cif_block.find_pair('_symmetry_space_group_name_H-M')):
-                self.refine.sgi = gemmi.SpaceGroup(cif_pair[1])
+                self.refine.sg = gemmi.SpaceGroup(cif_pair[1])
             # NOTE: "Different Hall symbols can be used to encode the same
             # symmetry operations. ... That’s why we compare operations not
             # symbols."
             # From: https://gemmi.readthedocs.io/en/latest/symmetry.html
             elif (cif_pair := cif_block.find_pair('_space_group_name_Hall')):
-                self.refine.sgi = gemmi.find_spacegroup_by_ops(gemmi.symops_from_hall(cif_pair[1]))
+                self.refine.sg = gemmi.find_spacegroup_by_ops(gemmi.symops_from_hall(cif_pair[1]))
             elif (cif_pair := cif_block.find_pair('_symmetry_space_group_name_Hall')):
-                self.refine.sgi = gemmi.find_spacegroup_by_ops(gemmi.symops_from_hall(cif_pair[1]))
+                self.refine.sg = gemmi.find_spacegroup_by_ops(gemmi.symops_from_hall(cif_pair[1]))
             self.update_parameters()
 
     def update_parameters(self):
@@ -141,14 +141,14 @@ class LatticeDialog(NXDialog):
         if self.space_group:
             try:
                 if isinstance(self.space_group, float):
-                    sgi = gemmi.SpaceGroup(int(self.space_group))
+                    sg = gemmi.SpaceGroup(int(self.space_group))
                 else:
-                    sgi = gemmi.SpaceGroup(self.space_group)
+                    sg = gemmi.SpaceGroup(self.space_group)
             except RuntimeError as error:
                 report_error("Defining Lattice", error)
                 return
             try:
-                self.refine.sgi = sgi
+                self.refine.sg = sg
                 self.update_parameters()
             except Exception:
                 pass
