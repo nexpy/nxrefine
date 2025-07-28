@@ -82,7 +82,7 @@ class NXRefine:
     frame of coordinates to the crystal's reciprocal lattice.
 
     Functions are provided to derive nominal Bragg peak indices and two-theta
-    angles for the defined space group using Gemmi, to define the orientation
+    angles for the defined space group using GEMMI, to define the orientation
     matrix using the Busing and Levy method, and to refine the matrix and
     experimental parameters using the measured Bragg peak positions. Parameters
     are updated in the NeXus file and a settings file is created to be used in
@@ -995,7 +995,7 @@ class NXRefine:
 
     @property
     def unit_cell(self):
-        """Gemmi unit cell."""
+        """GEMMI unit cell."""
         return gemmi.UnitCell(*self.lattice_parameters)
 
     @property
@@ -1030,7 +1030,7 @@ class NXRefine:
 
     @property
     def sg(self):
-        """Gemmi space group information."""
+        """GEMMI space group information."""
         if self.space_group == '':
             _sg = self.space_groups[self.centring]
         else:
