@@ -8,6 +8,7 @@
 
 import os
 
+import gemmi
 import numpy as np
 import numpy.ma as ma
 from nexusformat.nexus import (NeXusError, NXdata, NXdetector, NXentry,
@@ -81,7 +82,7 @@ class NXRefine:
     frame of coordinates to the crystal's reciprocal lattice.
 
     Functions are provided to derive nominal Bragg peak indices and two-theta
-    angles for the defined space group using CCTBX, to define the orientation
+    angles for the defined space group using Gemmi, to define the orientation
     matrix using the Busing and Levy method, and to refine the matrix and
     experimental parameters using the measured Bragg peak positions. Parameters
     are updated in the NeXus file and a settings file is created to be used in
@@ -982,7 +983,7 @@ class NXRefine:
     @property
     def reciprocal_lattice_parameters(self):
         """Reciprocal lattice parameters."""
-        rlp = list(self.unit_cell.reciprocal().parameters())
+        rlp = list(self.unit_cell.reciprocal().parameters)
         rlp[0:3] = [2*np.pi*p for p in rlp[0:3]]
         return rlp
 
@@ -994,14 +995,8 @@ class NXRefine:
 
     @property
     def unit_cell(self):
-        """CCTBX unit cell."""
-        from cctbx import uctbx
-        return uctbx.unit_cell(self.lattice_parameters)
-
-    @property
-    def reciprocal_cell(self):
-        """CCTBX reciprocal unit cell."""
-        return self.unit_cell.reciprocal()
+        """Gemmi unit cell."""
+        return gemmi.UnitCell(*self.lattice_parameters)
 
     @property
     def astar(self):
@@ -1035,42 +1030,36 @@ class NXRefine:
 
     @property
     def sgi(self):
-        """CCTBX space group information."""
-        from cctbx import sgtbx
+        """Gemmi space group information."""
         if self.space_group == '':
             sg = self.space_groups[self.centring]
         else:
             sg = self.space_group
-        return sgtbx.space_group_info(sg)
+        return gemmi.SpaceGroup(sg)
 
     @sgi.setter
     def sgi(self, value):
-        from cctbx import sgtbx
-        _sgi = sgtbx.space_group_info(value)
-        self.space_group = _sgi.type().lookup_symbol()
-        self.symmetry = _sgi.group().crystal_system().lower()
-        self.laue_group = _sgi.group().laue_group_type()
-        self.centring = self.space_group[0]
-
-    @property
-    def sgn(self):
-        """Space group symbol."""
-        return self.sgi.type().lookup_symbol()
-
-    @property
-    def sg(self):
-        """CCTBX space group."""
-        return self.sgi.group()
+        if isinstance(value, gemmi.SpaceGroup):
+            _sgi = value
+        else:
+            _sgi = gemmi.SpaceGroup(value)
+        if _sgi.is_reference_setting() == False:
+            _sgi = gemmi.get_spacegroup_reference_setting(_sgi.number)
+        self.space_group = _sgi.xhm()
+        self.symmetry = _sgi.crystal_system_str().lower()
+        self.laue_group = _sgi.laue_str()
+        self.centring = _sgi.centring_type()
 
     @property
     def miller(self):
         """Set of allowed Miller indices."""
-        from cctbx import crystal, miller
-        d_min = self.wavelength / (2 * np.sin(self.polar_max*radians/2))
-        return miller.build_set(crystal_symmetry=crystal.symmetry(
-            space_group_symbol=self.sgn,
-            unit_cell=self.lattice_parameters),
-            anomalous_flag=False, d_min=d_min).sort()
+        indices = gemmi.make_miller_array(
+            cell=self.unit_cell,
+            spacegroup=self.sgi,
+            dmin=self.wavelength / (2 * np.sin(self.polar_max * radians / 2)),
+        )
+        return indices[np.argsort(
+            self.unit_cell.calculate_d_array(indices))[::-1]]
 
     @property
     def indices(self):
@@ -1080,30 +1069,35 @@ class NXRefine:
         symmetry-equivalent indices.
         """
         _indices = []
-        for h in self.miller.indices():
+        for h in self.miller:
             _indices.append(self.indices_hkl(*h)[0])
         return _indices
 
     def indices_hkl(self, H, K, L):
         """Return the symmetry-equivalent HKL indices."""
-        from cctbx import miller
-        _symm_equiv = miller.sym_equiv_indices(self.sg, (H, K, L))
-        _indices = sorted([i.h() for i in _symm_equiv.indices()],
-                          reverse=True)
-        if len(_indices) < _symm_equiv.multiplicity(False):
-            _indices = _indices + [(-hh, -kk, -ll)
-                                   for (hh, kk, ll) in _indices]
+        ops = self.sgi.operations()
+        _indices = sorted(
+            list(set([tuple(op.apply_to_hkl((H, K, L)))
+                      for op in ops.sym_ops])),
+            reverse=True,
+        )
+        if (not ops.is_reflection_centric(
+            (H, K, L))) and (not ops.is_centrosymmetric()):
+            _indices += [tuple(-i for i in hkl) for hkl in _indices]
         return _indices
 
     @property
     def two_thetas(self):
         """The two-theta angles for all the HKL indices."""
-        return list(self.unit_cell.two_theta(self.miller.indices(),
-                                             self.wavelength, deg=True))
+        return list(2 * np.degrees(
+            np.arcsin(self.wavelength /
+                      (2 * self.unit_cell.calculate_d_array(self.miller)))))
 
     def two_theta_hkl(self, H, K, L):
         """Return the two-theta angle for the specified HKL values."""
-        return self.unit_cell.two_theta((H, K, L), self.wavelength, deg=True)
+        return 2 * np.degrees(
+            np.arcsin(self.wavelength / (2 * self.unit_cell.calculate_d(
+                (H, K, L)))))
 
     def two_theta_max(self):
         """Return the maximum two-theta measurable on the detector."""
@@ -1279,7 +1273,8 @@ class NXRefine:
 
     def absent(self, H, K, L):
         """Return True if the HKL indices are systematically absent."""
-        return self.sg.is_sys_absent((int(H), int(K), int(L)))
+        return self.sgi.operations().is_systematically_absent(
+            (int(H), int(K), int(L)))
 
     @property
     def npks(self):
@@ -1675,7 +1670,7 @@ class NXRefine:
             Difference in degrees.
         """
         (h0, k0, l0) = [int(np.rint(x)) for x in self.hkl(i)]
-        polar0 = self.unit_cell.two_theta((h0, k0, l0), self.wavelength)
+        polar0 = self.two_theta_hkl(h0, k0, l0)
         return np.abs(self.polar(i) - polar0)
 
     def xyz(self, i):
