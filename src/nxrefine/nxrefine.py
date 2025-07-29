@@ -1043,7 +1043,7 @@ class NXRefine:
             _sg = value
         else:
             _sg = gemmi.SpaceGroup(value)
-        if _sg.is_reference_setting() == False:
+        if not _sg.is_reference_setting():
             _sg = gemmi.get_spacegroup_reference_setting(_sg.number)
         self.space_group = _sg.xhm()
         self.symmetry = _sg.crystal_system_str().lower()
