@@ -66,15 +66,16 @@ def hexagonal(data):
     return outarr
 
 
-def cubic(data):
-    """Laue group: m-3 or m-3m"""
+def cubic1(data):
+    """Laue group: m-3"""
     outarr = np.nan_to_num(data)
-    if len(set(outarr.shape)) > 1:
-        max_dim = max(outarr.shape)
-        padding =[(0, max_dim - dim) for dim in outarr.shape]
-        pad_width = [(amount // 2, amount - amount // 2)
-                     for _, amount in padding]
-        outarr = np.pad(outarr, pad_width, mode='constant')
+    outarr += np.transpose(outarr, axes=(1, 2, 0))
+    outarr += np.transpose(outarr, axes=(2, 0, 1))
+    return outarr
+
+def cubic2(data):
+    """Laue group: m-3m"""
+    outarr = np.nan_to_num(data)
     outarr += np.transpose(outarr, axes=(1, 2, 0))
     outarr += np.transpose(outarr, axes=(2, 0, 1))
     outarr += np.transpose(outarr, axes=(0, 2, 1))
@@ -137,8 +138,8 @@ laue_functions = {'-1': triclinic,
                   '-3m': triclinic,
                   '6/m': hexagonal,
                   '6/mmm': hexagonal,
-                  'm-3': cubic,
-                  'm-3m': cubic}
+                  'm-3': cubic1,
+                  'm-3m': cubic2}
 
 
 class NXSymmetry:
