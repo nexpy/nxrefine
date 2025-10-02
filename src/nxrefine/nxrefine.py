@@ -1364,7 +1364,11 @@ class NXRefine:
         return (inv(self.Gmat(phi)) *
                 ((norm_vec(v3) / self.wavelength) - self.Evec))
 
-    def get_Gvecs(self, idx):
+    def get_Gvecs(self, idx=None):
+        if idx is None and self.idx is not None:
+            idx = self.idx
+        else:
+            idx = np.arange(len(self.xp))
         self.Gvecs = [self.Gvec(x, y, z) for x, y, z
                       in zip(self.xp[idx], self.yp[idx], self.zp[idx])]
         return self.Gvecs
