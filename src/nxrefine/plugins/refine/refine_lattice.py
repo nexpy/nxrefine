@@ -734,11 +734,13 @@ class RefineLatticeDialog(NXDialog):
                                       align='right')
         self.secondary_box = NXLineEdit(self.refine.secondary, width=80,
                                         align='right')
-        orient_button = NXPushButton('Orient', self.choose_peaks)
-        orient_layout = self.make_layout(NXLabel('Primary'), self.primary_box,
+        fft_button = NXPushButton('Orient by FFT', self.orient_fft)
+        manual_button = NXPushButton('Orient Manually', self.choose_peaks)
+        orient_layout = self.make_layout(fft_button, 'stretch',
+                                         manual_button, 
+                                         NXLabel('Primary'), self.primary_box,
                                          NXLabel('Secondary'),
-                                         self.secondary_box, 'stretch',
-                                         orient_button, align='right')
+                                         self.secondary_box, align='right')
 
         self.table_view = QtWidgets.QTableView()
         self.table_model = NXTableModel(self, peak_list, header)
@@ -809,6 +811,20 @@ class RefineLatticeDialog(NXDialog):
         self.peakview.ztab.maxbox.setValue(z)
         self.peakview.aspect = 'equal'
         self.peakview.crosshairs(x, y, color='r', linewidth=0.5)
+
+    def orient_fft(self):
+        from ubmatrixfft.ubmatrixFFT import UBMatrixFFT
+        from ubmatrixfft.conventional import ConventionalCell
+        from ubmatrixfft.orientedlattice import set_UB
+        qs = self.refine.get_Gvecs()
+        ubm = UBMatrixFFT(min_d=1., max_d=30., q_vectors=qs)
+        ubm.find_UB()
+        cell = ConventionalCell.conventional_cell(
+            form_num=1, UB=ubm._UB, allow_permutations=True,
+            lattice_par=ubm.get_lattice_parameters())
+        lat_par = set_UB(cell.new_UB)
+        self.refine.Umat = lat_par.Umat
+        self.update_table()
 
     @property
     def primary(self):
