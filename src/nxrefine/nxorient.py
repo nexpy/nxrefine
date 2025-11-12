@@ -620,7 +620,7 @@ class UBMatrixFFT:
     
     def show_possible_cells(self, best_only:bool, 
                             allowPermutations:bool, 
-                            max_scalar_error:float=0.2) -> pd.DataFrame:
+                            max_scalar_error:float=0.2) -> dict:
         """Crystal/ShowPossibleCells/ShowPossibleCells::exec"""
         cell_list = get_cells(self._UB, best_only, allowPermutations)
         remove_high_error_forms(cell_list, max_scalar_error)
