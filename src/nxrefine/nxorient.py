@@ -4,10 +4,10 @@ from numpy.linalg import inv, norm, det, lstsq
 from dataclasses import dataclass
 from scipy.signal import argrelextrema
 from itertools import combinations
-from .niggli import make_Niggli_UB
-from .orientedlattice import set_UB, get_abc
+from .orient.niggli import make_Niggli_UB
+from .orient.orientedlattice import set_UB, get_abc
 import pandas as pd
-from .scalar_utils import get_cells, remove_high_error_forms
+from .orient.scalar_utils import get_cells, remove_high_error_forms
 
 
 def _polar_to_cartesian(psi:float, phi:float) -> tuple[float, float, float]:
