@@ -280,7 +280,7 @@ class CalibrateDialog(NXDialog):
             ring = point[0]
             for p in point[1]:
                 x, y = [round(v) for v in p.center]
-                points.append((x, y, ring))
+                points.append((y, x, ring))
         return np.array(points)
 
     def prepare_parameters(self):
