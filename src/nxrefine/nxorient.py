@@ -6,7 +6,6 @@ from scipy.signal import argrelextrema
 from itertools import combinations
 from .orient.niggli import make_Niggli_UB
 from .orient.orientedlattice import set_UB, get_abc
-import pandas as pd
 from .orient.scalar_utils import get_cells, remove_high_error_forms
 
 
@@ -652,7 +651,7 @@ class UBMatrixFFT:
             _, a, b, c = get_abc(cell.new_UB)
             volumes.append(abs(np.dot(a, np.cross(b, c))))
 
-        df = pd.DataFrame({
+        poss = {
             'form number': form_nums,
             'error': errors,
             'cell type': cell_types,
@@ -664,7 +663,6 @@ class UBMatrixFFT:
             'beta': betas,
             'gamma': gammas,
             'volume': volumes
-        })
-        df.sort_values(by='error', inplace=True)
-        
-        return df
+        }
+
+        return poss
