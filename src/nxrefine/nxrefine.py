@@ -1596,7 +1596,7 @@ class NXRefine:
         Mat = self.pixel_size * inv(self.Dmat) * Oimat
         peak = Oimat * (vec(self.xp[i], self.yp[i]) - self.Cvec)
         v = norm(Mat * peak)
-        return np.arctan(v / self.distance)
+        return np.degrees(np.arctan(v / self.distance))
 
     def score(self):
         """Return the goodness of fit of the calculated peak positions."""
