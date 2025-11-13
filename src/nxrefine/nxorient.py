@@ -11,23 +11,9 @@ from .orient.scalar_utils import get_cells, remove_high_error_forms
 
 def _polar_to_cartesian(psi:float, phi:float) -> tuple[float, float, float]:
     """convert polar cooridinates to Cartesian coordinates"""
-    x = np.cos(psi)
-    y = np.sin(psi)*np.sin(phi)
-    z = -np.sin(psi)*np.cos(phi)
-    return x, y, z
-
-def _polar_to_cartesian_2(psi:float, phi:float) -> tuple[float, float, float]:
-    """convert polar cooridinates to Cartesian coordinates"""
     y = -np.cos(psi)
     z = -np.sin(psi)*np.sin(phi)
     x = np.sin(psi)*np.cos(phi)
-    return x, y, z
-
-def _polar_to_cartesian_3(psi:float, phi:float) -> tuple[float, float, float]:
-    """convert polar cooridinates to Cartesian coordinates"""
-    x = -np.cos(psi)
-    y = np.sin(psi)*np.sin(phi)
-    z = -np.sin(psi)*np.cos(phi)
     return x, y, z
 
 @dataclass
@@ -75,17 +61,6 @@ class UBMatrixFFT:
     Umat: np.ndarray = None
     # B matrix
     Bmat: np.ndarray = None
-
-    def find_UB_using_FFT(self):
-        error = self.find_UB()
-
-        if not self.check_UB():
-            print("Found invalid UB...peaks used might not be linearly independent.")
-
-        else:
-            _, miller_indices, indexed_qs, fit_error = self.get_indexed_peaks()
-            self.optimize_UB_2()
-        pass
 
     def initialize(self) -> None:
         """initialize and store all the parameters to find the UB matrix"""
@@ -229,7 +204,7 @@ class UBMatrixFFT:
 
             phi_list.append(phi_values)
             for phi in phi_values:
-                direction_list.append(_polar_to_cartesian_2(psi, phi))
+                direction_list.append(_polar_to_cartesian(psi, phi))
 
         self._t_list = np.array(direction_list)
         self._phi_list = phi_list
@@ -552,42 +527,6 @@ class UBMatrixFFT:
             raise RuntimeError("optimize_UB(): the optimize UB is not valid")
 
         return sum_sq_error, temp_UB
-    
-    def optimize_UB_2(self, hkl_vectors:list[np.ndarray], indexed_qs:list[np.ndarray]):
-        """Geometry/Crystal/IndexingUtils::Optimize_UB - line 562 to 612"""
-        result = 0
-        result, self._UB = self.optimize_UB(hkl_vectors, indexed_qs)
-
-        sigabc = np.zeros(6)
-
-        nDOF = 3 * (len(hkl_vectors) - 3)
-        HKLTHKL = np.array(hkl_vectors).T @ np.array(hkl_vectors)
-
-        HKLTHKL_inv = inv(HKLTHKL)
-        SMALL = 1.525878906E-5
-        derivs = np.zeros((3, 7))
-
-        lat_orig = self.get_lattice_parameters()
-
-        for i in range(3):
-            for j in range(3):
-                self._UB[i, j] += SMALL
-                lat_new = self.get_lattice_parameters()
-                self._UB[i, j] -= SMALL
-
-            derivs[j, :] += (lat_new - lat_orig) / SMALL
-
-            for k in range(len(sigabc)):
-                for m in range(3):
-                    for n in range(3):
-                        sigabc[k] += (derivs[m, k] * HKLTHKL_inv[m, n] * derivs[n, k])
-
-        delta = result / nDOF
-
-        for i in range(len(sigabc)):
-            sigabc[i] = np.sqrt(delta * sigabc[i])
-
-        return result, sigabc
 
     def get_lattice_parameters(self, optional_UB:np.ndarray=None) -> tuple[bool, np.ndarray]:
         """Geometry/Crystal/IndexingUtils::GetLatticeParameters - line 2774 to 2790"""
