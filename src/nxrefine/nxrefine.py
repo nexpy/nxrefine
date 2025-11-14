@@ -719,13 +719,15 @@ class NXRefine:
         lines.append(f'parameters.gridDim = {self.grid_step};')
         lines.append('parameters.gridOffset = [0,0,0];')
         lines.append('parameters.extraFlip = false;')
+        lines.append(
+            f'inputData.chunkSize = {list(self.entry["data/data"].chunks)};')
         lines.append(f'outputData.dimensions = {list(self.grid_shape)};')
         lines.append('outputData.chunkSize = [50,50,50];')
         lines.append('outputData.compression = 0;')
         lines.append('transformer.transformOptions =  0;')
         lines.append('transformer.oversampleX = 1;')
         lines.append('transformer.oversampleY = 1;')
-        lines.append('transformer.oversampleZ = 4;')
+        lines.append('transformer.oversampleZ = 1;')
         with open(settings_file, 'w') as f:
             f.write('\n'.join(lines))
 
