@@ -727,7 +727,7 @@ class NXRefine:
         lines.append('transformer.transformOptions =  0;')
         lines.append('transformer.oversampleX = 1;')
         lines.append('transformer.oversampleY = 1;')
-        lines.append('transformer.oversampleZ = 4;')
+        lines.append('transformer.oversampleZ = 1;')
         with open(settings_file, 'w') as f:
             f.write('\n'.join(lines))
 
