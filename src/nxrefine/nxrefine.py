@@ -1366,14 +1366,11 @@ class NXRefine:
         return (inv(self.Gmat(phi)) *
                 ((norm_vec(v3) / self.wavelength) - self.Evec))
 
-    def get_Gvecs(self, idx=None):
-        if idx is None and self.idx is not None:
-            idx = self.idx
-        else:
-            idx = np.arange(len(self.xp))
+    def get_Gvecs(self):
+        idx = self.idx
         self.Gvecs = [self.Gvec(x, y, z) for x, y, z
                       in zip(self.xp[idx], self.yp[idx], self.zp[idx])]
-        return self.Gvecs
+        return np.array(self.Gvecs).squeeze()
 
     def calculate_angles(self, x, y):
         """Return the polar and azimuthal angles of the specified pixels."""

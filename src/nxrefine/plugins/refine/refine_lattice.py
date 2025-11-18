@@ -7,6 +7,7 @@
 # -----------------------------------------------------------------------------
 
 import operator
+from copy import deepcopy
 
 import numpy as np
 from nexpy.gui.dialogs import ExportDialog, GridParameters, NXDialog
@@ -15,6 +16,7 @@ from nexpy.gui.pyqt import QtCore, QtGui, QtWidgets
 from nexpy.gui.utils import display_message, report_error
 from nexpy.gui.widgets import NXLabel, NXLineEdit, NXPushButton
 from nexusformat.nexus import NeXusError, NXdata, NXfield
+from nxrefine.nxorient import UBMatrixFFT
 from nxrefine.nxreduce import NXReduce
 from nxrefine.nxrefine import NXRefine
 
@@ -71,7 +73,8 @@ class RefineLatticeDialog(NXDialog):
         self.set_title('Refining Lattice')
 
         self.peaks_box = None
-        self.table_model = None
+        self.peak_model = None
+        self.cell_model = None
         self.orient_box = None
         self.update_box = None
         self.tolerance_box = None
@@ -200,7 +203,7 @@ class RefineLatticeDialog(NXDialog):
             self.insert_layout(5, self.lattice_buttons)
         self.set_lattice_parameters()
         self.update_parameters()
-        self.update_table()
+        self.update_peak_table()
 
     def report_score(self):
         """Updates the score in the status bar and the peaks box."""
@@ -577,7 +580,7 @@ class RefineLatticeDialog(NXDialog):
     def set_polar_max(self):
         self.refine.polar_max = self.get_polar_max()
         self.refine.initialize_idx()
-        self.update_table()
+        self.update_peak_table()
 
     def get_polar_tolerance(self):
         return self.parameters['polar_tolerance'].value
@@ -590,7 +593,7 @@ class RefineLatticeDialog(NXDialog):
 
     def set_hkl_tolerance(self):
         self.refine.hkl_tolerance = self.get_hkl_tolerance()
-        self.update_table()
+        self.update_peak_table()
         try:
             self.tolerance_box.setText(self.refine.hkl_tolerance)
         except Exception:
@@ -600,7 +603,7 @@ class RefineLatticeDialog(NXDialog):
         value = float(self.tolerance_box.text())
         self.parameters['hkl_tolerance'].value = value
         self.refine.hkl_tolerance = value
-        self.update_table()
+        self.update_peak_table()
 
     def plot_lattice(self):
         self.transfer_parameters()
@@ -657,7 +660,7 @@ class RefineLatticeDialog(NXDialog):
         self.fit_report.append(self.refine.fit_report)
         self.update_parameters()
         self.parameters.status_message.setText(self.parameters.result.message)
-        self.update_table()
+        self.update_peak_table()
 
     def refine_hkls(self):
         self.parameters.status_message.setText('Fitting...')
@@ -675,7 +678,7 @@ class RefineLatticeDialog(NXDialog):
         self.fit_report.append(self.refine.fit_report)
         self.update_parameters()
         self.parameters.status_message.setText(self.parameters.result.message)
-        self.update_table()
+        self.update_peak_table()
 
     def refine_orientation(self):
         self.parameters.status_message.setText('Fitting...')
@@ -688,7 +691,7 @@ class RefineLatticeDialog(NXDialog):
         self.fit_report.append(self.refine.fit_report)
         self.update_parameters()
         self.parameters.status_message.setText(self.parameters.result.message)
-        self.update_table()
+        self.update_peak_table()
 
     def remove_orientation(self):
         self.refine.Umat = None
@@ -713,15 +716,13 @@ class RefineLatticeDialog(NXDialog):
 
     def list_peaks(self):
         if self.peaks_box in self.mainwindow.dialogs:
-            self.update_table()
+            self.update_peak_table()
             return
         else:
             self.transfer_parameters()
         self.peaks_box = NXDialog(self)
         self.peaks_box.setMinimumWidth(600)
         self.peaks_box.setMinimumHeight(600)
-        header = ['Peak', 'x', 'y', 'z', 'Polar', 'Azi', 'Intensity',
-                  'H', 'K', 'L', 'Diff']
         peak_list = self.refine.get_peaks()
         self.refine.assign_rings()
         self.rings = self.refine.make_rings()
@@ -734,21 +735,25 @@ class RefineLatticeDialog(NXDialog):
                                       align='right')
         self.secondary_box = NXLineEdit(self.refine.secondary, width=80,
                                         align='right')
-        orient_button = NXPushButton('Orient', self.choose_peaks)
-        orient_layout = self.make_layout(NXLabel('Primary'), self.primary_box,
+        fft_button = NXPushButton('Orient by FFT', self.setup_fft)
+        manual_button = NXPushButton('Orient Manually', self.choose_peaks)
+        orient_layout = self.make_layout(fft_button, 'stretch',
+                                         manual_button, 
+                                         NXLabel('Primary'), self.primary_box,
                                          NXLabel('Secondary'),
-                                         self.secondary_box, 'stretch',
-                                         orient_button, align='right')
+                                         self.secondary_box, align='right')
 
-        self.table_view = QtWidgets.QTableView()
-        self.table_model = NXTableModel(self, peak_list, header)
-        self.table_view.setModel(self.table_model)
-        self.table_view.resizeColumnsToContents()
-        self.table_view.setSelectionBehavior(
+        peak_headers = ['Peak', 'x', 'y', 'z', 'Polar', 'Azi', 'Intensity',
+                        'H', 'K', 'L', 'Diff']
+        self.peak_table = QtWidgets.QTableView()
+        self.peak_model = NXPeakModel(self, peak_list, peak_headers)
+        self.peak_table.setModel(self.peak_model)
+        self.peak_table.resizeColumnsToContents()
+        self.peak_table.setSelectionBehavior(
             QtWidgets.QAbstractItemView.SelectRows)
-        self.table_view.doubleClicked.connect(self.plot_peak)
-        self.table_view.setSortingEnabled(True)
-        self.table_view.sortByColumn(0, QtCore.Qt.AscendingOrder)
+        self.peak_table.doubleClicked.connect(self.plot_peak)
+        self.peak_table.setSortingEnabled(True)
+        self.peak_table.sortByColumn(0, QtCore.Qt.AscendingOrder)
         self.status_text = NXLabel(f'Score: {self.refine.score():.4f}')
         self.tolerance_box = NXLineEdit(self.refine.hkl_tolerance, width=80,
                                         slot=self.read_tolerance_box,
@@ -762,7 +767,7 @@ class RefineLatticeDialog(NXDialog):
                                         self.tolerance_box, 'stretch',
                                         export_button, save_button,
                                         close_button)
-        self.peaks_box.set_layout(orient_layout, self.table_view, close_layout)
+        self.peaks_box.set_layout(orient_layout, self.peak_table, close_layout)
         self.peaks_box.set_title(f'{self.refine.name} Peak Table')
         self.peaks_box.adjustSize()
         self.peaks_box.setMinimumWidth(self.peaks_box.width()+10)
@@ -770,30 +775,30 @@ class RefineLatticeDialog(NXDialog):
         self.peakview = None
         self.report_score()
 
-    def update_table(self):
+    def update_peak_table(self):
         if self.peaks_box not in self.mainwindow.dialogs:
             return
-        elif self.table_model is None:
+        elif self.peak_model is None:
             self.close_peaks_box()
             self.list_peaks()
         self.transfer_parameters()
-        self.table_model.peak_list = self.refine.get_peaks()
+        self.peak_model.peak_list = self.refine.get_peaks()
         self.refine.assign_rings()
         self.ring_list = self.refine.get_ring_list()
-        rows, columns = len(self.table_model.peak_list), 11
-        self.table_model.dataChanged.emit(
-            self.table_model.createIndex(0, 0),
-            self.table_model.createIndex(rows - 1, columns - 1))
-        self.table_view.resizeColumnsToContents()
+        rows, columns = len(self.peak_model.peak_list), 11
+        self.peak_model.dataChanged.emit(
+            self.peak_model.createIndex(0, 0),
+            self.peak_model.createIndex(rows - 1, columns - 1))
+        self.peak_table.resizeColumnsToContents()
         self.peaks_box.set_title(f'{self.refine.name} Peak Table')
         self.peaks_box.adjustSize()
         self.peaks_box.setVisible(True)
         self.report_score()
 
     def plot_peak(self):
-        row = self.table_view.currentIndex().row()
+        row = self.peak_table.currentIndex().row()
         data = self.entry.data
-        i, x, y, z = [self.table_view.model().peak_list[row][i]
+        i, x, y, z = [self.peak_table.model().peak_list[row][i]
                       for i in range(4)]
         signal = data.nxsignal
         xmin, xmax = max(0, x-200), min(x+200, signal.shape[2])
@@ -810,13 +815,104 @@ class RefineLatticeDialog(NXDialog):
         self.peakview.aspect = 'equal'
         self.peakview.crosshairs(x, y, color='r', linewidth=0.5)
 
-    @property
-    def primary(self):
-        return int(self.primary_box.text())
+    def setup_fft(self):
+        try:
+            if self.orient_box in self.mainwindow.dialogs:
+                self.orient_box.close()
+        except Exception:
+            pass
+        self.orient_box = NXDialog(self)
+        self.orient_box.set_title('Orient Lattice by FFT')
+        self.dmin_box = NXLineEdit('1.0', width=80, align='right')
+        self.dmax_box = NXLineEdit('10.0', width=80, align='right')
+        d_layout = self.make_layout(NXLabel('Dmin'), self.dmin_box, 
+                                    NXLabel('Dmax'), self.dmax_box,
+                                    align='center')
+        self.cell_table = QtWidgets.QTableView()
+        self.cell_table.setVisible(False)
+        self.orient_box.set_layout(
+            d_layout, 
+            self.action_buttons(('Orient', self.orient_fft),
+                                ('Select', self.select_cell),
+                                ('Restore', self.restore_cell)),
+            self.cell_table,
+            self.orient_box.close_layout(close=True))
+        self.pushbutton['Select'].setEnabled(False)
+        self.pushbutton['Restore'].setEnabled(False)
+        self.orient_box.show()
+        self.old_refine = deepcopy(self.refine)
+
 
     @property
-    def secondary(self):
-        return int(self.secondary_box.text())
+    def dmin(self):
+        return float(self.dmin_box.text())
+
+    @property
+    def dmax(self):
+        return float(self.dmax_box.text())
+
+    def orient_fft(self):
+        qs = self.refine.get_Gvecs()
+        self.ubm = UBMatrixFFT(min_d=self.dmin, max_d=self.dmax, q_vectors=qs)
+        self.orient_box.status_message.setText('Calculating UB matrix...')
+        self.orient_box.status_message.repaint()
+        self.mainwindow.app.app.processEvents()
+        try:
+            self.ubm.find_UB()
+        except Exception as error:
+            report_error('Orienting Lattice', error)
+            self.orient_box.status_message.setText('Orientation failed')
+            return
+        indexed_peaks, _, _, _ = self.ubm.get_indexed_peaks()
+        message = f'{indexed_peaks} out of {len(qs)} peaks indexed by FFT'
+        self.orient_box.status_message.setText(message)
+        self.pushbutton['Select'].setEnabled(True)
+        cell_headers = ['', 'N', 'Symmetry', 'Centering',
+                        'a', 'b', 'c', 	'alpha', 'beta', 'gamma']
+        self.cells = self.ubm.get_possible_cells(best_only=True,
+                                                 allowPermutations=True)
+        cell_list = []
+        default = None
+        for i, cell in enumerate(self.cells):
+            lp = self.ubm.get_lattice_parameters(cell.new_UB)
+            cell_list.append([cell.form_num, cell.cell_type, cell.centering] +
+                             list(lp))
+            if (default is None
+                    and cell.cell_type.lower() == self.refine.symmetry
+                    and cell.centering[0] == self.refine.centring):
+                default = i
+        self.cell_model = NXCellModel(cell_list, cell_headers, default=default,
+                                      parent=self)
+        self.cell_table.setModel(self.cell_model)
+        self.cell_table.resizeColumnsToContents()
+        self.cell_table.setVisible(True)
+        self.orient_box.setMinimumWidth(680)
+        self.orient_box.setMinimumHeight(480)
+
+    def select_cell(self):
+        cell_index = self.cell_model.selected()
+        if cell_index is None:
+            display_message("Refining Lattice", "No cell selected")
+            return
+        cell = self.cells[cell_index]
+        self.refine.symmetry = cell.cell_type.lower()
+        self.refine.centring = cell.centering[0]
+        a, b, c, alpha, beta, gamma = (
+            self.ubm.get_lattice_parameters(cell.new_UB))
+        self.refine.a, self.refine.b, self.refine.c = a, b, c
+        self.refine.alpha, self.refine.beta, self.refine.gamma = (
+            alpha, beta, gamma)
+        self.refine.set_symmetry()
+        self.refine.Umat = cell.new_UB * self.refine.Bimat
+        self.update_parameters()
+        self.update_peak_table()
+        self.pushbutton['Restore'].setEnabled(True)
+
+    def restore_cell(self):
+        if self.old_refine is not None:
+            self.refine = self.old_refine
+            self.update_parameters()
+            self.update_peak_table()
 
     def choose_peaks(self):
         try:
@@ -825,6 +921,7 @@ class RefineLatticeDialog(NXDialog):
         except Exception:
             pass
         self.orient_box = NXDialog(self)
+        self.orient_box.set_title('Orient Lattice Manually')
         self.peak_parameters = GridParameters()
         self.peak_parameters.add('primary', self.primary, 'Primary',
                                  readonly=True)
@@ -842,13 +939,20 @@ class RefineLatticeDialog(NXDialog):
                                    self.action_buttons(('Orient',
                                                         self.orient)),
                                    self.orient_box.close_buttons(close=True))
-        self.orient_box.set_title('Orient Lattice')
         self.orient_box.show()
         try:
             self.setup_secondary_grid()
         except NeXusError as error:
             report_error("Refining Lattice", error)
             self.orient_box.close()
+
+    @property
+    def primary(self):
+        return int(self.primary_box.text())
+
+    @property
+    def secondary(self):
+        return int(self.secondary_box.text())
 
     def setup_secondary_grid(self):
         """Set up the secondary grid for choosing a secondary peak."""        
@@ -906,7 +1010,7 @@ class RefineLatticeDialog(NXDialog):
                                                  self.secondary,
                                                  self.primary_hkl,
                                                  self.secondary_hkl)
-        self.update_table()
+        self.update_peak_table()
 
     def export_peaks(self):
         peaks = list(zip(*[p for p in self.table_model.peak_list
@@ -946,12 +1050,12 @@ class RefineLatticeDialog(NXDialog):
         super().accept()
 
 
-class NXTableModel(QtCore.QAbstractTableModel):
+class NXPeakModel(QtCore.QAbstractTableModel):
 
-    def __init__(self, parent, peak_list, header, *args):
+    def __init__(self, parent, peak_list, headers, *args):
         super().__init__(parent, *args)
         self.peak_list = peak_list
-        self.header = header
+        self.headers = headers
         self.parent = parent
 
     def rowCount(self, parent=QtCore.QModelIndex()):
@@ -1013,7 +1117,7 @@ class NXTableModel(QtCore.QAbstractTableModel):
     def headerData(self, col, orientation, role):
         if (orientation == QtCore.Qt.Horizontal and
                 role == QtCore.Qt.DisplayRole):
-            return self.header[col]
+            return self.headers[col]
         return None
 
     def flags(self, index):
@@ -1029,3 +1133,75 @@ class NXTableModel(QtCore.QAbstractTableModel):
         if order == QtCore.Qt.DescendingOrder:
             self.peak_list.reverse()
         self.layoutChanged.emit()
+
+
+class NXCellModel(QtCore.QAbstractTableModel):
+
+    def __init__(self, data=None, headers=None, default=None, parent=None):
+        super().__init__(parent)
+        self._data = data if data is not None else []
+        self._headers = headers if headers is not None else []
+        self._checkbox_states = [False for _ in range(len(self._data))]
+        if default is not None:
+            self._checkbox_states[default] = True
+    
+    def rowCount(self, parent=QtCore.QModelIndex()):
+        return len(self._data)
+
+    def columnCount(self, parent=QtCore.QModelIndex()):
+        return len(self._data[0]) + 1 if self._data else 0
+
+    def data(self, index, role=QtCore.Qt.ItemDataRole.DisplayRole):
+        if not index.isValid():
+            return None
+        if index.column() == 0:
+            if role == QtCore.Qt.ItemDataRole.CheckStateRole:
+                return (QtCore.Qt.CheckState.Checked
+                        if self._checkbox_states[index.row()]
+                        else QtCore.Qt.CheckState.Unchecked)
+        elif role == QtCore.Qt.ItemDataRole.DisplayRole:
+            value = self._data[index.row()][index.column()-1]
+            if index.column() < 4:
+                return str(value)
+            elif index.column() < 7:
+                return f"{value:.4f}"
+            else:
+                return f"{value:.2f}"
+        return None
+
+    def setData(self, index, value, role=QtCore.Qt.ItemDataRole.EditRole):
+        if (role == QtCore.Qt.ItemDataRole.CheckStateRole
+                and index.column() == 0):
+            self._checkbox_states[index.row()] = (
+                value == QtCore.Qt.CheckState.Checked)
+            if value == QtCore.Qt.CheckState.Checked:
+                for row in range(self.rowCount()):
+                    if row != index.row() and self._checkbox_states[row]:
+                        self._checkbox_states[row] = False
+                        self.dataChanged.emit(
+                            self.index(row, 0), self.index(row, 0),
+                            [QtCore.Qt.ItemDataRole.CheckStateRole])
+            self.dataChanged.emit(index, index,
+                                  [QtCore.Qt.ItemDataRole.CheckStateRole])
+            return True
+        return False
+
+    def headerData(self, col, orientation, role):
+        if (orientation == QtCore.Qt.Horizontal and
+                role == QtCore.Qt.DisplayRole):
+            return self._headers[col]
+        return None
+
+    def flags(self, index):
+        base_flags = super().flags(index)
+        if index.column() == 0:
+            return (base_flags |
+                    QtCore.Qt.ItemFlag.ItemIsUserCheckable |
+                    QtCore.Qt.ItemFlag.ItemIsEnabled)
+        return base_flags | QtCore.Qt.ItemFlag.ItemIsEnabled
+
+    def selected(self):
+        for row, checked in enumerate(self._checkbox_states):
+            if checked:
+                return row
+        return None
