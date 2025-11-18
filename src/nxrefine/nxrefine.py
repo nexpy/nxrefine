@@ -1367,8 +1367,9 @@ class NXRefine:
                 ((norm_vec(v3) / self.wavelength) - self.Evec))
 
     def get_Gvecs(self):
+        idx = self.idx
         self.Gvecs = [self.Gvec(x, y, z) for x, y, z
-                      in zip(self.xp, self.yp, self.zp)]
+                      in zip(self.xp[idx], self.yp[idx], self.zp[idx])]
         return np.array(self.Gvecs).squeeze()
 
     def calculate_angles(self, x, y):

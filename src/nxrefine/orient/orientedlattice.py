@@ -26,9 +26,9 @@ def get_UB(a:np.ndarray, b:np.ndarray, c:np.ndarray) -> tuple[bool, np.ndarray]:
 def get_abc(UB:np.ndarray) -> tuple[bool, np.ndarray, np.ndarray, np.ndarray]:
     """Geometry/Crystal/OrientedLattice::GetABC - line 381 to 397
     
-    Get the real space edge vectors a,b,c corresponding to the UB matrix. If the inverse
-    of the matrix UB can be found, return True and the thress lattice vector a_dir, b_dir
-    and c_dir.
+    Get the real space edge vectors a,b,c corresponding to the UB
+    matrix. If the inverse of the matrix UB can be found, return True
+    and the thress lattice vector a_dir, b_dir and c_dir.
     
     Parameters
     ----------
@@ -102,7 +102,8 @@ class UnitCellOrient:
         """Geometry/Crystal/UnitCell::recalculateFromGstar - line 836 to 858"""
         if self.Gstar.shape != (3, 3):
             raise ValueError(
-                "recalculate_from_Gstar(): expectd a 3x3 matrix, but was given {Gstar.shape[0]}x{Gstar.shape[1]}"
+                "recalculate_from_Gstar(): expected a 3x3 matrix, "
+                f"but was given {self.Gstar.shape[0]}x{self.Gstar.shape[1]}"
             )
         
         if np.prod(np.diag(self.Gstar)) <= 0:

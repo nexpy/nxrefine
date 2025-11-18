@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from scipy.signal import argrelextrema
 from itertools import combinations
 from .orient.niggli import make_Niggli_UB
-from .orient.orientedlattice import set_UB, get_abc
+from .orient.orientedlattice import set_UB
 from .orient.scalar_utils import get_cells, remove_high_error_forms
 
 
@@ -557,51 +557,10 @@ class UBMatrixFFT:
         self.Umat = o_lattice.Umat
         self.Bmat = o_lattice.Bmat
     
-    def show_possible_cells(self, best_only:bool, 
+    def get_possible_cells(self, best_only:bool, 
                             allowPermutations:bool, 
                             max_scalar_error:float=0.2) -> dict:
         """Crystal/ShowPossibleCells/ShowPossibleCells::exec"""
-        cell_list = get_cells(self._UB, best_only, allowPermutations)
-        remove_high_error_forms(cell_list, max_scalar_error)
-        
-        form_nums = []
-        errors = []
-        cell_types = []
-        centerings = []
-        las = []
-        lbs = []
-        lcs = []
-        alphas = []
-        betas = []
-        gammas = []
-        volumes = []
-        for cell in cell_list:
-            form_nums.append(cell.form_num)
-            errors.append(cell.scalars_error)
-            cell_types.append(cell.cell_type)
-            centerings.append(cell.centering)
-            lp = self.get_lattice_parameters(cell.new_UB)
-            las.append(lp[0])
-            lbs.append(lp[1])
-            lcs.append(lp[2])
-            alphas.append(lp[3])
-            betas.append(lp[4])
-            gammas.append(lp[5])
-            _, a, b, c = get_abc(cell.new_UB)
-            volumes.append(abs(np.dot(a, np.cross(b, c))))
-
-        poss = {
-            'form number': form_nums,
-            'error': errors,
-            'cell type': cell_types,
-            'centering': centerings,
-            'a': las,
-            'b': lbs,
-            'c': lcs,
-            'alpha': alphas,
-            'beta': betas,
-            'gamma': gammas,
-            'volume': volumes
-        }
-
-        return poss
+        cells = get_cells(self._UB, best_only, allowPermutations)
+        remove_high_error_forms(cells, max_scalar_error)
+        return cells
