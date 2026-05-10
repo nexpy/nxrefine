@@ -7,6 +7,7 @@
 # -----------------------------------------------------------------------------
 from nexpy.gui.dialogs import NXDialog
 from nexpy.gui.utils import report_error
+from nexpy.gui.widgets import NXLabel, NXPushButton
 from nexusformat.nexus import NeXusError
 
 from nxrefine.nxparent import NXParent
@@ -44,30 +45,64 @@ class InitializeDialog(NXDialog):
                         for entry in self.parent.root if entry[-1].isdigit()]
         self.reduce = NXMultiReduce(self.parent.root)
         if self.layout.count() == 2:
-            self.layout.insertLayout(1, self.action_buttons(
+            self.insert_layout(1, self.subentry_layout())
+            self.layout.insertLayout(2, self.action_buttons(
                 ('Select Files', self.setup_files),
                 ('Edit Settings', self.setup_settings),
                 ('Define Lattice', self.setup_lattice),
                 ('Setup Transforms', self.setup_transforms),
                 ('Copy NeXus File', self.copy_parameters)))
 
+    @property
+    def subentry(self):
+        return self.subentry_combo.selected
+
+    def subentry_layout(self):
+        self.subentry_combo = self.select_box(self.parent.scan_entries,
+                                              default=self.parent.entry,
+                                              slot=self.select_subentry)
+        sub_button = NXPushButton('Create New Subentry', self.create_subentry)
+        return self.make_layout(NXLabel('Subentry:'), self.subentry_combo,
+                                'stretch', sub_button)
+
+    def refresh_subentries(self):
+        self.subentry_combo.blockSignals(True)
+        current = self.subentry_combo.selected
+        self.subentry_combo.clear()
+        self.subentry_combo.add(*self.parent.scan_entries)
+        if current in self.parent.scan_entries:
+            self.subentry_combo.select(current)
+        self.subentry_combo.blockSignals(False)
+
+    def select_subentry(self):
+        self.parent.entry = self.subentry
+
+    def create_subentry(self):
+        name = self.input_text('New Subentry', 'Enter subentry name:')
+        if name is None:
+            return
+        self.parent.create_scan_entry(name)
+        self.refresh_subentries()
+        self.subentry_combo.select(name)
+        self.parent.reload()
+
     def setup_files(self):
-        dialog = FilesDialog(self.parent.filename)
+        dialog = FilesDialog(self.parent.filename, self.parent.entry)
         dialog.show()
         pass
 
     def setup_settings(self):
-        dialog = ParametersDialog(self.parent.filename)
+        dialog = ParametersDialog(self.parent.filename, self.parent.entry)
         dialog.show()
 
     def setup_lattice(self):
-        dialog = LatticeDialog(self.parent.filename)
+        dialog = LatticeDialog(self.parent.filename, self.parent.entry)
         dialog.show()
 
     def setup_transforms(self):
-        dialog = TransformDialog(self.parent.filename)
+        dialog = TransformDialog(self.parent.filename, self.parent.entry)
         dialog.show()
 
     def copy_parameters(self):
-        dialog = CopyDialog(self.parent.filename)
+        dialog = CopyDialog(self.parent.filename, self.parent.entry)
         dialog.show()
