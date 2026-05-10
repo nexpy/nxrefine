@@ -469,7 +469,7 @@ class NXReduce(QtCore.QObject):
         NXReduce instance.
         """
         if self._parent is None:
-            if self.parent_file.exists():
+            if self.parent_file.is_file():
                 self._parent = NXParent(self.parent_file)
             else:
                 self._parent = None
@@ -489,7 +489,7 @@ class NXReduce(QtCore.QObject):
             parent = self.root['entry/nxscans/parent'].nxvalue
             return self.base_directory.joinpath(parent)
         else:
-            return self.base_directory.joinpath(self.sample+'_parent.nxs')
+            return self.base_directory.joinpath(self.sample+'_scans.nxs')
 
     def get_parameter(self, name, field_name=None):
         """Return the requested data reduction parameter.
@@ -1667,7 +1667,7 @@ class NXReduce(QtCore.QObject):
         t2 = self.mask_parameters['threshold_2']
         h2 = self.mask_parameters['horizontal_size_2']
 
-        mask_root = nxopen(self.mask_file+'.h5', 'w')
+        mask_root = nxopen(self.mask_file.with_suffix('.h5'), 'w')
         mask_root['entry'] = NXentry()
         mask_root['entry/mask'] = NXfield(shape=self.shape,
                                           dtype=np.int8,
