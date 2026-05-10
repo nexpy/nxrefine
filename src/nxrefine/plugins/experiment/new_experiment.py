@@ -59,9 +59,7 @@ class NewExperimentDialog(NXDialog):
     def choose_directory(self):
         super().choose_directory()
         directory = self.get_directory()
-        if directory:
-            directory = Path(directory)
-        else:
+        if directory is None:
             self.reject()
             return
         if self.parameters['analysis_home'].value == '':

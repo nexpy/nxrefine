@@ -77,8 +77,9 @@ class MaskDialog(NXDialog):
             self.yc = self.counts.shape[0] / 2
 
     def import_mask(self):
-        mask_file = getOpenFileName(self, 'Open Mask File')
-        if Path(mask_file).exists():
+        mask_file = getOpenFileName(self, 'Open Mask File',
+                                    self.default_directory)
+        if Path(mask_file).is_file():
             self.pixel_mask = load_image(mask_file).nxsignal.nxvalue
 
     @property

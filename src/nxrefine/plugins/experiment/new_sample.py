@@ -39,8 +39,7 @@ class SampleDialog(NXDialog):
         self.default_directory = settings['instrument']['analysis_home']
         self.analysis_path = settings['instrument']['analysis_path']
 
-        self.set_layout(self.directorybox('Choose Experiment Directory',
-                                          default=False), 
+        self.set_layout(self.directorybox('Choose Experiment Directory'), 
                         self.sample_layout,
                         self.action_buttons(('Create Sample Directory',
                                              self.create_sample_directory)),
@@ -54,7 +53,7 @@ class SampleDialog(NXDialog):
 
     @property
     def experiment_directory(self):
-        directory = Path(self.get_directory())
+        directory = self.get_directory()
         if self.analysis_path and directory.name != self.analysis_path:
             directory = directory / self.analysis_path
         return directory

@@ -6,14 +6,12 @@
 # The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
-from pathlib import Path
-
 import numpy as np
 from nexpy.gui.dialogs import GridParameters, NXDialog
 from nexpy.gui.utils import report_error
 from nexusformat.nexus import (NXdata, NXdetector, NXentry, NXfield,
                                NXgoniometer, NXinstrument, NXlink,
-                               NXmonochromator, NXparameters, NXroot, NXsource)
+                               NXmonochromator, NXroot, NXsource)
 from pyFAI.detectors import ALL_DETECTORS
 
 from nxrefine.nxsettings import NXSettings
@@ -39,25 +37,22 @@ class ConfigurationDialog(NXDialog):
         self.default_directory = settings['instrument']['analysis_home']
         self.analysis_path = settings['instrument']['analysis_path']
 
-        self.set_layout(self.directorybox('Choose Experiment Directory',
-                                          default=False))
+        self.set_layout(self.directorybox('Choose Experiment Directory'))
         self.set_title('New Configuration')
 
     def choose_directory(self):
         if self.default_directory:
             self.set_default_directory(self.default_directory)
         super().choose_directory()
+
         self.settings = NXSettings(self.experiment_directory).settings
 
         self.setup_groups()
         self.setup_configuration()
-        self.setup_analysis()
         self.setup_scan()
         self.setup_instrument()
 
         self.add_layout(self.configuration.grid(header=False))
-        self.add_layout(self.analysis.grid(header=False,
-                                           title='Analysis Settings'))
         self.add_layout(self.scan.grid(header=False, title='Scan Settings'))
         self.add_layout(self.instrument.grid(header=False,
                                              title='Detector Settings'))
@@ -65,14 +60,13 @@ class ConfigurationDialog(NXDialog):
 
     @property
     def experiment_directory(self):
-        directory = Path(self.get_directory())
+        directory = self.get_directory()
         if self.analysis_path and directory.name != self.analysis_path:
             directory = directory / self.analysis_path
         return directory
 
     def setup_groups(self):
         entry = self.configuration_file['entry']
-        entry['nxreduce'] = NXparameters()
         entry['instrument'] = NXinstrument()
         entry['instrument/source'] = NXsource()
         entry['instrument/monochromator'] = NXmonochromator()
@@ -104,41 +98,6 @@ class ConfigurationDialog(NXDialog):
         self.configuration.add('wavelength',
                                entry['instrument/monochromator/wavelength'],
                                'Wavelength (Å)')
-
-    def setup_analysis(self):
-        default = self.settings['nxreduce']
-        entry = self.configuration_file['entry']
-        entry['nxreduce/threshold'] = NXfield(default['threshold'],
-                                              dtype=float)
-        entry['nxreduce/polar_max'] = NXfield(default['polar_max'],
-                                              dtype=float)
-        entry['nxreduce/hkl_tolerance'] = NXfield(default['hkl_tolerance'],
-                                                  dtype=float)
-        entry['nxreduce/monitor'] = NXfield(default['monitor'])
-        entry['nxreduce/norm'] = NXfield(default['norm'], dtype=float)
-        entry['nxreduce/first_frame'] = NXfield(default['first_frame'],
-                                                dtype=int)
-        entry['nxreduce/last_frame'] = NXfield(default['last_frame'],
-                                               dtype=int)
-        entry['nxreduce/radius'] = NXfield(default['radius'], dtype=float)
-        self.analysis = GridParameters()
-        self.analysis.add('threshold', entry['nxreduce/threshold'],
-                          'Peak Threshold')
-        self.analysis.add('first', entry['nxreduce/first_frame'],
-                          'First Frame')
-        self.analysis.add('last', entry['nxreduce/last_frame'],
-                          'Last Frame')
-        self.analysis.add('polar_max', entry['nxreduce/polar_max'],
-                          'Maximum Polar Angle')
-        self.analysis.add('hkl_tolerance', entry['nxreduce/hkl_tolerance'],
-                          'HKL Tolerance (Å-1)')
-        self.analysis.add('monitor', entry['nxreduce/monitor'],
-                          'Normalization Monitor')
-        self.analysis['monitor'].value = default['monitor']
-        self.analysis.add('norm', entry['nxreduce/norm'],
-                          'Normalization Value')
-        self.analysis.add('radius', entry['nxreduce/radius'],
-                          'Punch Radius (Å)')
 
     def setup_scan(self):
         default = self.settings['nxrefine']
@@ -239,14 +198,6 @@ class ConfigurationDialog(NXDialog):
 
     def get_parameters(self):
         entry = self.configuration_file['entry']
-        entry['nxreduce/threshold'] = self.analysis['threshold'].value
-        entry['nxreduce/first_frame'] = self.analysis['first'].value
-        entry['nxreduce/last_frame'] = self.analysis['last'].value
-        entry['nxreduce/polar_max'] = self.analysis['polar_max'].value
-        entry['nxreduce/hkl_tolerance'] = self.analysis['hkl_tolerance'].value
-        entry['nxreduce/monitor'] = self.analysis['monitor'].value
-        entry['nxreduce/norm'] = self.analysis['norm'].value
-        entry['nxreduce/radius'] = self.analysis['radius'].value
         entry['instrument/source/name'] = self.configuration['source'].value
         entry['instrument/name'] = self.configuration['instrument'].value
         entry['instrument/monochromator/wavelength'] = (

@@ -130,8 +130,9 @@ class CalibrateDialog(NXDialog):
             self.close_plots()
 
     def import_powder(self):
-        powder_file = getOpenFileName(self, 'Open Powder Data File')
-        if Path(powder_file).exists():
+        powder_file = getOpenFileName(self, 'Open Powder Data File',
+                                      self.default_directory)
+        if Path(powder_file).is_file():
             self.data = load_image(powder_file)
             self.data['title'] = f'{self.calibrant.name} Powder Calibration'
             self.counts = self.data.nxsignal.nxvalue
@@ -139,8 +140,9 @@ class CalibrateDialog(NXDialog):
             self.plot_data()
 
     def import_calibration(self):
-        calibration_file = getOpenFileName(self, 'Open Calibration File')
-        if Path(calibration_file).exists():
+        calibration_file = getOpenFileName(self, 'Open Calibration File',
+                                           self.default_directory)
+        if Path(calibration_file).is_file():
             self.ai = pyFAI.load(calibration_file)
             self.read_parameters()
 
