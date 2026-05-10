@@ -687,15 +687,3 @@ class NXDatabase:
         sample = sample_dir.parent.name
         scan_label = filepath.stem.replace(sample+'_', '')
         return sample_dir / scan_label
-
-    def is_parent(self, filename):
-        """True if the wrapper file is set as the parent."""
-        filepath = self.get_filepath(filename)
-        sample_dir = filepath.parent
-        sample = sample_dir.parent.name
-        try:
-            parent_file = Path(sample_dir).joinpath(
-                sample + '_parent.nxs').resolve(strict=True)
-            return filepath == parent_file
-        except FileNotFoundError:
-            return False
