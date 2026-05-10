@@ -8,8 +8,8 @@
 from pathlib import Path as Path
 
 from nexusformat.nexus import (NeXusError, NXentry, NXfield, NXparameters,
-                               NXprocess, NXroot, NXsample, nxconsolidate,
-                               nxopen)
+                               NXprocess, NXroot, NXsample, NXsubentry,
+                               nxconsolidate, nxopen)
 from nexusformat.nexus.tree import natural_sort, string_dtype
 
 
@@ -51,6 +51,10 @@ class NXParent:
             self.root['entry'] = value
         else:
             self.root[self.entry] = value
+
+    @property
+    def scan_entries(self):
+        return ['/entry'] + [s.nxpath for s in self.root['entry'].NXsubentry]
 
     @property
     def scan_info(self):
@@ -292,6 +296,17 @@ class NXParent:
                 continue
         return valid_files
 
+    def create_scan_entry(self, entry):
+        with self.root:
+            if entry not in self.root['entry']:
+                self.root['entry'][entry] = NXsubentry()
+            self.entry = self.root['entry'][entry].nxpath
+            if 'nxscans' in self.root['entry']:
+                self.scan_info = self.root['entry/nxscans']
+                self.scan_info.set_date()
+            else:
+                self.initialize()
+
     def create_scan_data(self, data_path):
         """Create consolidated scan data."""
         scan_files = self.valid_scans(data_path)
@@ -331,7 +346,10 @@ class NXParent:
     def initialize(self):
         with self.root:
             if self.scan_entry is None:
-                self.scan_entry = NXentry()
+                if self.entry in self.root:
+                    self.scan_entry = NXentry()
+                else:
+                    self.scan_entry = NXsubentry()
             if self.scan_info is None:
                 self.scan_info = NXprocess()
             if self.settings is None:
