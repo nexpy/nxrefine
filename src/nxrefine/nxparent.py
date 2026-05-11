@@ -92,6 +92,25 @@ class NXParent:
         if self.scan_info:
             self.scan_info['settings'] = value
 
+    def get_setting(self, name, default=None):
+        """Return a single setting from /entry/nxscans/settings."""
+        if self.settings is not None and name in self.settings:
+            return self.settings[name].nxvalue
+        return default
+
+    def write_settings(self, **kwargs):
+        """Write reduction settings to /entry/nxscans/settings."""
+        with nxopen(self.filename, 'rw') as root:
+            entry = root[self.entry]
+            if 'nxscans' not in entry:
+                entry['nxscans'] = NXprocess()
+            if 'settings' not in entry['nxscans']:
+                entry['nxscans']['settings'] = NXparameters()
+            settings = entry['nxscans']['settings']
+            for name, value in kwargs.items():
+                if value is not None:
+                    settings[name] = value
+
     @property
     def transform(self):
         if self.scan_info and 'transform' in self.scan_info:

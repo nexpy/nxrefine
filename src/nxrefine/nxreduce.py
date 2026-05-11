@@ -125,7 +125,8 @@ class NXReduce(QtCore.QObject):
         """
 
     def __init__(
-            self, entry=None, directory=None, parent=None, entries=None,
+            self, entry=None, subentry='', directory=None,
+            parent=None, entries=None,
             threshold=None, min_pixels=None, first=None, last=None,
             polar_max=None, hkl_tolerance=None, monitor=None, norm=None,
             polarization=None, qmin=None, qmax=None,
@@ -163,7 +164,6 @@ class NXReduce(QtCore.QObject):
             self._root = None
         else:
             raise NeXusError('Directory not specified')
-        self.name = f"{self.sample}_{self.scan}/{self.entry_name}"
         self.base_directory = self.wrapper_file.parent
 
         self._settings = None
@@ -174,6 +174,7 @@ class NXReduce(QtCore.QObject):
         self._parent = parent
         self._parent_entry = None
         self._entries = entries
+        self._subentry = subentry
         self._mode = 'r'
 
         self._threshold = threshold
@@ -388,6 +389,19 @@ class NXReduce(QtCore.QObject):
         return self.entry_name == self.entries[0]
 
     @property
+    def name(self):
+        base = f"{self.sample}_{self.scan}/{self.entry_name}"
+        return f"{base}[{self._subentry}]" if self._subentry else base
+
+    @property
+    def subentry(self):
+        return self._subentry
+
+    @subentry.setter
+    def subentry(self, value):
+        self._subentry = value or ''
+
+    @property
     def data(self):
         """NXdata group containing the raw data for the current entry."""
         if 'data' in self.entry:
@@ -470,7 +484,9 @@ class NXReduce(QtCore.QObject):
         """
         if self._parent is None:
             if self.parent_file.is_file():
-                self._parent = NXParent(self.parent_file)
+                entry = (f'/entry/{self.entry_name}'
+                         if self.entry_name != 'entry' else None)
+                self._parent = NXParent(self.parent_file, entry=entry)
             else:
                 self._parent = None
         return self._parent
@@ -485,7 +501,8 @@ class NXReduce(QtCore.QObject):
     @property
     def parent_file(self):
         """Absolute file path to the parent file."""
-        if 'nxscans' in self.root['entry']:
+        if ('nxscans' in self.root['entry']
+                and 'parent' in self.root['entry/nxscans']):
             parent = self.root['entry/nxscans/parent'].nxvalue
             return self.base_directory.joinpath(parent)
         else:
@@ -515,9 +532,9 @@ class NXReduce(QtCore.QObject):
         parameter = self.default[name]
         if field_name is None:
             field_name = name
-        if (self.parent and 'nxreduce' in self.parent.root['entry']
-                and field_name in self.parent.root['entry/nxreduce']):
-            parameter = self.parent.root['entry/nxreduce'][field_name].nxvalue
+        if (self.parent and self.parent.settings is not None
+                and field_name in self.parent.settings):
+            parameter = self.parent.settings[field_name].nxvalue
         elif ('nxreduce' in self.root['entry']
               and field_name in self.root['entry/nxreduce']):
             parameter = self.root['entry/nxreduce'][field_name].nxvalue
@@ -529,43 +546,49 @@ class NXReduce(QtCore.QObject):
                          qmin=None, qmax=None, radius=None):
         """Store the specified data reduction parameters.
 
-        If the parameter was read from the parent, this updates the
-        local copy in the current wrapper file's '/entry/nxreduce'
-        group.
+        Parameters are written to the parent file's '/entry/nxscans/settings'
+        group. If no parent exists, they are written to the local wrapper
+        file's '/entry/nxreduce' group for backward compatibility.
         """
-        with self:
-            if 'nxreduce' not in self.root['entry']:
-                self.root['entry/nxreduce'] = NXparameters()
-            if threshold is not None:
-                self.threshold = threshold
-                self.root['entry/nxreduce/threshold'] = self.threshold
-            if first is not None:
-                self.first = first
-                self.root['entry/nxreduce/first_frame'] = self.first
-            if last is not None:
-                self.last = last
-                self.root['entry/nxreduce/last_frame'] = self.last
-            if polar_max is not None:
-                self.polar_max = polar_max
-                self.root['entry/nxreduce/polar_max'] = self.polar_max
-            if hkl_tolerance is not None:
-                self.hkl_tolerance = hkl_tolerance
-                self.root['entry/nxreduce/hkl_tolerance'] = self.hkl_tolerance
-            if monitor is not None:
-                self.monitor = monitor
-                self.root['entry/nxreduce/monitor'] = self.monitor
-            if norm is not None:
-                self.norm = norm
-                self.root['entry/nxreduce/norm'] = self.norm
-            if qmin is not None:
-                self.qmin = qmin
-                self.root['entry/nxreduce/qmin'] = self.qmin
-            if qmax is not None:
-                self.qmax = qmax
-                self.root['entry/nxreduce/qmax'] = self.qmax
-            if radius is not None:
-                self.radius = radius
-                self.root['entry/nxreduce/radius'] = self.radius
+        params = {}
+        if threshold is not None:
+            self.threshold = threshold
+            params['threshold'] = self.threshold
+        if first is not None:
+            self.first = first
+            params['first_frame'] = self.first
+        if last is not None:
+            self.last = last
+            params['last_frame'] = self.last
+        if polar_max is not None:
+            self.polar_max = polar_max
+            params['polar_max'] = self.polar_max
+        if hkl_tolerance is not None:
+            self.hkl_tolerance = hkl_tolerance
+            params['hkl_tolerance'] = self.hkl_tolerance
+        if monitor is not None:
+            self.monitor = monitor
+            params['monitor'] = self.monitor
+        if norm is not None:
+            self.norm = norm
+            params['norm'] = self.norm
+        if qmin is not None:
+            self.qmin = qmin
+            params['qmin'] = self.qmin
+        if qmax is not None:
+            self.qmax = qmax
+            params['qmax'] = self.qmax
+        if radius is not None:
+            self.radius = radius
+            params['radius'] = self.radius
+        if self.parent:
+            self.parent.write_settings(**params)
+        elif params:
+            with self:
+                if 'nxreduce' not in self.root['entry']:
+                    self.root['entry/nxreduce'] = NXparameters()
+                for key, value in params.items():
+                    self.root['entry/nxreduce'][key] = value
 
     def clear_parameters(self, parameters):
         """Remove legacy records of parameters in the 'peaks' group."""
@@ -912,7 +935,8 @@ class NXReduce(QtCore.QObject):
     def record_start(self, task):
         """Record that a task has started in the database """
         try:
-            self.db.start_task(self.wrapper_file, task, self.entry_name)
+            self.db.start_task(self.wrapper_file, task, self.entry_name,
+                               subentry=self.subentry)
             self.timer[task] = timeit.default_timer()
             self.log(f"{self.name}: '{task}' started")
         except Exception as error:
@@ -921,7 +945,8 @@ class NXReduce(QtCore.QObject):
     def record_end(self, task):
         """Record that a task has ended in the database """
         try:
-            self.db.end_task(self.wrapper_file, task, self.entry_name)
+            self.db.end_task(self.wrapper_file, task, self.entry_name,
+                             subentry=self.subentry)
             elapsed_time = timeit.default_timer() - self.timer[task]
             self.log(
                 f"{self.name}: '{task}' complete ({elapsed_time:g} seconds)")
@@ -931,7 +956,8 @@ class NXReduce(QtCore.QObject):
     def record_fail(self, task):
         """Record that a task has failed in the database """
         try:
-            self.db.fail_task(self.wrapper_file, task, self.entry_name)
+            self.db.fail_task(self.wrapper_file, task, self.entry_name,
+                              subentry=self.subentry)
             elapsed_time = timeit.default_timer() - self.timer[task]
             self.log(f"'{task}' failed ({elapsed_time:g} seconds)")
         except Exception as error:
@@ -1069,32 +1095,15 @@ class NXReduce(QtCore.QObject):
             self.log("Parameters already copied")
 
     def copy_parameters(self):
-        """
-        Copy the parameters from the parent.
+        """Copy the experimental parameters from the parent.
 
-        This method copies the parameters from the parent to the current
-        entry.  This includes both the experimental parameters (sample,
-        instrument, beamline) and the data reduction parameters
-        (threshold, first, last, polar_max, hkl_tolerance, monitor,
-        norm, qmin, qmax, radius).
-
-        A message is logged to indicate that the parameters have been
-        copied.
+        Copies sample, instrument, and beamline parameters from the parent.
+        Reduction parameters (threshold, monitor, etc.) are read automatically
+        from the parent's '/entry/nxscans/settings' by get_parameter().
         """
         parent_refine = NXRefine(self.parent.root[self.entry_name])
-        parent_reduce = NXReduce(self.parent.root[self.entry_name])
         refine = NXRefine(self.entry)
         parent_refine.copy_parameters(refine, sample=True, instrument=True)
-        self.write_parameters(threshold=parent_reduce.threshold,
-                              first=parent_reduce.first,
-                              last=parent_reduce.last,
-                              polar_max=parent_reduce.polar_max,
-                              hkl_tolerance=parent_reduce.hkl_tolerance,
-                              monitor=parent_reduce.monitor,
-                              norm=parent_reduce.norm,
-                              qmin=parent_reduce.qmin,
-                              qmax=parent_reduce.qmax,
-                              radius=parent_reduce.radius)
         self.log(
             f"Parameters for {self.name} copied from '{self.parent_file}'")
 
@@ -1893,7 +1902,7 @@ class NXReduce(QtCore.QObject):
 
     def check_sum_files(self, scan_list):
         status = True
-        for i, scan in enumerate(scan_list):
+        for scan in scan_list:
             reduce = NXReduce(self.entry_name,
                               self.base_directory.joinpath(scan))
             if not reduce.raw_file.exists():
@@ -1927,7 +1936,7 @@ class NXReduce(QtCore.QObject):
                     new_field[i:i+chunk_size, :, :] = new_slab + scan_slab
         self.log("Raw data files summed")
 
-    def sum_monitors(self, scan_list, update=False):
+    def sum_monitors(self, scan_list):
 
         for i, scan in enumerate(scan_list):
             reduce = NXReduce(self.entry_name,
