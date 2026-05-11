@@ -61,6 +61,9 @@ src/nxrefine/_version.py
 # unused NXRefine code
 _unused
 
+# Claude files
+.claude
+
 # miscellaneous system files
 .directoryhash
  
