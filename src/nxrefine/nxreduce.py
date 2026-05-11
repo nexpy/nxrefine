@@ -2069,7 +2069,7 @@ class NXReduce(QtCore.QObject):
 
         if args:
             if 'directory' in args:
-                args.directory = str(args.directory.resolve())
+                args.directory = str(Path(args.directory.resolve()))
             self.server.add_task(f"{command} {switches(args)}")
         else:
             self.server.add_task(
