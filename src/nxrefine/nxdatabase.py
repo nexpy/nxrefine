@@ -123,7 +123,8 @@ class NXDatabase:
                   'nxcombine', 'nxmasked_combine', 'nxpdf', 'nxmasked_pdf')
     subentry_task_names = ('nxcopy', 'nxmax', 'nxfind', 'nxrefine', 'nxprepare',
                            'nxtransform', 'nxmasked_transform',
-                           'nxcombine', 'nxmasked_combine', 'nxpdf', 'nxmasked_pdf')
+                           'nxcombine', 'nxmasked_combine',
+                           'nxpdf', 'nxmasked_pdf')
     NOT_STARTED, QUEUED, IN_PROGRESS, DONE, FAILED = 0, 1, 2, 3, -1
 
     def __init__(self, db_file, echo=False):
