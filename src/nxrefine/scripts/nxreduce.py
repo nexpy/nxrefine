@@ -42,6 +42,8 @@ def main():
                         help='perform PDF transforms')
     parser.add_argument('-R', '--regular', action='store_true',
                         help='perform regular CCTW transforms')
+    parser.add_argument('-s', '--subentry', default='',
+                        help='subentry to be processed')
     parser.add_argument('-M', '--mask', action='store_true',
                         help='perform CCTW transforms with 3D mask')
     parser.add_argument('-o', '--overwrite', action='store_true',
@@ -57,7 +59,8 @@ def main():
         entries = NXMultiReduce(args.directory).entries
 
     for entry in entries:
-        reduce = NXReduce(entry=entry, directory=args.directory,
+        reduce = NXReduce(entry=entry, subentry=args.subentry,
+                          directory=args.directory,
                           load=args.load, link=args.link, maxcount=args.max,
                           find=args.find, copy=args.copy, refine=args.refine,
                           prepare=args.prepare, transform=args.transform,
