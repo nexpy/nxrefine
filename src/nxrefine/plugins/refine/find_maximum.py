@@ -44,11 +44,15 @@ class MaximumDialog(NXDialog):
         self.summed_data = None
         self.summed_frames = None
         self.partial_frames = None
+        self.subentry_combo = None
 
     def choose_entry(self):
-        self.reduce = NXReduce(self.entry)
-        self.label = self.reduce.name
+        subentries = [s.nxname for s in self.entry.NXsubentry]
         if self.layout.count() == 2:
+            pos = 1
+            if subentries:
+                self.insert_layout(pos, self.subentry_layout(subentries))
+                pos += 1
             self.output = NXLabel('Maximum Value:')
             self.parameters = GridParameters()
             self.parameters.add('first', '', 'First Frame')
@@ -57,29 +61,45 @@ class MaximumDialog(NXDialog):
             self.parameters.add('qmax', '', 'Maximum Scattering Q (Ang-1)')
             self.parameters.add('fw', '5', 'Frame Window')
             self.parameters.add('fs', '20', 'Filter Size')
-            self.insert_layout(1, self.parameters.grid())
-            self.insert_layout(
-                2, self.make_layout(self.action_buttons(('Find Maximum',
-                                                         self.find_maximum)),
-                                    self.output))
+            self.insert_layout(pos, self.parameters.grid()); pos += 1
+            self.insert_layout(pos, self.make_layout(
+                self.action_buttons(('Find Maximum', self.find_maximum)),
+                self.output)); pos += 1
             self.checkbox['over'] = NXCheckBox('Over?')
-            self.insert_layout(
-                3, self.make_layout(self.action_buttons(
-                    ('Plot Summed Data', self.plot_summed_data),
-                    ('Plot Summed Frames', self.plot_summed_frames),
-                    ('Plot Partial Frames', self.plot_partial_frames)),
-                                    self.checkbox['over']))
+            self.insert_layout(pos, self.make_layout(self.action_buttons(
+                ('Plot Summed Data', self.plot_summed_data),
+                ('Plot Summed Frames', self.plot_summed_frames),
+                ('Plot Partial Frames', self.plot_partial_frames)),
+                self.checkbox['over'])); pos += 1
             self.checkbox['transmission'] = NXCheckBox('Save Transmission')
-            self.insert_layout(
-                4, self.make_layout(self.action_buttons(
-                    ('Plot Transmission Mask', self.plot_transmission_mask),
-                    ('Plot Transmission', self.plot_transmission))))
+            self.insert_layout(pos, self.make_layout(self.action_buttons(
+                ('Plot Transmission Mask', self.plot_transmission_mask),
+                ('Plot Transmission', self.plot_transmission)))); pos += 1
             self.checkbox['copy'] = NXCheckBox('Copy to other entries?')
-            self.insert_layout(
-                5, self.make_layout(self.action_buttons(
-                    ('Save Transmission', self.save_transmission)),
-                                    self.checkbox['copy'])
-            )
+            self.insert_layout(pos, self.make_layout(self.action_buttons(
+                ('Save Transmission', self.save_transmission)),
+                self.checkbox['copy']))
+        elif self.subentry_combo is not None:
+            self.subentry_combo.blockSignals(True)
+            self.subentry_combo.clear()
+            self.subentry_combo.add(*([''] + subentries))
+            self.subentry_combo.blockSignals(False)
+        self.choose_subentry()
+
+    def subentry_layout(self, subentries):
+        self.subentry_combo = self.select_box(
+            [''] + subentries, slot=self.choose_subentry)
+        return self.make_layout(NXLabel('Subentry:'), self.subentry_combo)
+
+    @property
+    def subentry(self):
+        if self.subentry_combo is not None:
+            return self.subentry_combo.selected
+        return ''
+
+    def choose_subentry(self):
+        self.reduce = NXReduce(self.entry, subentry=self.subentry or None)
+        self.label = self.reduce.name
         self.maximum = self.reduce.maximum
         if self.reduce.first:
             self.parameters['first'].value = self.reduce.first
@@ -89,18 +109,18 @@ class MaximumDialog(NXDialog):
             self.parameters['qmin'].value = self.reduce.qmin
         if self.reduce.qmax:
             self.parameters['qmax'].value = self.reduce.qmax
-        if 'summed_frames' in self.entry:
-            self.summed_frames = self.entry['summed_frames'].nxsignal
-            if 'partial_frames' in self.entry['summed_frames']:
-                self.partial_frames = (
-                    self.entry['summed_frames/partial_frames'])
+        target = self.reduce.reduce_entry or self.entry
+        if 'summed_frames' in target:
+            self.summed_frames = target['summed_frames'].nxsignal
+            if 'partial_frames' in target['summed_frames']:
+                self.partial_frames = target['summed_frames/partial_frames']
             else:
                 self.partial_frames = None
         else:
             self.summed_frames = None
             self.partial_frames = None
-        if 'summed_data' in self.entry:
-            self.summed_data = self.entry['summed_data'].nxsignal
+        if 'summed_data' in target:
+            self.summed_data = target['summed_data'].nxsignal
         else:
             self.summed_data = None
         self.monitor = self.reduce.read_monitor()
@@ -173,6 +193,7 @@ class MaximumDialog(NXDialog):
         self.start_thread()
         self.reduce = NXReduce(self.entry, first=self.first, last=self.last,
                                qmin=self.qmin, qmax=self.qmax,
+                               subentry=self.subentry or None,
                                maxcount=True, overwrite=True, gui=True)
         self.reduce.moveToThread(self.thread)
         self.reduce.start.connect(self.start_progress)
