@@ -428,7 +428,7 @@ class NXReduce(QtCore.QObject):
             else:
                 try:
                     self._shape = tuple(
-                        [axis.shape[0] for axis in self.entry['data'].nxaxes])
+                        [axis.shape[0] for axis in self.data.nxaxes])
                 except NeXusError:
                     self._shape = None
         return self._shape
@@ -763,8 +763,8 @@ class NXReduce(QtCore.QObject):
         transmission.
         """
         if self._maximum is None:
-            if 'data' in self.entry and 'maximum' in self.entry['data'].attrs:
-                self._maximum = self.entry['data'].attrs['maximum']
+            if self.data is not None and 'maximum' in self.data.attrs:
+                self._maximum = self.data.attrs['maximum']
         return self._maximum
 
     @maximum.setter
@@ -1053,20 +1053,20 @@ class NXReduce(QtCore.QObject):
                     raw_file = self.raw_file.relative_to(
                         self.wrapper_file.parent)
                     self.entry['data/data'] = NXlink(self.raw_path, raw_file)
-                    self.entry['data'].nxsignal = self.entry['data/data']
+                    self.data.nxsignal = self.entry['data/data']
                     self.log(
                         'Data group created and linked to external data')
                 else:
                     if self.entry['data/frame_number'].shape != self.shape[0]:
                         del self.entry['data/frame_number']
                         self.entry['data/frame_number'] = frames
-                        if 'frame_time' in self.entry['data']:
+                        if 'frame_time' in self.data:
                             del self.entry['data/frame_time']
                         self.log("Fixed frame number axis")
                     if 'data/frame_time' not in self.entry:
                         self.entry['data/frame_time'] = frame_time * frames
                         self.entry['data/frame_time'].attrs['units'] = 's'
-                self.entry['data'].nxaxes = [self.entry['data/frame_number'],
+                self.data.nxaxes = [self.entry['data/frame_number'],
                                              self.entry['data/y_pixel'],
                                              self.entry['data/x_pixel']]
         else:
@@ -1220,18 +1220,18 @@ class NXReduce(QtCore.QObject):
         to select the frames are cleared from the 'peaks' group.
         """
         with self:
-            self.entry['data'].attrs['maximum'] = self.maximum
-            self.entry['data'].attrs['first'] = self.first
-            self.entry['data'].attrs['last'] = self.last
+            self.data.attrs['maximum'] = self.maximum
+            self.data.attrs['first'] = self.first
+            self.data.attrs['last'] = self.last
             self.entry['instrument/detector/pixel_mask'] = self.pixel_mask
             if 'summed_data' in self.entry:
                 del self.entry['summed_data']
             self.entry['summed_data'] = NXdata(self.summed_data,
-                                               self.entry['data'].nxaxes[-2:])
+                                               self.data.nxaxes[-2:])
             if 'summed_frames' in self.entry:
                 del self.entry['summed_frames']
             self.entry['summed_frames'] = NXdata(self.summed_frames,
-                                                 self.entry['data'].nxaxes[0])
+                                                 self.data.nxaxes[0])
             self.entry['summed_frames/partial_frames'] = self.partial_frames
             self.calculate_radial_sums()
         self.clear_parameters(['first', 'last'])
