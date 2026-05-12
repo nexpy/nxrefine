@@ -733,7 +733,7 @@ class NXRefine:
         with open(settings_file, 'w') as f:
             f.write('\n'.join(lines))
 
-    def write_angles(self, polar_angles, azimuthal_angles):
+    def write_angles(self, polar_angles, azimuthal_angles, entry=None):
         """Write the polar and azimuthal angles of the Bragg peaks.
 
         Parameters
@@ -742,19 +742,23 @@ class NXRefine:
             Polar angles of the Bragg peaks in degrees.
         azimuthal_angles : array_like
             Azimuthal angles of the Bragg peaks in degrees.
+        entry : NXentry or NXsubentry, optional
+            Entry group to write angles into. Defaults to self.entry.
         """
+        if entry is None:
+            entry = self.entry
         with self:
             if 'sample' not in self.entry:
                 self.entry['sample'] = NXsample()
-            if 'peaks' not in self.entry:
-                self.entry['peaks'] = NXdata()
+            if 'peaks' not in entry:
+                entry['peaks'] = NXdata()
             else:
-                if 'polar_angle' in self.entry['peaks']:
-                    del self.entry['peaks/polar_angle']
-                if 'azimuthal_angle' in self.entry['peaks']:
-                    del self.entry['peaks/azimuthal_angle']
-            self.write_parameter('peaks/polar_angle', polar_angles)
-            self.write_parameter('peaks/azimuthal_angle', azimuthal_angles)
+                if 'polar_angle' in entry['peaks']:
+                    del entry['peaks/polar_angle']
+                if 'azimuthal_angle' in entry['peaks']:
+                    del entry['peaks/azimuthal_angle']
+            entry['peaks']['polar_angle'] = polar_angles
+            entry['peaks']['azimuthal_angle'] = azimuthal_angles
 
     def stepsize(self, value):
         import math
@@ -807,7 +811,8 @@ class NXRefine:
         self.grid_shape = [self.h_shape, self.k_shape, self.l_shape]
         self.grid_basis = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
 
-    def prepare_transform(self, output_link, mask=False):
+    def prepare_transform(self, output_link, mask=False, output_entry=None,
+                          data_entry=None):
         """Prepare the NXdata group for containing the transformed data.
 
         Parameters
@@ -817,8 +822,19 @@ class NXRefine:
         mask : bool, optional
             True if the NXdata group contains a masked transform,
             by default None.
+        output_entry : NXentry or NXsubentry, optional
+            Entry group to write the transform NXdata into. Defaults to
+            self.entry.
+        data_entry : NXentry or NXsubentry, optional
+            Entry group to read data_mask and monitor_weight from.
+            Defaults to self.entry.
         """
-        command = self.cctw_command(mask)
+        if output_entry is None:
+            output_entry = self.entry
+        if data_entry is None:
+            data_entry = self.entry
+        command = self.cctw_command(mask, output_link=output_link,
+                                    data_entry=data_entry)
         H = NXfield(
             np.linspace(self.h_start, self.h_stop, self.h_shape),
             name='Qh', scaling_factor=self.astar, long_name='H (r.l.u.)')
@@ -834,34 +850,42 @@ class NXRefine:
             transform = 'transform'
 
         with self:
-            if transform in self.entry:
-                del self.entry[transform]
+            if transform in output_entry:
+                del output_entry[transform]
 
-            self.entry[transform] = NXdata(NXlink(name='data',
-                                           target='/entry/data/v',
-                                           file=output_link), [L, K, H])
-            self.entry[transform].attrs['angles'] = (self.gamma_star,
-                                                     self.beta_star,
-                                                     self.alpha_star)
-            self.entry[transform+'/weights'] = NXlink(target='/entry/data/n',
-                                                      file=output_link)
-            self.entry[transform+'/command'] = command
-            self.entry[transform].set_default()
-            
+            output_entry[transform] = NXdata(NXlink(name='data',
+                                             target='/entry/data/v',
+                                             file=output_link), [L, K, H])
+            output_entry[transform].attrs['angles'] = (self.gamma_star,
+                                                       self.beta_star,
+                                                       self.alpha_star)
+            output_entry[transform+'/weights'] = NXlink(target='/entry/data/n',
+                                                        file=output_link)
+            output_entry[transform+'/command'] = command
+            output_entry[transform].set_default()
 
-    def cctw_command(self, mask=False):
+
+    def cctw_command(self, mask=False, output_link=None, data_entry=None):
         """Generate the shell command to run CCTW transform.
 
         Parameters
         ----------
         mask : bool, optional
             True if the transform contains masked data, by default False.
+        output_link : str or Path, optional
+            Output file for the transform. If not provided, the path is
+            computed from the raw data directory and entry name.
+        data_entry : NXentry or NXsubentry, optional
+            Entry group to read data_mask and monitor_weight from.
+            Defaults to self.entry.
 
         Returns
         -------
         str
             Command string.
         """
+        if data_entry is None:
+            data_entry = self.entry
         entry = self.entry.nxname
         if mask:
             name = entry + '_masked_transform'
@@ -874,8 +898,9 @@ class NXRefine:
         if 'pixel_mask' in self.entry['instrument/detector']:
             command.append(
                 fr'--mask {filename}\#/{entry}/instrument/detector/pixel_mask')
-        if mask and 'data_mask' in self.entry['data']:
-            command.append(f'--mask3d {filename}\\#/{entry}/data/data_mask')
+        if mask and 'data_mask' in data_entry['data']:
+            data_mask_path = data_entry['data/data_mask'].nxpath
+            command.append(f'--mask3d {filename}\\#{data_mask_path}')
         if 'monitor_weight' in self.entry['data']:
             command.append(
                 fr'--weights {filename}\#/{entry}/data/monitor_weight')
@@ -886,7 +911,10 @@ class NXRefine:
         raw_filename = self.entry['data/data'].nxfilename
         raw_filepath = self.entry['data/data'].nxfilepath
         command.append(fr'{raw_filename}\#/{raw_filepath}')
-        command.append(fr'--output {dir}/{name}.nxs\#/entry/data')
+        if output_link:
+            command.append(fr'--output {output_link}\#/entry/data')
+        else:
+            command.append(fr'--output {dir}/{name}.nxs\#/entry/data')
         command.append('--normalization 0')
         return ' '.join(command)
 
