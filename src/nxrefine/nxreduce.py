@@ -391,7 +391,7 @@ class NXReduce(QtCore.QObject):
     @property
     def name(self):
         base = f"{self.sample}_{self.scan}/{self.entry_name}"
-        return f"{base}[{self._subentry}]" if self._subentry else base
+        return f"{base}/{self._subentry}" if self._subentry else base
 
     @property
     def subentry(self):
@@ -1097,9 +1097,10 @@ class NXReduce(QtCore.QObject):
     def copy_parameters(self):
         """Copy the experimental parameters from the parent.
 
-        Copies sample, instrument, and beamline parameters from the parent.
-        Reduction parameters (threshold, monitor, etc.) are read automatically
-        from the parent's '/entry/nxscans/settings' by get_parameter().
+        Copies sample, instrument, and beamline parameters from the
+        parent. Reduction parameters (threshold, monitor, etc.) are read
+        automatically from the parent's '/entry/nxscans/settings' by
+        get_parameter().
         """
         parent_refine = NXRefine(self.parent.root[self.entry_name])
         refine = NXRefine(self.entry)
