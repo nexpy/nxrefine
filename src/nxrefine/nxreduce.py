@@ -560,9 +560,8 @@ class NXReduce(QtCore.QObject):
         """
         if self._parent is None:
             if self.parent_file.is_file():
-                entry = (f'/entry/{self.entry_name}'
-                         if self.entry_name != 'entry' else None)
-                self._parent = NXParent(self.parent_file, entry=entry)
+                self._parent = NXParent(self.parent_file,
+                                        subentry=self.subentry or None)
             else:
                 self._parent = None
         return self._parent
@@ -1326,15 +1325,16 @@ class NXReduce(QtCore.QObject):
             self.data.attrs['first'] = self.first
             self.data.attrs['last'] = self.last
             self.entry['instrument/detector/pixel_mask'] = self.pixel_mask
-            if 'summed_data' in self.entry:
-                del self.entry['summed_data']
-            self.entry['summed_data'] = NXdata(self.summed_data,
-                                               self.data.nxaxes[-2:])
-            if 'summed_frames' in self.entry:
-                del self.entry['summed_frames']
-            self.entry['summed_frames'] = NXdata(self.summed_frames,
-                                                 self.data.nxaxes[0])
-            self.entry['summed_frames/partial_frames'] = self.partial_frames
+            target = self._get_reduce_target()
+            if 'summed_data' in target:
+                del target['summed_data']
+            target['summed_data'] = NXdata(self.summed_data,
+                                           self.data.nxaxes[-2:])
+            if 'summed_frames' in target:
+                del target['summed_frames']
+            target['summed_frames'] = NXdata(self.summed_frames,
+                                             self.data.nxaxes[0])
+            target['summed_frames/partial_frames'] = self.partial_frames
             self.calculate_radial_sums()
         self.clear_parameters(['first', 'last'])
 
@@ -1376,9 +1376,10 @@ class NXReduce(QtCore.QObject):
             Q = (4 * np.pi * np.sin(np.radians(polar_angle) / 2.0)
                  / (ai.wavelength * 1e10))
             with self:
-                if 'radial_sum' in self.entry:
-                    del self.entry['radial_sum']
-                self.entry['radial_sum'] = NXdata(
+                target = self._get_reduce_target()
+                if 'radial_sum' in target:
+                    del target['radial_sum']
+                target['radial_sum'] = NXdata(
                     NXfield(intensity, name='radial_sum'),
                     NXfield(polar_angle, name='polar_angle', units='degrees'),
                     Q=NXfield(Q, name='Q', units='Ang-1'))
@@ -1435,9 +1436,10 @@ class NXReduce(QtCore.QObject):
             number as the x-axis.
         """
         if self.partial_frames is None:
-            if ('summed_frames' in self.entry
-                    and 'partial_frames' in self.entry['summed_frames']):
-                y = self.entry['summed_frames/partial_frames'].nxvalue
+            target = self.reduce_entry or self.entry
+            if ('summed_frames' in target
+                    and 'partial_frames' in target['summed_frames']):
+                y = target['summed_frames/partial_frames'].nxvalue
             else:
                 raise NeXusError('Partial frames not available')
         else:

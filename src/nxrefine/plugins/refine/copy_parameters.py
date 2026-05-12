@@ -22,9 +22,9 @@ def show_dialog():
 
 class CopyDialog(NXDialog):
 
-    def __init__(self, scans_file, entry=None):
+    def __init__(self, scans_file, subentry=None):
         super().__init__()
-        self.parent = NXParent(scans_file, entry=entry)
+        self.parent = NXParent(scans_file, subentry=subentry)
         self.set_layout(self.filebox('Choose NeXus File'),
                         self.close_layout(save=True))
         self.set_title('Copying Parameters')

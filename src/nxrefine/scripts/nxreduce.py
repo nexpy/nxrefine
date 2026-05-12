@@ -20,6 +20,8 @@ def main():
                         help='scan directory')
     parser.add_argument('-e', '--entries', nargs='+',
                         help='names of entries to be processed')
+    parser.add_argument('-s', '--subentry', default='',
+                        help='subentry to be processed')
     parser.add_argument('-L', '--load', action='store_true',
                         help='load raw data')
     parser.add_argument('-l', '--link', action='store_true',
@@ -42,8 +44,6 @@ def main():
                         help='perform PDF transforms')
     parser.add_argument('-R', '--regular', action='store_true',
                         help='perform regular CCTW transforms')
-    parser.add_argument('-s', '--subentry', default='',
-                        help='subentry to be processed')
     parser.add_argument('-M', '--mask', action='store_true',
                         help='perform CCTW transforms with 3D mask')
     parser.add_argument('-o', '--overwrite', action='store_true',

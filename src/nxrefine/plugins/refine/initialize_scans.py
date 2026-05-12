@@ -87,22 +87,22 @@ class InitializeDialog(NXDialog):
         self.parent.reload()
 
     def setup_files(self):
-        dialog = FilesDialog(self.parent.filename, self.parent.entry)
+        dialog = FilesDialog(self.parent.filename, self.parent.subentry)
         dialog.show()
         pass
 
     def setup_settings(self):
-        dialog = ParametersDialog(self.parent.filename, self.parent.entry)
+        dialog = ParametersDialog(self.parent.filename, self.parent.subentry)
         dialog.show()
 
     def setup_lattice(self):
-        dialog = LatticeDialog(self.parent.filename, self.parent.entry)
+        dialog = LatticeDialog(self.parent.filename, self.parent.subentry)
         dialog.show()
 
     def setup_transforms(self):
-        dialog = TransformDialog(self.parent.filename, self.parent.entry)
+        dialog = TransformDialog(self.parent.filename, self.parent.subentry)
         dialog.show()
 
     def copy_parameters(self):
-        dialog = CopyDialog(self.parent.filename, self.parent.entry)
+        dialog = CopyDialog(self.parent.filename, self.parent.subentry)
         dialog.show()

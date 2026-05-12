@@ -81,7 +81,7 @@ class WorkflowDialog(NXDialog):
         self.set_default_directory(self.sample_directory)
 
     def select_files(self):
-        dialog = FilesDialog(self.parent.filename, self.parent.entry)
+        dialog = FilesDialog(self.parent.filename, self.parent.subentry)
         dialog.show()
 
     @property
