@@ -7,9 +7,9 @@
 # -----------------------------------------------------------------------------
 from pathlib import Path as Path
 
-from nexusformat.nexus import (NeXusError, NXentry, NXfield, NXparameters,
-                               NXprocess, NXroot, NXsample, NXsubentry,
-                               nxconsolidate, nxopen)
+from nexusformat.nexus import (NeXusError, NXdata, NXentry, NXfield,
+                               NXparameters, NXprocess, NXroot, NXsample,
+                               NXsubentry, nxconsolidate, nxopen)
 from nexusformat.nexus.tree import natural_sort, string_dtype
 
 
@@ -361,6 +361,24 @@ class NXParent:
                     mainwindow.tree[node].reload()
         except Exception:
             pass
+
+    def copy_file(self, config_file):
+        with nxopen(config_file) as root:
+            for entry in root.entries:
+                if entry not in self.root:
+                    self.root[entry] = NXentry()
+                if 'instrument' in root[entry]:
+                    instrument = root[entry]['instrument']
+                    if 'instrument' in self.root[entry]:
+                        del self.root[entry]['instrument']
+                    self.root[entry]['instrument'] = instrument
+            if 'sample' in root['entry']:
+                if 'sample' in self.root['entry']:
+                    del self.root['entry/sample']
+                self.sample_info = root['entry/sample']
+            if 'transform' in root['entry']:
+                L, K, H = root['entry/transform'].nxaxes
+                self.transform = NXdata(axes=(L, K, H))
 
     def initialize(self):
         with self.root:
