@@ -210,6 +210,12 @@ class NXDatabase:
             .filter(File.filename == self.get_filename(filename)) \
             .one_or_none()
 
+    def _task_in_group(self, group, task_name):
+        """True if a task NXprocess exists in a group or its nxworkflow child."""
+        if 'nxworkflow' in group:
+            return task_name in group['nxworkflow']
+        return task_name in group
+
     def sync_file(self, filename):
         """Synchronize the NeXus file contents to the database.
 
@@ -237,33 +243,34 @@ class NXDatabase:
             for e in entries:
                 nxentry = root[e]
                 if e in root and 'data' in nxentry and 'instrument' in nxentry:
-                    if 'nxload' in nxentry:
+                    if self._task_in_group(nxentry, 'nxload'):
                         tasks['nxload'] += 1
                     elif e+'.h5' in scan_files or e+'.nxs' in scan_files:
                         tasks['nxload'] += 1
-                    if 'nxlink' in nxentry:
+                    if self._task_in_group(nxentry, 'nxlink'):
                         tasks['nxlink'] += 1
-                    if 'nxmax' in nxentry:
+                    if self._task_in_group(nxentry, 'nxmax'):
                         tasks['nxmax'] += 1
-                    if 'nxfind' in nxentry:
+                    if self._task_in_group(nxentry, 'nxfind'):
                         tasks['nxfind'] += 1
-                    if 'nxcopy' in nxentry:
+                    if self._task_in_group(nxentry, 'nxcopy'):
                         tasks['nxcopy'] += 1
-                    if 'nxrefine' in nxentry:
+                    if self._task_in_group(nxentry, 'nxrefine'):
                         tasks['nxrefine'] += 1
-                    if 'nxprepare_mask' in nxentry:
+                    if self._task_in_group(nxentry, 'nxprepare_mask'):
                         tasks['nxprepare'] += 1
-                    if 'nxtransform' in nxentry:
+                    if self._task_in_group(nxentry, 'nxtransform'):
                         tasks['nxtransform'] += 1
-                    if 'nxmasked_transform' in nxentry or 'nxmask' in nxentry:
+                    if (self._task_in_group(nxentry, 'nxmasked_transform')
+                            or self._task_in_group(nxentry, 'nxmask')):
                         tasks['nxmasked_transform'] += 1
-            if 'nxcombine' in root['entry']:
+            if self._task_in_group(root['entry'], 'nxcombine'):
                 tasks['nxcombine'] = len(entries)
-            if 'nxmasked_combine' in root['entry']:
+            if self._task_in_group(root['entry'], 'nxmasked_combine'):
                 tasks['nxmasked_combine'] = len(entries)
-            if 'nxpdf' in root['entry']:
+            if self._task_in_group(root['entry'], 'nxpdf'):
                 tasks['nxpdf'] = len(entries)
-            if 'nxmasked_pdf' in root['entry']:
+            if self._task_in_group(root['entry'], 'nxmasked_pdf'):
                 tasks['nxmasked_pdf'] = len(entries)
             for task, value in tasks.items():
                 if value == 0:

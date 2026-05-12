@@ -894,12 +894,20 @@ class NXReduce(QtCore.QObject):
     def complete(self, task):
         """True if the task for this entry in the wrapper file is done."""
         target = self.reduce_entry
-        return target is not None and task in target
+        if target is None:
+            return False
+        if 'nxworkflow' in target:
+            return task in target['nxworkflow']
+        return task in target
 
     def all_complete(self, task):
         """True if the task for all entries in this wrapper file are done."""
         for entry in self.entries:
-            if task not in self._get_entry_target(entry):
+            entry_target = self._get_entry_target(entry)
+            if 'nxworkflow' in entry_target:
+                if task not in entry_target['nxworkflow']:
+                    return False
+            elif task not in entry_target:
                 return False
         return True
 
@@ -910,7 +918,11 @@ class NXReduce(QtCore.QObject):
         overwritten, unless `overwrite` is set to True.
         """
         target = self.reduce_entry
-        return target is None or task not in target or self.overwrite
+        if target is None or self.overwrite:
+            return True
+        if 'nxworkflow' in target:
+            return task not in target['nxworkflow']
+        return task not in target
 
     @property
     def oriented(self):
@@ -1003,14 +1015,23 @@ class NXReduce(QtCore.QObject):
                                 parameters))
         with self:
             target = self._get_reduce_target()
-            if process in target:
-                del target[process]
-            target[process] = NXprocess(
+            if 'nxworkflow' not in target:
+                target['nxworkflow'] = NXcollection()
+                workflow = target['nxworkflow']
+                existing = [name for name, item in target.entries.items()
+                            if isinstance(item, NXprocess)]
+                for name in existing:
+                    target.move(name, workflow)
+            else:
+                workflow = target['nxworkflow']
+            if process in workflow:
+                del workflow[process]
+            workflow[process] = NXprocess(
                 program=f'{process}',
-                sequence_index=len(target.NXprocess) + 1,
+                sequence_index=len(workflow.NXprocess) + 1,
                 version='nxrefine v' + __version__, note=note)
             for key in [k for k in kwargs if k in self.default]:
-                target[process][key] = kwargs[key]
+                workflow[process][key] = kwargs[key]
 
     def record_start(self, task):
         """Record that a task has started in the database """
