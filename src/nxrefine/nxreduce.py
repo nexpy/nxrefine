@@ -6,6 +6,7 @@
 # The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
+import datetime
 import logging
 import operator
 import os
@@ -225,6 +226,8 @@ class NXReduce(QtCore.QObject):
         self.log_file = self.task_directory / 'nxlogger.log'
 
         self.timer = {}
+        self.start_time = {}
+        self.queue_time = {}
 
         self.summed_frames = None
         self.partial_frames = None
@@ -1029,6 +1032,14 @@ class NXReduce(QtCore.QObject):
                 program=f'{process}',
                 sequence_index=len(workflow.NXprocess) + 1,
                 version='nxrefine v' + __version__, note=note)
+            if task in self.queue_time:
+                workflow[process]['queue_time'] = (
+                    self.queue_time[task].isoformat())
+            if task in self.start_time:
+                workflow[process]['start_time'] = (
+                    self.start_time[task].isoformat())
+            workflow[process]['end_time'] = datetime.datetime.now().isoformat()
+            workflow[process]['pid'] = os.getpid()
             for key in [k for k in kwargs if k in self.default]:
                 workflow[process][key] = kwargs[key]
 
@@ -1037,6 +1048,7 @@ class NXReduce(QtCore.QObject):
         try:
             self.db.start_task(self.wrapper_file, task, self.entry_name,
                                subentry=self.subentry)
+            self.start_time[task] = datetime.datetime.now()
             self.timer[task] = timeit.default_timer()
             self.log(f"{self.name}: '{task}' started")
         except Exception as error:
@@ -2207,7 +2219,9 @@ class NXReduce(QtCore.QObject):
         if entry is None:
             entry = self.entry_name
         if self.not_processed(task):
-            self.db.queue_task(self.wrapper_file, task, entry)
+            self.queue_time[task] = datetime.datetime.now()
+            self.db.queue_task(self.wrapper_file, task, entry,
+                               queue_time=self.queue_time[task])
 
 
 class NXMultiReduce(NXReduce):
