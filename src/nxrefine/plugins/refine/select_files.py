@@ -8,7 +8,8 @@
 
 from nexpy.gui.dialogs import GridParameters, NXDialog
 from nexpy.gui.utils import confirm_action, report_error
-from nexpy.gui.widgets import NXLabel, NXLineEdit, NXScrollArea, NXWidget
+from nexpy.gui.widgets import (NXLabel, NXLineEdit, NXPushButton, NXScrollArea,
+                               NXWidget)
 
 from nxrefine.nxparent import NXParent
 
@@ -34,6 +35,10 @@ class FilesDialog(NXDialog):
             self.scan_files.grid(header=None, width=200, spacing=10)))
             self.scan_scroll_area.setWidget(self.scan_widget)
             layout.append(self.scan_scroll_area)
+            layout.append(self.make_layout(
+                NXPushButton('Select All', self.select_all),
+                NXPushButton('Deselect All', self.deselect_all),
+                align='center'))
         else:
             self.scan_files = []
         
@@ -61,6 +66,14 @@ class FilesDialog(NXDialog):
         self.set_layout(*layout, self.close_layout(save=True))
         self.set_title('Select Files')
         self.setMinimumWidth(400)
+
+    def select_all(self):
+        for f in self.scan_files:
+            self.scan_files[f].vary = True
+
+    def deselect_all(self):
+        for f in self.scan_files:
+            self.scan_files[f].vary = False
 
     def select_prefix(self):
         prefix = self.prefix_box.text()
