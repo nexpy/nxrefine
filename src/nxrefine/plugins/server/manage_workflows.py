@@ -115,7 +115,7 @@ class WorkflowDialog(NXDialog):
             return
         self.parent.create_scan_entry(name)
         self.refresh_subentries()
-        self.subentry_combo.select(name)
+        self.subentry_combo.select(f'/entry/{name}')
 
     def add_grid_headers(self):
         if self.header_widget is not None:
@@ -231,9 +231,9 @@ class WorkflowDialog(NXDialog):
             status = self.scans[scan]
             f = self.db.get_file(wrapper)
             status['entries'] = f.get_entries()
-            if self.subentry:
+            if self.parent.subentry:
                 subentry_status = self.db.get_subentry_status(
-                    wrapper, self.parent.entry)
+                    wrapper, self.parent.subentry)
                 for task_name in self.db.subentry_task_names:
                     col_name = task_name[2:]
                     self._set_checkbox(status[col_name],
@@ -305,7 +305,7 @@ class WorkflowDialog(NXDialog):
 
     @property
     def tasks(self):
-        if self.subentry:
+        if self.parent.subentry:
             return ['copy', 'max', 'find', 'refine', 'prepare',
                     'transform', 'masked_transform', 'combine',
                     'masked_combine', 'pdf', 'masked_pdf']
@@ -416,9 +416,9 @@ class WorkflowDialog(NXDialog):
                 else:
                     reduce = NXReduce(entry, scan, server=self.server)
                     reduce.regular = reduce.mask = False
-                    if not self.subentry and self.selected(scan, 'load'):
+                    if not self.parent.subentry and self.selected(scan, 'load'):
                         reduce.load = True
-                    if not self.subentry and self.selected(scan, 'link'):
+                    if not self.parent.subentry and self.selected(scan, 'link'):
                         reduce.link = True
                     if self.selected(scan, 'copy'):
                         reduce.copy = True
