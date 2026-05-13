@@ -275,7 +275,10 @@ class NXRefine:
         """
         try:
             if path.startswith('sample'):
-                entry = self.entry.nxroot['entry']
+                if 'sample' in self.entry:
+                    entry = self.entry
+                else:
+                    entry = self.entry.nxroot['entry']
             else:
                 entry = self.entry
             if attr:
@@ -442,7 +445,10 @@ class NXRefine:
             Name of attribute, by default None
         """
         if path.startswith('sample'):
-            entry = self.entry.nxroot['entry']
+            if 'sample' in self.entry:
+                entry = self.entry
+            else:
+                entry = self.entry.nxroot['entry']
         else:
             entry = self.entry
         if value is not None:

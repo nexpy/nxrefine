@@ -340,6 +340,9 @@ class NXParent:
                 self.scan_info.set_date()
             else:
                 self.initialize()
+            if ('sample' in self.root['entry'] and
+                    'sample' not in self.root['entry'][entry]):
+                self.root['entry'][entry]['sample'] = self.root['entry/sample']
 
     def create_scan_data(self, data_path):
         """Create consolidated scan data."""
