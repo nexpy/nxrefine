@@ -55,6 +55,14 @@ class PrepareDialog(NXDialog):
 
     def choose_entry(self):
         subentries = [s.nxname for s in self.entry.NXsubentry]
+        try:
+            reduce = NXReduce(self.entry)
+            if reduce.parent:
+                for s in reduce.parent.root['entry'].NXsubentry:
+                    if s.nxname not in subentries:
+                        subentries.append(s.nxname)
+        except Exception:
+            pass
         if self.layout.count() == 2:
             pos = 1
             if subentries:

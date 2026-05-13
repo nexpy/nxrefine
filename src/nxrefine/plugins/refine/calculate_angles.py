@@ -11,6 +11,7 @@ from nexpy.gui.plotview import get_plotview
 from nexpy.gui.utils import report_error
 from nexpy.gui.widgets import NXLabel
 from nexusformat.nexus import NeXusError, NXdata, NXfield
+from nxrefine.nxreduce import NXReduce
 from nxrefine.nxrefine import NXRefine
 
 
@@ -47,6 +48,14 @@ class CalculateDialog(NXDialog):
 
     def choose_entry(self):
         subentries = [s.nxname for s in self.entry.NXsubentry]
+        try:
+            reduce = NXReduce(self.entry)
+            if reduce.parent:
+                for s in reduce.parent.root['entry'].NXsubentry:
+                    if s.nxname not in subentries:
+                        subentries.append(s.nxname)
+        except Exception:
+            pass
         if not self._ui_built and subentries and self.subentry_combo is None:
             self.insert_layout(1, self.subentry_layout(subentries))
         elif self.subentry_combo is not None:
