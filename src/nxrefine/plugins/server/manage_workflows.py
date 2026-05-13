@@ -82,7 +82,7 @@ class WorkflowDialog(NXDialog):
 
     def select_files(self):
         dialog = FilesDialog(self.parent.filename, self.parent.subentry)
-        dialog.accepted.connect(self.update)
+        dialog.finished.connect(lambda result: result and self.update())
         dialog.show()
 
     @property
