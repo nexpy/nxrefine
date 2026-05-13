@@ -83,7 +83,7 @@ class InitializeDialog(NXDialog):
             return
         self.parent.create_scan_entry(name)
         self.refresh_subentries()
-        self.subentry_combo.select(name)
+        self.subentry_combo.select(f'/entry/{name}')
         self.parent.reload()
 
     def setup_files(self):
