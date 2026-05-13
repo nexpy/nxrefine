@@ -9,7 +9,7 @@
 from nexpy.gui.dialogs import GridParameters, NXDialog
 from nexpy.gui.plotview import NXPlotView
 from nexpy.gui.utils import is_file_locked, report_error
-from nexpy.gui.widgets import NXLabel, NXPushButton
+from nexpy.gui.widgets import NXPushButton
 from nexusformat.nexus import NeXusError, NXdata
 from nxrefine.nxreduce import NXReduce
 from nxrefine.nxsettings import NXSettings
@@ -28,8 +28,8 @@ class PrepareDialog(NXDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.select_entry(self.choose_entry)
-
+        self.select_entry(self.choose_entry, subentry=True,
+                          subentries_callback=self.get_parent_subentries)
         default = NXSettings().settings['nxreduce']
         self.parameters = GridParameters()
         self.parameters.add('first', default['first_frame'], 'First Frame')
@@ -38,7 +38,6 @@ class PrepareDialog(NXDialog):
         self.parameters.add('horizontal1', '11', 'Horizontal Size 1')
         self.parameters.add('threshold2', '0.8', 'Threshold 2')
         self.parameters.add('horizontal2', '51', 'Horizontal Size 2')
-        self.parameters.grid()
         self.prepare_button = NXPushButton('Prepare Mask', self.prepare_mask)
         self.plot_button = NXPushButton('Plot Mask', self.plot_mask)
         self.prepare_layout = self.make_layout(self.prepare_button,
@@ -46,49 +45,24 @@ class PrepareDialog(NXDialog):
                                                align='center')
         self.plot_button.setVisible(False)
         self.set_layout(self.entry_layout,
+                        self.parameters.grid(),
+                        self.prepare_layout,
                         self.close_layout(save=True, progress=True))
         self.set_title('Prepare 3D Mask')
         self.reduce = None
         self.mask = None
         self.plotview = None
-        self.subentry_combo = None
 
-    def choose_entry(self):
-        subentries = [s.nxname for s in self.entry.NXsubentry]
+    def get_parent_subentries(self):
         try:
             reduce = NXReduce(self.entry)
             if reduce.parent:
-                for s in reduce.parent.root['entry'].NXsubentry:
-                    if s.nxname not in subentries:
-                        subentries.append(s.nxname)
+                return [s.nxname for s in reduce.parent.root['entry'].NXsubentry]
         except Exception:
             pass
-        if self.layout.count() == 2:
-            pos = 1
-            if subentries:
-                self.insert_layout(pos, self.subentry_layout(subentries))
-                pos += 1
-            self.insert_layout(pos, self.parameters.grid_layout); pos += 1
-            self.insert_layout(pos, self.prepare_layout)
-        elif self.subentry_combo is not None:
-            self.subentry_combo.blockSignals(True)
-            self.subentry_combo.clear()
-            self.subentry_combo.add(*([''] + subentries))
-            self.subentry_combo.blockSignals(False)
-        self.choose_subentry()
+        return []
 
-    def subentry_layout(self, subentries):
-        self.subentry_combo = self.select_box(
-            [''] + subentries, slot=self.choose_subentry)
-        return self.make_layout(NXLabel('Subentry:'), self.subentry_combo)
-
-    @property
-    def subentry(self):
-        if self.subentry_combo is not None:
-            return self.subentry_combo.selected
-        return ''
-
-    def choose_subentry(self):
+    def choose_entry(self):
         self.reduce = NXReduce(self.entry, subentry=self.subentry or None)
         self.parameters['first'].value = self.reduce.first
         self.parameters['last'].value = self.reduce.last

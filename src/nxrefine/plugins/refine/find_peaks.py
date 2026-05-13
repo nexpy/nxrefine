@@ -33,8 +33,8 @@ class FindDialog(NXDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.select_entry(self.choose_entry)
-
+        self.select_entry(self.choose_entry, subentry=True,
+                          subentries_callback=self.get_parent_subentries)
         default = NXSettings().settings['nxreduce']
         self.parameters = GridParameters()
         self.parameters.add('threshold', default['threshold'], 'Threshold')
@@ -42,56 +42,29 @@ class FindDialog(NXDialog):
         self.parameters.add('last', default['last_frame'], 'Last Frame')
         self.parameters.add('min_pixels', default['min_pixels'],
                             'Minimum Pixels Between Peaks')
-        self.parameters.grid()
-        self.find_button = NXPushButton('Find Peaks', self.find_peaks)
         self.find_layout = self.make_layout(
             self.action_buttons(('Find Peaks', self.find_peaks),
                                 ('List Peaks', self.list_peaks)),
             align='center')
         self.set_layout(self.entry_layout,
+                        self.parameters.grid(),
+                        self.find_layout,
                         self.close_layout(save=True, progress=True))
         self.set_title('Find Peaks')
         self.reduce = None
         self.refine = None
         self.peaks_box = None
-        self.subentry_combo = None
 
-    def choose_entry(self):
-        subentries = [s.nxname for s in self.entry.NXsubentry]
+    def get_parent_subentries(self):
         try:
             reduce = NXReduce(self.entry)
             if reduce.parent:
-                for s in reduce.parent.root['entry'].NXsubentry:
-                    if s.nxname not in subentries:
-                        subentries.append(s.nxname)
+                return [s.nxname for s in reduce.parent.root['entry'].NXsubentry]
         except Exception:
             pass
-        if self.layout.count() == 2:
-            pos = 1
-            if subentries:
-                self.insert_layout(pos, self.subentry_layout(subentries))
-                pos += 1
-            self.insert_layout(pos, self.parameters.grid_layout); pos += 1
-            self.insert_layout(pos, self.find_layout)
-        elif self.subentry_combo is not None:
-            self.subentry_combo.blockSignals(True)
-            self.subentry_combo.clear()
-            self.subentry_combo.add(*([''] + subentries))
-            self.subentry_combo.blockSignals(False)
-        self.choose_subentry()
+        return []
 
-    def subentry_layout(self, subentries):
-        self.subentry_combo = self.select_box(
-            [''] + subentries, slot=self.choose_subentry)
-        return self.make_layout(NXLabel('Subentry:'), self.subentry_combo)
-
-    @property
-    def subentry(self):
-        if self.subentry_combo is not None:
-            return self.subentry_combo.selected
-        return ''
-
-    def choose_subentry(self):
+    def choose_entry(self):
         self.reduce = NXReduce(self.entry, subentry=self.subentry or None)
         self.refine = NXRefine(self.entry)
         self.refine.polar_max = self.refine.two_theta_max()
