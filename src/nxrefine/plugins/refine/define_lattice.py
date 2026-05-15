@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2014-2026, Argonne National Laboratory.
+# Copyright (c) 2022-2026, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
@@ -10,76 +10,68 @@ from pathlib import Path
 
 from nexpy.gui.dialogs import GridParameters, NXDialog
 from nexpy.gui.pyqt import getOpenFileName
-from nexpy.gui.utils import report_error
+from nexpy.gui.utils import display_message, report_error
 from nexpy.gui.widgets import NXCheckBox, NXPushButton
 from nexusformat.nexus import NeXusError
+from nxrefine.nxparent import NXParent
 from nxrefine.nxrefine import NXRefine
-
-
-def show_dialog():
-    try:
-        dialog = LatticeDialog()
-        dialog.show()
-    except NeXusError as error:
-        report_error("Defining Lattice", error)
 
 
 class LatticeDialog(NXDialog):
 
-    def __init__(self, parent=None):
-        super().__init__(parent)
-
-        self.select_root(self.choose_entry)
-
-        self.import_button = NXPushButton('Import CIF', self.import_cif)
+    def __init__(self, scans_file, entry=None):
+        super().__init__()
+        self.parent = NXParent(scans_file, entry=entry)
+        self.refine = NXRefine(self.parent.root[f'{self.parent.entry}'])
+        self.parameters = GridParameters()
+        self.parameters.add('chemical_formula', self.refine.formula,
+                            'Chemical Formula')
+        self.parameters.add('space_group', self.refine.space_group,
+                            'Space Group', slot=self.set_groups)
+        self.parameters.add('laue_group', self.refine.laue_groups,
+                            'Laue Group')
+        self.parameters.add('symmetry', self.refine.symmetries, 'Symmetry',
+                            slot=self.set_lattice_parameters)
+        self.parameters.add('centring', self.refine.centrings,
+                            'Cell Centring')
+        self.parameters.add('a', self.refine.a, 'Unit Cell - a (Ang)',
+                            slot=self.set_lattice_parameters)
+        self.parameters.add('b', self.refine.b, 'Unit Cell - b (Ang)',
+                            slot=self.set_lattice_parameters)
+        self.parameters.add('c', self.refine.c, 'Unit Cell - c (Ang)',
+                            slot=self.set_lattice_parameters)
+        self.parameters.add('alpha', self.refine.alpha,
+                            'Unit Cell - alpha (deg)',
+                            slot=self.set_lattice_parameters)
+        self.parameters.add('beta', self.refine.beta,
+                            'Unit Cell - beta (deg)',
+                            slot=self.set_lattice_parameters)
+        self.parameters.add('gamma', self.refine.gamma,
+                            'Unit Cell - gamma (deg)',
+                            slot=self.set_lattice_parameters)
+        self.parameters['laue_group'].value = self.refine.laue_group
+        self.parameters['symmetry'].value = self.refine.symmetry
+        self.parameters['centring'].value = self.refine.centring
+        self.import_button = NXPushButton('Import CIF',
+                                          self.import_cif)
         self.import_checkbox = NXCheckBox('Update Lattice Parameters')
-        self.set_layout(self.root_layout, self.close_buttons(save=True))
-        self.set_title('Defining Lattice')
-
-    def choose_entry(self):
-        import gemmi.cif
-        self.refine = NXRefine(self.root['entry'])
-        if self.layout.count() == 2:
-            self.parameters = GridParameters()
-            self.parameters.add('chemical_formula', self.refine.formula,
-                                'Chemical Formula')
-            self.parameters.add('space_group', self.refine.space_group,
-                                'Space Group', slot=self.set_groups)
-            self.parameters.add('laue_group', self.refine.laue_groups,
-                                'Laue Group')
-            self.parameters.add('symmetry', self.refine.symmetries, 'Symmetry',
-                                slot=self.set_lattice_parameters)
-            self.parameters.add('centring', self.refine.centrings,
-                                'Cell Centring')
-            self.parameters.add('a', self.refine.a, 'Unit Cell - a (Ang)',
-                                slot=self.set_lattice_parameters)
-            self.parameters.add('b', self.refine.b, 'Unit Cell - b (Ang)',
-                                slot=self.set_lattice_parameters)
-            self.parameters.add('c', self.refine.c, 'Unit Cell - c (Ang)',
-                                slot=self.set_lattice_parameters)
-            self.parameters.add('alpha', self.refine.alpha,
-                                'Unit Cell - alpha (deg)',
-                                slot=self.set_lattice_parameters)
-            self.parameters.add('beta', self.refine.beta,
-                                'Unit Cell - beta (deg)',
-                                slot=self.set_lattice_parameters)
-            self.parameters.add('gamma', self.refine.gamma,
-                                'Unit Cell - gamma (deg)',
-                                slot=self.set_lattice_parameters)
-            self.parameters['laue_group'].value = self.refine.laue_group
-            self.parameters['symmetry'].value = self.refine.symmetry
-            self.parameters['centring'].value = self.refine.centring
-            self.insert_layout(1, self.parameters.grid(header=False))
-            if gemmi.cif:
-                self.insert_layout(2, self.make_layout(self.import_button,
-                                                       self.import_checkbox,
-                                                       align='center'))
+        self.set_layout(self.parameters.grid(),
+                        self.make_layout(self.import_button,
+                                         self.import_checkbox,
+                                         align='center'),
+                                         self.close_layout(save=True))
         self.update_parameters()
 
     def import_cif(self):
-        import gemmi
+        try:
+            import gemmi
+        except ImportError:
+            display_message("Please install the gemmi package")
+            return
         import gemmi.cif as cif
-        filename = getOpenFileName(self, 'Open CIF File')
+        filename = getOpenFileName(self, 'Open CIF File',
+                                   self.default_directory,
+                                   filter='CIF Files (*.cif)')
         if Path(filename).is_file():
             cif_doc = cif.read_file(filename)
             found_block = False
@@ -89,8 +81,8 @@ class LatticeDialog(NXDialog):
                     break
 
             if not found_block:
-                # TODO: Should this use report_error()?
-                raise ValueError(f"No valid lattice data found in {filename}")
+                display_message(f"No valid lattice data found in {filename}")
+                return
 
             def value(text):
                 if '(' in text:
@@ -99,11 +91,14 @@ class LatticeDialog(NXDialog):
                     return float(text)
 
             if self.import_checkbox.isChecked():
-                self.refine.a = value(cif_block.find_pair('_cell_length_a')[1])
-                self.refine.b = value(cif_block.find_pair('_cell_length_b')[1])
-                self.refine.c = value(cif_block.find_pair('_cell_length_c')[1])
-            self.refine.alpha = value(
-                cif_block.find_pair('_cell_angle_alpha')[1])
+                self.refine.a = value(cif_block.find_pair(
+                    '_cell_length_a')[1])
+                self.refine.b = value(cif_block.find_pair(
+                    '_cell_length_b')[1])
+                self.refine.c = value(cif_block.find_pair(
+                    '_cell_length_c')[1])
+            self.refine.alpha = value(cif_block.find_pair(
+                '_cell_angle_alpha')[1])
             self.refine.beta = value(cif_block.find_pair(
                 '_cell_angle_beta')[1])
             self.refine.gamma = value(cif_block.find_pair(
@@ -112,10 +107,16 @@ class LatticeDialog(NXDialog):
                 self.refine.sg = gemmi.SpaceGroup(cif_pair[1])
             elif (cif_pair := cif_block.find_pair(
                     '_symmetry_Int_Tables_number')):
+            elif (cif_pair := cif_block.find_pair(
+                    '_symmetry_Int_Tables_number')):
                 self.refine.sg = gemmi.SpaceGroup(cif_pair[1])
             elif (cif_pair := cif_block.find_pair(
                     '_space_group_name_H-M_alt')):
+            elif (cif_pair := cif_block.find_pair(
+                    '_space_group_name_H-M_alt')):
                 self.refine.sg = gemmi.SpaceGroup(cif_pair[1])
+            elif (cif_pair := cif_block.find_pair(
+                    '_symmetry_space_group_name_H-M')):
             elif (cif_pair := cif_block.find_pair(
                     '_symmetry_space_group_name_H-M')):
                 self.refine.sg = gemmi.SpaceGroup(cif_pair[1])
@@ -123,13 +124,12 @@ class LatticeDialog(NXDialog):
                 self.refine.sg = gemmi.find_spacegroup_by_ops(
                     gemmi.symops_from_hall(cif_pair[1]))
             elif (cif_pair := cif_block.find_pair(
-                    '_symmetry_space_group_name_Hall')):
+                '_symmetry_space_group_name_Hall')):
                 self.refine.sg = gemmi.find_spacegroup_by_ops(
                     gemmi.symops_from_hall(cif_pair[1]))
             self.update_parameters()
 
     def update_parameters(self):
-        self.parameters['chemical_formula'].value = self.refine.formula
         self.parameters['space_group'].value = self.refine.space_group
         self.parameters['laue_group'].value = self.refine.laue_group
         self.parameters['symmetry'].value = self.refine.symmetry
@@ -154,7 +154,11 @@ class LatticeDialog(NXDialog):
                 return
             try:
                 self.refine.sg = sg
-                self.update_parameters()
+                self.parameters['space_group'].value = self.refine.space_group
+                self.parameters['laue_group'].value = self.refine.laue_group
+                self.parameters['symmetry'].value = self.refine.symmetry
+                self.parameters['centring'].value = self.refine.centring
+                self.set_lattice_parameters()
             except Exception:
                 pass
 
@@ -227,6 +231,7 @@ class LatticeDialog(NXDialog):
     def accept(self):
         try:
             self.write_parameters()
+            self.parent.reload()
             super().accept()
         except NeXusError as error:
             report_error("Defining Lattice", error)

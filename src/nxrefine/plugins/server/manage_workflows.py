@@ -6,20 +6,22 @@
 # The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
-from pathlib import Path
 import subprocess
 import time
+from pathlib import Path
 
 from nexpy.gui.pyqt import QtCore, QtWidgets
 from nexpy.gui.utils import (format_mtime, human_size, natural_sort,
                              report_error)
 from nexpy.gui.widgets import (NXDialog, NXLabel, NXPlainTextEdit,
                                NXPushButton, NXScrollArea, NXWidget)
-from nexusformat.nexus import NeXusError, nxload
+from nexusformat.nexus import NeXusError, NXsubentry, nxload, nxopen
 
 from nxrefine.nxdatabase import NXDatabase
+from nxrefine.nxparent import NXParent
 from nxrefine.nxreduce import NXMultiReduce, NXReduce
 from nxrefine.nxserver import NXServer
+from nxrefine.plugins.refine.select_files import FilesDialog
 
 
 def show_dialog():
@@ -35,9 +37,8 @@ class WorkflowDialog(NXDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.set_layout(
-            self.directorybox('Choose Sample Directory', default=False),
-            self.progress_layout(close=True))
+        self.set_layout(self.filebox('Choose Parent File'),
+                        self.close_layout(close=True, progress=True))
         self.progress_bar.setVisible(False)
         self.set_title('Manage Workflows')
         self.grid = None
@@ -49,11 +50,15 @@ class WorkflowDialog(NXDialog):
     def __repr__(self):
         return f"WorkflowDialog('{self.sample_directory}')"
 
-    def choose_directory(self):
-        super().choose_directory()
+    def choose_file(self):
+        super().choose_file(filter="Parent Files (*_scans.nxs)")
+        self.parent_file = self.get_filename()
+        if self.parent_file is None:
+            return
+        self.parent = NXParent(self.parent_file)
         if self.layout.count() == 2:
-            self.insert_layout(1, self.filebox('Choose Parent File'))
-            self.insert_layout(2, self.action_buttons(
+            self.insert_layout(1, self.action_buttons(
+                ('Select Scans', self.select_files),
                 ('Update Status', self.update),
                 ('Add to Queue', self.add_tasks),
                 ('View Logs', self.view_logs),

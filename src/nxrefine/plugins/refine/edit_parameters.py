@@ -1,51 +1,36 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2018-2026, Argonne National Laboratory.
+# Copyright (c) 2022-2026, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
 # The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
-from pathlib import Path
 
-import numpy as np
 from nexpy.gui.dialogs import GridParameters, NXDialog
-from nexpy.gui.plotview import NXPlotView
 from nexpy.gui.utils import report_error
-from nexusformat.nexus import NeXusError, NXdata, NXfield, NXparameters
+from nexusformat.nexus import NeXusError
 
+from nxrefine.nxparent import NXParent
 from nxrefine.nxreduce import NXMultiReduce, NXReduce
 from nxrefine.nxsettings import NXSettings
-from nxrefine.nxutils import detector_flipped
-
-
-def show_dialog():
-    try:
-        dialog = ParametersDialog()
-        dialog.show()
-    except NeXusError as error:
-        report_error("Choosing Parameters", error)
 
 
 class ParametersDialog(NXDialog):
 
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.select_root(self.choose_root)
-        self.set_layout(self.root_layout,
-                        self.close_buttons(save=True))
-        self.set_title('Choose Parameters')
-
-    def choose_root(self):
-        self.entries = [self.root[entry]
-                        for entry in self.root if entry[-1].isdigit()]
-        self.reduce = NXMultiReduce(self.root)
+    def __init__(self, scans_file, entry=None):
+        super().__init__()
+        self.parent = NXParent(scans_file, entry=entry)
+        self.directory = self.parent.directory
+        self.sample = self.parent.sample
+        self.entries = [self.parent.root[entry]
+                        for entry in self.parent.root if entry[-1].isdigit()]
+        self.reduce = NXMultiReduce(self.parent.root)
         default = NXSettings(self.reduce.task_directory).settings['nxreduce']
-
         self.parameters = GridParameters()
         self.parameters.add('threshold', default['threshold'],
                             'Peak Threshold')
-        self.parameters.add('first', default['first'], 'First Frame')
-        self.parameters.add('last', default['last'], 'Last Frame')
+        self.parameters.add('first', default['first_frame'], 'First Frame')
+        self.parameters.add('last', default['last_frame'], 'Last Frame')
         self.parameters.add('polar_max', default['polar_max'],
                             'Max. Polar Angle')
         self.parameters.add('hkl_tolerance', default['hkl_tolerance'],
@@ -59,20 +44,16 @@ class ParametersDialog(NXDialog):
         self.parameters.add('qmax', default['qmax'], 'Maximum Taper Q (Å-1)')
         self.parameters.add('radius', default['radius'], 'Punch Radius (Å)')
         self.parameters.add('scan_path', default['scan_path'], 'Scan Path')
-
-        if self.layout.count() == 2:
-            self.layout.insertLayout(1, self.parameters.grid(header=False))
-            self.layout.insertLayout(2, self.action_buttons(
-                ('Plot Q-Limits', self.plot_Q_limits)))
-            self.layout.insertLayout(3,
-                self.checkboxes(('parent', 'Set As Parent', False)))
+        self.parameters.add('scan_path', default['scan_path'], 'Scan Path')
         self.read_parameters()
-        self.directory = Path(self.root.nxfilename).parent
-        self.sample = self.directory.parent.name
+        self.set_layout(self.parameters.grid(header=False),
+                        self.close_layout(save=True))
+        self.set_title('Edit Settings')
+        self.setMinimumWidth(450)
 
     def read_parameters(self):
-        if 'nxreduce' in self.root['entry']:
-            reduce = self.root['entry/nxreduce']
+        reduce = self.parent.settings
+        if reduce:
             if 'threshold' in reduce:
                 self.parameters['threshold'].value = reduce['threshold']
             if 'first_frame' in reduce:
@@ -126,19 +107,20 @@ class ParametersDialog(NXDialog):
                 pass
 
     def write_parameters(self):
-        if 'nxreduce' not in self.root['entry']:
-            self.root['entry/nxreduce'] = NXparameters()
-        self.root['entry/nxreduce/threshold'] = self.threshold
-        self.root['entry/nxreduce/first_frame'] = self.first
-        self.root['entry/nxreduce/last_frame'] = self.last
-        self.root['entry/nxreduce/polar_max'] = self.polar_max
-        self.root['entry/nxreduce/hkl_tolerance'] = self.hkl_tolerance
-        self.root['entry/nxreduce/monitor'] = self.monitor
-        self.root['entry/nxreduce/norm'] = self.norm
-        self.root['entry/nxreduce/qmin'] = self.qmin
-        self.root['entry/nxreduce/qmax'] = self.qmax
-        self.root['entry/nxreduce/radius'] = self.radius
-        self.root['entry/nxreduce/scan_path'] = self.scan_path
+        with self.parent.root as root:
+            settings = root[f'{self.parent.entry}/nxscans/settings']
+            settings['threshold'] = self.threshold
+            settings['first_frame'] = self.first
+            settings['last_frame'] = self.last
+            settings['polar_max'] = self.polar_max
+            settings['hkl_tolerance'] = self.hkl_tolerance
+            settings['monitor'] = self.monitor
+            settings['norm'] = self.norm
+            settings['qmin'] = self.qmin
+            settings['qmax'] = self.qmax
+            settings['radius'] = self.radius
+            settings['scan_path'] = self.scan_path
+        self.parent.reload()
 
     @property
     def threshold(self):
@@ -180,35 +162,13 @@ class ParametersDialog(NXDialog):
     def radius(self):
         return float(self.parameters['radius'].value)
 
-    def make_parent(self):
-        self.reduce.make_parent()
-
     @property
-    def pv(self):
-        if 'Q-Limits' in self.plotviews:
-            return self.plotviews['Q-Limits']
-        else:
-            return NXPlotView('Q-Limits')
-
-    def plot_Q_limits(self):
-        self.reduce.qmin = self.qmin
-        self.reduce.qmax = self.qmax
-        self.pv.plot(NXdata(self.reduce.transmission_coordinates(),
-                            (NXfield(np.arange(self.reduce.shape[1]),
-                                     name='y'),
-                             NXfield(np.arange(self.reduce.shape[2]),
-                                     name='x')),
-                            title=f'Q-Limits: {self.root.nxname}'))
-        self.pv.aspect = 'equal'
-        self.pv.ytab.flipped = detector_flipped(self.reduce.entry)
+    def scan_path(self):
+        return self.parameters['scan_path'].value
 
     def accept(self):
         try:
             self.write_parameters()
-            if self.checkbox['parent'].isChecked():
-                if self.confirm_action(
-                    f"Set '{self.root.nxfilename}' as parent", answer='yes'):
-                    self.make_parent()
             super().accept()
         except NeXusError as error:
-            report_error("Choosing Parameters", error)
+            report_error("Editing Settings", error)

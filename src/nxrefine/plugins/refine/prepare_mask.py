@@ -32,8 +32,8 @@ class PrepareDialog(NXDialog):
 
         default = NXSettings().settings['nxreduce']
         self.parameters = GridParameters()
-        self.parameters.add('first', default['first'], 'First Frame')
-        self.parameters.add('last', default['last'], 'Last Frame')
+        self.parameters.add('first', default['first_frame'], 'First Frame')
+        self.parameters.add('last', default['last_frame'], 'Last Frame')
         self.parameters.add('threshold1', '2', 'Threshold 1')
         self.parameters.add('horizontal1', '11', 'Horizontal Size 1')
         self.parameters.add('threshold2', '0.8', 'Threshold 2')

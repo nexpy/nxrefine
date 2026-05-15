@@ -38,8 +38,8 @@ class FindDialog(NXDialog):
         default = NXSettings().settings['nxreduce']
         self.parameters = GridParameters()
         self.parameters.add('threshold', default['threshold'], 'Threshold')
-        self.parameters.add('first', default['first'], 'First Frame')
-        self.parameters.add('last', default['last'], 'Last Frame')
+        self.parameters.add('first', default['first_frame'], 'First Frame')
+        self.parameters.add('last', default['last_frame'], 'Last Frame')
         self.parameters.add('min_pixels', default['min_pixels'],
                             'Minimum Pixels Between Peaks')
         self.parameters.grid()

@@ -33,7 +33,7 @@ class ExperimentSettingsDialog(NXDialog):
                                              self.choose_directory)
         self.directoryname = NXLabel(bold=True)
         settings = NXSettings().settings
-        self.default_directory = settings['instrument']['analysis_home']
+        self.set_default_directory(settings['instrument']['analysis_home'])
         self.analysis_path = settings['instrument']['analysis_path']
         if self.analysis_path is False or self.analysis_path == 'None':
             self.analysis_path = None
@@ -67,13 +67,9 @@ class ExperimentSettingsDialog(NXDialog):
         self.setMinimumWidth(350)
 
     def choose_directory(self):
-        if self.default_directory:
-            self.set_default_directory(self.default_directory)
         super().choose_directory()
         directory = self.get_directory()
-        if directory:
-            directory = Path(directory)
-        else:
+        if directory is None:
             self.reject()
             return
         if directory.name == self.analysis_path:

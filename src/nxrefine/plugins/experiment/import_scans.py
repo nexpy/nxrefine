@@ -29,8 +29,7 @@ class ImportScanDialog(NXDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.directory_box = self.directorybox('Choose Experiment Directory',
-                                               self.choose_directory,
-                                               default=False)
+                                               self.choose_directory)
         self.set_layout(self.directory_box, self.close_buttons(save=True))
         self.set_title('Import Scans')
 
@@ -74,7 +73,7 @@ class ImportScanDialog(NXDialog):
 
     @property
     def experiment_directory(self):
-        directory = Path(self.get_directory())
+        directory = self.get_directory()
         if self.analysis_path and directory.name != self.analysis_path:
             analysis_directory = directory / self.analysis_path
             if analysis_directory.exists():

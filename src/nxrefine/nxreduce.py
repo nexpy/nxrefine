@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2018-2026, Argonne National Laboratory.
+# Copyright (c) 2022, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
@@ -28,6 +28,7 @@ from qtpy import QtCore
 from . import __version__
 from .nxbeamline import get_beamline
 from .nxdatabase import NXDatabase
+from .nxparent import NXParent
 from .nxrefine import NXRefine
 from .nxserver import NXServer
 from .nxsettings import NXSettings
@@ -171,7 +172,6 @@ class NXReduce(QtCore.QObject):
         self._shape = None
         self._pixel_mask = None
         self._parent = parent
-        self._parent_root = None
         self._parent_entry = None
         self._entries = entries
         self._mode = 'r'
@@ -439,7 +439,10 @@ class NXReduce(QtCore.QObject):
 
     def raw_data_exists(self):
         """True if the externally linked raw data file exists."""
-        return is_hdf5(self.raw_file)
+        try:
+            return is_hdf5(self.raw_file)
+        except Exception:
+            return False
 
     @property
     def pixel_mask(self):
@@ -466,30 +469,27 @@ class NXReduce(QtCore.QObject):
         NXReduce instance.
         """
         if self._parent is None:
-            if self.parent_file.exists() and not self.is_parent():
-                self._parent = self.parent_file
+            if self.parent_file.is_file():
+                self._parent = NXParent(self.parent_file)
             else:
                 self._parent = None
         return self._parent
 
     @property
-    def parent_root(self):
-        """NXroot group of the parent file."""
-        if self._parent_root is None and self.parent:
-            self._parent_root = nxopen(self.parent, 'r')
-        return self._parent_root
-
-    @property
     def parent_entry(self):
         """NXentry group of the parent file."""
         if self._parent_entry is None and self.parent:
-            self._parent_entry = self.parent_root[self.entry_name]
+            self._parent_entry = self.parent.root[self.entry_name]
         return self._parent_entry
 
     @property
     def parent_file(self):
         """Absolute file path to the parent file."""
-        return self.base_directory.joinpath(self.sample).with_suffix('.nxs')
+        if 'nxscans' in self.root['entry']:
+            parent = self.root['entry/nxscans/parent'].nxvalue
+            return self.base_directory.joinpath(parent)
+        else:
+            return self.base_directory.joinpath(self.sample+'_scans.nxs')
 
     def get_parameter(self, name, field_name=None):
         """Return the requested data reduction parameter.
@@ -515,9 +515,9 @@ class NXReduce(QtCore.QObject):
         parameter = self.default[name]
         if field_name is None:
             field_name = name
-        if (self.parent and 'nxreduce' in self.parent_root['entry']
-                and field_name in self.parent_root['entry/nxreduce']):
-            parameter = self.parent_root['entry/nxreduce'][field_name].nxvalue
+        if (self.parent and 'nxreduce' in self.parent.root['entry']
+                and field_name in self.parent.root['entry/nxreduce']):
+            parameter = self.parent.root['entry/nxreduce'][field_name].nxvalue
         elif ('nxreduce' in self.root['entry']
               and field_name in self.root['entry/nxreduce']):
             parameter = self.root['entry/nxreduce'][field_name].nxvalue
@@ -579,7 +579,7 @@ class NXReduce(QtCore.QObject):
     def first(self):
         """First frame of the raw data to be used in the reduction."""
         if self._first is None:
-            self._first = int(self.get_parameter('first', 'first_frame'))
+            self._first = int(self.get_parameter('first_frame'))
         if self._first is None or self._first < 0:
             self._first = 10
         return self._first
@@ -596,10 +596,10 @@ class NXReduce(QtCore.QObject):
         """Last frame of the raw data to be used in the reduction."""
         if self._last is None:
             try:
-                self.default['last'] = self.nframes - 10
+                self.default['last_frame'] = self.nframes - 10
             except Exception:
                 pass
-            self._last = int(self.get_parameter('last', 'last_frame'))
+            self._last = int(self.get_parameter('last_frame'))
         if self._last is None or self._last > self.nframes:
             self._last = self.nframes - 10
         return self._last
@@ -1050,14 +1050,12 @@ class NXReduce(QtCore.QObject):
         """Copy parameters from parent."""
         if not self.copy:
             return
-        elif self.is_parent():
-            self.log("Set as parent; no parameters copied")
         elif self.not_processed('nxcopy'):
             self.record_start('nxcopy')
             try:
                 if self.parent:
                     self.copy_parameters()
-                    self.record('nxcopy', parent=self.parent)
+                    self.record('nxcopy', parent=self.parent_file)
                     self.log("Entry parameters copied from parent")
                     self.record_end('nxcopy')
                 else:
@@ -1083,9 +1081,8 @@ class NXReduce(QtCore.QObject):
         A message is logged to indicate that the parameters have been
         copied.
         """
-        parent = self.parent_root
-        parent_refine = NXRefine(parent[self.entry_name])
-        parent_reduce = NXReduce(parent[self.entry_name])
+        parent_refine = NXRefine(self.parent.root[self.entry_name])
+        parent_reduce = NXReduce(self.parent.root[self.entry_name])
         refine = NXRefine(self.entry)
         parent_refine.copy_parameters(refine, sample=True, instrument=True)
         self.write_parameters(threshold=parent_reduce.threshold,
@@ -1099,7 +1096,7 @@ class NXReduce(QtCore.QObject):
                               qmax=parent_reduce.qmax,
                               radius=parent_reduce.radius)
         self.log(
-            f"Parameters for {self.name} copied from '{self.parent.name}'")
+            f"Parameters for {self.name} copied from '{self.parent_file}'")
 
     def nxmax(self):
         """Find the maximum counts in the data."""
@@ -1670,7 +1667,7 @@ class NXReduce(QtCore.QObject):
         t2 = self.mask_parameters['threshold_2']
         h2 = self.mask_parameters['horizontal_size_2']
 
-        mask_root = nxopen(self.mask_file+'.h5', 'w')
+        mask_root = nxopen(self.mask_file.with_suffix('.h5'), 'w')
         mask_root['entry'] = NXentry()
         mask_root['entry/mask'] = NXfield(shape=self.shape,
                                           dtype=np.int8,
@@ -1795,7 +1792,7 @@ class NXReduce(QtCore.QObject):
                 self.Qh = self.Qk = self.Ql = None
         else:
             if self.parent:
-                root = self.parent_root
+                root = self.parent.root
                 if mask and 'masked_transform' in root[self.entry_name]:
                     transform = root[self.entry_name]['masked_transform']
                 elif 'transform' in root[self.entry_name]:
@@ -2124,24 +2121,6 @@ class NXMultiReduce(NXReduce):
             return task in self.entry
         return self.all_complete(task)
 
-    def make_parent(self):
-        """Set the current wrapper file as the parent."""
-        with nxopen(self.parent_file, 'a') as parent_root:
-            if 'entry' not in parent_root:
-                parent_root['entry'] = NXentry()
-            if 'nxreduce' not in parent_root['entry']:
-                parent_root['entry']['nxreduce'] = self.entry['nxreduce']
-                for key, value in self.settings['nxreduce'].items():
-                    parent_root['entry']['nxreduce'][key] = value
-            else:
-                for key, value in self.entry['nxreduce'].items():
-                    parent_root['entry']['nxreduce'][key] = value
-            if 'sample' not in parent_root['entry']:
-                parent_root['entry']['sample'] = self.entry['sample']
-            else:
-                for key, value in self.entry['sample'].items():
-                    parent_root['entry']['sample'][key] = value
-
     def nxcombine(self, mask=False):
         if mask:
             task = 'nxmasked_combine'
@@ -2197,6 +2176,9 @@ class NXMultiReduce(NXReduce):
                         self.log(
                             f"{self.title} ({', '.join(self.entries)}) "
                             f"completed ({toc-tic:g} seconds)")
+                        if self.parent:
+                            self.parent.create_scan_data(
+                                self.entry[transform_data].nxpath)
                         self.record(task, command=cctw_command,
                                     output=cctw_output,
                                     errors=cctw_errors)
@@ -2368,6 +2350,8 @@ class NXMultiReduce(NXReduce):
             self.entry[self.symm_data].nxweights = NXlink(
                 '/entry/data/data_weights', file=self.symm_file)
             self.add_title(self.entry[self.symm_data])
+            if self.parent:
+                self.parent.create_scan_data(self.entry[self.symm_data].nxpath)
         self.log(f"'{self.symm_data}' added to entry")
         toc = timeit.default_timer()
         self.log(f"{self.title}: Symmetrization completed "
@@ -2390,7 +2374,7 @@ class NXMultiReduce(NXReduce):
             An array containing the 3D taper function values.
         """
         if self.parent:
-            entry = self.parent_root['entry']
+            entry = self.parent.root['entry']
             if ('symm_transform' in entry
                     and entry['symm_transform'].nxweights):
                 return 1.0 / entry['symm_transform'].nxweights.nxvalue
@@ -2454,6 +2438,10 @@ class NXMultiReduce(NXReduce):
             self.entry[self.total_pdf_data].attrs['angles'] = (
                 self.refine.lattice_parameters[3:])
             self.add_title(self.entry[self.total_pdf_data])
+            if self.parent:
+                self.parent.create_scan_data(
+                    self.entry[self.total_pdf_data].nxpath)
+
         self.log(f"'{self.total_pdf_data}' added to entry")
         toc = timeit.default_timer()
         self.log(f"{self.title}: Total PDF calculated "
@@ -2602,6 +2590,9 @@ class NXMultiReduce(NXReduce):
             self.entry[self.pdf_data].attrs['angles'] = (
                 self.refine.lattice_parameters[3:])
             self.add_title(self.entry[self.pdf_data])
+        if self.parent:
+            self.parent.create_scan_data(self.entry[self.pdf_data].nxpath)
+
         self.log(f"'{self.pdf_data}' added to entry")
         toc = timeit.default_timer()
         self.log(f"{self.title}: Delta-PDF calculated "

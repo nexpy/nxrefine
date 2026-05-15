@@ -17,6 +17,7 @@ from nexusformat.nexus import (NeXusError, NXdata, NXdetector, NXentry,
 from numpy.linalg import inv, norm
 from scipy import optimize
 
+from .nxparent import NXParent
 from .nxutils import init_julia, load_julia, parse_orientation
 
 degrees = 180.0 / np.pi
@@ -535,7 +536,7 @@ class NXRefine:
                 self.rotation_angle = self.phi + (self.phi_step * self.z)
 
     def copy_parameters(self, other, sample=False, instrument=False):
-        """Copy the experimental parameters from another entry.
+        """Copy the experimental parameters to another entry.
 
         Parameters
         ----------
@@ -846,6 +847,7 @@ class NXRefine:
                                                       file=output_link)
             self.entry[transform+'/command'] = command
             self.entry[transform].set_default()
+            
 
     def cctw_command(self, mask=False):
         """Generate the shell command to run CCTW transform.

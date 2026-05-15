@@ -15,7 +15,7 @@ from nexpy.gui.plotview import NXPlotView
 from nexpy.gui.pyqt import QtCore, QtGui, QtWidgets
 from nexpy.gui.utils import display_message, report_error
 from nexpy.gui.widgets import NXLabel, NXLineEdit, NXPushButton
-from nexusformat.nexus import NeXusError, NXdata, NXfield
+from nexusformat.nexus import NeXusError, NXdata, NXfield, nxopen
 from nxrefine.nxorient import UBMatrixFFT
 from nxrefine.nxreduce import NXReduce
 from nxrefine.nxrefine import NXRefine
@@ -322,12 +322,25 @@ class RefineLatticeDialog(NXDialog):
         if entries and self.confirm_action(
             f'Copy orientation to other entries? ({", ".join(entries)})',
                 answer='yes'):
+            other_entries = True
             om = self.entry['instrument/detector/orientation_matrix']
             for entry in entries:
                 root[entry]['instrument/detector/orientation_matrix'] = om
+        else:
+            other_entries = False
         self.define_data()
         if len(self.paths) > 0:
             self.update_scaling()
+        if self.reduce.parent and self.confirm_action(
+            f'Copy refinement to {self.reduce.parent.name}?', answer='yes'):
+            with nxopen(self.reduce.parent.filename, 'rw') as root:
+                self.refine.copy_parameters(NXRefine(root['entry']),
+                                            sample=True, instrument=True)
+                if other_entries:
+                    for entry in [e for e in root.entries if e != 'entry']:
+                        self.refine.copy_parameters(NXRefine(root[entry]),
+                                                    sample=True,
+                                                    instrument=True)
 
     def update_scaling(self):
         """

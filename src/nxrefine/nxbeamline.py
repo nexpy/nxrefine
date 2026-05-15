@@ -79,7 +79,7 @@ class NXBeamLine:
     name = 'Unknown'
     source_name = 'Unknown'
     source_type = 'Synchrotron X-Ray Source'
-    make_scans_enabled = False
+    create_macro_enabled = False
     import_data_enabled = False
 
     def __init__(self, reduce=None, directory=None, *args, **kwargs):
@@ -109,7 +109,7 @@ class NXBeamLine:
     def __repr__(self):
         return f"NXBeamLine('{self.name}')"
 
-    def make_scans(self, *args, **kwargs):
+    def create_macro(self, *args, **kwargs):
         raise NeXusError(
             f"Making scan macros not implemented for {self.beamline.name}")
 
@@ -134,14 +134,13 @@ class Sector6Beamline(NXBeamLine):
 
     name = '6-ID-D'
     source_name = 'Advanced Photon Source'
-    make_scans_enabled = True
+    create_macro_enabled = True
     import_data_enabled = False
 
     def __init__(self, reduce=None, *args, **kwargs):
         super().__init__(reduce)
 
-    def make_scans(self, scan_files, command='Pil2Mscan'):
-        command = self.textbox['Scan Command'].text()
+    def create_macro(self, scan_files, command='Pil2Mscan'):
         parameters = ['#command path filename temperature detx dety '
                       'phi_start phi_step phi_end chi omega frame_rate']
         for scan_file in [Path(f) for f in scan_files]:

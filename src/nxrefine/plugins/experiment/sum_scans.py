@@ -50,7 +50,7 @@ class SumDialog(NXDialog):
 
     def choose_sample(self):
         super().choose_directory()
-        self.sample_directory = Path(self.get_directory())
+        self.sample_directory = self.get_directory()
         self.experiment_directory = self.sample_directory.parent.parent
         self.sample = self.sample_directory.parent.name
         self.setup_scans()
