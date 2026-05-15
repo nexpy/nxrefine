@@ -63,4 +63,6 @@ _unused
 
 # miscellaneous system files
 .directoryhash
- 
+
+# Claude settings
+.claude
