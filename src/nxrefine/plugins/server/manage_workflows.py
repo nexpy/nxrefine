@@ -466,8 +466,10 @@ class WorkflowDialog(NXDialog):
         dialog.setMinimumHeight(600)
         scans = [scan.name for scan in self.scans]
         self.scan_combo = dialog.select_box(scans, slot=self.choose_scan)
-        self.entry_combo = dialog.select_box(self.entries,
-                                             slot=self.refreshview)
+        self.entry_combo = dialog.select_box(
+            self.entries,
+            default=self.parent.subentry or self.entries[0],
+            slot=self.refreshview)
         self.task_combo = dialog.select_box(self.tasks, slot=self.refreshview)
         self.defaultview = None
         self.output_box = NXPlainTextEdit(wrap=False)
@@ -499,7 +501,10 @@ class WorkflowDialog(NXDialog):
         current_entry = self.entry_combo.selected
         self.entry_combo.clear()
         self.entry_combo.add(*self.scans[scan]['entries'])
-        if current_entry in self.entry_combo:
+        preferred = self.parent.subentry or current_entry
+        if preferred in self.entry_combo:
+            self.entry_combo.select(preferred)
+        elif current_entry in self.entry_combo:
             self.entry_combo.select(current_entry)
         else:
             self.entry_combo.select(self.scans[scan]['entries'][0])
@@ -564,14 +569,19 @@ class WorkflowDialog(NXDialog):
         scan = self.sample + '_' + self.scan_combo.currentText()
         entry = self.entry_combo.currentText()
         task = 'nx' + self.task_combo.currentText()
-        if (task == 'nxcombine' or task == 'nxmasked_combine' or
-                task == 'nxpdf'):
+        if (not self.parent.subentry and
+                task in ('nxcombine', 'nxmasked_combine',
+                         'nxpdf', 'nxmasked_pdf')):
             entry = 'entry'
         wrapper_file = self.sample_directory / (scan+'.nxs')
         root = nxload(wrapper_file)
-        if task in root[entry]:
-            text = 'Date: ' + root[entry][task]['date'].nxvalue + '\n'
-            text = text + root[entry][task]['note/data'].nxvalue
+        target = root[entry]
+        if self.parent.subentry and self.parent.subentry in target:
+            target = target[self.parent.subentry]
+        if 'nxworkflow' in target and task in target['nxworkflow']:
+            workflow_task = target['nxworkflow'][task]
+            text = 'Date: ' + workflow_task['note/date'].nxvalue + '\n'
+            text = text + workflow_task['note/data'].nxvalue
             self.output_box.setPlainText(text)
         else:
             self.output_box.setPlainText(f'No output for {task}')
@@ -579,13 +589,21 @@ class WorkflowDialog(NXDialog):
     def databaseview(self):
         self.defaultview = self.databaseview
         scan = self.sample + '_' + self.scan_combo.currentText()
+        entry = self.entry_combo.currentText()
         task = 'nx' + self.task_combo.currentText()
+        if (not self.parent.subentry and
+                task in ('nxcombine', 'nxmasked_combine',
+                         'nxpdf', 'nxmasked_pdf')):
+            entry = 'entry'
         wrapper_file = self.sample_directory / (scan+'.nxs')
         f = self.db.get_file(wrapper_file)
+        subentry = self.parent.subentry
         text = [' '.join([t.name, str(t.entry), str(t.status),
                           str(t.queue_time), str(t.start_time),
                           str(t.end_time)])
-                for t in f.tasks if t.name == task]
+                for t in f.tasks if t.name == task
+                and str(t.entry) == entry
+                and (t.subentry or '') == subentry]
         if text:
             self.output_box.setPlainText('\n'.join(text))
         else:

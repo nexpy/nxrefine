@@ -1040,8 +1040,9 @@ class NXReduce(QtCore.QObject):
                     self.start_time[task].isoformat())
             workflow[process]['end_time'] = datetime.datetime.now().isoformat()
             workflow[process]['pid'] = os.getpid()
+            workflow[process]['parameters'] = NXparameters()
             for key in [k for k in kwargs if k in self.default]:
-                workflow[process][key] = kwargs[key]
+                workflow[process]['parameters'][key] = kwargs[key]
 
     def record_start(self, task):
         """Record that a task has started in the database """

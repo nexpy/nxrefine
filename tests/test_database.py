@@ -72,6 +72,20 @@ def add_subentry_task(wrapper_path, entry_name, subentry_name, task_name,
         sub['nxworkflow'][task_name] = proc
 
 
+def add_entry_task(wrapper_path, entry_name, task_name, timing=None):
+    """Add a completed NXprocess for an entry-level task to the wrapper file."""
+    with nxopen(wrapper_path, 'rw') as root:
+        nxentry = root[entry_name]
+        if 'nxworkflow' not in nxentry:
+            nxentry['nxworkflow'] = NXcollection()
+        proc = NXprocess(program=task_name, sequence_index=1,
+                         version='nxrefine v0.0')
+        if timing:
+            for field, value in timing.items():
+                proc[field] = value
+        nxentry['nxworkflow'][task_name] = proc
+
+
 # ---------------------------------------------------------------------------
 # Tests for _get_nxprocess
 # ---------------------------------------------------------------------------
@@ -200,6 +214,105 @@ class TestSyncSubentries:
         assert ('nxmax', 'sub2') in created
         assert ('nxfind', 'sub1') in created
         assert ('nxfind', 'sub2') in created
+
+
+# ---------------------------------------------------------------------------
+# Tests for entry-level task sync (no subentry)
+# ---------------------------------------------------------------------------
+
+class TestSyncEntryLevelTasks:
+
+    @pytest.fixture(autouse=True)
+    def setup(self, tmp_path):
+        _, self.wrapper, tasks_dir = make_directory_structure(tmp_path)
+        self.db = make_db(tasks_dir)
+        make_wrapper(self.wrapper, entries=['f1'])
+        self.filename = str(self.wrapper.relative_to(tmp_path))
+        f = File(filename=self.filename)
+        f.set_entries(['f1'])
+        self.db.session.add(f)
+        self.db.session.commit()
+
+    def test_creates_task_record_for_entry_level_task(self):
+        add_entry_task(self.wrapper, 'f1', 'nxmax')
+        self.db.sync_subentries(self.filename)
+        f = self.db.query(self.filename)
+        assert any(t.name == 'nxmax' and t.entry == 'f1'
+                   and (t.subentry or '') == '' and t.status == DONE
+                   for t in f.tasks)
+
+    def test_reads_timing_fields_for_entry_level_task(self):
+        queue = datetime.datetime(2026, 5, 13, 9, 59, 0)
+        start = datetime.datetime(2026, 5, 13, 10, 0, 0)
+        end = datetime.datetime(2026, 5, 13, 10, 5, 0)
+        add_entry_task(self.wrapper, 'f1', 'nxmax', timing={
+            'queue_time': queue.isoformat(),
+            'start_time': start.isoformat(),
+            'end_time': end.isoformat(),
+            'pid': 42,
+        })
+        self.db.sync_subentries(self.filename)
+        f = self.db.query(self.filename)
+        t = next(x for x in f.tasks
+                 if x.name == 'nxmax' and x.entry == 'f1'
+                 and (x.subentry or '') == '')
+        assert t.queue_time == queue
+        assert t.start_time == start
+        assert t.end_time == end
+        assert t.pid == 42
+
+    def test_handles_missing_timing_fields_for_entry_level_task(self):
+        add_entry_task(self.wrapper, 'f1', 'nxlink')
+        self.db.sync_subentries(self.filename)
+        f = self.db.query(self.filename)
+        t = next(x for x in f.tasks
+                 if x.name == 'nxlink' and x.entry == 'f1'
+                 and (x.subentry or '') == '')
+        assert t.queue_time is None
+        assert t.start_time is None
+        assert t.end_time is None
+        assert t.pid is None
+
+    def test_skips_entry_level_task_with_existing_done_record(self):
+        add_entry_task(self.wrapper, 'f1', 'nxmax')
+        f = self.db.query(self.filename)
+        f.tasks.append(Task(name='nxmax', entry='f1', subentry='',
+                            status=DONE, filename=self.filename))
+        self.db.session.commit()
+        self.db.sync_subentries(self.filename)
+        f = self.db.query(self.filename)
+        matching = [t for t in f.tasks
+                    if t.name == 'nxmax' and t.entry == 'f1'
+                    and (t.subentry or '') == '']
+        assert len(matching) == 1
+
+    def test_creates_combine_task_from_root_entry(self):
+        queue = datetime.datetime(2026, 5, 13, 11, 0, 0)
+        end = datetime.datetime(2026, 5, 13, 11, 30, 0)
+        add_entry_task(self.wrapper, 'entry', 'nxcombine', timing={
+            'queue_time': queue.isoformat(),
+            'end_time': end.isoformat(),
+            'pid': 7,
+        })
+        self.db.sync_subentries(self.filename)
+        f = self.db.query(self.filename)
+        t = next(x for x in f.tasks
+                 if x.name == 'nxcombine' and x.entry == 'entry'
+                 and (x.subentry or '') == '')
+        assert t.status == DONE
+        assert t.queue_time == queue
+        assert t.end_time == end
+        assert t.pid == 7
+
+    def test_entry_and_subentry_tasks_both_created(self):
+        add_entry_task(self.wrapper, 'f1', 'nxmax')
+        add_subentry_task(self.wrapper, 'f1', 'mysub', 'nxmax')
+        self.db.sync_subentries(self.filename)
+        f = self.db.query(self.filename)
+        entry_tasks = [t for t in f.tasks
+                       if t.name == 'nxmax' and t.entry == 'f1']
+        assert any((t.subentry or '') == '' for t in entry_tasks)
+        assert any((t.subentry or '') == 'mysub' for t in entry_tasks)
 
 
 # ---------------------------------------------------------------------------
