@@ -107,16 +107,10 @@ class LatticeDialog(NXDialog):
                 self.refine.sg = gemmi.SpaceGroup(cif_pair[1])
             elif (cif_pair := cif_block.find_pair(
                     '_symmetry_Int_Tables_number')):
-            elif (cif_pair := cif_block.find_pair(
-                    '_symmetry_Int_Tables_number')):
                 self.refine.sg = gemmi.SpaceGroup(cif_pair[1])
             elif (cif_pair := cif_block.find_pair(
                     '_space_group_name_H-M_alt')):
-            elif (cif_pair := cif_block.find_pair(
-                    '_space_group_name_H-M_alt')):
                 self.refine.sg = gemmi.SpaceGroup(cif_pair[1])
-            elif (cif_pair := cif_block.find_pair(
-                    '_symmetry_space_group_name_H-M')):
             elif (cif_pair := cif_block.find_pair(
                     '_symmetry_space_group_name_H-M')):
                 self.refine.sg = gemmi.SpaceGroup(cif_pair[1])
