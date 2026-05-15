@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2022, Argonne National Laboratory.
+# Copyright (c) 2023-2026, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
@@ -44,7 +44,7 @@ def get_beamlines():
     -------
     list of str
         Names of beamlines defined by NXBeamLine subclasses
-    """    
+    """
     return [beamline.name for beamline in NXBeamLine.__subclasses__()]
 
 
@@ -61,7 +61,7 @@ def get_beamline(instrument=None):
     -------
     NXBeamLine
         Subclass of NXBeamLine for the requested instrument
-    """    
+    """
     if instrument is None:
         instrument = NXSettings().settings['instrument']['instrument']
     if instrument == '':
@@ -304,7 +304,7 @@ class Sector6Beamline(NXBeamLine):
             else:
                 filter_size = monitor_signal.size
             return savgol_filter(monitor_signal, filter_size, 2)
-        except Exception as error:
+        except Exception:
             self.reduce.log(f"Cannot identify monitor {self.monitor}")
             return np.ones(shape=(self.reduce.nframes), dtype=float)
 

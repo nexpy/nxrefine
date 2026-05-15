@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2025, Argonne National Laboratory.
+# Copyright (c) 2018-2026, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
@@ -33,7 +33,7 @@ def get_servers():
     -------
     list of str
         Names of valid server types
-    """    
+    """
     return ['direct', 'multicore', 'multinode']
 
 
@@ -49,8 +49,9 @@ class NXFileQueue(FileQueue):
         directory : str or Path
             Path to the directory for the queue.
         autosave : bool, optional
-            Autosave the queue after every put or get operation, by default False
-        """        
+            Autosave the queue after every put or get operation, by
+            default False
+        """
         self.directory = Path(directory)
         self.directory.mkdir(mode=0o777, exist_ok=True)
         tempdir = self.directory / 'tempdir'
@@ -239,7 +240,7 @@ class NXTask:
                            f"-N {cpu} -hold_jid {cpu} -S /bin/bash {command}")
         return command
 
-    def execute(self, cpu, cpu_log):        
+    def execute(self, cpu, cpu_log):
         with open(cpu_log, 'a') as f:
             f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' +
                     self.command + '\n')
@@ -343,7 +344,7 @@ class NXServer(NXDaemon):
                 self.controller.start()
             else:
                 self._task_queue = NXFileQueue(self.queue_directory,
-                                               autosave=True)            
+                                               autosave=True)
         return self._task_queue
 
     @property
@@ -461,7 +462,7 @@ class NXServer(NXDaemon):
         if self.server_type == 'direct':
             return "Server is configured to run commands directly"
         else:
-            return super(NXServer, self).status()            
+            return super(NXServer, self).status()
 
     def is_running(self):
         """
@@ -475,7 +476,7 @@ class NXServer(NXDaemon):
             return self.controller.is_alive()
         else:
             return super(NXServer, self).is_running()
-            
+
 
     def stop(self):
         """Stop the server when active tasks are completed."""

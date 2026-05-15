@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2022, Argonne National Laboratory.
+# Copyright (c) 2014-2025, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
@@ -312,7 +312,7 @@ class MaximumDialog(NXDialog):
             if 'sample' not in self.entry['instrument']:
                 self.entry['instrument/sample'] = NXsample()
             if 'transmission' in self.entry['instrument/sample']:
-                if confirm_action(f"Overwrite transmission?"):
+                if confirm_action("Overwrite transmission?"):
                     del self.entry['instrument/sample/transmission']
                 else:
                     return

@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2022, Argonne National Laboratory.
+# Copyright (c) 2022-2026, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
@@ -115,7 +115,7 @@ class NXSettings(ConfigParser):
             for option in self.defaults[section]:
                 if not self.has_option(section, option):
                     self.set(section, option, self.defaults[section][option])
-            
+
         if self.server:
             if 'setup' in self.sections():
                 for option in self.options('setup'):

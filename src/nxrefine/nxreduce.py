@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2022-2026, Argonne National Laboratory.
+# Copyright (c) 2022, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
@@ -873,17 +873,17 @@ class NXReduce(QtCore.QObject):
             else:
                 self._concurrent = False
         return self._concurrent
-            
+
     @property
     def cctw(self):
         """Return the command for the CCTW transform.
 
-        The command is retrieved from the server settings if specified; 
+        The command is retrieved from the server settings if specified;
         otherwise, a default value of 'cctw' is used.
         """
 
         if self._cctw is None:
-            if ('cctw' in self.server_settings and 
+            if ('cctw' in self.server_settings and
                     self.server_settings['cctw']):
                 self._cctw = self.server_settings['cctw']
             else:
