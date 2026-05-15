@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2022, Argonne National Laboratory.
+# Copyright (c) 2015-2026, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
@@ -10,10 +10,11 @@ from pathlib import Path
 
 import numpy as np
 from nexpy.gui.dialogs import GridParameters, NXDialog
-from nexpy.gui.utils import report_error
+from nexpy.gui.utils import confirm_action, report_error
 from nexusformat.nexus import (NeXusError, NXdata, NXgoniometer, NXlink,
-                               NXroot, NXsample, nxload)
+                               NXroot, NXsample, nxopen)
 
+from nxrefine.nxrefine import NXRefine
 from nxrefine.nxsettings import NXSettings
 
 
@@ -117,7 +118,7 @@ class ScanDialog(NXDialog):
         self.scan_layout = self.make_layout(
             self.labels('Position', header=True), self.scan_box)
         if config_file.exists():
-            self.config_file = nxload(config_file)
+            self.config_file = nxopen(config_file)
             self.positions = len(self.config_file.entries) - 1
             self.scan_box.clear()
             for position in range(1, self.positions+1):
@@ -170,13 +171,13 @@ class ScanDialog(NXDialog):
             self.entries[self.position].show_grid()
 
     def copy_configuration(self):
-        self.scan_file = NXroot()
+        self.scan_root = NXroot()
         for entry in self.config_file.entries:
-            self.scan_file[entry] = self.config_file[entry]
+            self.scan_root[entry] = self.config_file[entry]
 
     def read_parameters(self):
         for position in range(1, self.positions+1):
-            entry = self.scan_file[f'f{position:d}']
+            entry = self.scan_root[f'f{position:d}']
             if 'instrument/goniometer/chi' in entry:
                 self.entries[position]['chi'].value = (
                     entry['instrument/goniometer/chi'])
@@ -200,18 +201,22 @@ class ScanDialog(NXDialog):
                     entry['instrument/detector/translation_y'])
 
     def get_parameters(self):
-        entry = self.scan_file['entry']
+        entry = self.scan_root['entry']
+        refine = NXRefine(entry)
         if 'sample' not in entry:
             entry['sample'] = NXsample()
-        entry['sample/name'] = self.sample
-        entry['sample/label'] = self.label
+        refine.name = self.sample
+        refine.label = self.label
+        refine.write_parameters(sample=True)
         entry['sample/temperature'] = self.scan['temperature'].value
         entry['sample/temperature'].attrs['units'] = 'K'
         y_size, x_size = entry['instrument/detector/shape'].nxvalue
         scan = self.scan['scan'].value
         for position in range(1, self.positions+1):
-            entry = self.scan_file[f'f{position:d}']
-            entry.makelink(self.scan_file['entry/sample'])
+            entry = self.scan_root[f'f{position:d}']
+            entry['sample'] = NXsample()
+            for key in self.scan_root['entry/sample']:
+                entry['sample'][key] = NXlink(f'/entry/sample/{key}')
             phi_start = self.scan['phi_start'].value
             phi_end = self.scan['phi_end'].value
             phi_step = self.scan['phi_step'].value
@@ -251,7 +256,14 @@ class ScanDialog(NXDialog):
         scan_directory = label_directory / str(self.scan['scan'].value)
         scan_name = self.sample + '_' + self.scan['scan'].value + '.nxs'
         scan_directory.mkdir(exist_ok=True)
-        self.copy_configuration()
-        self.get_parameters()
-        self.scan_file.save(label_directory / scan_name)
-        self.treeview.tree.load(self.scan_file.nxfilename, 'r')
+        scan_file = label_directory / scan_name
+        if scan_file.exists() and not confirm_action(
+                "Overwrite existing scan file?",
+                f"'{scan_file}' already exists."):
+            return
+        with nxopen(scan_file, 'w') as root:
+            self.copy_configuration()
+            self.get_parameters()
+            for entry in self.scan_root.entries:
+                root[entry] = self.scan_root[entry]
+        self.treeview.tree.load(scan_file, 'rw')

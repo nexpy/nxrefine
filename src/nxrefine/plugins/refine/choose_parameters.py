@@ -1,10 +1,11 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2022, Argonne National Laboratory.
+# Copyright (c) 2018-2026, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
 # The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
+from pathlib import Path
 
 import numpy as np
 from nexpy.gui.dialogs import GridParameters, NXDialog
@@ -29,10 +30,17 @@ class ParametersDialog(NXDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-
         self.select_root(self.choose_root)
+        self.set_layout(self.root_layout,
+                        self.close_buttons(save=True))
+        self.set_title('Choose Parameters')
 
-        default = NXSettings().settings['nxreduce']
+    def choose_root(self):
+        self.entries = [self.root[entry]
+                        for entry in self.root if entry[-1].isdigit()]
+        self.reduce = NXMultiReduce(self.root)
+        default = NXSettings(self.reduce.task_directory).settings['nxreduce']
+
         self.parameters = GridParameters()
         self.parameters.add('threshold', default['threshold'],
                             'Peak Threshold')
@@ -50,22 +58,17 @@ class ParametersDialog(NXDialog):
                             'Minimum Scattering  Q (Å-1)')
         self.parameters.add('qmax', default['qmax'], 'Maximum Taper Q (Å-1)')
         self.parameters.add('radius', default['radius'], 'Punch Radius (Å)')
+        self.parameters.add('scan_path', default['scan_path'], 'Scan Path')
 
-        self.set_layout(self.root_layout,
-                        self.close_buttons(save=True))
-        self.set_title('Choose Parameters')
-
-    def choose_root(self):
-        self.entries = [self.root[entry]
-                        for entry in self.root if entry[-1].isdigit()]
-        self.reduce = NXReduce(self.root[self.entries[0]])
         if self.layout.count() == 2:
             self.layout.insertLayout(1, self.parameters.grid(header=False))
             self.layout.insertLayout(2, self.action_buttons(
                 ('Plot Q-Limits', self.plot_Q_limits)))
-            self.layout.insertLayout(3, 
+            self.layout.insertLayout(3,
                 self.checkboxes(('parent', 'Set As Parent', False)))
         self.read_parameters()
+        self.directory = Path(self.root.nxfilename).parent
+        self.sample = self.directory.parent.name
 
     def read_parameters(self):
         if 'nxreduce' in self.root['entry']:
@@ -91,6 +94,8 @@ class ParametersDialog(NXDialog):
                 self.parameters['qmax'].value = reduce['qmax']
             if 'radius' in reduce:
                 self.parameters['radius'].value = reduce['radius']
+            if 'scan_path' in reduce:
+                self.parameters['scan_path'].value = reduce['scan_path']
         else:
             try:
                 reduce = NXReduce(self.entries[0])
@@ -115,6 +120,8 @@ class ParametersDialog(NXDialog):
                     self.parameters['qmax'].value = reduce.qmax
                 if reduce.radius:
                     self.parameters['radius'].value = reduce.radius
+                if reduce.scan_path:
+                    self.parameters['scan_path'].value = reduce.scan_path
             except Exception:
                 pass
 
@@ -131,6 +138,7 @@ class ParametersDialog(NXDialog):
         self.root['entry/nxreduce/qmin'] = self.qmin
         self.root['entry/nxreduce/qmax'] = self.qmax
         self.root['entry/nxreduce/radius'] = self.radius
+        self.root['entry/nxreduce/scan_path'] = self.scan_path
 
     @property
     def threshold(self):
@@ -173,13 +181,7 @@ class ParametersDialog(NXDialog):
         return float(self.parameters['radius'].value)
 
     def make_parent(self):
-        from pathlib import Path
-        scan_file = Path(self.root.nxfilename)
-        sample = scan_file.stem[:scan_file.stem.rindex('_')] 
-        directory = str(scan_file.parent.joinpath(
-            scan_file.stem.replace(sample+'_', '')))
-        reduce = NXMultiReduce(directory, overwrite=True)
-        reduce.make_parent()
+        self.reduce.make_parent()
 
     @property
     def pv(self):

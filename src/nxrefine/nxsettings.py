@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2022, Argonne National Laboratory.
+# Copyright (c) 2022-2026, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
@@ -36,7 +36,8 @@ class NXSettings(ConfigParser):
                          'polar_max': 10.0, 'hkl_tolerance': 0.05,
                          'monitor': 'monitor1', 'norm': 50000,
                          'polarization': 0.99, 'qmin': 5.0, 'qmax': 10.0,
-                         'radius': 0.2}
+                         'radius': 0.2,
+                         'scan_path': '/entry/sample/temperature'}
         }
         self.create = create
         if directory:
@@ -111,7 +112,7 @@ class NXSettings(ConfigParser):
             for option in self.defaults[section]:
                 if not self.has_option(section, option):
                     self.set(section, option, self.defaults[section][option])
-            
+
         if self.server:
             if 'setup' in self.sections():
                 for option in self.options('setup'):

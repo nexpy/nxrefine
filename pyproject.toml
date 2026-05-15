@@ -85,3 +85,12 @@ version_file = "src/nxrefine/_version.py"
 
 [tool.setuptools.package-data]
 "nxrefine.julia" = ["*.jl"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+exclude = ["src/nexusformat/notebooks", "src/examples/scripts"]
+
+[tool.ruff.lint]
+select = ["F", "W", "E"]
+ignore = ["F403", "F405", "E721"]

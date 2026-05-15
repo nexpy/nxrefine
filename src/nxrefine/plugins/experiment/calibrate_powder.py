@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2022-2025, Argonne National Laboratory.
+# Copyright (c) 2018-2026, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
@@ -240,7 +240,7 @@ class CalibrateDialog(NXDialog):
                 radius = distance * np.tan(theta) / self.pixel_size
                 futures.append(executor.submit(
                     generate_ring, self.counts, ring, radius, xc, yc,
-                    self.pixel_mask, self.search_size))            
+                    self.pixel_mask, self.search_size))
             for i, future in enumerate(as_completed(futures)):
                 ring, points = future.result()
                 self.ring = ring
@@ -458,7 +458,7 @@ def generate_ring(counts, ring, radius, xc, yc, pixel_mask, search_size):
             points.extend(extra_points)
         phi += 0.2
     return ring, points
- 
+
 
 def get_points(x, y, counts, xc=None, yc=None, phi=None, search_size=10):
     logging.getLogger('pyFAI.massif').setLevel(logging.ERROR)
@@ -475,7 +475,7 @@ def get_points(x, y, counts, xc=None, yc=None, phi=None, search_size=10):
         phi = max(*phis, phi)
         phis = [np.degrees(p) for p in phis]
     return phi, points
-           
+
 
 def find_peak(x, y, counts, search_size=10):
     s = search_size

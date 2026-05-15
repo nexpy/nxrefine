@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2022, Argonne National Laboratory.
+# Copyright (c) 2021-2025, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
@@ -7,7 +7,7 @@
 # -----------------------------------------------------------------------------
 
 import sys
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed  # noqa: F401
 from multiprocessing import get_context, resource_tracker
 
 import numpy as np
@@ -342,7 +342,7 @@ def load_julia(resources):
 
 def parse_orientation(orientation):
     """Return the detector orientation matrix based on the input.
-    
+
     The detector orientation is used to convert from detector to
     laboratory coordinates. It may be defined by a string defining which
     laboratory axes are parallel to the detector axes. For example, if
@@ -355,7 +355,7 @@ def parse_orientation(orientation):
     Parameters
     ----------
     orientation : NXfield, str or array_like
-        The description of the orientation as a string or a 3x3 array. 
+        The description of the orientation as a string or a 3x3 array.
 
     Returns
     -------
@@ -366,7 +366,7 @@ def parse_orientation(orientation):
     ------
     NeXusError
         Invalid input value describing the orientation.
-    """    
+    """
     try:
         if isinstance(orientation, NXfield):
             orientation = orientation.nxvalue
@@ -393,11 +393,11 @@ def parse_orientation(orientation):
 
 def detector_flipped(entry):
     """Return True if the y-axis is flipped.
-    
+
     If images from the detector have their origin in the top-left
     corner, their y-axis needs to be flipped in order to view the
     physical geometry of the detector.
-    
+
     Note
     ----
     The detector orientation has only recently been specified in the
@@ -413,7 +413,7 @@ def detector_flipped(entry):
     -------
     bool
         True if the detector is flipped along the y-axis.
-    """    
+    """
     if 'detector_orientation' in entry['instrument/detector']:
         omat = np.array(parse_orientation(
             entry['instrument/detector/detector_orientation']))

@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2022, Argonne National Laboratory.
+# Copyright (c) 2014-2026, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
@@ -102,25 +102,30 @@ class LatticeDialog(NXDialog):
                 self.refine.a = value(cif_block.find_pair('_cell_length_a')[1])
                 self.refine.b = value(cif_block.find_pair('_cell_length_b')[1])
                 self.refine.c = value(cif_block.find_pair('_cell_length_c')[1])
-            self.refine.alpha = value(cif_block.find_pair('_cell_angle_alpha')[1])
-            self.refine.beta = value(cif_block.find_pair('_cell_angle_beta')[1])
-            self.refine.gamma = value(cif_block.find_pair('_cell_angle_gamma')[1])
+            self.refine.alpha = value(
+                cif_block.find_pair('_cell_angle_alpha')[1])
+            self.refine.beta = value(cif_block.find_pair(
+                '_cell_angle_beta')[1])
+            self.refine.gamma = value(cif_block.find_pair(
+                '_cell_angle_gamma')[1])
             if (cif_pair := cif_block.find_pair('_space_group_IT_number')):
                 self.refine.sg = gemmi.SpaceGroup(cif_pair[1])
-            elif (cif_pair := cif_block.find_pair('_symmetry_Int_Tables_number')):
+            elif (cif_pair := cif_block.find_pair(
+                    '_symmetry_Int_Tables_number')):
                 self.refine.sg = gemmi.SpaceGroup(cif_pair[1])
-            elif (cif_pair := cif_block.find_pair('_space_group_name_H-M_alt')):
+            elif (cif_pair := cif_block.find_pair(
+                    '_space_group_name_H-M_alt')):
                 self.refine.sg = gemmi.SpaceGroup(cif_pair[1])
-            elif (cif_pair := cif_block.find_pair('_symmetry_space_group_name_H-M')):
+            elif (cif_pair := cif_block.find_pair(
+                    '_symmetry_space_group_name_H-M')):
                 self.refine.sg = gemmi.SpaceGroup(cif_pair[1])
-            # NOTE: "Different Hall symbols can be used to encode the same
-            # symmetry operations. ... That’s why we compare operations not
-            # symbols."
-            # From: https://gemmi.readthedocs.io/en/latest/symmetry.html
             elif (cif_pair := cif_block.find_pair('_space_group_name_Hall')):
-                self.refine.sg = gemmi.find_spacegroup_by_ops(gemmi.symops_from_hall(cif_pair[1]))
-            elif (cif_pair := cif_block.find_pair('_symmetry_space_group_name_Hall')):
-                self.refine.sg = gemmi.find_spacegroup_by_ops(gemmi.symops_from_hall(cif_pair[1]))
+                self.refine.sg = gemmi.find_spacegroup_by_ops(
+                    gemmi.symops_from_hall(cif_pair[1]))
+            elif (cif_pair := cif_block.find_pair(
+                    '_symmetry_space_group_name_Hall')):
+                self.refine.sg = gemmi.find_spacegroup_by_ops(
+                    gemmi.symops_from_hall(cif_pair[1]))
             self.update_parameters()
 
     def update_parameters(self):

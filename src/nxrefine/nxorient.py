@@ -1,3 +1,11 @@
+# -----------------------------------------------------------------------------
+# Copyright (c) 2025-2026, Argonne National Laboratory.
+#
+# Distributed under the terms of an Open Source License.
+#
+# The full license is in the file LICENSE.pdf, distributed with this software.
+# -----------------------------------------------------------------------------
+
 import math
 import numpy as np
 from numpy.linalg import inv, norm, det, lstsq
@@ -74,23 +82,23 @@ class UBMatrixFFT:
         """Geometry/Crystal/IndexingUtils::Find_UB - line 451 to 524"""
         if self.min_d >= self.max_d or self.min_d <= 0:
             raise ValueError("find_UB(): Need 0 < min_d < max_d")
-        
+
         if self.tolerance <= 0:
             raise ValueError("find_UB(): tolerance must be positive")
-        
+
         if self.dir_step_size <=0:
             raise ValueError("find_UB(): dir_step_size must be positive")
-        
+
         self.initialize()
 
         max_indexed = self._scan_fft_directions()
 
         if max_indexed == 0:
             raise ValueError("find_UB(): Could not find any a,b,c vectors to index Qs")
-        
+
         if len(self._directions) < 3:
             raise ValueError("find_UB(): Could not find enough a,b,c vectors")
-        
+
         self._directions.sort(key=lambda t: norm(t))
 
         min_vol = self.min_d * self.min_d * self.min_d / 4.0
@@ -108,7 +116,7 @@ class UBMatrixFFT:
                 except Exception:
                     # failed to improve with all peaks, so just keep the UB we had
                     pass
-        
+
         success, new_UB = make_Niggli_UB(self._UB)
         if success:
             self._UB = new_UB
@@ -157,7 +165,7 @@ class UBMatrixFFT:
         for i, dir in enumerate(temp_dirs):
             num_indexed, index_vals, indexed_qs = self._get_indexed_peaks_1D(dir)
             try:
-                for _ in range(5): 
+                for _ in range(5):
                     _, best_vec = self._optimize_direction(index_vals, indexed_qs)
                     num_indexed, index_vals, indexed_qs = self._get_indexed_peaks_1D(best_vec)
                     if num_indexed > max_indexed:
@@ -184,7 +192,7 @@ class UBMatrixFFT:
         ang_tol = 5.0   # 5 degree tolerance for angles
         self._discard_duplicates(temp_dirs, len_tol, ang_tol)
         return max_indexed
-    
+
     def _make_hemisphere_directions(self) -> None:
         """Geometry/Crystal/IndexingUtils::MakeHemisphereDirections - line 2588 to 2623"""
         self._psi_list = np.arange(0, np.pi/2, self.dir_step_size, dtype=np.float32)
@@ -208,7 +216,7 @@ class UBMatrixFFT:
 
         self._t_list = np.array(direction_list)
         self._phi_list = phi_list
-    
+
     def _projection(self, data:np.ndarray, idx_factor:float) -> np.ndarray:
         """project onto one direction
         Geometry/Crystal/IndexingUtils::GetMagFFT - line 1601 to 1609
@@ -239,7 +247,7 @@ class UBMatrixFFT:
 
         for i in range(self._p_list.shape[0]):
             self._fj_list[i] += self._projection(self._p_list[i], idx_factor)
-    
+
     def _max_mag_fft_cal(self) -> None:
         """Geometry/Crystal/IndexingUtils::GetMagFFT"""
         fft_fj_list = np.fft.rfft(self._fj_list, axis=1)
@@ -247,7 +255,7 @@ class UBMatrixFFT:
 
         dc_end = 5
         self._max_fft_val = np.max(self._magnitude_fft[:, dc_end::], axis=1)
-    
+
     def _get_first_max_index(self, threshold:float, idx:int) -> float:
         """Geometry/Crystal/IndexingUtils::GetFirstMaxIndex - line 1640 to 1674"""
         local_min = argrelextrema(self._magnitude_fft[idx], np.less)[0]
@@ -267,7 +275,7 @@ class UBMatrixFFT:
         find_max=False
         for idxmax in local_max:
             if idxmax <= m:
-                continue  
+                continue
 
             if self._magnitude_fft[idx][idxmax] > threshold:
                 m = int(idxmax)
@@ -276,19 +284,19 @@ class UBMatrixFFT:
 
         if not find_max:
             return -1
-                
+
         sum = 0
         w_sum = 0
         for i in range(m-2, min(self.fft_num, m+3)):
             sum += i * self._magnitude_fft[idx][i]
             w_sum += self._magnitude_fft[idx][i]
         return sum/w_sum
-    
+
     def _num_indexed_1D(self, dir:np.ndarray) -> int:
         """Geometry/Crystal/IndexingUtils::NumberIndexed_1D - line 2207 to 2222"""
         if norm(dir) == 0:
             return 0
-        
+
         count = 0
         for q in self.q_vectors:
             proj_value = np.dot(dir, q)
@@ -296,25 +304,25 @@ class UBMatrixFFT:
             if error <= self.tolerance:
                 count += 1
         return count
-    
+
     def _num_indexed_3D(self, a_dir:np.ndarray, b_dir:np.ndarray, c_dir:np.ndarray):
         """Geometry/Crystal/IndexingUtils::NumberIndexed_3D - line 2245 to 2263"""
         if norm(a_dir)==0 or norm(b_dir)==0 or norm(c_dir)==0:
             return 0
-        
+
         count = 0
         for q in self.q_vectors:
             hkl_vec = np.array([a_dir, b_dir, c_dir]) @ q
             if self._valid_index(hkl_vec):
                 count += 1
         return count
-    
+
     def _valid_index(self, hkl:np.ndarray) -> bool:
         """Geometry/Crystal/IndexingUtils::ValidIndex - line 2047 to 2052"""
         if round(hkl[0], 4)==0 and round(hkl[1], 4)==0 and round(hkl[2], 4)==0:
             return False
         return (self._within_tol(hkl[0]) and self._within_tol(hkl[1]) and self._within_tol(hkl[2]))
-    
+
     def _within_tol(self, val:float) -> bool:
         """Geometry/Crystal/IndexingUtils::withinTol - line 2025 to 2032"""
         my_val = abs(val)
@@ -323,7 +331,7 @@ class UBMatrixFFT:
         if (math.floor(my_val+1.) - my_val) < self.tolerance:
             return True
         return False
-    
+
     def _get_indexed_peaks_1D(self, dir:np.ndarray) -> tuple[int, list[int], list[np.ndarray]]:
         """Geometry/Crystal/IndexingUtils::GetIndexedPeaks_1D - line 2392 to 2420"""
         num_indexed = 0
@@ -335,7 +343,7 @@ class UBMatrixFFT:
             # special case, zero vector will NOT index any peaks, even
             # through dot product with Q vectors is always an integer!
             return 0
-        
+
         for q in self.q_vectors:
             proj_value = np.dot(dir, q)
             nearest_int = round(proj_value)
@@ -345,21 +353,21 @@ class UBMatrixFFT:
                 indexed_qs.append(q)
                 index_vals.append(int(nearest_int))
                 num_indexed += 1
-        
+
         return num_indexed, index_vals, indexed_qs
-    
+
     def get_indexed_peaks(self) -> tuple[int, list[np.ndarray], list[np.ndarray], float]:
         """Geometry/Crystal/IndexingUtils::GetIndexedPeaks - line 2528 to 2568"""
         num_indexed = 0
         miller_indices = []
         indexed_qs = []
         fit_error = 0
-        
+
         if self.check_UB():
             UB_inverse = inv(self._UB)
         else:
             raise RuntimeError("get_indexed_peaks(): The UB in get_indexed_peaks() is not valid")
-        
+
         for q in self.q_vectors:
             hkl = UB_inverse @ q
             if self._valid_index(hkl):
@@ -371,13 +379,13 @@ class UBMatrixFFT:
                 num_indexed += 1
 
         return num_indexed, miller_indices, indexed_qs, fit_error
-    
-    def _optimize_direction(self, index_values:list[int], 
+
+    def _optimize_direction(self, index_values:list[int],
                             indexed_qs:list[np.ndarray]) -> tuple[float, np.ndarray]:
         """Geometry/Crystal/IndexingUtils::Optimize_Direction - line 1027 to 1098"""
         if len(index_values) < 3:
             raise ValueError("_optimize_direction(): Three or more indexed values needed for _optimize_direction.")
-        
+
         if len(index_values) != len(indexed_qs):
             raise ValueError("_optimize_direction(): Number of index_values != number of indexed q vectors.")
 
@@ -403,12 +411,12 @@ class UBMatrixFFT:
             sum_sq_error = np.sum(residual**2)
 
         return sum_sq_error, best_vec
-    
+
     def _discard_duplicates(self, directs:list[np.ndarray], len_tol:float, ang_tol:float) -> None:
         """Geometry/Crystal/IndexingUtils::DiscardDuplicates - line 1919 to 1993"""
         self._directions = []
         zero_vec = np.zeros(3)
-        
+
         for i, dir in enumerate(directs):
             current_length = norm(dir)
             if current_length == 0:  # skip any zero vectors
@@ -434,7 +442,7 @@ class UBMatrixFFT:
             best = max(temp, key=self._num_indexed_1D, default=None)
             if best is not None and self._num_indexed_1D(best) > 0:
                 self._directions.append(best)
-    
+
     def _form_UB_from_abc_vectors(self, min_vol:float) -> bool:
         """Geometry/Crystal/IndexingUtils::FormUB_From_abc_Vectors line 1803 to 1857"""
         best = None
@@ -460,9 +468,9 @@ class UBMatrixFFT:
         # now build the UB from a, b, c
         if not self._get_UB(a_dir, b_dir, c_dir):
             raise RuntimeError("_form_UB_from_abc_vectors(): UB could not be formed, invert matrix failed")
-        
+
         return True
-    
+
     def _get_UB(self, a_dir:np.ndarray, b_dir:np.ndarray, c_dir:np.ndarray) -> bool:
         """Geometry/Crystal/OrientedLattice::GetUB line 1803 to 1857"""
         self._UB = np.array([a_dir, b_dir, c_dir])
@@ -471,7 +479,7 @@ class UBMatrixFFT:
         except np.linalg.LinAlgError:
             self._UB = None
             return False
-        
+
         return True
 
     def check_UB(self) -> bool:
@@ -484,21 +492,21 @@ class UBMatrixFFT:
         """
         if self._UB.shape != (3, 3):
             return False
-        
+
         if not np.all(np.isfinite(self._UB)):
             return False
-        
-        detm = det(self._UB) 
+
+        detm = det(self._UB)
         return not (abs(detm) > 10 or abs(detm) < 1e-12)
 
-    def optimize_UB(self, hkl_vectors:list[np.ndarray], 
+    def optimize_UB(self, hkl_vectors:list[np.ndarray],
                     indexed_qs:list[np.ndarray]) -> tuple[float, np.ndarray]:
         """Geometry/Crystal/IndexingUtils::Optimize_UB - line 644 to 725"""
         if len(hkl_vectors) < 3:
             raise ValueError("optimize_UB(): Three or more indexed peaks needed to find UB")
         if len(hkl_vectors) != len(indexed_qs):
             raise ValueError("optimize_UB(): Number of hkl_vectors != number of q_vectors")
-        
+
         sum_sq_error = 0
         found_UB = True
         H_transpose = np.array(hkl_vectors)
@@ -522,43 +530,44 @@ class UBMatrixFFT:
 
         if not found_UB:
             raise RuntimeError("optimize_UB(): Failed to find UB, invalid hkl or Q values")
-        
+
         if not self.check_UB():
             raise RuntimeError("optimize_UB(): the optimize UB is not valid")
 
         return sum_sq_error, temp_UB
 
-    def get_lattice_parameters(self, optional_UB:np.ndarray=None) -> tuple[bool, np.ndarray]:
+    def get_lattice_parameters(self, 
+                               optional_UB:np.ndarray=None) -> tuple[bool, np.ndarray]:
         """Geometry/Crystal/IndexingUtils::GetLatticeParameters - line 2774 to 2790"""
         if optional_UB is None:
             o_lattice = set_UB(self._UB)
 
-            lattice_par = [o_lattice.a, 
-                        o_lattice.b, 
-                        o_lattice.c, 
-                        np.degrees(o_lattice.alpha), 
-                        np.degrees(o_lattice.beta), 
+            lattice_par = [o_lattice.a,
+                        o_lattice.b,
+                        o_lattice.c,
+                        np.degrees(o_lattice.alpha),
+                        np.degrees(o_lattice.beta),
                         np.degrees(o_lattice.gamma)]
-            
+
         else:
             o_lattice = set_UB(optional_UB)
 
-            lattice_par = [o_lattice.a, 
-                        o_lattice.b, 
-                        o_lattice.c, 
-                        np.degrees(o_lattice.alpha), 
-                        np.degrees(o_lattice.beta), 
+            lattice_par = [o_lattice.a,
+                        o_lattice.b,
+                        o_lattice.c,
+                        np.degrees(o_lattice.alpha),
+                        np.degrees(o_lattice.beta),
                         np.degrees(o_lattice.gamma)]
-        
+
         return lattice_par
-    
+
     def get_Umat_and_Bmat(self):
         o_lattice = set_UB(self._UB)
         self.Umat = o_lattice.Umat
         self.Bmat = o_lattice.Bmat
-    
-    def get_possible_cells(self, best_only:bool, 
-                            allowPermutations:bool, 
+
+    def get_possible_cells(self, best_only:bool,
+                            allowPermutations:bool,
                             max_scalar_error:float=0.2) -> dict:
         """Crystal/ShowPossibleCells/ShowPossibleCells::exec"""
         cells = get_cells(self._UB, best_only, allowPermutations)

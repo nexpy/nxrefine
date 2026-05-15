@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2025, Argonne National Laboratory.
+# Copyright (c) 2014-2026, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
@@ -163,6 +163,11 @@ class NXRefine:
         self.alpha = 90.0
         self.beta = 90.0
         self.gamma = 90.0
+        self.formula = ''
+        self.space_group = ''
+        self.laue_group = ''
+        self.symmetry = 'triclinic'
+        self.centring = 'P'
         self.wavelength = 1.0
         self.distance = 100.0
         self.detector_orientation = '-y +z -x' #Old default orientation
@@ -182,11 +187,6 @@ class NXRefine:
         self.xd = 0.0
         self.yd = 0.0
         self.frame_time = 0.1
-        self.formula = ''
-        self.space_group = ''
-        self.laue_group = ''
-        self.symmetry = 'triclinic'
-        self.centring = 'P'
         self.peaks = None
         self.x = self.y = self.z = None
         self.xp = self.yp = self.zp = None
@@ -220,7 +220,7 @@ class NXRefine:
 
         self.parameters = None
 
-        if self.entry is not None:
+        if self.entry is not None and self.entry.nxfile is not None:
             self.read_parameters()
 
     def __repr__(self):
@@ -230,8 +230,9 @@ class NXRefine:
         if self.entry is None:
             raise NeXusError('NXRefine entry not defined')
         self._mode = self.root.nxfilemode
-        self.root.reload()
-        self.root.unlock()
+        if self._mode is not None:
+            self.root.reload()
+            self.root.unlock()
         return self.root.__enter__()
 
     def __exit__(self, *args):

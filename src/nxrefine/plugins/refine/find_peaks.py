@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2022, Argonne National Laboratory.
+# Copyright (c) 2014-2025, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
@@ -14,7 +14,7 @@ from nexpy.gui.plotview import NXPlotView
 from nexpy.gui.pyqt import QtCore, QtWidgets
 from nexpy.gui.utils import is_file_locked, report_error
 from nexpy.gui.widgets import NXPushButton
-from nexusformat.nexus import NeXusError, NXLock
+from nexusformat.nexus import NeXusError
 from nxrefine.nxreduce import NXReduce
 from nxrefine.nxrefine import NXRefine
 from nxrefine.nxsettings import NXSettings
