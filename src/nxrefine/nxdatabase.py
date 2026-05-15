@@ -94,6 +94,7 @@ class Task(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
     entry = Column(String, default='')
+    subentry = Column(String, default='')
     status = Column(Integer, default=QUEUED)
     entries = Column(Integer, default=NOT_STARTED)
     # Timestamps with microsecond precision
@@ -108,7 +109,8 @@ class Task(Base):
 
     def __repr__(self):
         return (f"Task('{self.name}', filename='{self.filename}', "
-                f"entry='{self.entry}', pid={self.pid})")
+                f"entry='{self.entry}', subentry='{self.subentry}', "
+                f"pid={self.pid})")
 
 
 File.tasks = relationship('Task', back_populates='file', order_by=Task.id)
@@ -119,6 +121,10 @@ class NXDatabase:
     task_names = ('nxload', 'nxlink', 'nxmax', 'nxfind', 'nxcopy', 'nxrefine',
                   'nxprepare', 'nxtransform', 'nxmasked_transform',
                   'nxcombine', 'nxmasked_combine', 'nxpdf', 'nxmasked_pdf')
+    subentry_task_names = ('nxcopy', 'nxmax', 'nxfind', 'nxrefine', 'nxprepare',
+                           'nxtransform', 'nxmasked_transform',
+                           'nxcombine', 'nxmasked_combine',
+                           'nxpdf', 'nxmasked_pdf')
     NOT_STARTED, QUEUED, IN_PROGRESS, DONE, FAILED = 0, 1, 2, 3, -1
 
     def __init__(self, db_file, echo=False):
@@ -139,6 +145,7 @@ class NXDatabase:
             self.engine = create_engine(connection, echo=echo)
             Base.metadata.create_all(self.engine)
         self.database = Path(self.engine.url.database).resolve()
+        self.check_tasks()
         self.experiment_directory = self.database.parent.parent
         try:
             self.database.chmod(0o775)
@@ -180,13 +187,12 @@ class NXDatabase:
         File
             File object.
         """
-        self.check_tasks()
         filepath = self.get_filepath(filename)
         filename = self.get_filename(filename)
         f = self.query(filename)
 
         if f is None:
-            if not filepath.exists():
+            if not filepath.is_file():
                 raise NeXusError(f"'{filepath}' does not exist")
             self.session.add(File(filename=filename))
             self.session.commit()
@@ -203,6 +209,12 @@ class NXDatabase:
         return self.session.query(File) \
             .filter(File.filename == self.get_filename(filename)) \
             .one_or_none()
+
+    def _task_in_group(self, group, task_name):
+        """True if a task NXprocess exists in a group or its nxworkflow child."""
+        if 'nxworkflow' in group:
+            return task_name in group['nxworkflow']
+        return task_name in group
 
     def sync_file(self, filename):
         """Synchronize the NeXus file contents to the database.
@@ -221,7 +233,7 @@ class NXDatabase:
         filepath = self.get_filepath(filename)
         if f:
             scan_dir = self.get_directory(filename)
-            if scan_dir.exists():
+            if scan_dir and scan_dir.is_dir():
                 scan_files = scan_dir.iterdir()
             else:
                 scan_files = []
@@ -231,33 +243,34 @@ class NXDatabase:
             for e in entries:
                 nxentry = root[e]
                 if e in root and 'data' in nxentry and 'instrument' in nxentry:
-                    if 'nxload' in nxentry:
+                    if self._task_in_group(nxentry, 'nxload'):
                         tasks['nxload'] += 1
                     elif e+'.h5' in scan_files or e+'.nxs' in scan_files:
                         tasks['nxload'] += 1
-                    if 'nxlink' in nxentry:
+                    if self._task_in_group(nxentry, 'nxlink'):
                         tasks['nxlink'] += 1
-                    if 'nxmax' in nxentry:
+                    if self._task_in_group(nxentry, 'nxmax'):
                         tasks['nxmax'] += 1
-                    if 'nxfind' in nxentry:
+                    if self._task_in_group(nxentry, 'nxfind'):
                         tasks['nxfind'] += 1
-                    if 'nxcopy' in nxentry or self.is_parent(filename):
+                    if self._task_in_group(nxentry, 'nxcopy'):
                         tasks['nxcopy'] += 1
-                    if 'nxrefine' in nxentry:
+                    if self._task_in_group(nxentry, 'nxrefine'):
                         tasks['nxrefine'] += 1
-                    if 'nxprepare_mask' in nxentry:
+                    if self._task_in_group(nxentry, 'nxprepare_mask'):
                         tasks['nxprepare'] += 1
-                    if 'nxtransform' in nxentry:
+                    if self._task_in_group(nxentry, 'nxtransform'):
                         tasks['nxtransform'] += 1
-                    if 'nxmasked_transform' in nxentry or 'nxmask' in nxentry:
+                    if (self._task_in_group(nxentry, 'nxmasked_transform')
+                            or self._task_in_group(nxentry, 'nxmask')):
                         tasks['nxmasked_transform'] += 1
-            if 'nxcombine' in root['entry']:
+            if self._task_in_group(root['entry'], 'nxcombine'):
                 tasks['nxcombine'] = len(entries)
-            if 'nxmasked_combine' in root['entry']:
+            if self._task_in_group(root['entry'], 'nxmasked_combine'):
                 tasks['nxmasked_combine'] = len(entries)
-            if 'nxpdf' in root['entry']:
+            if self._task_in_group(root['entry'], 'nxpdf'):
                 tasks['nxpdf'] = len(entries)
-            if 'nxmasked_pdf' in root['entry']:
+            if self._task_in_group(root['entry'], 'nxmasked_pdf'):
                 tasks['nxmasked_pdf'] = len(entries)
             for task, value in tasks.items():
                 if value == 0:
@@ -292,7 +305,7 @@ class NXDatabase:
                 self.update_status(f, 'nxload')
             else:
                 for e in entries:
-                    if scan_dir.joinpath(e+'.h5').exists():
+                    if scan_dir.joinpath(e+'.h5').is_file():
                         data += 1
                 if data == 0:
                     f.nxload = NOT_STARTED
@@ -303,7 +316,7 @@ class NXDatabase:
             self.session.commit()
         return f
 
-    def get_task(self, f, task, entry):
+    def get_task(self, f, task, entry, subentry=''):
         """Return the latest database entry for the specified task.
 
         This creates a new task if one does not exist.
@@ -316,17 +329,20 @@ class NXDatabase:
             Task being checked.
         entry : str
             Entry of NeXus file being checked.
+        subentry : str, optional
+            Subentry name, by default '' (entry-level task).
         """
         for t in reversed(f.tasks):
-            if t.name == task and t.entry == entry:
+            if (t.name == task and t.entry == entry and
+                    (t.subentry or '') == subentry):
                 break
         else:
             # This task was started from command line
-            t = Task(name=task, entry=entry)
+            t = Task(name=task, entry=entry, subentry=subentry)
             f.tasks.append(t)
         return t
 
-    def task_status(self, filename, task, entry=None):
+    def task_status(self, filename, task, entry=None, subentry=''):
         """Return the status of the task.
 
         Parameters
@@ -337,12 +353,15 @@ class NXDatabase:
             Task being checked.
         entry : str
             Entry of NeXus file being checked.
+        subentry : str, optional
+            Subentry name, by default '' (entry-level task).
         """
         with NXLock(self.database):
             f = self.get_file(filename)
             if entry:
                 for t in reversed(f.tasks):
-                    if t.name == task and t.entry == entry:
+                    if (t.name == task and t.entry == entry and
+                            (t.subentry or '') == subentry):
                         status = t.status
                         break
                 else:
@@ -354,7 +373,7 @@ class NXDatabase:
     def task_complete(self, filename, task, entry=None):
         return self.task_status(filename, task, entry) == DONE
 
-    def queue_task(self, filename, task, entry, queue_time=None):
+    def queue_task(self, filename, task, entry, queue_time=None, subentry=''):
         """Update a file to 'queued' status and create a matching task.
 
         Parameters
@@ -365,19 +384,21 @@ class NXDatabase:
             Task being updated.
         entry : str
             Entry of NeXus file being updated.
+        subentry : str, optional
+            Subentry name, by default '' (entry-level task).
         """
         with NXLock(self.database):
             f = self.get_file(filename)
-            t = self.get_task(f, task, entry)
+            t = self.get_task(f, task, entry, subentry)
             t.status = QUEUED
             if queue_time:
                 t.queue_time = queue_time
             else:
                 t.queue_time = datetime.datetime.now()
             t.start_time = t.end_time = None
-            self.update_status(f, task)
+            self.update_status(f, task, subentry)
 
-    def start_task(self, filename, task, entry, start_time=None):
+    def start_task(self, filename, task, entry, start_time=None, subentry=''):
         """Record that a task has begun execution.
 
         Parameters
@@ -388,10 +409,12 @@ class NXDatabase:
             Task being updated.
         entry : str
             Entry of NeXus file being updated.
+        subentry : str, optional
+            Subentry name, by default '' (entry-level task).
         """
         with NXLock(self.database):
             f = self.get_file(filename)
-            t = self.get_task(f, task, entry)
+            t = self.get_task(f, task, entry, subentry)
             t.status = IN_PROGRESS
             if start_time:
                 t.start_time = start_time
@@ -399,9 +422,9 @@ class NXDatabase:
                 t.start_time = datetime.datetime.now()
             t.pid = os.getpid()
             t.end_time = None
-            self.update_status(f, task)
+            self.update_status(f, task, subentry)
 
-    def end_task(self, filename, task, entry, end_time=None):
+    def end_task(self, filename, task, entry, end_time=None, subentry=''):
         """Record that a task finished execution.
 
         Update the task's database entry, and set the matching column in
@@ -415,18 +438,20 @@ class NXDatabase:
             Task being updated.
         entry : str
             Entry of NeXus file being updated.
+        subentry : str, optional
+            Subentry name, by default '' (entry-level task).
         """
         with NXLock(self.database):
             f = self.get_file(filename)
-            t = self.get_task(f, task, entry)
+            t = self.get_task(f, task, entry, subentry)
             t.status = DONE
             if end_time:
                 t.end_time = end_time
             else:
                 t.end_time = datetime.datetime.now()
-            self.update_status(f, task)
+            self.update_status(f, task, subentry)
 
-    def fail_task(self, filename, task, entry):
+    def fail_task(self, filename, task, entry, subentry=''):
         """Record that a task failed during execution.
 
         Parameters
@@ -437,11 +462,14 @@ class NXDatabase:
             Task being updated.
         entry : str
             Entry of NeXus file being updated.
+        subentry : str, optional
+            Subentry name, by default '' (entry-level task).
         """
         with NXLock(self.database):
             f = self.get_file(filename)
             for t in reversed(f.tasks):
-                if t.name == task and t.entry == entry:
+                if (t.name == task and t.entry == entry and
+                        (t.subentry or '') == subentry):
                     break
             else:
                 # No task recorded
@@ -450,10 +478,13 @@ class NXDatabase:
             t.queue_time = None
             t.start_time = None
             t.end_time = None
-            self.update_status(f, task)
+            self.update_status(f, task, subentry)
 
-    def update_status(self, f, task):
+    def update_status(self, f, task, subentry=''):
         """Update the File object with the status of the specified task.
+
+        Subentry tasks are recorded in the Tasks table only; the Files table
+        columns reflect entry-level task status exclusively.
 
         Parameters
         ----------
@@ -461,39 +492,107 @@ class NXDatabase:
             File table being updated
         task : str
             Task being updated.
+        subentry : str, optional
+            Subentry name. When non-empty, skips updating the File columns.
         """
+        if subentry:
+            self.session.commit()
+            return
         status = {}
-        if task == 'nxcopy' and self.is_parent(f.filename):
-            setattr(f, task, DONE)
+        if (task == 'nxcombine' or task == 'nxmasked_combine' or
+                task == 'nxpdf' or task == 'nxmasked_pdf'):
+            entries = ['entry']
         else:
-            if (task == 'nxcombine' or task == 'nxmasked_combine' or
-                    task == 'nxpdf' or task == 'nxmasked_pdf'):
-                entries = ['entry']
+            entries = f.get_entries()
+        for e in entries:
+            for t in reversed(f.tasks):
+                if t.name == task and t.entry == e and not (t.subentry or ''):
+                    status[e] = t.status
+                    break
             else:
-                entries = f.get_entries()
-            for e in entries:
-                for t in reversed(f.tasks):
-                    if t.name == task and t.entry == e:
-                        status[e] = t.status
-                        break
-                else:
-                    status[e] = NOT_STARTED
-            if all(s == DONE for s in status.values()):
-                setattr(f, task, DONE)
-            elif FAILED in status.values():
-                setattr(f, task, FAILED)
-            elif IN_PROGRESS in status.values():
-                setattr(f, task, IN_PROGRESS)
-            elif QUEUED in status.values():
-                if DONE in status.values():
-                    setattr(f, task, IN_PROGRESS)
-                else:
-                    setattr(f, task, QUEUED)
-            elif DONE in status.values():
+                status[e] = NOT_STARTED
+        if all(s == DONE for s in status.values()):
+            setattr(f, task, DONE)
+        elif FAILED in status.values():
+            setattr(f, task, FAILED)
+        elif IN_PROGRESS in status.values():
+            setattr(f, task, IN_PROGRESS)
+        elif QUEUED in status.values():
+            if DONE in status.values():
                 setattr(f, task, IN_PROGRESS)
             else:
-                setattr(f, task, NOT_STARTED)
+                setattr(f, task, QUEUED)
+        elif DONE in status.values():
+            setattr(f, task, IN_PROGRESS)
+        else:
+            setattr(f, task, NOT_STARTED)
         self.session.commit()
+
+    def get_subentries(self, filename):
+        """Return a sorted list of subentry names recorded for this file.
+
+        Parameters
+        ----------
+        filename : str or Path
+            Path of wrapper file.
+        """
+        f = self.query(self.get_filename(filename))
+        if f is None:
+            return []
+        return sorted({t.subentry for t in f.tasks if t.subentry})
+
+    def get_subentry_status(self, filename, subentry):
+        """Return aggregated task status for a subentry across all entries.
+
+        Parameters
+        ----------
+        filename : str or Path
+            Path of wrapper file.
+        subentry : str
+            Subentry name.
+
+        Returns
+        -------
+        dict
+            Mapping of task name (nx-prefixed) to status integer.
+        """
+        with NXLock(self.database):
+            f = self.query(self.get_filename(filename))
+            if f is None:
+                return {}
+            entries = f.get_entries()
+            result = {}
+            for task in self.subentry_task_names:
+                if task in ('nxcombine', 'nxmasked_combine',
+                            'nxpdf', 'nxmasked_pdf'):
+                    check_entries = ['entry']
+                else:
+                    check_entries = entries
+                status = {}
+                for e in check_entries:
+                    for t in reversed(f.tasks):
+                        if (t.name == task and t.entry == e and
+                                (t.subentry or '') == subentry):
+                            status[e] = t.status
+                            break
+                    else:
+                        status[e] = NOT_STARTED
+                if not status or all(s == NOT_STARTED for s in status.values()):
+                    result[task] = NOT_STARTED
+                elif all(s == DONE for s in status.values()):
+                    result[task] = DONE
+                elif FAILED in status.values():
+                    result[task] = FAILED
+                elif IN_PROGRESS in status.values():
+                    result[task] = IN_PROGRESS
+                elif QUEUED in status.values():
+                    result[task] = (IN_PROGRESS if DONE in status.values()
+                                    else QUEUED)
+                elif DONE in status.values():
+                    result[task] = IN_PROGRESS
+                else:
+                    result[task] = NOT_STARTED
+            return result
 
     def update_file(self, filename):
         """Update the File object for the specified file.
@@ -517,11 +616,10 @@ class NXDatabase:
         sample_dir : str or Path
             Directory containing the NeXus wrapper files.
         """
-        # Get a list of all the .nxs wrapper files
         sample_dir = Path(sample_dir)
         wrapper_files = [
             sample_dir / filename for filename in sample_dir.glob('*.nxs')
-            if 'parent' not in filename.name and 'mask' not in filename.name]
+            if 'scans' not in filename.name and 'mask' not in filename.name]
         with NXLock(self.database):
             for wrapper_file in wrapper_files:
                 self.sync_file(self.get_file(wrapper_file))
@@ -535,15 +633,18 @@ class NXDatabase:
     def check_tasks(self):
         """Check that all tasks are present, adding a column if necessary."""
         inspector = inspect(self.engine)
-        tasks = [task['name'] for task in inspector.get_columns('files')]
-        if 'data' in tasks:
+        file_columns = [col['name'] for col in inspector.get_columns('files')]
+        if 'data' in file_columns:
             self.rename_column('data', 'nxload')
-            tasks[tasks.index('data')] = 'nxload'
+            file_columns[file_columns.index('data')] = 'nxload'
         for task in self.task_names:
-            if task not in tasks:
+            if task not in file_columns:
                 self.add_column(task)
-        if 'entries' not in tasks:
+        if 'entries' not in file_columns:
             self.add_column('entries', data_type=String)
+        task_columns = [col['name'] for col in inspector.get_columns('tasks')]
+        if 'subentry' not in task_columns:
+            self.add_column('subentry', table_name='tasks', data_type=String)
 
     def add_column(self, column_name, table_name='files',
                    data_type=Integer, default=None):
@@ -594,15 +695,3 @@ class NXDatabase:
         sample = sample_dir.parent.name
         scan_label = filepath.stem.replace(sample+'_', '')
         return sample_dir / scan_label
-
-    def is_parent(self, filename):
-        """True if the wrapper file is set as the parent."""
-        filepath = self.get_filepath(filename)
-        sample_dir = filepath.parent
-        sample = sample_dir.parent.name
-        try:
-            parent_file = Path(sample_dir).joinpath(
-                sample + '_parent.nxs').resolve(strict=True)
-            return filepath == parent_file
-        except FileNotFoundError:
-            return False

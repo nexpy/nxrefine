@@ -28,6 +28,8 @@ def main():
                         help='threshold for larger convolution')
     parser.add_argument('--h2', type=int, default=51,
                         help='size of larger convolution')
+    parser.add_argument('-s', '--subentry', default='',
+                        help='subentry to be processed')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing mask')
     parser.add_argument('-m', '--monitor', action='store_true',
@@ -43,7 +45,7 @@ def main():
         entries = NXMultiReduce(args.directory).entries
 
     for entry in entries:
-        reduce = NXReduce(entry, args.directory, prepare=True,
+        reduce = NXReduce(entry, args.subentry, args.directory, prepare=True,
                           overwrite=args.overwrite,
                           monitor_progress=args.monitor)
         reduce.mask_parameters['threshold_1'] = args.t1

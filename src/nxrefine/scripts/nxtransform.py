@@ -26,6 +26,8 @@ def main():
                         help='perform regular transform')
     parser.add_argument('-M', '--mask', action='store_true',
                         help='perform transform with 3D mask')
+    parser.add_argument('-s', '--subentry', default='',
+                        help='subentry to be processed')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing transforms')
     parser.add_argument('-q', '--queue', action='store_true',
@@ -40,7 +42,7 @@ def main():
 
     for entry in entries:
         reduce = NXReduce(
-            entry, args.directory, transform=True,
+            entry, args.subentry, args.directory, transform=True,
             Qh=args.qh, Qk=args.qk, Ql=args.ql,
             regular=args.regular, mask=args.mask, overwrite=args.overwrite)
         if args.queue:

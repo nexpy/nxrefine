@@ -19,9 +19,9 @@ from nxrefine.nxreduce import NXMultiReduce
 
 class TransformDialog(NXDialog):
 
-    def __init__(self, scans_file, entry=None):
+    def __init__(self, scans_file, subentry=None):
         super().__init__()
-        self.parent = NXParent(scans_file, entry=entry)
+        self.parent = NXParent(scans_file, subentry=subentry)
         self.reduce = NXMultiReduce(self.parent.root)
         self.refine = self.reduce.refine
 

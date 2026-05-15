@@ -82,6 +82,7 @@ class RefineLatticeDialog(NXDialog):
         self.tolerance_box = None
         self.fit_report = []
         self.ringview = None
+        self.subentry_combo = None
 
     def define_parameters(self):
         """
@@ -186,6 +187,37 @@ class RefineLatticeDialog(NXDialog):
         This method reads the parameters from the NXRefine object,
         updates the parameters table, and updates the buttons.
         """
+        subentries = [s.nxname for s in self.entry.NXsubentry]
+        if self.layout.count() == 2:
+            pos = 1
+            if subentries:
+                self.insert_layout(pos, self.subentry_layout(subentries))
+                pos += 1
+        elif self.subentry_combo is not None:
+            self.subentry_combo.blockSignals(True)
+            self.subentry_combo.clear()
+            self.subentry_combo.add(*([''] + subentries))
+            self.subentry_combo.blockSignals(False)
+        self.choose_subentry()
+
+    def subentry_layout(self, subentries):
+        self.subentry_combo = self.select_box(
+            [''] + subentries, slot=self.choose_subentry)
+        return self.make_layout(NXLabel('Subentry:'), self.subentry_combo)
+
+    @property
+    def subentry(self):
+        if self.subentry_combo is not None:
+            return self.subentry_combo.selected
+        return ''
+
+    def choose_subentry(self):
+        """
+        Reads in the parameters from the selected entry.
+
+        This method reads the parameters from the NXRefine object,
+        updates the parameters table, and updates the buttons.
+        """
         try:
             refine = NXRefine(self.entry)
             if refine.xp is None:
@@ -194,15 +226,17 @@ class RefineLatticeDialog(NXDialog):
             report_error("Refining Lattice", error)
             return
         self.refine = refine
-        self.reduce = NXReduce(self.entry)
+        self.reduce = NXReduce(self.entry, subentry=self.subentry or None)
         self.set_title(f"Refining {self.refine.name}")
-        if self.layout.count() == 2:
+        if self.layout.count() == 2 or (
+                self.subentry_combo is not None and self.layout.count() == 3):
             self.define_parameters()
-            self.insert_layout(1, self.parameters.grid_layout)
-            self.insert_layout(2, self.refine_buttons)
-            self.insert_layout(3, self.orientation_buttons)
-            self.insert_layout(4, self.parameters.report_layout())
-            self.insert_layout(5, self.lattice_buttons)
+            offset = 1 if self.subentry_combo is not None else 0
+            self.insert_layout(1 + offset, self.parameters.grid_layout)
+            self.insert_layout(2 + offset, self.refine_buttons)
+            self.insert_layout(3 + offset, self.orientation_buttons)
+            self.insert_layout(4 + offset, self.parameters.report_layout())
+            self.insert_layout(5 + offset, self.lattice_buttons)
         self.set_lattice_parameters()
         self.update_parameters()
         self.update_peak_table()

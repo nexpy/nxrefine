@@ -25,6 +25,8 @@ def main():
     parser.add_argument('-l', '--last', type=int, help='last frame')
     parser.add_argument('-P', '--pixels', type=int,
                         help='minimum pixels between peaks')
+    parser.add_argument('-s', '--subentry', default='',
+                        help='subentry to be processed')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing peaks')
     parser.add_argument('-p', '--parent', default=None,
@@ -42,7 +44,7 @@ def main():
         entries = NXMultiReduce(args.directory).entries
 
     for entry in entries:
-        reduce = NXReduce(entry, args.directory, find=True,
+        reduce = NXReduce(entry, args.subentry, args.directory, find=True,
                           threshold=args.threshold,
                           first=args.first, last=args.last,
                           min_pixels=args.pixels,

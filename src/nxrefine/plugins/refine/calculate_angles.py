@@ -9,6 +9,7 @@
 from nexpy.gui.dialogs import GridParameters, NXDialog
 from nexpy.gui.plotview import get_plotview
 from nexpy.gui.utils import report_error
+from nexpy.gui.widgets import NXLabel
 from nexusformat.nexus import NeXusError, NXdata, NXfield
 from nxrefine.nxrefine import NXRefine
 
@@ -41,13 +42,43 @@ class CalculateDialog(NXDialog):
             ('Plot', self.plot_lattice), ('Save', self.write_parameters))
         self.set_layout(self.entry_layout, self.close_buttons())
         self.set_title(f'{self.label} Calculate Angles')
+        self.subentry_combo = None
+        self._ui_built = False
 
     def choose_entry(self):
-        self.refine = NXRefine(self.entry)
-        if 'peaks' in self.entry:
-            if self.layout.count() == 2:
-                self.insert_layout(1, self.parameters.grid(header=False))
-                self.insert_layout(2, self.action_buttons)
+        subentries = [s.nxname for s in self.entry.NXsubentry]
+        if not self._ui_built and subentries and self.subentry_combo is None:
+            self.insert_layout(1, self.subentry_layout(subentries))
+        elif self.subentry_combo is not None:
+            self.subentry_combo.blockSignals(True)
+            self.subentry_combo.clear()
+            self.subentry_combo.add(*([''] + subentries))
+            self.subentry_combo.blockSignals(False)
+        self.choose_subentry()
+
+    def subentry_layout(self, subentries):
+        self.subentry_combo = self.select_box(
+            [''] + subentries, slot=self.choose_subentry)
+        return self.make_layout(NXLabel('Subentry:'), self.subentry_combo)
+
+    @property
+    def subentry(self):
+        if self.subentry_combo is not None:
+            return self.subentry_combo.selected
+        return ''
+
+    def choose_subentry(self):
+        target = (self.entry[self.subentry]
+                  if self.subentry and self.subentry in self.entry
+                  else self.entry)
+        self.refine = NXRefine(target)
+        if 'peaks' in target:
+            if not self._ui_built:
+                offset = 1 if self.subentry_combo is not None else 0
+                self.insert_layout(1 + offset,
+                                   self.parameters.grid(header=False))
+                self.insert_layout(2 + offset, self.action_buttons)
+                self._ui_built = True
             self.update_parameters()
         else:
             self.display_message("Calculating Angles",

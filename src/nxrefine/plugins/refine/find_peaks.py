@@ -13,8 +13,8 @@ from nexpy.gui.dialogs import GridParameters, NXDialog
 from nexpy.gui.plotview import NXPlotView
 from nexpy.gui.pyqt import QtCore, QtWidgets
 from nexpy.gui.utils import is_file_locked, report_error
-from nexpy.gui.widgets import NXPushButton
-from nexusformat.nexus import NeXusError
+from nexpy.gui.widgets import NXLabel, NXPushButton
+from nexusformat.nexus import NeXusError, NXLock
 from nxrefine.nxreduce import NXReduce
 from nxrefine.nxrefine import NXRefine
 from nxrefine.nxsettings import NXSettings
@@ -54,12 +54,37 @@ class FindDialog(NXDialog):
         self.reduce = None
         self.refine = None
         self.peaks_box = None
+        self.subentry_combo = None
 
     def choose_entry(self):
+        subentries = [s.nxname for s in self.entry.NXsubentry]
         if self.layout.count() == 2:
-            self.insert_layout(1, self.parameters.grid_layout)
-            self.insert_layout(2, self.find_layout)
-        self.reduce = NXReduce(self.entry)
+            pos = 1
+            if subentries:
+                self.insert_layout(pos, self.subentry_layout(subentries))
+                pos += 1
+            self.insert_layout(pos, self.parameters.grid_layout); pos += 1
+            self.insert_layout(pos, self.find_layout)
+        elif self.subentry_combo is not None:
+            self.subentry_combo.blockSignals(True)
+            self.subentry_combo.clear()
+            self.subentry_combo.add(*([''] + subentries))
+            self.subentry_combo.blockSignals(False)
+        self.choose_subentry()
+
+    def subentry_layout(self, subentries):
+        self.subentry_combo = self.select_box(
+            [''] + subentries, slot=self.choose_subentry)
+        return self.make_layout(NXLabel('Subentry:'), self.subentry_combo)
+
+    @property
+    def subentry(self):
+        if self.subentry_combo is not None:
+            return self.subentry_combo.selected
+        return ''
+
+    def choose_subentry(self):
+        self.reduce = NXReduce(self.entry, subentry=self.subentry or None)
         self.refine = NXRefine(self.entry)
         self.refine.polar_max = self.refine.two_theta_max()
         if self.reduce.first is not None:
@@ -108,6 +133,7 @@ class FindDialog(NXDialog):
         self.reduce = NXReduce(self.entry, threshold=self.threshold,
                                first=self.first, last=self.last,
                                min_pixels=self.min_pixels,
+                               subentry=self.subentry or None,
                                find=True, overwrite=True, gui=True)
         self.reduce.moveToThread(self.thread)
         self.reduce.start.connect(self.start_progress)

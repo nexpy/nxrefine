@@ -22,6 +22,8 @@ def main():
                         help='names of entries to be searched')
     parser.add_argument('-p', '--parent',
                         help='file name of file to copy from')
+    parser.add_argument('-s', '--subentry', default='',
+                        help='subentry to be processed')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing peaks')
     parser.add_argument('-q', '--queue', action='store_true',
@@ -35,7 +37,8 @@ def main():
         entries = NXMultiReduce(args.directory).entries
 
     for entry in entries:
-        reduce = NXReduce(entry, args.directory, parent=args.parent, copy=True,
+        reduce = NXReduce(entry, args.subentry, args.directory,
+                          parent=args.parent, copy=True,
                           overwrite=args.overwrite)
         if args.queue:
             reduce.queue('nxcopy', args)

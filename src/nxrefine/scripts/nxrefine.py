@@ -26,6 +26,8 @@ def main():
                         help='maximum polar angle in degrees')
     parser.add_argument('-T', '--hkl_tolerance', type=float,
                         help='tolerance for including peak in Å-1')
+    parser.add_argument('-s', '--subentry', default='',
+                        help='subentry to be processed')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing maximum')
     parser.add_argument('-q', '--queue', action='store_true',
@@ -43,7 +45,7 @@ def main():
             lattice = args.lattice
         else:
             lattice = False
-        reduce = NXReduce(entry, args.directory, refine=True,
+        reduce = NXReduce(entry, args.subentry, args.directory, refine=True,
                           lattice=lattice, overwrite=args.overwrite)
         if args.polar_max:
             reduce.polar_max = args.polar_max

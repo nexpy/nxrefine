@@ -17,9 +17,9 @@ from nxrefine.nxsettings import NXSettings
 
 class ParametersDialog(NXDialog):
 
-    def __init__(self, scans_file, entry=None):
+    def __init__(self, scans_file, subentry=None):
         super().__init__()
-        self.parent = NXParent(scans_file, entry=entry)
+        self.parent = NXParent(scans_file, subentry=subentry)
         self.directory = self.parent.directory
         self.sample = self.parent.sample
         self.entries = [self.parent.root[entry]

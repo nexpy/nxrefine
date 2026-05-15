@@ -20,6 +20,8 @@ def main():
                         help='scan directory')
     parser.add_argument('-e', '--entries', nargs='+',
                         help='names of entries to be processed')
+    parser.add_argument('-s', '--subentry', default='',
+                        help='subentry to be processed')
     parser.add_argument('-f', '--first', type=int, help='first frame')
     parser.add_argument('-l', '--last', type=int, help='last frame')
     parser.add_argument('-o', '--overwrite', action='store_true',
@@ -37,7 +39,7 @@ def main():
         entries = NXMultiReduce(args.directory).entries
 
     for entry in entries:
-        reduce = NXReduce(entry, args.directory, maxcount=True,
+        reduce = NXReduce(entry, args.subentry, args.directory, maxcount=True,
                           first=args.first, last=args.last,
                           overwrite=args.overwrite,
                           monitor_progress=args.monitor)

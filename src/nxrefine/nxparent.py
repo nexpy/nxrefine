@@ -7,15 +7,15 @@
 # -----------------------------------------------------------------------------
 from pathlib import Path as Path
 
-from nexusformat.nexus import (NeXusError, NXentry, NXfield, NXparameters,
-                               NXprocess, NXroot, NXsample, nxconsolidate,
-                               nxopen)
+from nexusformat.nexus import (NeXusError, NXdata, NXentry, NXfield,
+                               NXparameters, NXprocess, NXroot, NXsample,
+                               NXsubentry, nxconsolidate, nxopen)
 from nexusformat.nexus.tree import natural_sort, string_dtype
 
 
 class NXParent:
 
-    def __init__(self, filename, entry=None):
+    def __init__(self, filename, subentry=None):
         if isinstance(filename, NXroot):
             self.filename = Path(filename.nxfilename).resolve()
             self.root = filename
@@ -30,7 +30,22 @@ class NXParent:
         if not self.filename.stem.endswith('_scans'):
             raise ValueError("Parent file must end with '_scans.nxs'")
         self.name = self.filename.name
-        self.entry = entry if entry else '/entry'
+        self._subentry = subentry or ''
+
+    @property
+    def subentry(self):
+        """The subentry name within '/entry', or '' for the main entry."""
+        return self._subentry
+
+    @property
+    def entry(self):
+        """Full path to the active entry within the scans file."""
+        return f'/entry/{self._subentry}' if self._subentry else '/entry'
+
+    @entry.setter
+    def entry(self, value):
+        parts = str(value).strip('/').split('/')
+        self._subentry = parts[-1] if len(parts) > 1 else ''
 
     def __repr__(self):
         return f"NXParent('{self.name}')"
@@ -53,8 +68,12 @@ class NXParent:
             self.root[self.entry] = value
 
     @property
+    def scan_entries(self):
+        return ['/entry'] + [s.nxpath for s in self.root['entry'].NXsubentry]
+
+    @property
     def scan_info(self):
-        if 'nxscans' in self.scan_entry:
+        if self.scan_entry and 'nxscans' in self.scan_entry:
             return self.scan_entry['nxscans']
         else:
             return None
@@ -87,6 +106,25 @@ class NXParent:
     def settings(self, value):
         if self.scan_info:
             self.scan_info['settings'] = value
+
+    def get_setting(self, name, default=None):
+        """Return a single setting from /entry/nxscans/settings."""
+        if self.settings is not None and name in self.settings:
+            return self.settings[name].nxvalue
+        return default
+
+    def write_settings(self, **kwargs):
+        """Write reduction settings to /entry/nxscans/settings."""
+        with nxopen(self.filename, 'rw') as root:
+            entry = root[self.entry]
+            if 'nxscans' not in entry:
+                entry['nxscans'] = NXprocess()
+            if 'settings' not in entry['nxscans']:
+                entry['nxscans']['settings'] = NXparameters()
+            settings = entry['nxscans']['settings']
+            for name, value in kwargs.items():
+                if value is not None:
+                    settings[name] = value
 
     @property
     def transform(self):
@@ -292,6 +330,20 @@ class NXParent:
                 continue
         return valid_files
 
+    def create_scan_entry(self, entry):
+        with self.root:
+            if entry not in self.root['entry']:
+                self.root['entry'][entry] = NXsubentry()
+            self._subentry = entry
+            if 'nxscans' in self.root['entry']:
+                self.scan_info = self.root['entry/nxscans']
+                self.scan_info.set_date()
+            else:
+                self.initialize()
+            if ('sample' in self.root['entry'] and
+                    'sample' not in self.root['entry'][entry]):
+                self.root['entry'][entry]['sample'] = self.root['entry/sample']
+
     def create_scan_data(self, data_path):
         """Create consolidated scan data."""
         scan_files = self.valid_scans(data_path)
@@ -328,10 +380,31 @@ class NXParent:
         except Exception:
             pass
 
+    def copy_file(self, config_file):
+        with nxopen(config_file) as root:
+            for entry in root.entries:
+                if entry not in self.root:
+                    self.root[entry] = NXentry()
+                if 'instrument' in root[entry]:
+                    instrument = root[entry]['instrument']
+                    if 'instrument' in self.root[entry]:
+                        del self.root[entry]['instrument']
+                    self.root[entry]['instrument'] = instrument
+            if 'sample' in root['entry']:
+                if 'sample' in self.root['entry']:
+                    del self.root['entry/sample']
+                self.sample_info = root['entry/sample']
+            if 'transform' in root['entry']:
+                L, K, H = root['entry/transform'].nxaxes
+                self.transform = NXdata(axes=(L, K, H))
+
     def initialize(self):
         with self.root:
             if self.scan_entry is None:
-                self.scan_entry = NXentry()
+                if self.entry in self.root:
+                    self.scan_entry = NXentry()
+                else:
+                    self.scan_entry = NXsubentry()
             if self.scan_info is None:
                 self.scan_info = NXprocess()
             if self.settings is None:

@@ -10,7 +10,7 @@ from pathlib import Path
 
 from nexpy.gui.dialogs import GridParameters, NXDialog
 from nexpy.gui.utils import confirm_action, display_message, report_error
-from nexusformat.nexus import NeXusError, NXdata, NXentry, nxopen
+from nexusformat.nexus import NeXusError, NXentry, nxopen
 
 from nxrefine.nxparent import NXParent
 from nxrefine.nxsettings import NXSettings
@@ -197,22 +197,7 @@ class ParentDialog(NXDialog):
                     self.parent.root[entry][g] = group
 
     def copy_file(self, config_file):
-        with nxopen(config_file) as root:
-            for entry in root.entries:
-                if entry not in self.parent.root:
-                    self.parent.root[entry] = NXentry()
-                if 'instrument' in root[entry]:
-                    instrument = root[entry]['instrument']
-                    if 'instrument' in self.parent.root[entry]:
-                        del self.parent.root[entry]['instrument']
-                    self.parent.root[entry]['instrument'] = instrument
-            if 'sample' in root['entry']:
-                if 'sample' in self.parent.root['entry']:
-                    del self.parent.root['entry/sample']
-                self.parent.sample_info = root['entry/sample']
-            if 'transform' in root['entry']:
-                L, K, H = root['entry/transform'].nxaxes
-                self.parent.transform = NXdata(axes=(L, K, H))
+        self.parent.copy_file(config_file)
 
     def create_parent(self):
         self.parent = NXParent(self.parent_file)
