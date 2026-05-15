@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2022, Argonne National Laboratory.
+# Copyright (c) 2018-2026, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
@@ -490,7 +490,7 @@ class WorkflowDialog(NXDialog):
                                   ('View Workflow Logs', self.logview),
                                   ('View Workflow Output', self.outview),
                                   ('View Database', self.databaseview)),
-            close_layout)        
+            close_layout)
         dialog.setWindowTitle(
             f"{'/'.join(self.sample_directory.parts[-3:])} Logs")
         self.view_dialog = dialog
@@ -653,4 +653,4 @@ class WorkflowDialog(NXDialog):
     def reject(self):
         if self.server is not None and self.server.server_type == 'direct':
             self.server.stop()
-        super().reject()        
+        super().reject()

@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2022, Argonne National Laboratory.
+# Copyright (c) 2018-2026, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
@@ -273,4 +273,4 @@ class ServerDialog(NXDialog):
                 self.server.stop()
         except Exception:
             pass
-        super().reject()        
+        super().reject()
