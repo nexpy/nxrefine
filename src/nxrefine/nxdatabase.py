@@ -216,6 +216,42 @@ class NXDatabase:
             return task_name in group['nxworkflow']
         return task_name in group
 
+    def _get_nxprocess(self, group, task_name):
+        """Return the NXprocess for a task within a group, or None."""
+        if 'nxworkflow' in group and task_name in group['nxworkflow']:
+            return group['nxworkflow'][task_name]
+        if task_name in group:
+            return group[task_name]
+        return None
+
+    def _append_task_from_group(self, f, group, task, entry, subentry=''):
+        """Create and append a DONE Task from an NXprocess group if not already present.
+
+        Returns True if a new task was added, False otherwise.
+        """
+        if not self._task_in_group(group, task):
+            return False
+        if any(t.name == task and t.entry == entry and
+               (t.subentry or '') == subentry and t.status == DONE
+               for t in f.tasks):
+            return False
+        nxprocess = self._get_nxprocess(group, task)
+        t = Task(name=task, entry=entry, subentry=subentry, status=DONE,
+                 filename=f.filename)
+        if nxprocess is not None:
+            for field in ('queue_time', 'start_time', 'end_time'):
+                if field in nxprocess:
+                    try:
+                        setattr(t, field,
+                                datetime.datetime.fromisoformat(
+                                    str(nxprocess[field])))
+                    except ValueError:
+                        pass
+            if 'pid' in nxprocess:
+                t.pid = int(nxprocess['pid'])
+        f.tasks.append(t)
+        return True
+
     def sync_file(self, filename):
         """Synchronize the NeXus file contents to the database.
 
@@ -281,6 +317,7 @@ class NXDatabase:
                     setattr(f, task, IN_PROGRESS)
             f.set_entries(entries)
             self.session.commit()
+            self.sync_subentries(filename, root=root, f=f)
         return f
 
     def sync_data(self, filename):
@@ -315,6 +352,63 @@ class NXDatabase:
                     f.nxload = IN_PROGRESS
             self.session.commit()
         return f
+
+    def sync_subentries(self, filename, root=None, f=None):
+        """Synchronize subentry task records from NeXus file to tasks table.
+
+        For each subentry found in the NeXus file, creates Task records for
+        completed tasks, reading timing information from the NXprocess groups
+        written by NXReduce.record().
+
+        Parameters
+        ----------
+        filename : str
+            Path of wrapper file relative to GUP directory.
+        root : NXroot, optional
+            Already-open NeXus root object (avoids a redundant file open).
+        f : File, optional
+            Already-fetched File ORM object.
+        """
+        if f is None:
+            f = self.query(self.get_filename(filename))
+        if f is None:
+            return
+        if root is None:
+            root = nxload(self.get_filepath(filename))
+        entries = f.get_entries()
+        combine_tasks = ('nxcombine', 'nxmasked_combine', 'nxpdf', 'nxmasked_pdf')
+        changed = False
+        for e in entries:
+            if e not in root:
+                continue
+            nxentry = root[e]
+            for sub in nxentry.NXsubentry:
+                subentry_name = sub.nxname
+                for task in self.subentry_task_names:
+                    if task in combine_tasks:
+                        check_entry = 'entry'
+                        group = (root['entry'][subentry_name]
+                                 if subentry_name in root['entry'] else None)
+                    else:
+                        check_entry = e
+                        group = (nxentry[subentry_name]
+                                 if subentry_name in nxentry else None)
+                    if group is None:
+                        continue
+                    if self._append_task_from_group(
+                            f, group, task, check_entry, subentry_name):
+                        changed = True
+            for task in self.task_names:
+                if task in combine_tasks:
+                    continue
+                if self._append_task_from_group(f, nxentry, task, e):
+                    changed = True
+        if 'entry' in root:
+            for task in combine_tasks:
+                if self._append_task_from_group(f, root['entry'], task, 'entry'):
+                    changed = True
+        if changed:
+            self.session.commit()
 
     def get_task(self, f, task, entry, subentry=''):
         """Return the latest database entry for the specified task.

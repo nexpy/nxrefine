@@ -33,9 +33,37 @@ class MaximumDialog(NXDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.select_entry(self.choose_entry)
-
-        self.set_layout(self.entry_layout, self.progress_layout(save=True))
+        self.select_entry(self.choose_entry, subentry=True,
+                          subentries_callback=self.get_parent_subentries)
+        self.output = NXLabel('Maximum Value:')
+        self.parameters = GridParameters()
+        self.parameters.add('first', '', 'First Frame')
+        self.parameters.add('last', '', 'Last Frame')
+        self.parameters.add('qmin', '', 'Minimum Scattering Q (Ang-1)')
+        self.parameters.add('qmax', '', 'Maximum Scattering Q (Ang-1)')
+        self.parameters.add('fw', '5', 'Frame Window')
+        self.parameters.add('fs', '20', 'Filter Size')
+        self.checkbox['over'] = NXCheckBox('Over?')
+        self.checkbox['copy'] = NXCheckBox('Copy to other entries?')
+        self.set_layout(
+            self.entry_layout,
+            self.parameters.grid(),
+            self.make_layout(
+                self.action_buttons(('Find Maximum', self.find_maximum)),
+                self.output),
+            self.make_layout(
+                self.action_buttons(
+                    ('Plot Summed Data', self.plot_summed_data),
+                    ('Plot Summed Frames', self.plot_summed_frames),
+                    ('Plot Partial Frames', self.plot_partial_frames)),
+                self.checkbox['over']),
+            self.make_layout(self.action_buttons(
+                ('Plot Transmission Mask', self.plot_transmission_mask),
+                ('Plot Transmission', self.plot_transmission))),
+            self.make_layout(
+                self.action_buttons(('Save Transmission', self.save_transmission)),
+                self.checkbox['copy']),
+            self.progress_layout(save=True))
         self.progress_bar.setVisible(False)
         self.progress_bar.setValue(0)
         self.set_title('Find Maximum Value')
@@ -44,60 +72,17 @@ class MaximumDialog(NXDialog):
         self.summed_data = None
         self.summed_frames = None
         self.partial_frames = None
-        self.subentry_combo = None
+
+    def get_parent_subentries(self):
+        try:
+            reduce = NXReduce(self.entry)
+            if reduce.parent:
+                return [s.nxname for s in reduce.parent.root['entry'].NXsubentry]
+        except Exception:
+            pass
+        return []
 
     def choose_entry(self):
-        subentries = [s.nxname for s in self.entry.NXsubentry]
-        if self.layout.count() == 2:
-            pos = 1
-            if subentries:
-                self.insert_layout(pos, self.subentry_layout(subentries))
-                pos += 1
-            self.output = NXLabel('Maximum Value:')
-            self.parameters = GridParameters()
-            self.parameters.add('first', '', 'First Frame')
-            self.parameters.add('last', '', 'Last Frame')
-            self.parameters.add('qmin', '', 'Minimum Scattering Q (Ang-1)')
-            self.parameters.add('qmax', '', 'Maximum Scattering Q (Ang-1)')
-            self.parameters.add('fw', '5', 'Frame Window')
-            self.parameters.add('fs', '20', 'Filter Size')
-            self.insert_layout(pos, self.parameters.grid()); pos += 1
-            self.insert_layout(pos, self.make_layout(
-                self.action_buttons(('Find Maximum', self.find_maximum)),
-                self.output)); pos += 1
-            self.checkbox['over'] = NXCheckBox('Over?')
-            self.insert_layout(pos, self.make_layout(self.action_buttons(
-                ('Plot Summed Data', self.plot_summed_data),
-                ('Plot Summed Frames', self.plot_summed_frames),
-                ('Plot Partial Frames', self.plot_partial_frames)),
-                self.checkbox['over'])); pos += 1
-            self.checkbox['transmission'] = NXCheckBox('Save Transmission')
-            self.insert_layout(pos, self.make_layout(self.action_buttons(
-                ('Plot Transmission Mask', self.plot_transmission_mask),
-                ('Plot Transmission', self.plot_transmission)))); pos += 1
-            self.checkbox['copy'] = NXCheckBox('Copy to other entries?')
-            self.insert_layout(pos, self.make_layout(self.action_buttons(
-                ('Save Transmission', self.save_transmission)),
-                self.checkbox['copy']))
-        elif self.subentry_combo is not None:
-            self.subentry_combo.blockSignals(True)
-            self.subentry_combo.clear()
-            self.subentry_combo.add(*([''] + subentries))
-            self.subentry_combo.blockSignals(False)
-        self.choose_subentry()
-
-    def subentry_layout(self, subentries):
-        self.subentry_combo = self.select_box(
-            [''] + subentries, slot=self.choose_subentry)
-        return self.make_layout(NXLabel('Subentry:'), self.subentry_combo)
-
-    @property
-    def subentry(self):
-        if self.subentry_combo is not None:
-            return self.subentry_combo.selected
-        return ''
-
-    def choose_subentry(self):
         self.reduce = NXReduce(self.entry, subentry=self.subentry or None)
         self.label = self.reduce.name
         self.maximum = self.reduce.maximum

@@ -72,6 +72,10 @@ class NXParent:
         return ['/entry'] + [s.nxpath for s in self.root['entry'].NXsubentry]
 
     @property
+    def scan_subentries(self):
+        return [s.nxname for s in self.root['entry'].NXsubentry]
+
+    @property
     def scan_info(self):
         if self.scan_entry and 'nxscans' in self.scan_entry:
             return self.scan_entry['nxscans']
