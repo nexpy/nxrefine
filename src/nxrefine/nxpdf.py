@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2022, Argonne National Laboratory.
+# Copyright (c) 2023-2024, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
@@ -104,7 +104,7 @@ class NXPDF:
             # self.write_parameters(radius=self.radius, qmax=self.qmax)
             # self.record(task, laue=self.refine.laue_group,
             #             radius=self.radius, qmax=self.qmax)
-            # self.record_end(task)
+            self.record_end(task)
         except Exception as error:
             self.logger.info(str(error))
             # self.record_fail(task)
@@ -257,8 +257,8 @@ class NXPDF:
             return _indices
         else:
             ids = []
-            for h, k, l in self.refine.indices:
-                ids += self.refine.indices_hkl(h, k, l)
+            for H, K, L in self.refine.indices:
+                ids += self.refine.indices_hkl(H, K, L)
             return ids
 
     def symmetrize(self, data):
@@ -292,11 +292,11 @@ class NXPDF:
         mk = int((mask.shape[1]-1)/2)
         mh = int((mask.shape[2]-1)/2)
         fill_data = np.zeros(shape=symm_data.shape, dtype=symm_data.dtype)
-        for h, k, l in self.indices:
+        for H, K, L in self.indices:
             try:
-                ih = np.argwhere(np.isclose(self.Qh, h, atol=0.001))[0][0]
-                ik = np.argwhere(np.isclose(self.Qk, k, atol=0.001))[0][0]
-                il = np.argwhere(np.isclose(self.Ql, l, atol=0.001))[0][0]
+                ih = np.argwhere(np.isclose(self.Qh, H, atol=0.001))[0][0]
+                ik = np.argwhere(np.isclose(self.Qk, K, atol=0.001))[0][0]
+                il = np.argwhere(np.isclose(self.Ql, L, atol=0.001))[0][0]
                 lslice = slice(il-ml, il+ml+1)
                 kslice = slice(ik-mk, ik+mk+1)
                 hslice = slice(ih-mh, ih+mh+1)
@@ -304,7 +304,7 @@ class NXPDF:
                 if v.max() > 0.0:
                     w = LaplaceInterpolation.matern_3d_grid(v, idx)
                     fill_data[(lslice, kslice, hslice)] += np.where(mask, w, 0)
-            except Exception as error:
+            except Exception:
                 raise
 
         self.logger.info(f"{self.title}: Symmetrizing punch-and-fill")

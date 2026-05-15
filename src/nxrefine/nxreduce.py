@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2022-2026, Argonne National Laboratory.
+# Copyright (c) 2022, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
@@ -446,7 +446,7 @@ class NXReduce(QtCore.QObject):
         return self.entry
 
     def _init_subentry_data(self, target):
-        """Populate target NXsubentry with a data group mirroring self.entry['data'].
+        """Populate target NXsubentry with data group self.entry['data'].
 
         Copies all field links from self.entry['data'] so the subentry
         has access to the same raw data. data_mask can later be
@@ -876,17 +876,17 @@ class NXReduce(QtCore.QObject):
             else:
                 self._concurrent = False
         return self._concurrent
-            
+
     @property
     def cctw(self):
         """Return the command for the CCTW transform.
 
-        The command is retrieved from the server settings if specified; 
+        The command is retrieved from the server settings if specified;
         otherwise, a default value of 'cctw' is used.
         """
 
         if self._cctw is None:
-            if ('cctw' in self.server_settings and 
+            if ('cctw' in self.server_settings and
                     self.server_settings['cctw']):
                 self._cctw = self.server_settings['cctw']
             else:
@@ -1992,7 +1992,8 @@ class NXReduce(QtCore.QObject):
                                      output_entry=reduce_target,
                                      data_entry=data_entry)
             refine.write_settings(settings_file)
-            command = refine.cctw_command(mask, output_link=self.transform_file,
+            command = refine.cctw_command(mask,
+                                          output_link=self.transform_file,
                                           data_entry=data_entry)
             if command and self.transform_file.exists():
                 with NXLock(self.transform_file):
@@ -2276,7 +2277,8 @@ class NXMultiReduce(NXReduce):
             transform_task = 'nxtransform'
             self.title = 'Combine'
             self.transform_path = 'transform'
-            self.transform_file = self.reduce_directory.joinpath('transform.nxs')
+            self.transform_file = self.reduce_directory.joinpath(
+                'transform.nxs')
         if self.not_processed(task) and self.combine:
             if not self.complete(transform_task):
                 self.log(
@@ -2462,8 +2464,10 @@ class NXMultiReduce(NXReduce):
             self.symm_data = 'symm_transform'
             self.total_pdf_data = 'total_pdf'
             self.pdf_data = 'pdf'
-            self.symm_file = self.reduce_directory.joinpath('symm_transform.nxs')
-            self.total_pdf_file = self.reduce_directory.joinpath('total_pdf.nxs')
+            self.symm_file = self.reduce_directory.joinpath(
+                'symm_transform.nxs')
+            self.total_pdf_file = self.reduce_directory.joinpath(
+                'total_pdf.nxs')
             self.pdf_file = self.reduce_directory.joinpath('pdf.nxs')
             self.Qh, self.Qk, self.Ql = (target['transform/Qh'],
                                          target['transform/Qk'],
