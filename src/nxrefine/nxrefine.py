@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2025, Argonne National Laboratory.
+# Copyright (c) 2014-2026, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #

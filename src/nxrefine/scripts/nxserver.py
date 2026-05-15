@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -----------------------------------------------------------------------------
-# Copyright (c) 2022, Argonne National Laboratory.
+# Copyright (c) 2018-2025, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #

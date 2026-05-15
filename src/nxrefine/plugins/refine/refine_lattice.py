@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2022, Argonne National Laboratory.
+# Copyright (c) 2016-2025, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
@@ -209,7 +209,7 @@ class RefineLatticeDialog(NXDialog):
 
     def report_score(self):
         """Updates the score in the status bar and the peaks box."""
-        
+
         try:
             self.status_message.setText(f'Score: {self.refine.score():.4f}')
             if self.peaks_box in self.mainwindow.dialogs:
@@ -381,7 +381,7 @@ class RefineLatticeDialog(NXDialog):
         when the Refine Lattice dialog is first opened and after
         refinement of the lattice parameters.
         """
-        
+
         def is_valid(data):
             try:
                 valid_axes = [['Ql', 'Qk', 'Qh'], ['l', 'k', 'h'],
@@ -753,7 +753,7 @@ class RefineLatticeDialog(NXDialog):
         fft_button = NXPushButton('Orient by FFT', self.setup_fft)
         manual_button = NXPushButton('Orient Manually', self.choose_peaks)
         orient_layout = self.make_layout(fft_button, 'stretch',
-                                         manual_button, 
+                                         manual_button,
                                          NXLabel('Primary'), self.primary_box,
                                          NXLabel('Secondary'),
                                          self.secondary_box, align='right')
@@ -840,13 +840,13 @@ class RefineLatticeDialog(NXDialog):
         self.orient_box.set_title('Orient Lattice by FFT')
         self.dmin_box = NXLineEdit('1.0', width=80, align='right')
         self.dmax_box = NXLineEdit('10.0', width=80, align='right')
-        d_layout = self.make_layout(NXLabel('Dmin'), self.dmin_box, 
+        d_layout = self.make_layout(NXLabel('Dmin'), self.dmin_box,
                                     NXLabel('Dmax'), self.dmax_box,
                                     align='center')
         self.cell_table = QtWidgets.QTableView()
         self.cell_table.setVisible(False)
         self.orient_box.set_layout(
-            d_layout, 
+            d_layout,
             self.action_buttons(('Orient', self.orient_fft),
                                 ('Select', self.select_cell),
                                 ('Restore', self.restore_cell)),
@@ -970,7 +970,7 @@ class RefineLatticeDialog(NXDialog):
         return int(self.secondary_box.text())
 
     def setup_secondary_grid(self):
-        """Set up the secondary grid for choosing a secondary peak."""        
+        """Set up the secondary grid for choosing a secondary peak."""
         ps_angle = self.refine.angle_peaks(self.primary, self.secondary)
         n_phkl = len(self.ring_list[self.refine.rp[self.primary]])
         self.hkl_parameters = [GridParameters() for i in range(n_phkl)]
@@ -1180,7 +1180,7 @@ class NXCellModel(QtCore.QAbstractTableModel):
         self._checkbox_states = [False for _ in range(len(self._data))]
         if default is not None:
             self._checkbox_states[default] = True
-    
+
     def rowCount(self, parent=QtCore.QModelIndex()):
         return len(self._data)
 

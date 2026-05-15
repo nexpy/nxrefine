@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2022-2026, Argonne National Laboratory.
+# Copyright (c) 2022, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
@@ -774,17 +774,17 @@ class NXReduce(QtCore.QObject):
             else:
                 self._concurrent = False
         return self._concurrent
-            
+
     @property
     def cctw(self):
         """Return the command for the CCTW transform.
 
-        The command is retrieved from the server settings if specified; 
+        The command is retrieved from the server settings if specified;
         otherwise, a default value of 'cctw' is used.
         """
 
         if self._cctw is None:
-            if ('cctw' in self.server_settings and 
+            if ('cctw' in self.server_settings and
                     self.server_settings['cctw']):
                 self._cctw = self.server_settings['cctw']
             else:
@@ -1716,7 +1716,8 @@ class NXReduce(QtCore.QObject):
         shutil.move(mask.nxfilename, str(self.mask_file))
         with self:
             if ('data_mask' in self.data
-                    and self.data['data_mask'].nxfilename != str(self.mask_file)):
+                    and self.data['data_mask'].nxfilename !=
+                    str(self.mask_file)):
                 del self.data['data_mask']
             if 'data_mask' not in self.data:
                 self.data['data_mask'] = NXlink('entry/mask', self.mask_file)
@@ -2069,7 +2070,7 @@ class NXReduce(QtCore.QObject):
 
         if args:
             if 'directory' in args:
-                args.directory = str(args.directory.resolve())
+                args.directory = str(Path(args.directory.resolve()))
             self.server.add_task(f"{command} {switches(args)}")
         else:
             self.server.add_task(
