@@ -185,7 +185,7 @@ class NXParent:
     def scans(self):
         scans = self._sorted_scans
         return [f for f, s in scans] if scans else []
-  
+
     @property
     def selected(self):
         scans = self._sorted_scans
@@ -228,7 +228,7 @@ class NXParent:
     @property
     def other_scan_files(self):
         return sorted([f for f in self.filename.parent.glob("*.nxs")
-                       if f.stem not in self.scans 
+                       if f.stem not in self.scans
                        and not f.stem.endswith('_scans')],
                        key=natural_sort)
 
@@ -301,7 +301,7 @@ class NXParent:
             root[f'{self.entry}/nxscans'].set_date()
 
     def add_scan(self, scan, selected=True):
-        
+
         scan_file = self.scan_file(scan)
         if not scan_file.is_file():
             raise ValueError(f"File '{scan_file}' does not exist.")

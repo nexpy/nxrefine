@@ -45,8 +45,6 @@ class PrepareDialog(NXDialog):
                                                align='center')
         self.plot_button.setVisible(False)
         self.set_layout(self.entry_layout,
-                        self.parameters.grid(),
-                        self.prepare_layout,
                         self.close_layout(save=True, progress=True))
         self.set_title('Prepare 3D Mask')
         self.reduce = None
@@ -66,6 +64,9 @@ class PrepareDialog(NXDialog):
         self.reduce = NXReduce(self.entry, subentry=self.subentry or None)
         self.parameters['first'].value = self.reduce.first
         self.parameters['last'].value = self.reduce.last
+        if self.layout.count() == 2:
+            self.insert_layout(1, self.parameters.grid())
+            self.insert_layout(2, self.prepare_layout)
 
     @property
     def first(self):

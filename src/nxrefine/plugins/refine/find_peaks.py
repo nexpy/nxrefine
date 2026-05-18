@@ -47,8 +47,6 @@ class FindDialog(NXDialog):
                                 ('List Peaks', self.list_peaks)),
             align='center')
         self.set_layout(self.entry_layout,
-                        self.parameters.grid(),
-                        self.find_layout,
                         self.close_layout(save=True, progress=True))
         self.set_title('Find Peaks')
         self.reduce = None
@@ -78,6 +76,9 @@ class FindDialog(NXDialog):
             except Exception:
                 pass
         self.parameters['threshold'].value = self.reduce.threshold
+        if self.layout.count() == 2:
+            self.insert_layout(1, self.parameters.grid())
+            self.insert_layout(2, self.find_layout)
 
     @property
     def threshold(self):
