@@ -197,9 +197,24 @@ class RefineLatticeDialog(NXDialog):
         updates the parameters table, and updates the buttons.
         """
         try:
-            refine = NXRefine(self.entry)
+            refine = NXRefine(self.entry, subentry=self.subentry or '')
             if refine.xp is None:
                 raise NeXusError("No peaks in entry")
+            if refine.peaks is None:
+                if (refine.polar_angle is not None
+                        and len(refine.xp) != len(refine.polar_angle)):
+                    polar, azimuthal = refine.calculate_angles(
+                        refine.xp, refine.yp)
+                    try:
+                        refine.write_angles(polar, azimuthal)
+                    except Exception:
+                        pass
+                    refine.polar_angle = polar
+                    refine.azimuthal_angle = azimuthal
+                    refine.initialize_peaks()
+            if refine.peaks is None:
+                msg = str(refine._peaks_error) if refine._peaks_error else "unknown error"
+                raise NeXusError(f"Peak initialization failed: {msg}")
         except NeXusError as error:
             report_error("Refining Lattice", error)
             return
@@ -309,8 +324,9 @@ class RefineLatticeDialog(NXDialog):
         if self.entry.nxfilemode == 'r':
             display_message("NeXus file opened as readonly")
             return
-        elif ('nxrefine' in self.entry or
-              'orientation_matrix' in self.entry['instrument/detector']):
+        elif ('nxrefine' in self.refine.entry or
+              ('instrument/detector' in self.refine.entry and
+               'orientation_matrix' in self.refine.entry['instrument/detector'])):
             if not self.confirm_action('Overwrite existing refinement?'):
                 return
         self.transfer_parameters()
@@ -333,7 +349,7 @@ class RefineLatticeDialog(NXDialog):
             f'Copy orientation to other entries? ({", ".join(entries)})',
                 answer='yes'):
             other_entries = True
-            om = self.entry['instrument/detector/orientation_matrix']
+            om = self.refine.entry['instrument/detector/orientation_matrix']
             for entry in entries:
                 root[entry]['instrument/detector/orientation_matrix'] = om
         else:
@@ -706,6 +722,10 @@ class RefineLatticeDialog(NXDialog):
         self.update_peak_table()
 
     def refine_orientation(self):
+        if self.refine.peaks is None:
+            report_error("Refining Lattice",
+                         NeXusError("No peaks available for orientation refinement"))
+            return
         self.parameters.status_message.setText('Fitting...')
         self.parameters.status_message.repaint()
         self.mainwindow.app.app.processEvents()

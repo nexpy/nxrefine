@@ -1216,7 +1216,7 @@ class NXReduce(QtCore.QObject):
         get_parameter().
         """
         parent_refine = NXRefine(self.parent.root[self.entry_name])
-        refine = NXRefine(self.entry)
+        refine = NXRefine(self.entry, subentry=self._subentry)
         parent_refine.copy_parameters(refine, sample=True, instrument=True)
         self.log(
             f"Parameters for {self.name} copied from '{self.parent_file}'")
@@ -1505,7 +1505,7 @@ class NXReduce(QtCore.QObject):
             mask is True for pixels with transmission coordinates
             outside of the specified range and False otherwise.
         """
-        refine = NXRefine(self.entry)
+        refine = NXRefine(self.entry, subentry=self._subentry)
         min_radius = (self.qmin * refine.wavelength * refine.distance
                       / (2 * np.pi * refine.pixel_size))
         max_radius = (self.qmax * refine.wavelength * refine.distance
@@ -1663,7 +1663,7 @@ class NXReduce(QtCore.QObject):
             if 'peaks' in target:
                 del target['peaks']
             target['peaks'] = group
-        refine = NXRefine(self.entry)
+        refine = NXRefine(self.entry, subentry=self._subentry)
         polar_angles, azimuthal_angles = refine.calculate_angles(refine.xp,
                                                                  refine.yp)
         refine.write_angles(polar_angles, azimuthal_angles,
@@ -1737,7 +1737,7 @@ class NXReduce(QtCore.QObject):
             The refined NXRefine object if the refinement is successful,
             otherwise None.
         """
-        refine = NXRefine(self.entry)
+        refine = NXRefine(self.entry, subentry=self._subentry)
         refine.polar_max = self.polar_max
         refine.hkl_tolerance = self.hkl_tolerance
         refine.refine_hkls(lattice=lattice, chi=True, omega=True, theta=True)
@@ -1982,7 +1982,7 @@ class NXReduce(QtCore.QObject):
                 reduce_target = self._get_reduce_target()
             data_entry = (reduce_target if 'data' in reduce_target
                           else self.entry)
-            refine = NXRefine(self.entry)
+            refine = NXRefine(self.entry, subentry=self._subentry)
             refine.read_parameters()
             refine.h_start, refine.h_step, refine.h_stop = self.Qh
             refine.k_start, refine.k_step, refine.k_stop = self.Qk
