@@ -1870,15 +1870,27 @@ class NXReduce(QtCore.QObject):
                 return
             self.record_start(task)
             try:
-                cctw_command = self.prepare_transform(mask=mask)
+                cctw_command, settings_file = self.prepare_transform(mask=mask)
                 if cctw_command:
+                    cctw_settings = {}
+                    if settings_file and settings_file.exists():
+                        with open(settings_file) as f:
+                            for line in f:
+                                line = line.strip().rstrip(';')
+                                if '=' in line:
+                                    key, _, value = line.partition('=')
+                                    cctw_settings[key.strip().replace('.', '_')] = value.strip()
                     self.log(f"{task_name} process launched")
                     tic = timeit.default_timer()
-                    with self.field.nxfile:
-                        with NXLock(self.transform_file):
-                            process = subprocess.run(cctw_command, shell=True,
-                                                     stdout=subprocess.PIPE,
-                                                     stderr=subprocess.PIPE)
+                    try:
+                        with self.field.nxfile:
+                            with NXLock(self.transform_file):
+                                process = subprocess.run(cctw_command, shell=True,
+                                                         stdout=subprocess.PIPE,
+                                                         stderr=subprocess.PIPE)
+                    finally:
+                        if settings_file and settings_file.exists():
+                            settings_file.unlink()
                     cctw_output = process.stdout.decode()
                     cctw_errors = process.stderr.decode()
                     self.log('CCTW Output\n' + cctw_output)
@@ -1895,6 +1907,14 @@ class NXReduce(QtCore.QObject):
                                     output=cctw_output,
                                     errors=cctw_errors)
                         self.record_end(task)
+                        if cctw_settings:
+                            with self:
+                                target = self._get_reduce_target()
+                                workflow = target['nxworkflow']
+                                nx_settings = NXparameters()
+                                for key, value in cctw_settings.items():
+                                    nx_settings[key] = value
+                                workflow[task]['cctw_settings'] = nx_settings
                         self.clear_parameters(['monitor', 'norm'])
                     else:
                         self.log(
@@ -1999,10 +2019,10 @@ class NXReduce(QtCore.QObject):
                 with NXLock(self.transform_file):
                     self.transform_file.unlink()
             command = command.replace('cctw', self.cctw)
-            return command
+            return command, settings_file
         else:
             self.log("Invalid HKL grid")
-            return None
+            return None, None
 
     def nxsum(self, scan_list, update=False):
         if self.raw_file.exists() and not (self.overwrite or update):
