@@ -82,8 +82,12 @@ class WorkflowDialog(NXDialog):
 
     def select_files(self):
         dialog = FilesDialog(self.parent.filename, self.parent.subentry)
-        dialog.accepted.connect(self.update)
+        dialog.accepted.connect(self._reload_and_update)
         dialog.show()
+
+    def _reload_and_update(self):
+        self.parent.root = nxload(self.parent.filename)
+        self.update()
 
     @property
     def subentry(self):
@@ -417,9 +421,11 @@ class WorkflowDialog(NXDialog):
                 else:
                     reduce = NXReduce(entry, scan, server=self.server)
                     reduce.regular = reduce.mask = False
-                    if not self.parent.subentry and self.selected(scan, 'load'):
+                    if not self.parent.subentry and self.selected(scan,
+                                                                  'load'):
                         reduce.load = True
-                    if not self.parent.subentry and self.selected(scan, 'link'):
+                    if not self.parent.subentry and self.selected(scan,
+                                                                  'link'):
                         reduce.link = True
                     if self.selected(scan, 'copy'):
                         reduce.copy = True

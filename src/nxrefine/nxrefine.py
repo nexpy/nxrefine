@@ -13,7 +13,8 @@ import numpy as np
 import numpy.ma as ma
 from nexusformat.nexus import (NeXusError, NXdata, NXdetector, NXentry,
                                NXfield, NXgoniometer, NXgroup, NXinstrument,
-                               NXlink, NXmonochromator, NXroot, NXsample)
+                               NXlink, NXmonochromator, NXroot, NXsample,
+                               NXsubentry)
 from numpy.linalg import inv, norm
 from scipy import optimize
 
@@ -149,15 +150,27 @@ class NXRefine:
                     'I': 'I222', 'F': 'F222', 'R': 'R3'}
     """Space groups with minimal systematic absences for each centring."""
 
-    def __init__(self, node=None):
+    def __init__(self, node=None, subentry=''):
+        self._parent_entry = None
+        self._subentry = subentry
         if isinstance(node, NXroot) and 'entry' in node:
             self.entry = node['entry']
+        elif isinstance(node, NXsubentry):
+            self._parent_entry = node.nxgroup
+            self.entry = node
+            if not self._subentry:
+                self._subentry = node.nxname
         elif isinstance(node, NXentry):
             self.entry = node
         elif isinstance(node, NXgroup):
             self.entry = node.nxentry
         else:
             self.entry = None
+        if (self._subentry and self._parent_entry is None
+                and self.entry is not None
+                and self._subentry in self.entry):
+            self._parent_entry = self.entry
+            self.entry = self._parent_entry[self._subentry]
         self.a = 4.0
         self.b = 4.0
         self.c = 4.0
@@ -212,6 +225,7 @@ class NXRefine:
 
         self.name = ""
         self._idx = None
+        self._peaks_error = None
         self._mode = None
         self._Dmat_cache = inv(rotmat(1, self.roll) * rotmat(2, self.pitch) *
                                rotmat(3, self.yaw))
@@ -244,7 +258,32 @@ class NXRefine:
     @property
     def root(self):
         """Root of NXRefine entry"""
-        return self.entry.nxroot
+        return (self._parent_entry or self.entry).nxroot
+
+    @property
+    def scan_directory(self):
+        """Parent directory of the raw scan data file."""
+        src = self._parent_entry if self._parent_entry is not None else self.entry
+        return Path(src['data'].nxsignal.nxfilename).parent
+
+    @property
+    def reduce_directory(self):
+        """Output directory: scan_directory/subentry when subentry is set."""
+        d = self.scan_directory
+        if self._subentry:
+            d = d / self._subentry
+            d.mkdir(exist_ok=True)
+        return d
+
+    def _read_from(self, entry, path, default=None):
+        """Read a value directly from a specific entry group."""
+        try:
+            val = entry[path]
+            if isinstance(val, NXgroup):
+                return val
+            return val.nxvalue
+        except NeXusError:
+            return default
 
     def read_parameter(self, path, default=None, attr=None):
         """Read the experimental parameter stored at the specfied path.
@@ -277,6 +316,8 @@ class NXRefine:
             if path.startswith('sample'):
                 if 'sample' in self.entry:
                     entry = self.entry
+                elif self._parent_entry is not None:
+                    entry = self._parent_entry
                 else:
                     entry = self.entry.nxroot['entry']
             else:
@@ -288,6 +329,16 @@ class NXRefine:
             else:
                 return entry[path].nxvalue
         except NeXusError:
+            if self._parent_entry is not None and not path.startswith('sample'):
+                try:
+                    if attr:
+                        return self._parent_entry[path].attrs[attr]
+                    elif isinstance(self._parent_entry[path], NXgroup):
+                        return self._parent_entry[path]
+                    else:
+                        return self._parent_entry[path].nxvalue
+                except NeXusError:
+                    pass
             return default
 
     def read_parameters(self, entry=None):
@@ -301,7 +352,10 @@ class NXRefine:
         if entry:
             self.entry = entry
         with self.entry.nxfile:
-            self.name = self.entry.nxroot.nxname + "/" + self.entry.nxname
+            parent = self._parent_entry or self.entry
+            self.name = parent.nxroot.nxname + "/" + parent.nxname
+            if self._subentry:
+                self.name += "/" + self._subentry
             if 'sample' in self.entry and 'unit_cell' in self.entry['sample']:
                 lattice_parameters = self.read_parameter('sample/unit_cell')
                 if lattice_parameters is not None:
@@ -390,19 +444,32 @@ class NXRefine:
                                                 self.symmetry)
             self.centring = self.read_parameter('sample/lattice_centring',
                                                 self.centring)
-            self.xp = self.read_parameter('peaks/x')
-            self.yp = self.read_parameter('peaks/y')
-            self.zp = self.read_parameter('peaks/z')
-            self.polar_angle = self.read_parameter('peaks/polar_angle')
-            self.azimuthal_angle = self.read_parameter('peaks/azimuthal_angle')
-            self.intensity = self.read_parameter('peaks/intensity')
+            # Peak position arrays must all come from the same source.
+            # Use the subentry's peaks if it has a complete set ('x'
+            # present); otherwise fall back to the parent to avoid size
+            # mismatches with a partial peaks group written by
+            # write_angles (which only stores polar/azimuthal angles).
+            if (self._parent_entry is not None
+                    and not ('peaks' in self.entry
+                             and 'x' in self.entry['peaks'])):
+                _pk = self._parent_entry
+            else:
+                _pk = self.entry
+            self.xp = self._read_from(_pk, 'peaks/x')
+            self.yp = self._read_from(_pk, 'peaks/y')
+            self.zp = self._read_from(_pk, 'peaks/z')
+            self.polar_angle = self._read_from(_pk, 'peaks/polar_angle')
+            self.azimuthal_angle = self._read_from(
+                _pk, 'peaks/azimuthal_angle')
+            self.intensity = self._read_from(_pk, 'peaks/intensity')
             self.pixel_size = self.read_parameter(
                 'instrument/detector/pixel_size', self.pixel_size)
             self.pixel_mask = self.read_parameter(
                 'instrument/detector/pixel_mask')
             self.pixel_mask_applied = self.read_parameter(
                 'instrument/detector/pixel_mask_applied')
-            self.rotation_angle = self.read_parameter('peaks/rotation_angle')
+            self.rotation_angle = self._read_from(
+                _pk, 'peaks/rotation_angle')
             self.primary = self.read_parameter('peaks/primary_reflection')
             self.secondary = self.read_parameter('peaks/secondary_reflection')
             self.Umat = self.read_parameter(
@@ -420,12 +487,14 @@ class NXRefine:
             self.initialize_peaks()
 
     def initialize_peaks(self):
+        self._peaks_error = None
         try:
             peaks = list(zip(self.xp,  self.yp, self.zp, self.intensity))
             self.peaks = dict(zip(range(len(peaks)),
                                   [NXPeak(*p, parent=self) for p in peaks]))
             self.initialize_idx()
-        except Exception:
+        except Exception as e:
+            self._peaks_error = e
             self.peaks = None
             self._idx = None
 
@@ -447,6 +516,8 @@ class NXRefine:
         if path.startswith('sample'):
             if 'sample' in self.entry:
                 entry = self.entry
+            elif self._parent_entry is not None:
+                entry = self._parent_entry
             else:
                 entry = self.entry.nxroot['entry']
         else:
@@ -494,7 +565,11 @@ class NXRefine:
                 return
 
             if 'instrument' not in self.entry:
-                self.entry['instrument'] = NXinstrument()
+                if (self._parent_entry is not None
+                        and 'instrument' in self._parent_entry):
+                    self.entry['instrument'] = self._parent_entry['instrument']
+                else:
+                    self.entry['instrument'] = NXinstrument()
             if 'detector' not in self.entry['instrument']:
                 self.entry['instrument/detector'] = NXdetector()
             if 'goniometer' not in self.entry['instrument']:
@@ -536,6 +611,10 @@ class NXRefine:
             self.write_parameter('instrument/goniometer/xs', self.xs)
             self.write_parameter('instrument/goniometer/ys', self.ys)
             self.write_parameter('instrument/goniometer/zs', self.zs)
+            if 'peaks' not in self.entry:
+                if (self._parent_entry is not None
+                        and 'peaks' in self._parent_entry):
+                    self.entry['peaks'] = self._parent_entry['peaks']
             self.write_parameter('peaks/primary_reflection', self.primary)
             self.write_parameter('peaks/secondary_reflection', self.secondary)
             if isinstance(self.z, np.ndarray):
@@ -892,35 +971,36 @@ class NXRefine:
         """
         if data_entry is None:
             data_entry = self.entry
-        entry = self.entry.nxname
+        parent_entry = self._parent_entry if self._parent_entry is not None else self.entry
+        entry = parent_entry.nxname
         if mask:
             name = entry + '_masked_transform'
         else:
             name = entry + '_transform'
-        dir = Path(self.entry['data'].nxsignal.nxfilename).parent
-        filename = self.entry.nxfilename
-        parfile = dir.joinpath(entry+'_transform.pars')
+        filename = parent_entry.nxfilename
+        parfile = self.reduce_directory.joinpath(entry+'_transform.pars')
         command = [f'cctw transform --script {parfile}']
-        if 'pixel_mask' in self.entry['instrument/detector']:
+        if 'pixel_mask' in parent_entry['instrument/detector']:
             command.append(
                 fr'--mask {filename}\#/{entry}/instrument/detector/pixel_mask')
         if mask and 'data_mask' in data_entry['data']:
             data_mask_path = data_entry['data/data_mask'].nxpath
             command.append(f'--mask3d {filename}\\#{data_mask_path}')
-        if 'monitor_weight' in self.entry['data']:
+        if 'monitor_weight' in parent_entry['data']:
             command.append(
                 fr'--weights {filename}\#/{entry}/data/monitor_weight')
-        if 'polarization' in self.entry['instrument/detector']:
+        if 'polarization' in parent_entry['instrument/detector']:
             command.append(
                 fr'--weights {filename}\#/{entry}'
                 '/instrument/detector/polarization')
-        raw_filename = self.entry['data/data'].nxfilename
-        raw_filepath = self.entry['data/data'].nxfilepath
+        raw_filename = parent_entry['data/data'].nxfilename
+        raw_filepath = parent_entry['data/data'].nxfilepath
         command.append(fr'{raw_filename}\#/{raw_filepath}')
         if output_link:
             command.append(fr'--output {output_link}\#/entry/data')
         else:
-            command.append(fr'--output {dir}/{name}.nxs\#/entry/data')
+            command.append(
+                fr'--output {self.reduce_directory}/{name}.nxs\#/entry/data')
         command.append('--normalization 0')
         return ' '.join(command)
 

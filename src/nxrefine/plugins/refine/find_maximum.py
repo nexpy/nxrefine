@@ -45,25 +45,23 @@ class MaximumDialog(NXDialog):
         self.parameters.add('fs', '20', 'Filter Size')
         self.checkbox['over'] = NXCheckBox('Over?')
         self.checkbox['copy'] = NXCheckBox('Copy to other entries?')
-        self.set_layout(
-            self.entry_layout,
-            self.parameters.grid(),
-            self.make_layout(
-                self.action_buttons(('Find Maximum', self.find_maximum)),
-                self.output),
-            self.make_layout(
-                self.action_buttons(
-                    ('Plot Summed Data', self.plot_summed_data),
-                    ('Plot Summed Frames', self.plot_summed_frames),
-                    ('Plot Partial Frames', self.plot_partial_frames)),
-                self.checkbox['over']),
-            self.make_layout(self.action_buttons(
+        self.maximum_layout = self.make_layout(
+            self.action_buttons(('Find Maximum', self.find_maximum)),
+            self.output)
+        self.plot_layout = self.make_layout(
+            self.action_buttons(
+                ('Plot Summed Data', self.plot_summed_data),
+                ('Plot Summed Frames', self.plot_summed_frames),
+                ('Plot Partial Frames', self.plot_partial_frames)),
+            self.checkbox['over'])
+        self.transmission_layout = self.make_layout(
+            self.action_buttons(
                 ('Plot Transmission Mask', self.plot_transmission_mask),
-                ('Plot Transmission', self.plot_transmission))),
-            self.make_layout(
-                self.action_buttons(('Save Transmission', self.save_transmission)),
-                self.checkbox['copy']),
-            self.progress_layout(save=True))
+                ('Plot Transmission', self.plot_transmission)))
+        self.save_layout = self.make_layout(
+            self.action_buttons(('Save Transmission', self.save_transmission)),
+            self.checkbox['copy'])
+        self.set_layout(self.entry_layout, self.progress_layout(save=True))
         self.progress_bar.setVisible(False)
         self.progress_bar.setValue(0)
         self.set_title('Find Maximum Value')
@@ -86,6 +84,12 @@ class MaximumDialog(NXDialog):
         self.reduce = NXReduce(self.entry, subentry=self.subentry or None)
         self.label = self.reduce.name
         self.maximum = self.reduce.maximum
+        if self.layout.count() == 2:
+            self.insert_layout(1, self.parameters.grid())
+            self.insert_layout(2, self.maximum_layout)
+            self.insert_layout(3, self.plot_layout)
+            self.insert_layout(4, self.transmission_layout)
+            self.insert_layout(5, self.save_layout)
         if self.reduce.first:
             self.parameters['first'].value = self.reduce.first
         if self.reduce.last:
