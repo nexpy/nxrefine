@@ -764,57 +764,73 @@ class NXRefine:
         self.h_step, self.k_step, self.l_step = [1.0/hs, 1.0/ks, 1.0/ls]
         self.h_shape, self.k_shape, self.l_shape = d['outputdata.dimensions']
 
-    def write_settings(self, settings_file):
+    def write_settings(self, settings_file, cctw_settings=None):
         """Write experimental parameters to a CCTW settings file.
 
         Parameters
         ----------
         settings_file : str
             File name of the settings file.
+        cctw_settings : NXparameters, optional
+            Group of stored CCTW settings (keys use ``_`` in place of
+            ``.``). If provided, parameters are read from this group
+            instead of being computed from the current experimental
+            parameters.
         """
         lines = []
-        lines.append(f'parameters.pixelSize = {self.pixel_size};')
-        lines.append(f'parameters.wavelength = {self.wavelength};')
-        lines.append(f'parameters.distance = {self.distance};')
-        lines.append(f'parameters.unitCell = {list(self.lattice_settings)};')
-        lines.append(f'parameters.ubMat = {str(self.UBmat.tolist())};')
-        lines.append(f'parameters.oMat = {str(self.Omat.tolist())};')
-        lines.append('parameters.oVec = [0,0,0];')
-        lines.append(f'parameters.det0x = {self.xc};')
-        lines.append(f'parameters.det0y = {self.yc};')
-        lines.append('parameters.xTrans = [0,0,0];')
-        lines.append(
-            f'parameters.orientErrorDetPitch = {self.pitch * radians};')
-        lines.append(f'parameters.orientErrorDetRoll = {self.roll * radians};')
-        lines.append(f'parameters.orientErrorDetYaw = {self.yaw * radians};')
-        lines.append(
-            f'parameters.orientErrorGonPitch = {self.theta * radians};')
-        lines.append('parameters.twoThetaCorrection = 0;')
-        lines.append('parameters.twoThetaNom = 0;')
-        lines.append('parameters.twoThetaStep = 0;')
-        lines.append('parameters.omegaCorrection = 0;')
-        lines.append(f'parameters.omegaNom = {self.omega * radians};')
-        lines.append('parameters.omegaStep = 0;')
-        lines.append('parameters.chiCorrection = 0;')
-        lines.append(f'parameters.chiNom = {self.chi * radians};')
-        lines.append('parameters.chiStep = 0;')
-        lines.append('parameters.phiCorrection = 0;')
-        lines.append(f'parameters.phiNom = {self.phi * radians};')
-        lines.append(f'parameters.phiStep = {self.phi_step * radians};')
-        lines.append(f'parameters.gridOrigin = {self.grid_origin.tolist()};')
-        lines.append(f'parameters.gridBasis = {self.grid_basis};')
-        lines.append(f'parameters.gridDim = {self.grid_step};')
-        lines.append('parameters.gridOffset = [0,0,0];')
-        lines.append('parameters.extraFlip = false;')
-        input_chunks = [int(c) for c in self.entry['data/data'].chunks[::-1]]
-        lines.append(f'inputData.chunkSize = {input_chunks};')
-        lines.append(f'outputData.dimensions = {list(self.grid_shape)};')
-        lines.append('outputData.chunkSize = [50,50,50];')
-        lines.append('outputData.compression = 0;')
-        lines.append('transformer.transformOptions =  0;')
-        lines.append('transformer.oversampleX = 1;')
-        lines.append('transformer.oversampleY = 1;')
-        lines.append('transformer.oversampleZ = 1;')
+        if cctw_settings is None:
+            lines.append(f'parameters.pixelSize = {self.pixel_size};')
+            lines.append(f'parameters.wavelength = {self.wavelength};')
+            lines.append(f'parameters.distance = {self.distance};')
+            lines.append(
+                f'parameters.unitCell = {list(self.lattice_settings)};')
+            lines.append(f'parameters.ubMat = {str(self.UBmat.tolist())};')
+            lines.append(f'parameters.oMat = {str(self.Omat.tolist())};')
+            lines.append('parameters.oVec = [0,0,0];')
+            lines.append(f'parameters.det0x = {self.xc};')
+            lines.append(f'parameters.det0y = {self.yc};')
+            lines.append('parameters.xTrans = [0,0,0];')
+            lines.append(
+                f'parameters.orientErrorDetPitch = {self.pitch * radians};')
+            lines.append(
+                f'parameters.orientErrorDetRoll = {self.roll * radians};')
+            lines.append(
+                f'parameters.orientErrorDetYaw = {self.yaw * radians};')
+            lines.append(
+                f'parameters.orientErrorGonPitch = {self.theta * radians};')
+            lines.append('parameters.twoThetaCorrection = 0;')
+            lines.append('parameters.twoThetaNom = 0;')
+            lines.append('parameters.twoThetaStep = 0;')
+            lines.append('parameters.omegaCorrection = 0;')
+            lines.append(f'parameters.omegaNom = {self.omega * radians};')
+            lines.append('parameters.omegaStep = 0;')
+            lines.append('parameters.chiCorrection = 0;')
+            lines.append(f'parameters.chiNom = {self.chi * radians};')
+            lines.append('parameters.chiStep = 0;')
+            lines.append('parameters.phiCorrection = 0;')
+            lines.append(f'parameters.phiNom = {self.phi * radians};')
+            lines.append(f'parameters.phiStep = {self.phi_step * radians};')
+            lines.append(
+                f'parameters.gridOrigin = {self.grid_origin.tolist()};')
+            lines.append(f'parameters.gridBasis = {self.grid_basis};')
+            lines.append(f'parameters.gridDim = {self.grid_step};')
+            lines.append('parameters.gridOffset = [0,0,0];')
+            lines.append('parameters.extraFlip = false;')
+            input_chunks = [
+                int(c) for c in self.entry['data/data'].chunks[::-1]]
+            lines.append(f'inputData.chunkSize = {input_chunks};')
+            lines.append(f'outputData.dimensions = {list(self.grid_shape)};')
+            lines.append('outputData.chunkSize = [50,50,50];')
+            lines.append('outputData.compression = 0;')
+            lines.append('transformer.transformOptions =  0;')
+            lines.append('transformer.oversampleX = 1;')
+            lines.append('transformer.oversampleY = 1;')
+            lines.append('transformer.oversampleZ = 1;')
+        else:
+            for key in cctw_settings:
+                original_key = key.replace('_', '.', 1)
+                value = str(cctw_settings[key].nxvalue)
+                lines.append(f'{original_key} = {value};')
         with open(settings_file, 'w') as f:
             f.write('\n'.join(lines))
 
