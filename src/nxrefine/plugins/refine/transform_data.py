@@ -122,6 +122,9 @@ class TransformDialog(NXDialog):
             if 'transform' in scan_info:
                 del scan_info['transform']
             scan_info['transform'] = NXdata(axes=(L, K, H))
+            scan_info['transform'].attrs['angles'] = (self.refine.gamma_star,
+                                                      self.refine.beta_star,
+                                                      self.refine.alpha_star)
         self.parent.reload()
 
     def accept(self):
