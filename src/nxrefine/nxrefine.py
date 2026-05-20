@@ -18,7 +18,6 @@ from nexusformat.nexus import (NeXusError, NXdata, NXdetector, NXentry,
 from numpy.linalg import inv, norm
 from scipy import optimize
 
-from .nxparent import NXParent
 from .nxutils import init_julia, load_julia, parse_orientation
 
 degrees = 180.0 / np.pi
@@ -71,32 +70,34 @@ def norm_vec(vec):
 
 
 class NXRefine:
-    """Crystallographic parameters and methods for single crystal diffraction.
+    """Crystallographic parameters for single crystal diffraction.
 
-    The parameters are loaded from a NeXus file containing data collected on a
-    fast area detector by rotating a single crystal in a monochromatic x-ray
-    beam. Each entry in the NeXus file corresponds to a complete 360° rotation,
-    and includes a group with the pixel and frame indices of all the Bragg
-    peaks identified by the experimental workflow. These peaks are used to
-    refine an orientation matrix that depends on the goniometer angles and
-    detector orientation defined with respect to the incident beam using a
-    scheme defined by Branton Campbell to transform from the experimental
-    frame of coordinates to the crystal's reciprocal lattice.
+    The parameters are loaded from a NeXus file containing data
+    collected on a fast area detector by rotating a single crystal in a
+    monochromatic x-ray beam. Each entry in the NeXus file corresponds
+    to a complete 360° rotation, and includes a group with the pixel and
+    frame indices of all the Bragg peaks identified by the experimental
+    workflow. These peaks are used to refine an orientation matrix that
+    depends on the goniometer angles and detector orientation defined
+    with respect to the incident beam using a scheme defined by Branton
+    Campbell to transform from the experimental frame of coordinates to
+    the crystal's reciprocal lattice.
 
-    Functions are provided to derive nominal Bragg peak indices and two-theta
-    angles for the defined space group using GEMMI, to define the orientation
-    matrix using the Busing and Levy method, and to refine the matrix and
-    experimental parameters using the measured Bragg peak positions. Parameters
-    are updated in the NeXus file and a settings file is created to be used in
-    coordinate transformations from instrumental coordinates to reciprocal
-    lattice coordinates, using the CCTW software package
-    (https://sourceforge.net/projects/cctw/).
+    Functions are provided to derive nominal Bragg peak indices and
+    two-theta angles for the defined space group using GEMMI, to define
+    the orientation matrix using the Busing and Levy method, and to
+    refine the matrix and experimental parameters using the measured
+    Bragg peak positions. Parameters are updated in the NeXus file and a
+    settings file is created to be used in coordinate transformations
+    from instrumental coordinates to reciprocal lattice coordinates,
+    using the CCTW software
+    package(https://sourceforge.net/projects/cctw/).
 
     Parameters
     ----------
     node : NXobject
-        NeXus object within the NXentry group containing the experimental
-        data and parameters.
+        NeXus object within the NXentry group containing the
+        experimental data and parameters.
 
     Attributes
     ----------
@@ -123,7 +124,8 @@ class NXRefine:
     xs, ys, zs : float
         Distance of sample from center of goniometer in mm.
     xc, yc : float
-        Location of the incident beam on the detector in pixel coordinates.
+        Location of the incident beam on the detector in pixel
+        coordinates.
     xd, yd : float
         Translation of the detector along the x and y directions in mm.
     frame_time : float
@@ -263,7 +265,8 @@ class NXRefine:
     @property
     def scan_directory(self):
         """Parent directory of the raw scan data file."""
-        src = self._parent_entry if self._parent_entry is not None else self.entry
+        src = (self._parent_entry if self._parent_entry is not None
+               else self.entry)
         return Path(src['data'].nxsignal.nxfilename).parent
 
     @property
@@ -329,7 +332,8 @@ class NXRefine:
             else:
                 return entry[path].nxvalue
         except NeXusError:
-            if self._parent_entry is not None and not path.startswith('sample'):
+            if (self._parent_entry is not None and
+                    not path.startswith('sample')):
                 try:
                     if attr:
                         return self._parent_entry[path].attrs[attr]
@@ -987,7 +991,8 @@ class NXRefine:
         """
         if data_entry is None:
             data_entry = self.entry
-        parent_entry = self._parent_entry if self._parent_entry is not None else self.entry
+        parent_entry = (self._parent_entry if self._parent_entry is not None
+                        else self.entry)
         entry = parent_entry.nxname
         if mask:
             name = entry + '_masked_transform'
