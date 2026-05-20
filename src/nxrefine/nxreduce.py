@@ -176,6 +176,7 @@ class NXReduce(QtCore.QObject):
         self._parent_entry = None
         self._entries = entries
         self._subentry = subentry
+        self._refine = None
         self._mode = 'r'
 
         self._threshold = threshold
@@ -208,7 +209,7 @@ class NXReduce(QtCore.QObject):
         self.copy = copy
         self.maxcount = maxcount
         self.find = find
-        self.refine = refine
+        self.refine_lattice = refine
         self.lattice = lattice
         self.prepare = prepare
         self.transform = transform
@@ -361,6 +362,17 @@ class NXReduce(QtCore.QObject):
             return self.root[self.entry_name]
         else:
             return None
+
+    @property
+    def refine(self):
+        """NXRefine object initialized from the current entry and subentry."""
+        if self._refine is not None:
+            return self._refine
+        return NXRefine(self.entry, subentry=self._subentry)
+
+    @refine.setter
+    def refine(self, value):
+        self._refine = value
 
     @property
     def entries(self):
@@ -1215,9 +1227,10 @@ class NXReduce(QtCore.QObject):
         automatically from the parent's '/entry/nxscans/settings' by
         get_parameter().
         """
-        parent_refine = NXRefine(self.parent.root[self.entry_name])
-        refine = NXRefine(self.entry, subentry=self._subentry)
-        parent_refine.copy_parameters(refine, sample=True, instrument=True)
+        parent_refine = NXRefine(self.parent.root[self.entry_name],
+                                 subentry=self._subentry)
+        parent_refine.copy_parameters(self.refine, sample=True,
+                                      instrument=True)
         self.log(
             f"Parameters for {self.name} copied from '{self.parent_file}'")
 
@@ -1505,7 +1518,7 @@ class NXReduce(QtCore.QObject):
             mask is True for pixels with transmission coordinates
             outside of the specified range and False otherwise.
         """
-        refine = NXRefine(self.entry, subentry=self._subentry)
+        refine = self.refine
         min_radius = (self.qmin * refine.wavelength * refine.distance
                       / (2 * np.pi * refine.pixel_size))
         max_radius = (self.qmax * refine.wavelength * refine.distance
@@ -1663,7 +1676,7 @@ class NXReduce(QtCore.QObject):
             if 'peaks' in target:
                 del target['peaks']
             target['peaks'] = group
-        refine = NXRefine(self.entry, subentry=self._subentry)
+        refine = self.refine
         polar_angles, azimuthal_angles = refine.calculate_angles(refine.xp,
                                                                  refine.yp)
         refine.write_angles(polar_angles, azimuthal_angles,
@@ -1685,7 +1698,7 @@ class NXReduce(QtCore.QObject):
         file and records the refinement details. If the refinement
         fails, it logs the error and records the failure.
         """
-        if self.not_processed('nxrefine') and self.refine:
+        if self.not_processed('nxrefine') and self.refine_lattice:
             if not self.complete('nxfind'):
                 self.log(
                     'Cannot refine until peak search is completed')
@@ -1713,7 +1726,7 @@ class NXReduce(QtCore.QObject):
                 self.log(str(error))
                 self.record_fail('nxrefine')
                 raise
-        elif self.refine:
+        elif self.refine_lattice:
             self.log("HKL values already refined")
 
     def refine_parameters(self, lattice=False):
@@ -1737,7 +1750,7 @@ class NXReduce(QtCore.QObject):
             The refined NXRefine object if the refinement is successful,
             otherwise None.
         """
-        refine = NXRefine(self.entry, subentry=self._subentry)
+        refine = self.refine
         refine.polar_max = self.polar_max
         refine.hkl_tolerance = self.hkl_tolerance
         refine.refine_hkls(lattice=lattice, chi=True, omega=True, theta=True)
@@ -1879,15 +1892,17 @@ class NXReduce(QtCore.QObject):
                                 line = line.strip().rstrip(';')
                                 if '=' in line:
                                     key, _, value = line.partition('=')
-                                    cctw_settings[key.strip().replace('.', '_')] = value.strip()
+                                    cctw_key = key.strip().replace('.', '_')
+                                    cctw_settings[cctw_key] = value.strip()
                     self.log(f"{task_name} process launched")
                     tic = timeit.default_timer()
                     try:
                         with self.field.nxfile:
                             with NXLock(self.transform_file):
-                                process = subprocess.run(cctw_command, shell=True,
-                                                         stdout=subprocess.PIPE,
-                                                         stderr=subprocess.PIPE)
+                                process = subprocess.run(
+                                    cctw_command, shell=True,
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE)
                     finally:
                         if settings_file and settings_file.exists():
                             settings_file.unlink()
@@ -2002,7 +2017,7 @@ class NXReduce(QtCore.QObject):
                 reduce_target = self._get_reduce_target()
             data_entry = (reduce_target if 'data' in reduce_target
                           else self.entry)
-            refine = NXRefine(self.entry, subentry=self._subentry)
+            refine = self.refine
             refine.read_parameters()
             refine.h_start, refine.h_step, refine.h_stop = self.Qh
             refine.k_start, refine.k_step, refine.k_stop = self.Qk
@@ -2126,7 +2141,7 @@ class NXReduce(QtCore.QObject):
             self.nxmax()
         if self.find:
             self.nxfind()
-        if self.refine:
+        if self.refine_lattice:
             if self.complete('nxcopy') and self.complete('nxfind'):
                 self.nxrefine()
             else:
@@ -2185,7 +2200,7 @@ class NXReduce(QtCore.QObject):
         if self.find:
             tasks.append('find')
             self.queue_task('nxfind')
-        if self.refine:
+        if self.refine_lattice:
             tasks.append('refine')
             self.queue_task('nxrefine')
         if self.prepare:
@@ -2257,7 +2272,7 @@ class NXMultiReduce(NXReduce):
             entry = 'entry'
         super().__init__(entry=entry, directory=directory, entries=entries,
                          subentry=subentry, overwrite=overwrite)
-        self.refine = NXRefine(self.root)
+        self.refine = NXRefine(self.root, subentry=subentry)
 
         if laue:
             if laue in self.refine.laue_groups:
@@ -2636,8 +2651,9 @@ class NXMultiReduce(NXReduce):
 
     @property
     def indices(self):
-        self.refine.polar_max = max([NXRefine(self.root[e]).two_theta_max()
-                                     for e in self.entries])
+        self.refine.polar_max = max([NXRefine(
+            self.root[e], subentry=self._subentry).two_theta_max()
+            for e in self.entries])
         if self.refine.laue_group in ['-3', '-3m', '6/m', '6/mmm']:
             _indices = []
             for idx in self.refine.indices:
@@ -2680,8 +2696,9 @@ class NXMultiReduce(NXReduce):
         mk = int((mask.shape[1]-1)/2)
         mh = int((mask.shape[2]-1)/2)
         fill_data = np.zeros(shape=symm_data.shape, dtype=symm_data.dtype)
-        self.refine.polar_max = max([NXRefine(self.root[e]).two_theta_max()
-                                     for e in self.entries])
+        self.refine.polar_max = max([NXRefine(
+            self.root[e], subentry=self._subentry).two_theta_max()
+            for e in self.entries])
         for H, K, L in self.indices:
             try:
                 ih = np.argwhere(np.isclose(Qh, H))[0][0]

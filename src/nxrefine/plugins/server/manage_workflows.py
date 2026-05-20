@@ -434,7 +434,7 @@ class WorkflowDialog(NXDialog):
                     if self.selected(scan, 'find'):
                         reduce.find = True
                     if self.selected(scan, 'refine'):
-                        reduce.refine = True
+                        reduce.refine_lattice = True
                     if self.selected(scan, 'prepare'):
                         reduce.prepare = True
                     if self.selected(scan, 'transform'):
