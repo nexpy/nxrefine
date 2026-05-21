@@ -296,6 +296,8 @@ class NXParent:
         return f"{self.scan_prefix}{prefix}{value_str}{units}"
 
     def is_parent(self, scan):
+        if isinstance(scan, NXroot):
+            scan = scan.nxfilename
         if self.scan_file(scan).is_file():
             with nxopen(self.scan_file(scan), 'r') as root:
                 if f'{self.entry}/nxscans/parent' in root:
@@ -305,6 +307,8 @@ class NXParent:
             return False
 
     def has_parent(self, scan):
+        if isinstance(scan, NXroot):
+            scan = scan.nxfilename
         if self.scan_file(scan).is_file():
             with nxopen(self.scan_file(scan), 'r') as root:
                 return f'{self.entry}/nxscans/parent' in root
