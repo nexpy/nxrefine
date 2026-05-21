@@ -2162,7 +2162,8 @@ class NXReduce(QtCore.QObject):
                 if self.mask:
                     self.record_fail('nxmasked_transform')
         if self.combine or self.pdf:
-            reduce = NXMultiReduce(directory=self.directory, entries=self.entries,
+            reduce = NXMultiReduce(directory=self.directory,
+                                   entries=self.entries,
                                    subentry=self.subentry,
                                    combine=self.combine, pdf=self.pdf,
                                    regular=self.regular, mask=self.mask,
