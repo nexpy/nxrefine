@@ -140,7 +140,7 @@ class NXParent:
     def write_settings(self, **kwargs):
         """Write reduction settings to /entry/nxscans/settings."""
         with nxopen(self.filename, 'rw') as root:
-            entry = root[self.entry]
+            entry = root[self.entry_path]
             if 'nxscans' not in entry:
                 entry['nxscans'] = NXprocess()
             if 'settings' not in entry['nxscans']:
@@ -258,7 +258,7 @@ class NXParent:
         if self.settings and 'scan_path' in self.settings:
             return self.settings['scan_path'].nxvalue
         else:
-            return f'{self.entry}/sample/temperature'
+            return f'{self.entry_path}/sample/temperature'
 
     @property
     def scan_units(self):
@@ -300,8 +300,8 @@ class NXParent:
             scan = scan.nxfilename
         if self.scan_file(scan).is_file():
             with nxopen(self.scan_file(scan), 'r') as root:
-                if f'{self.entry}/nxscans/parent' in root:
-                    parent = Path(root[f'{self.entry}/nxscans/parent'].nxvalue)
+                if f'{self.entry_path}/nxscans/parent' in root:
+                    parent = Path(root[f'{self.entry_path}/nxscans/parent'].nxvalue)
                 return self.filename.parent / parent == self.filename
         else:
             return False
@@ -311,16 +311,16 @@ class NXParent:
             scan = scan.nxfilename
         if self.scan_file(scan).is_file():
             with nxopen(self.scan_file(scan), 'r') as root:
-                return f'{self.entry}/nxscans/parent' in root
+                return f'{self.entry_path}/nxscans/parent' in root
         else:
             return False
 
     def add_parent(self, scan):
         with nxopen(self.scan_file(scan), 'rw') as root:
-            if 'nxscans' not in root[self.entry]:
-                root[f'{self.entry}/nxscans'] = NXprocess()
-            root[f'{self.entry}/nxscans/parent'] = self.filename.name
-            root[f'{self.entry}/nxscans'].set_date()
+            if 'nxscans' not in root[self.entry_path]:
+                root[f'{self.entry_path}/nxscans'] = NXprocess()
+            root[f'{self.entry_path}/nxscans/parent'] = self.filename.name
+            root[f'{self.entry_path}/nxscans'].set_date()
 
     def add_scan(self, scan, selected=True):
 
