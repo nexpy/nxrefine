@@ -58,14 +58,11 @@ class CopyDialog(NXDialog):
         entry = self.parent.entry.nxname
         scan_entry = self.parent.entry_path
         if self.copy_settings:
-            if (scan_entry in self.nexus_root and
-                'nxscans' in self.nexus_root[scan_entry] and
-                'settings' in self.nexus_root[f'{scan_entry}/nxscans']):
+            if f'{scan_entry}/nxscans' in self.nexus_root:
                 settings = self.nexus_root[f'{scan_entry}/nxscans/settings']
-            elif ('nxscans' in self.nexus_root[entry] and
-                  'settings' in self.nexus_root[f'{entry}/nxscans']):
+            elif f'{entry}/nxscans/settings' in self.nexus_root:
                 settings = self.nexus_root[f'{entry}/nxscans/settings']
-            elif 'nxreduce' in self.nexus_root['entry']:
+            elif 'entry/nxreduce' in self.nexus_root:
                 settings = self.nexus_root['entry/nxreduce']
             else:
                 settings = {}

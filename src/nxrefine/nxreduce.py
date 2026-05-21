@@ -600,8 +600,7 @@ class NXReduce(QtCore.QObject):
     @property
     def parent_file(self):
         """Absolute file path to the parent file."""
-        if ('nxscans' in self.root['entry']
-                and 'parent' in self.root['entry/nxscans']):
+        if 'entry/nxscans/parent' in self.root:
             parent = self.root['entry/nxscans/parent'].nxvalue
             return self.base_directory.joinpath(parent)
         else:
@@ -634,14 +633,12 @@ class NXReduce(QtCore.QObject):
         if (self.parent and self.parent.settings is not None
                 and field_name in self.parent.settings):
             parameter = self.parent.settings[field_name].nxvalue
-        elif (self.parent and 'nxscans' in self.parent.entry and
-              'settings' in self.parent.entry['nxscans'] and
-              field_name in self.parent.entry['nxscans/settings']):
+        elif (self.parent and
+                f'nxscans/settings/{field_name}' in self.parent.entry):
             field = self.parent.entry[f'nxscans/settings/{field_name}']
             parameter = field.nxvalue
-        elif ('nxreduce' in self.root['entry']
-              and field_name in self.root['entry/nxreduce']):
-            parameter = self.root['entry/nxreduce'][field_name].nxvalue
+        elif f'entry/nxreduce/{field_name}' in self.root:
+            parameter = self.root[f'entry/nxreduce/{field_name}'].nxvalue
         return parameter
 
     def write_parameters(self, threshold=None, first=None, last=None,

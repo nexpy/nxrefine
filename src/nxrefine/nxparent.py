@@ -298,8 +298,7 @@ class NXParent:
     def is_parent(self, scan):
         if self.scan_file(scan).is_file():
             with nxopen(self.scan_file(scan), 'r') as root:
-                if ('nxscans' in root[self.entry] and
-                        'parent' in root[f'{self.entry}/nxscans']):
+                if f'{self.entry}/nxscans/parent' in root:
                     parent = Path(root[f'{self.entry}/nxscans/parent'].nxvalue)
                 return self.filename.parent / parent == self.filename
         else:
@@ -308,8 +307,7 @@ class NXParent:
     def has_parent(self, scan):
         if self.scan_file(scan).is_file():
             with nxopen(self.scan_file(scan), 'r') as root:
-                return ('nxscans' in root[self.entry] and
-                        'parent' in root[f'{self.entry}/nxscans'])
+                return f'{self.entry}/nxscans/parent' in root
         else:
             return False
 
