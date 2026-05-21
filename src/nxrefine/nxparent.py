@@ -33,14 +33,29 @@ class NXParent:
         self._subentry = subentry or ''
 
     @property
-    def subentry(self):
-        """The subentry name within '/entry', or '' for the main entry."""
+    def subentry_name(self):
+        """String name of the current subentry within '/entry', or ''."""
         return self._subentry
 
     @property
-    def entry(self):
-        """Full path to the active entry within the scans file."""
+    def subentry(self):
+        """The NXsubentry group within '/entry', or None."""
+        if (self._subentry and self.entry is not None
+                and self._subentry in self.entry):
+            return self.entry[self._subentry]
+        return None
+
+    @property
+    def entry_path(self):
+        """String path to the active entry: '/entry' or '/entry/{subentry}'."""
         return f'/entry/{self._subentry}' if self._subentry else '/entry'
+
+    @property
+    def entry(self):
+        """NXentry group at '/entry' in the scans file."""
+        if 'entry' in self.root:
+            return self.root['entry']
+        return None
 
     @entry.setter
     def entry(self, value):
@@ -55,17 +70,19 @@ class NXParent:
 
     @property
     def scan_entry(self):
-        if self.entry in self.root:
-            return self.root[self.entry]
-        else:
-            return None
+        """NXentry or NXsubentry currently being worked on."""
+        if self._subentry:
+            return self.subentry
+        return self.entry
 
     @scan_entry.setter
     def scan_entry(self, value):
         if 'entry' not in self.root:
             self.root['entry'] = value
+        elif self._subentry:
+            self.entry[self._subentry] = value
         else:
-            self.root[self.entry] = value
+            self.root['entry'] = value
 
     @property
     def scan_entries(self):
@@ -327,7 +344,7 @@ class NXParent:
         for file_path in self.selected_scans:
             try:
                 with nxopen(file_path) as root:
-                    data = root[self.entry][scan_group]
+                    data = root[self.entry_path][scan_group]
                     if data.nxsignal and data.nxsignal.exists():
                         valid_files.append(file_path)
             except (NeXusError, OSError):
@@ -367,7 +384,7 @@ class NXParent:
 
     def update_scan_data(self):
         for group in self.scan_groups:
-            data_path = f'{self.entry}/{group}'
+            data_path = f'{self.entry_path}/{group}'
             try:
                 self.create_scan_data(data_path)
             except NeXusError:
@@ -405,7 +422,7 @@ class NXParent:
     def initialize(self):
         with self.root:
             if self.scan_entry is None:
-                if self.entry in self.root:
+                if self.entry_path in self.root:
                     self.scan_entry = NXentry()
                 else:
                     self.scan_entry = NXsubentry()
