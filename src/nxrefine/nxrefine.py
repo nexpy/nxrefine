@@ -506,6 +506,12 @@ class NXRefine:
         If the `attr` keyword argument is present, the value of the
         specified attribute of the object is returned instead.
 
+        Sample parameters are written to `self.entry` because the sample
+        group is shared across subentries via a link to
+        `root[entry/sample]`. All other parameters are written to
+        `self.scan_entry` so that, when a subentry is active, they are
+        stored there rather than in the top-level entry.
+
         Parameters
         ----------
         path : str
@@ -516,14 +522,11 @@ class NXRefine:
             Name of attribute, by default None
         """
         if path.startswith('sample'):
-            if 'sample' in self.entry:
-                entry = self.entry
-            elif self.entry is not None:
-                entry = self.entry
-            else:
-                entry = self.entry.nxroot['entry']
-        else:
             entry = self.entry
+        else:
+            entry = self.scan_entry
+        if entry is None:
+            return
         if value is not None:
             if attr and path in entry:
                 entry[path].attrs[attr] = value
@@ -577,7 +580,8 @@ class NXRefine:
             if 'goniometer' not in self._scan_entry['instrument']:
                 self._scan_entry['instrument/goniometer'] = NXgoniometer()
             if 'monochromator' not in self._scan_entry['instrument']:
-                self._scan_entry['instrument/monochromator'] = NXmonochromator()
+                self._scan_entry['instrument/monochromator'] = (
+                    NXmonochromator())
             if 'sample' not in self._scan_entry['instrument']:
                 self._scan_entry['instrument/sample'] = NXsample()
 
@@ -622,7 +626,8 @@ class NXRefine:
             if isinstance(self.z, np.ndarray):
                 self.rotation_angle = self.phi + (self.phi_step * self.z)
 
-    def copy_parameters(self, other, sample=False, instrument=False):
+    def copy_parameters(self, other, sample=False, instrument=False,
+                        settings=False, transform=False):
         """Copy the experimental parameters to another entry.
 
         Parameters
@@ -634,13 +639,17 @@ class NXRefine:
         instrument : bool, optional
             True if the instrument parameters are to be copied,
             by default False.
+        settings : bool, optional
+            True if nxscans/settings is to be copied, by default False.
+        transform : bool, optional
+            True if nxscans/transform is to be copied, by default False.
         """
         with other:
             if sample:
                 if 'sample' not in other.root['entry']:
                     other.root['entry/sample'] = NXsample()
-                if 'sample' not in other.entry:
-                    other.entry.makelink(other.root['entry/sample'])
+                if 'sample' not in other.scan_entry:
+                    other.scan_entry.makelink(other.root['entry/sample'])
                 other.write_parameter('sample/chemical_formula', self.formula)
                 other.write_parameter('sample/space_group', self.space_group)
                 other.write_parameter('sample/laue_group', self.laue_group)
@@ -653,17 +662,23 @@ class NXRefine:
                 other.write_parameter('sample/unitcell_beta', self.beta)
                 other.write_parameter('sample/unitcell_gamma', self.gamma)
             if instrument:
-                if 'instrument' not in other.entry:
-                    other.entry['instrument'] = NXinstrument()
-                if 'detector' not in other.entry['instrument']:
-                    other.entry['instrument/detector'] = NXdetector()
-                if 'monochromator' not in other.entry['instrument']:
-                    other.entry['instrument/monochromator'] = NXmonochromator()
-                if 'goniometer' not in other.entry['instrument']:
-                    other.entry['instrument/goniometer'] = NXgoniometer()
-                if ('sample' in self.scan_entry['instrument'] and
-                        'sample' not in other.entry['instrument']):
-                    other.entry['instrument/sample'] = NXsample()
+                if 'instrument' not in other.scan_entry:
+                    other.scan_entry['instrument'] = NXinstrument()
+                if 'detector' not in other.scan_entry['instrument']:
+                    other.scan_entry['instrument/detector'] = NXdetector()
+                if 'monochromator' not in other.scan_entry['instrument']:
+                    other.scan_entry['instrument/monochromator'] = (
+                        NXmonochromator())
+                if 'goniometer' not in other.scan_entry['instrument']:
+                    other.scan_entry['instrument/goniometer'] = NXgoniometer()
+                instrument_src = (
+                    self.scan_entry if 'instrument' in self.scan_entry
+                    else self.entry
+                )
+                if ('instrument' in instrument_src and
+                        'sample' in instrument_src['instrument'] and
+                        'sample' not in other.scan_entry['instrument']):
+                    other.scan_entry['instrument/sample'] = NXsample()
                 other.write_parameter('instrument/detector/distance',
                                       self.distance)
                 other.write_parameter('instrument/detector/detector_orientation',
@@ -701,12 +716,29 @@ class NXRefine:
                     'instrument/goniometer/omega', self.omega)
                 other.write_parameter('instrument/goniometer/theta',
                                       self.theta)
-                if ('sample' in self.scan_entry['instrument'] and
-                        'transmission' in self.scan_entry['instrument/sample']):
-                    if 'transmission' in other.entry['instrument/sample']:
-                        del other.entry['instrument/sample/transmission']
-                    other.entry['instrument/sample/transmission'] = (
-                        self.scan_entry['instrument/sample/transmission'])
+                if ('instrument' in instrument_src and
+                        'sample' in instrument_src['instrument'] and
+                        'transmission' in instrument_src['instrument/sample']):
+                    if 'transmission' in other.scan_entry['instrument/sample']:
+                        del other.scan_entry['instrument/sample/transmission']
+                    other.scan_entry['instrument/sample/transmission'] = (
+                        instrument_src['instrument/sample/transmission'])
+            if settings:
+                settings_src = None
+                if 'nxscans/settings' in self.scan_entry:
+                    settings_src = self.scan_entry['nxscans/settings']
+                elif 'nxscans/settings' in self.entry:
+                    settings_src = self.entry['nxscans/settings']
+                if settings_src is not None:
+                    other.scan_entry['nxscans/settings'] = settings_src
+            if transform:
+                transform_src = None
+                if 'nxscans/transform' in self.scan_entry:
+                    transform_src = self.scan_entry['nxscans/transform']
+                elif 'nxscans/transform' in self.entry:
+                    transform_src = self.entry['nxscans/transform']
+                if transform_src is not None:
+                    other.scan_entry['nxscans/transform'] = transform_src
 
     def link_sample(self, other):
         """Link the sample group of this entry to another entry.

@@ -634,6 +634,11 @@ class NXReduce(QtCore.QObject):
         if (self.parent and self.parent.settings is not None
                 and field_name in self.parent.settings):
             parameter = self.parent.settings[field_name].nxvalue
+        elif (self.parent and 'nxscans' in self.parent.entry and
+              'settings' in self.parent.entry['nxscans'] and
+              field_name in self.parent.entry['nxscans/settings']):
+            field = self.parent.entry[f'nxscans/settings/{field_name}']
+            parameter = field.nxvalue
         elif ('nxreduce' in self.root['entry']
               and field_name in self.root['entry/nxreduce']):
             parameter = self.root['entry/nxreduce'][field_name].nxvalue
@@ -1231,15 +1236,15 @@ class NXReduce(QtCore.QObject):
     def copy_parameters(self):
         """Copy the experimental parameters from the parent.
 
-        Copies sample, instrument, and beamline parameters from the
-        parent. Reduction parameters (threshold, monitor, etc.) are read
-        automatically from the parent's '/entry/nxscans/settings' by
-        get_parameter().
+        Copies sample, instrument, settings, and transform parameters from
+        the parent. For each group, scan_entry is tried first, with fallback
+        to entry if the group is absent from the subentry.
         """
         parent_refine = NXRefine(self.parent.root[self.entry_name],
                                  subentry=self._subentry)
         parent_refine.copy_parameters(self.refine, sample=True,
-                                      instrument=True)
+                                      instrument=True, settings=True,
+                                      transform=True)
         self.log(
             f"Parameters for {self.name} copied from '{self.parent_file}'")
 
