@@ -23,8 +23,10 @@ class TransformDialog(NXDialog):
     def __init__(self, scans_file, subentry=None):
         super().__init__()
         self.parent = NXParent(scans_file, subentry=subentry)
-        self.reduce = NXMultiReduce(subentry)
-        self.refine = NXRefine(subentry)
+        self.reduce = NXMultiReduce(entry=self.parent.root,
+                                    subentry=self.parent.subentry_name)
+        self.refine = NXRefine(self.parent.root,
+                               subentry=self.parent.subentry_name)
 
         self.Qgrid = QtWidgets.QGridLayout()
         self.Qgrid.setSpacing(10)
