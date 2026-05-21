@@ -38,7 +38,7 @@ def main():
     if args.entries:
         entries = args.entries
     else:
-        entries = NXMultiReduce(args.directory).entries
+        entries = NXMultiReduce(directory=args.directory).entries
 
     for i, entry in enumerate(entries):
         if i == 0:

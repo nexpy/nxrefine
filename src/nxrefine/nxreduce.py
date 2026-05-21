@@ -2162,7 +2162,8 @@ class NXReduce(QtCore.QObject):
                 if self.mask:
                     self.record_fail('nxmasked_transform')
         if self.combine or self.pdf:
-            reduce = NXMultiReduce(self.directory, entries=self.entries,
+            reduce = NXMultiReduce(directory=self.directory,
+                                   entries=self.entries,
                                    subentry=self.subentry,
                                    combine=self.combine, pdf=self.pdf,
                                    regular=self.regular, mask=self.mask,
@@ -2263,13 +2264,22 @@ class NXReduce(QtCore.QObject):
 
 class NXMultiReduce(NXReduce):
 
-    def __init__(self, directory, entries=None, subentry='',
-                 combine=False, pdf=False, regular=False, mask=False,
-                 laue=None, radius=None, qmax=None, overwrite=False):
-        if isinstance(directory, NXroot):
-            entry = directory['entry']
-        else:
-            entry = 'entry'
+    def __init__(self, entry=None, subentry='', directory=None,
+                 entries=None, combine=False, pdf=False, regular=False,
+                 mask=False, laue=None, radius=None, qmax=None,
+                 overwrite=False):
+        if isinstance(entry, NXroot):
+            root = entry
+            if subentry and 'entry' in root and subentry in root['entry']:
+                entry = root['entry'][subentry]
+            else:
+                entry = root['entry']
+        if isinstance(entry, NXsubentry):
+            if not subentry:
+                subentry = entry.nxname
+            entry = entry.nxgroup
+        elif not isinstance(entry, NXentry):
+            entry = None
         super().__init__(entry=entry, directory=directory, entries=entries,
                          subentry=subentry, overwrite=overwrite)
         self.refine = NXRefine(self.root, subentry=subentry)

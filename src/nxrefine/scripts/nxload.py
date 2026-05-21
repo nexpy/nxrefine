@@ -30,7 +30,7 @@ def main():
     if args.entries:
         entries = args.entries
     else:
-        entries = NXMultiReduce(args.directory).entries
+        entries = NXMultiReduce(directory=args.directory).entries
 
     for entry in entries:
         reduce = NXReduce(entry, args.directory, load=True,

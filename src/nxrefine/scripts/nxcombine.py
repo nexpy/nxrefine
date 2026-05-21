@@ -30,7 +30,7 @@ def main():
 
     args = parser.parse_args()
 
-    reduce = NXMultiReduce(args.directory, entries=args.entries,
+    reduce = NXMultiReduce(directory=args.directory, entries=args.entries,
                            combine=True, regular=args.regular, mask=args.mask,
                            overwrite=args.overwrite)
     if args.queue:

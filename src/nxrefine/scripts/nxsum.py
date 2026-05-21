@@ -31,7 +31,7 @@ def main():
     args = parser.parse_args()
 
     if args.create:
-        reduce = NXMultiReduce(args.directory, overwrite=True)
+        reduce = NXMultiReduce(directory=args.directory, overwrite=True)
         reduce.nxsum(args.scans)
     else:
         for entry in args.entries:
