@@ -98,7 +98,7 @@ class MaximumDialog(NXDialog):
             self.parameters['qmin'].value = self.reduce.qmin
         if self.reduce.qmax:
             self.parameters['qmax'].value = self.reduce.qmax
-        target = self.reduce.reduce_entry or self.entry
+        target = self.reduce.scan_entry or self.entry
         if 'summed_frames' in target:
             self.summed_frames = target['summed_frames'].nxsignal
             if 'partial_frames' in target['summed_frames']:

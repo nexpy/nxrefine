@@ -410,14 +410,23 @@ class NXReduce(QtCore.QObject):
 
     @property
     def subentry(self):
-        return self._subentry
+        """NXsubentry group for the current workflow, or None."""
+        if (self._subentry and self.entry is not None
+                and self._subentry in self.entry):
+            return self.entry[self._subentry]
+        return None
 
     @subentry.setter
     def subentry(self, value):
         self._subentry = value or ''
 
     @property
-    def reduce_entry(self):
+    def subentry_name(self):
+        """String name of the current subentry, or ''."""
+        return self._subentry
+
+    @property
+    def scan_entry(self):
         """NXentry or NXsubentry for storing workflow results (read-only).
 
         Returns None if subentry is set but the group has not been created
@@ -576,7 +585,7 @@ class NXReduce(QtCore.QObject):
         if self._parent is None:
             if self.parent_file.is_file():
                 self._parent = NXParent(self.parent_file,
-                                        subentry=self.subentry or None)
+                                        subentry=self.subentry_name or None)
             else:
                 self._parent = None
         return self._parent
@@ -907,7 +916,7 @@ class NXReduce(QtCore.QObject):
 
     def complete(self, task):
         """True if the task for this entry in the wrapper file is done."""
-        target = self.reduce_entry
+        target = self.scan_entry
         if target is None:
             return False
         if 'nxworkflow' in target:
@@ -931,7 +940,7 @@ class NXReduce(QtCore.QObject):
         This is used to prevent existing analyses from being
         overwritten, unless `overwrite` is set to True.
         """
-        target = self.reduce_entry
+        target = self.scan_entry
         if target is None or self.overwrite:
             return True
         if 'nxworkflow' in target:
@@ -1060,7 +1069,7 @@ class NXReduce(QtCore.QObject):
         """Record that a task has started in the database """
         try:
             self.db.start_task(self.wrapper_file, task, self.entry_name,
-                               subentry=self.subentry)
+                               subentry=self.subentry_name)
             self.start_time[task] = datetime.datetime.now()
             self.timer[task] = timeit.default_timer()
             self.log(f"{self.name}: '{task}' started")
@@ -1071,7 +1080,7 @@ class NXReduce(QtCore.QObject):
         """Record that a task has ended in the database """
         try:
             self.db.end_task(self.wrapper_file, task, self.entry_name,
-                             subentry=self.subentry)
+                             subentry=self.subentry_name)
             elapsed_time = timeit.default_timer() - self.timer[task]
             self.log(
                 f"{self.name}: '{task}' complete ({elapsed_time:g} seconds)")
@@ -1082,7 +1091,7 @@ class NXReduce(QtCore.QObject):
         """Record that a task has failed in the database """
         try:
             self.db.fail_task(self.wrapper_file, task, self.entry_name,
-                              subentry=self.subentry)
+                              subentry=self.subentry_name)
             elapsed_time = timeit.default_timer() - self.timer[task]
             self.log(f"'{task}' failed ({elapsed_time:g} seconds)")
         except Exception as error:
@@ -1462,7 +1471,7 @@ class NXReduce(QtCore.QObject):
             number as the x-axis.
         """
         if self.partial_frames is None:
-            target = self.reduce_entry or self.entry
+            target = self.scan_entry or self.entry
             if ('summed_frames' in target
                     and 'partial_frames' in target['summed_frames']):
                 y = target['summed_frames/partial_frames'].nxvalue
@@ -1680,7 +1689,7 @@ class NXReduce(QtCore.QObject):
         polar_angles, azimuthal_angles = refine.calculate_angles(refine.xp,
                                                                  refine.yp)
         refine.write_angles(polar_angles, azimuthal_angles,
-                            entry=self.reduce_entry or self.entry)
+                            entry=self.scan_entry or self.entry)
         self.clear_parameters(['threshold', 'first', 'last'])
 
     def nxrefine(self):
@@ -1962,7 +1971,7 @@ class NXReduce(QtCore.QObject):
                 elif 'transform' in root[self.entry_name]:
                     transform = root[self.entry_name]['transform']
             else:
-                target = self.reduce_entry or self.entry
+                target = self.scan_entry or self.entry
                 if mask and 'masked_transform' in target:
                     transform = target['masked_transform']
                 elif 'transform' in target:
@@ -2164,7 +2173,7 @@ class NXReduce(QtCore.QObject):
         if self.combine or self.pdf:
             reduce = NXMultiReduce(directory=self.directory,
                                    entries=self.entries,
-                                   subentry=self.subentry,
+                                   subentry=self.subentry_name,
                                    combine=self.combine, pdf=self.pdf,
                                    regular=self.regular, mask=self.mask,
                                    overwrite=self.overwrite)
@@ -2305,7 +2314,7 @@ class NXMultiReduce(NXReduce):
 
     def complete(self, task):
         if task in ['nxcombine', 'nxmasked_combine', 'nxpdf', 'nxmasked_pdf']:
-            target = self.reduce_entry
+            target = self.scan_entry
             return target is not None and task in target
         return self.all_complete(task)
 
@@ -2368,7 +2377,7 @@ class NXMultiReduce(NXReduce):
                             f"completed ({toc-tic:g} seconds)")
                         if self.parent:
                             self.parent.create_scan_data(
-                                self.reduce_entry[transform_data].nxpath)
+                                self.scan_entry[transform_data].nxpath)
                         self.record(task, command=cctw_command,
                                     output=cctw_output,
                                     errors=cctw_errors)
@@ -2488,7 +2497,7 @@ class NXMultiReduce(NXReduce):
             self.log(f"{self.title} already calculated")
 
     def init_pdf(self, mask=False):
-        target = self.reduce_entry or self.entry
+        target = self.scan_entry or self.entry
         if mask:
             self.title = 'Masked PDF'
             self.transform_path = 'masked_transform'
@@ -2528,7 +2537,7 @@ class NXMultiReduce(NXReduce):
         symm_root = nxopen(self.symm_file, 'w')
         symm_root['entry'] = NXentry()
         symm_root['entry/data'] = NXdata()
-        target = self.reduce_entry or self.entry
+        target = self.scan_entry or self.entry
         symmetry = NXSymmetry(target[self.transform_path],
                               laue_group=self.refine.laue_group)
         symm_root['entry/data/data'] = symmetry.symmetrize(entries=True)
@@ -2606,7 +2615,7 @@ class NXMultiReduce(NXReduce):
                 return
         self.log(f"{self.title}: Calculating total PDF")
         tic = timeit.default_timer()
-        target = self.reduce_entry or self.entry
+        target = self.scan_entry or self.entry
         symm_data = target[self.symm_data].nxsignal.nxvalue
         symm_data *= self.taper
         fft = np.real(scipy.fft.fftshift(
@@ -2647,7 +2656,7 @@ class NXMultiReduce(NXReduce):
                          f"({toc - tic:g} seconds)")
 
     def hole_mask(self):
-        symm_group = (self.reduce_entry or self.entry)[self.symm_data]
+        symm_group = (self.scan_entry or self.entry)[self.symm_data]
         dl, dk, dh = [(ax[1]-ax[0]).nxvalue for ax in symm_group.nxaxes]
         dhp = np.rint(self.radius / (dh * self.refine.astar))
         dkp = np.rint(self.radius / (dk * self.refine.bstar))
@@ -2692,7 +2701,7 @@ class NXMultiReduce(NXReduce):
         LaplaceInterpolation = Main.LaplaceInterpolation
 
         tic = timeit.default_timer()
-        target = self.reduce_entry or self.entry
+        target = self.scan_entry or self.entry
         symm_group = target[self.symm_data]
         Qh, Qk, Ql = (symm_group['Qh'], symm_group['Qk'], symm_group['Ql'])
 
@@ -2765,7 +2774,7 @@ class NXMultiReduce(NXReduce):
                     f"{self.title}: Delta-PDF file already exists")
                 return
         tic = timeit.default_timer()
-        target = self.reduce_entry or self.entry
+        target = self.scan_entry or self.entry
         symm_data = target[self.symm_data]['filled_data'].nxvalue
         symm_data *= self.taper
         fft = np.real(scipy.fft.fftshift(
@@ -2797,7 +2806,7 @@ class NXMultiReduce(NXReduce):
             self.add_title(write_target[self.pdf_data])
         if self.parent:
             self.parent.create_scan_data(
-                (self.reduce_entry or self.entry)[self.pdf_data].nxpath)
+                (self.scan_entry or self.entry)[self.pdf_data].nxpath)
 
         self.log(f"'{self.pdf_data}' added to entry")
         toc = timeit.default_timer()

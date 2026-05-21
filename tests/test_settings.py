@@ -204,9 +204,9 @@ class TestNXReduceSettings:
                           parent_name=self.parent_file.name)
         make_parent_file(self.parent_file, entry='/entry/entry1',
                          settings={'threshold': 77777})
-        # NXReduce for a subentry (entry_name='entry1')
+        # NXReduce with subentry matching parent file's subentry
         with nxopen(self.wrapper_file, 'rw') as root:
             root['entry1'] = NXentry()
-        r = NXReduce(entry='entry1', directory=self.scan_dir)
-        assert r.parent.entry == '/entry/entry1'
+        r = NXReduce(entry='entry1', subentry='entry1', directory=self.scan_dir)
+        assert r.parent.entry_path == '/entry/entry1'
         assert r.parent.get_setting('threshold') == 77777
