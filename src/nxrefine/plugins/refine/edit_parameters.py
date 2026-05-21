@@ -24,7 +24,7 @@ class ParametersDialog(NXDialog):
         self.sample = self.parent.sample
         self.entries = [self.parent.root[entry]
                         for entry in self.parent.root if entry[-1].isdigit()]
-        self.reduce = NXMultiReduce(self.parent.root)
+        self.reduce = NXMultiReduce(entry=self.parent.root)
         default = NXSettings(self.reduce.task_directory).settings['nxreduce']
         self.parameters = GridParameters()
         self.parameters.add('threshold', default['threshold'],

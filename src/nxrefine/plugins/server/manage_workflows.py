@@ -414,7 +414,7 @@ class WorkflowDialog(NXDialog):
             for i, entry in enumerate(self.enabled_scans[scan]['entries']):
                 if self.only_combined(scan):
                     if i == 0:
-                        reduce = NXMultiReduce(scan)
+                        reduce = NXMultiReduce(directory=scan)
                         reduce.regular = reduce.mask = False
                     else:
                         break

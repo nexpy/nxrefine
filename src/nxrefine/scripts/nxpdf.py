@@ -34,7 +34,7 @@ def main():
 
     args = parser.parse_args()
 
-    reduce = NXMultiReduce(args.directory, pdf=True,
+    reduce = NXMultiReduce(directory=args.directory, pdf=True,
                            laue=args.laue, radius=args.radius, qmax=args.Qmax,
                            regular=args.regular, mask=args.mask,
                            overwrite=args.overwrite)

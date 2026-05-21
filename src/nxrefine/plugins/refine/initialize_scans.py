@@ -43,7 +43,7 @@ class InitializeDialog(NXDialog):
         self.parent = NXParent(self.parent_file)
         self.entries = [self.parent.root[entry]
                         for entry in self.parent.root if entry[-1].isdigit()]
-        self.reduce = NXMultiReduce(self.parent.root)
+        self.reduce = NXMultiReduce(entry=self.parent.root)
         if self.layout.count() == 2:
             self.insert_layout(1, self.subentry_layout())
             self.layout.insertLayout(2, self.action_buttons(
