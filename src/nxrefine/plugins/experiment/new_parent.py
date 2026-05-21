@@ -184,18 +184,6 @@ class ParentDialog(NXDialog):
         parent_name = self.parameters['parent'].value + '_scans.nxs'
         return self.sample_directory.joinpath(parent_name)
 
-    def copy_configuration(self):
-        config_root = nxopen(self.configuration_file, 'r')
-        for entry in config_root.entries:
-            if entry not in self.parent.root[entry]:
-                self.parent.root[entry] = NXentry()
-            for g in ['instrument', 'sample']:
-                if g in config_root[entry]:
-                    group = config_root[entry][g]
-                    if g in self.parent.root[entry]:
-                        del self.parent.root[entry][g]
-                    self.parent.root[entry][g] = group
-
     def copy_file(self, config_file):
         self.parent.copy_file(config_file)
 

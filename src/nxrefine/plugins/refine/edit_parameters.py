@@ -107,8 +107,8 @@ class ParametersDialog(NXDialog):
                 pass
 
     def write_parameters(self):
-        with self.parent.root as root:
-            settings = root[f'{self.parent.entry}/nxscans/settings']
+        with self.parent.root:
+            settings = self.parent.scan_entry['nxscans/settings']
             settings['threshold'] = self.threshold
             settings['first_frame'] = self.first
             settings['last_frame'] = self.last

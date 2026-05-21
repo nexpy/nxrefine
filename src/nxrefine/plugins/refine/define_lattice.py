@@ -22,7 +22,7 @@ class LatticeDialog(NXDialog):
     def __init__(self, scans_file, subentry=None):
         super().__init__()
         self.parent = NXParent(scans_file, subentry=subentry)
-        self.refine = NXRefine(self.parent.root[f'{self.parent.entry}'])
+        self.refine = NXRefine(self.parent.scan_entry)
         self.parameters = GridParameters()
         self.parameters.add('chemical_formula', self.refine.formula,
                             'Chemical Formula')

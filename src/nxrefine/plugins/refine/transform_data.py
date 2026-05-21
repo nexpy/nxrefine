@@ -15,6 +15,7 @@ from nexusformat.nexus import NeXusError, NXdata, NXfield
 
 from nxrefine.nxparent import NXParent
 from nxrefine.nxreduce import NXMultiReduce
+from nxrefine.nxrefine import NXRefine
 
 
 class TransformDialog(NXDialog):
@@ -22,8 +23,8 @@ class TransformDialog(NXDialog):
     def __init__(self, scans_file, subentry=None):
         super().__init__()
         self.parent = NXParent(scans_file, subentry=subentry)
-        self.reduce = NXMultiReduce(entry=self.parent.root)
-        self.refine = self.reduce.refine
+        self.reduce = NXMultiReduce(subentry)
+        self.refine = NXRefine(subentry)
 
         self.Qgrid = QtWidgets.QGridLayout()
         self.Qgrid.setSpacing(10)
@@ -60,7 +61,7 @@ class TransformDialog(NXDialog):
         if self.parent.transform:
             transform = self.parent.transform
             h_stop = transform['Qh'][-1]
-            k_stop = transform['Qk'][-1]            
+            k_stop = transform['Qk'][-1]
             l_stop = transform['Ql'][-1]
             h_step = transform['Qh'][1] - transform['Qh'][0]
             k_step = transform['Qk'][1] - transform['Qk'][0]
@@ -118,7 +119,7 @@ class TransformDialog(NXDialog):
         L = NXfield(np.linspace(l_start, l_stop, l_shape), name='Ql',
                     scaling_factor=self.refine.cstar, long_name='L (r.l.u.)')
         with self.parent.root:
-            scan_info = self.parent.root[f'{self.parent.entry}/nxscans']
+            scan_info = self.parent.scan_info
             if 'transform' in scan_info:
                 del scan_info['transform']
             scan_info['transform'] = NXdata(axes=(L, K, H))

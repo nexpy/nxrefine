@@ -30,7 +30,10 @@ class NXParent:
         if not self.filename.stem.endswith('_scans'):
             raise ValueError("Parent file must end with '_scans.nxs'")
         self.name = self.filename.name
-        self._subentry = subentry or ''
+        if isinstance(subentry, NXsubentry):
+            self._subentry = subentry.nxname
+        else:
+            self._subentry = subentry or ''
 
     @property
     def subentry_name(self):
@@ -293,20 +296,22 @@ class NXParent:
         return f"{self.scan_prefix}{prefix}{value_str}{units}"
 
     def is_parent(self, scan):
+        if isinstance(scan, NXroot):
+            scan = scan.nxfilename
         if self.scan_file(scan).is_file():
             with nxopen(self.scan_file(scan), 'r') as root:
-                if ('nxscans' in root[self.entry] and
-                        'parent' in root[f'{self.entry}/nxscans']):
+                if f'{self.entry}/nxscans/parent' in root:
                     parent = Path(root[f'{self.entry}/nxscans/parent'].nxvalue)
                 return self.filename.parent / parent == self.filename
         else:
             return False
 
     def has_parent(self, scan):
+        if isinstance(scan, NXroot):
+            scan = scan.nxfilename
         if self.scan_file(scan).is_file():
             with nxopen(self.scan_file(scan), 'r') as root:
-                return ('nxscans' in root[self.entry] and
-                        'parent' in root[f'{self.entry}/nxscans'])
+                return f'{self.entry}/nxscans/parent' in root
         else:
             return False
 
@@ -422,10 +427,10 @@ class NXParent:
     def initialize(self):
         with self.root:
             if self.scan_entry is None:
-                if self.entry_path in self.root:
-                    self.scan_entry = NXentry()
+                if self.subentry_name:
+                    self.scan_entry = NXsubentry(name=self.subentry_name)
                 else:
-                    self.scan_entry = NXsubentry()
+                    self.scan_entry = NXentry()
             if self.scan_info is None:
                 self.scan_info = NXprocess()
             if self.settings is None:

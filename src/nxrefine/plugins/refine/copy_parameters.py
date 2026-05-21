@@ -55,12 +55,15 @@ class CopyDialog(NXDialog):
         return self.checkbox['transform'].isChecked()
 
     def copy_file(self):
-        entry = self.parent.entry
+        entry = self.parent.entry.nxname
+        scan_entry = self.parent.entry_path
         if self.copy_settings:
-            if 'nxreduce' in self.nexus_root['entry']:
-                settings = self.nexus_root['entry/nxreduce']
-            elif 'settings' in self.nexus_root[f'{entry}/nxscans']:
+            if f'{scan_entry}/nxscans' in self.nexus_root:
+                settings = self.nexus_root[f'{scan_entry}/nxscans/settings']
+            elif f'{entry}/nxscans/settings' in self.nexus_root:
                 settings = self.nexus_root[f'{entry}/nxscans/settings']
+            elif 'entry/nxreduce' in self.nexus_root:
+                settings = self.nexus_root['entry/nxreduce']
             else:
                 settings = {}
             for s in settings:
