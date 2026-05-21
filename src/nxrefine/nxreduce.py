@@ -1044,7 +1044,8 @@ class NXReduce(QtCore.QObject):
                 target['nxworkflow'] = NXcollection()
                 workflow = target['nxworkflow']
                 existing = [name for name, item in target.entries.items()
-                            if isinstance(item, NXprocess)]
+                            if isinstance(item, NXprocess)
+                            and 'program' in item]
                 for name in existing:
                     target.move(name, workflow)
             else:
@@ -1233,17 +1234,55 @@ class NXReduce(QtCore.QObject):
     def copy_parameters(self):
         """Copy the experimental parameters from the parent.
 
-        Copies sample, instrument, settings, and transform parameters from
-        the parent. For each group, scan_entry is tried first, with fallback
-        to entry if the group is absent from the subentry.
+        Sample, settings, and transform live under '/entry' (or
+        '/entry/{subentry}') and are copied between the parent's and
+        wrapper's top-level entry. Instrument is per-entry and is copied
+        from the matching parent entry to the same entry on the wrapper.
+        For NXMultiReduce (entry_name='entry'), the per-entry block is
+        skipped — no per-entry instrument exists for the top-level entry.
         """
-        parent_refine = NXRefine(self.parent.root[self.entry_name],
+        if self._subentry:
+            with self:
+                if self._subentry not in self.root['entry']:
+                    self.root['entry'][self._subentry] = NXsubentry()
+        common_src = NXRefine(self.parent.root['entry'],
+                              subentry=self._subentry)
+        common_dst = NXRefine(self.root['entry'],
+                              subentry=self._subentry)
+        common_src.copy_parameters(common_dst, sample=True,
+                                   settings=True, transform=True)
+
+        if self.entry_name != 'entry':
+            instr_src = NXRefine(self.parent.root[self.entry_name],
                                  subentry=self._subentry)
-        parent_refine.copy_parameters(self.refine, sample=True,
-                                      instrument=True, settings=True,
-                                      transform=True)
+            instr_src.copy_parameters(self.refine, instrument=True)
+
+        self._link_sample()
         self.log(
             f"Parameters for {self.name} copied from '{self.parent_file}'")
+
+    def _link_sample(self):
+        """Link per-entry sample to the canonical /entry/sample.
+
+        NXReduce operates on per-entry groups (/f1, /f2, /f3), and the
+        per-entry NXRefine reads sample fields via self.entry['sample'].
+        Each per-entry group therefore needs a 'sample' link pointing at
+        the canonical /entry/sample group. Skipped for NXMultiReduce,
+        where entry_name is already 'entry' and the sample group sits at
+        the destination directly.
+        """
+        if self.entry_name == 'entry':
+            return
+        with self:
+            if ('entry' not in self.root
+                    or 'sample' not in self.root['entry']):
+                return
+            entry = self.entry
+            if entry is None:
+                return
+            if 'sample' in entry:
+                del entry['sample']
+            entry.makelink(self.root['entry/sample'])
 
     def nxmax(self):
         """Find the maximum counts in the data."""

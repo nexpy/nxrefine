@@ -474,7 +474,7 @@ class WorkflowDialog(NXDialog):
         self.scan_combo = dialog.select_box(scans, slot=self.choose_scan)
         self.entry_combo = dialog.select_box(
             self.entries,
-            default=self.parent.subentry or self.entries[0],
+            default=self.parent.subentry_name or self.entries[0],
             slot=self.refreshview)
         self.task_combo = dialog.select_box(self.tasks, slot=self.refreshview)
         self.defaultview = None
@@ -507,7 +507,7 @@ class WorkflowDialog(NXDialog):
         current_entry = self.entry_combo.selected
         self.entry_combo.clear()
         self.entry_combo.add(*self.scans[scan]['entries'])
-        preferred = self.parent.subentry or current_entry
+        preferred = self.parent.subentry_name or current_entry
         if preferred in self.entry_combo:
             self.entry_combo.select(preferred)
         elif current_entry in self.entry_combo:
@@ -575,15 +575,16 @@ class WorkflowDialog(NXDialog):
         scan = self.sample + '_' + self.scan_combo.currentText()
         entry = self.entry_combo.currentText()
         task = 'nx' + self.task_combo.currentText()
-        if (not self.parent.subentry and
+        if (not self.parent.subentry_name and
                 task in ('nxcombine', 'nxmasked_combine',
                          'nxpdf', 'nxmasked_pdf')):
             entry = 'entry'
         wrapper_file = self.sample_directory / (scan+'.nxs')
         root = nxload(wrapper_file)
         target = root[entry]
-        if self.parent.subentry and self.parent.subentry in target:
-            target = target[self.parent.subentry]
+        subentry = self.parent.subentry_name
+        if subentry and subentry in target:
+            target = target[subentry]
         if 'nxworkflow' in target and task in target['nxworkflow']:
             workflow_task = target['nxworkflow'][task]
             text = 'Date: ' + workflow_task['note/date'].nxvalue + '\n'
@@ -597,13 +598,13 @@ class WorkflowDialog(NXDialog):
         scan = self.sample + '_' + self.scan_combo.currentText()
         entry = self.entry_combo.currentText()
         task = 'nx' + self.task_combo.currentText()
-        if (not self.parent.subentry and
+        subentry = self.parent.subentry_name
+        if (not subentry and
                 task in ('nxcombine', 'nxmasked_combine',
                          'nxpdf', 'nxmasked_pdf')):
             entry = 'entry'
         wrapper_file = self.sample_directory / (scan+'.nxs')
         f = self.db.get_file(wrapper_file)
-        subentry = self.parent.subentry
         text = [' '.join([t.name, str(t.entry), str(t.status),
                           str(t.queue_time), str(t.start_time),
                           str(t.end_time)])
