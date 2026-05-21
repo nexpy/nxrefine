@@ -440,7 +440,7 @@ class NXReduce(QtCore.QObject):
         return self.entry
 
     @property
-    def reduce_directory(self):
+    def scan_directory(self):
         """Directory for storing external HDF5 files for this subentry.
 
         When subentry is set, returns self.directory / subentry, creating
@@ -1781,7 +1781,7 @@ class NXReduce(QtCore.QObject):
             try:
                 self.record_start('nxprepare')
                 self.log("Preparing 3D mask")
-                self.mask_file = self.reduce_directory.joinpath(
+                self.mask_file = self.scan_directory.joinpath(
                     self.entry_name+'_mask.nxs')
                 mask = self.prepare_mask()
                 if self.gui:
@@ -1878,12 +1878,12 @@ class NXReduce(QtCore.QObject):
         if mask:
             task = 'nxmasked_transform'
             task_name = 'Masked transform'
-            self.transform_file = self.reduce_directory.joinpath(
+            self.transform_file = self.scan_directory.joinpath(
                 self.entry_name+'_masked_transform.nxs')
         else:
             task = 'nxtransform'
             task_name = 'Transform'
-            self.transform_file = self.reduce_directory.joinpath(
+            self.transform_file = self.scan_directory.joinpath(
                 self.entry_name+'_transform.nxs')
         if self.not_processed(task) and self.transform:
             if not self.oriented:
@@ -2016,7 +2016,7 @@ class NXReduce(QtCore.QObject):
             self.data['monitor_weight'].attrs['axes'] = 'frame_number'
 
     def prepare_transform(self, mask=False):
-        settings_file = self.reduce_directory.joinpath(
+        settings_file = self.scan_directory.joinpath(
             self.entry_name+'_transform.pars')
         self.get_transform_grid(mask=mask)
         if self.norm:
@@ -2324,14 +2324,14 @@ class NXMultiReduce(NXReduce):
             transform_task = 'nxmasked_transform'
             self.title = 'Masked Combine'
             self.transform_path = 'masked_transform'
-            self.transform_file = self.reduce_directory.joinpath(
+            self.transform_file = self.scan_directory.joinpath(
                 'masked_transform.nxs')
         else:
             task = 'nxcombine'
             transform_task = 'nxtransform'
             self.title = 'Combine'
             self.transform_path = 'transform'
-            self.transform_file = self.reduce_directory.joinpath(
+            self.transform_file = self.scan_directory.joinpath(
                 'transform.nxs')
         if self.not_processed(task) and self.combine:
             if not self.complete(transform_task):
@@ -2426,10 +2426,10 @@ class NXMultiReduce(NXReduce):
             self.log("Unable to initialize transform group")
             self.log(str(error))
             return None
-        input = ' '.join([self.reduce_directory.joinpath(
+        input = ' '.join([self.scan_directory.joinpath(
             fr'{entry}_{self.transform_path}.nxs\#/entry/data')
             for entry in self.entries])
-        output = self.reduce_directory.joinpath(
+        output = self.scan_directory.joinpath(
             fr'{self.transform_path}.nxs\#/entry/data/v')
         return f"cctw merge {input} -o {output}"
 
@@ -2504,11 +2504,11 @@ class NXMultiReduce(NXReduce):
             self.symm_data = 'symm_masked_transform'
             self.total_pdf_data = 'total_masked_pdf'
             self.pdf_data = 'masked_pdf'
-            self.symm_file = self.reduce_directory.joinpath(
+            self.symm_file = self.scan_directory.joinpath(
                 'masked_symm_transform.nxs')
-            self.total_pdf_file = self.reduce_directory.joinpath(
+            self.total_pdf_file = self.scan_directory.joinpath(
                 'masked_total_pdf.nxs')
-            self.pdf_file = self.reduce_directory.joinpath('masked_pdf.nxs')
+            self.pdf_file = self.scan_directory.joinpath('masked_pdf.nxs')
             self.Qh, self.Qk, self.Ql = (target['masked_transform/Qh'],
                                          target['masked_transform/Qk'],
                                          target['masked_transform/Ql'])
@@ -2518,11 +2518,11 @@ class NXMultiReduce(NXReduce):
             self.symm_data = 'symm_transform'
             self.total_pdf_data = 'total_pdf'
             self.pdf_data = 'pdf'
-            self.symm_file = self.reduce_directory.joinpath(
+            self.symm_file = self.scan_directory.joinpath(
                 'symm_transform.nxs')
-            self.total_pdf_file = self.reduce_directory.joinpath(
+            self.total_pdf_file = self.scan_directory.joinpath(
                 'total_pdf.nxs')
-            self.pdf_file = self.reduce_directory.joinpath('pdf.nxs')
+            self.pdf_file = self.scan_directory.joinpath('pdf.nxs')
             self.Qh, self.Qk, self.Ql = (target['transform/Qh'],
                                          target['transform/Qk'],
                                          target['transform/Ql'])
