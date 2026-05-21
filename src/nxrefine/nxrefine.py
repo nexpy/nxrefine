@@ -153,26 +153,29 @@ class NXRefine:
     """Space groups with minimal systematic absences for each centring."""
 
     def __init__(self, node=None, subentry=''):
-        self._parent_entry = None
+        self._entry = None
+        self._scan_entry = None
         self._subentry = subentry
         if isinstance(node, NXroot) and 'entry' in node:
-            self.entry = node['entry']
+            self._entry = node['entry']
+            self._scan_entry = self._entry
         elif isinstance(node, NXsubentry):
-            self._parent_entry = node.nxgroup
-            self.entry = node
+            self._entry = node.nxgroup
+            self._scan_entry = node
             if not self._subentry:
                 self._subentry = node.nxname
         elif isinstance(node, NXentry):
-            self.entry = node
+            self._entry = node
+            self._scan_entry = node
         elif isinstance(node, NXgroup):
-            self.entry = node.nxentry
+            self._entry = node.nxentry
+            self._scan_entry = self._entry
         else:
-            self.entry = None
-        if (self._subentry and self._parent_entry is None
-                and self.entry is not None
-                and self._subentry in self.entry):
-            self._parent_entry = self.entry
-            self.entry = self._parent_entry[self._subentry]
+            self._entry = None
+            self._scan_entry = None
+        if (self._subentry and self._entry is not None
+                and self._subentry in self._entry):
+            self._scan_entry = self._entry[self._subentry]
         self.a = 4.0
         self.b = 4.0
         self.c = 4.0
@@ -243,6 +246,24 @@ class NXRefine:
     def __repr__(self):
         return "NXRefine('" + self.name + "')"
 
+    @property
+    def entry(self):
+        """NXentry group containing the experimental data."""
+        return self._entry
+
+    @property
+    def subentry(self):
+        """NXsubentry group for the current analysis, or None."""
+        if (self._subentry and self._entry is not None
+                and self._subentry in self._entry):
+            return self._entry[self._subentry]
+        return None
+
+    @property
+    def scan_entry(self):
+        """NXentry or NXsubentry for storing analysis results (read-only)."""
+        return self._scan_entry
+
     def __enter__(self):
         if self.entry is None:
             raise NeXusError('NXRefine entry not defined')
@@ -260,14 +281,12 @@ class NXRefine:
     @property
     def root(self):
         """Root of NXRefine entry"""
-        return (self._parent_entry or self.entry).nxroot
+        return self.entry.nxroot
 
     @property
     def scan_directory(self):
         """Parent directory of the raw scan data file."""
-        src = (self._parent_entry if self._parent_entry is not None
-               else self.entry)
-        return Path(src['data'].nxsignal.nxfilename).parent
+        return Path(self.scan_entry['data'].nxsignal.nxfilename).parent
 
     @property
     def reduce_directory(self):
@@ -319,8 +338,8 @@ class NXRefine:
             if path.startswith('sample'):
                 if 'sample' in self.entry:
                     entry = self.entry
-                elif self._parent_entry is not None:
-                    entry = self._parent_entry
+                elif self.entry is not None:
+                    entry = self.entry
                 else:
                     entry = self.entry.nxroot['entry']
             else:
@@ -332,15 +351,15 @@ class NXRefine:
             else:
                 return entry[path].nxvalue
         except NeXusError:
-            if (self._parent_entry is not None and
+            if (self.entry is not None and
                     not path.startswith('sample')):
                 try:
                     if attr:
-                        return self._parent_entry[path].attrs[attr]
-                    elif isinstance(self._parent_entry[path], NXgroup):
-                        return self._parent_entry[path]
+                        return self.scan_entry[path].attrs[attr]
+                    elif isinstance(self.scan_entry[path], NXgroup):
+                        return self.scan_entry[path]
                     else:
-                        return self._parent_entry[path].nxvalue
+                        return self.scan_entry[path].nxvalue
                 except NeXusError:
                     pass
             return default
@@ -354,19 +373,19 @@ class NXRefine:
             Group to be read, if different from `self.entry`, by default None
         """
         if entry:
-            self.entry = entry
+            self._scan_entry = entry
         with self.entry.nxfile:
-            parent = self._parent_entry or self.entry
+            parent = self.entry
             self.name = parent.nxroot.nxname + "/" + parent.nxname
             if self._subentry:
                 self.name += "/" + self._subentry
-            if 'sample' in self.entry and 'unit_cell' in self.entry['sample']:
+            if 'sample' in self.entry and 'unit_cell' in self.scan_entry['sample']:
                 lattice_parameters = self.read_parameter('sample/unit_cell')
                 if lattice_parameters is not None:
                     self.a, self.b, self.c = lattice_parameters[:3]
                     self.alpha, self.beta, self.gamma = lattice_parameters[3:]
             elif ('sample' in self.entry
-                  and 'unit_cell_abc' in self.entry['sample']):
+                  and 'unit_cell_abc' in self.scan_entry['sample']):
                 lattice_parameters = self.read_parameter(
                     'sample/unit_cell_abc')
                 if lattice_parameters is not None:
@@ -431,13 +450,13 @@ class NXRefine:
             self.omega = self.read_parameter('instrument/goniometer/omega',
                                              self.omega)
             if 'instrument/goniometer' in self.entry:
-                if 'theta' in self.entry['instrument/goniometer']:
+                if 'theta' in self.scan_entry['instrument/goniometer']:
                     self.theta = self.read_parameter(
                         'instrument/goniometer/theta', self.theta)
-                elif 'goniometer_pitch' in self.entry['instrument/goniometer']:
+                elif 'goniometer_pitch' in self.scan_entry['instrument/goniometer']:
                     self.theta = self.read_parameter(
                         'instrument/goniometer/goniometer_pitch', self.theta)
-                elif 'gonpitch' in self.entry['instrument/goniometer']:
+                elif 'gonpitch' in self.scan_entry['instrument/goniometer']:
                     self.theta = self.read_parameter(
                         'instrument/goniometer/gonpitch', self.theta)
             self.xs = self.read_parameter('instrument/goniometer/xs', 0.0)
@@ -453,10 +472,10 @@ class NXRefine:
             # present); otherwise fall back to the parent to avoid size
             # mismatches with a partial peaks group written by
             # write_angles (which only stores polar/azimuthal angles).
-            if (self._parent_entry is not None
+            if (self.entry is not None
                     and not ('peaks' in self.entry
-                             and 'x' in self.entry['peaks'])):
-                _pk = self._parent_entry
+                             and 'x' in self.scan_entry['peaks'])):
+                _pk = self.entry
             else:
                 _pk = self.entry
             self.xp = self._read_from(_pk, 'peaks/x')
@@ -520,8 +539,8 @@ class NXRefine:
         if path.startswith('sample'):
             if 'sample' in self.entry:
                 entry = self.entry
-            elif self._parent_entry is not None:
-                entry = self._parent_entry
+            elif self.entry is not None:
+                entry = self.entry
             else:
                 entry = self.entry.nxroot['entry']
         else:
@@ -550,10 +569,10 @@ class NXRefine:
             by default False.
         """
         if entry:
-            self.entry = entry
+            self._scan_entry = entry
         with self:
-            if 'sample' not in self.entry:
-                self.entry['sample'] = NXsample()
+            if 'sample' not in self._scan_entry:
+                self._scan_entry['sample'] = NXsample()
             self.write_parameter('sample/chemical_formula', self.formula)
             self.write_parameter('sample/space_group', self.space_group)
             self.write_parameter('sample/laue_group', self.laue_group)
@@ -568,20 +587,20 @@ class NXRefine:
             if sample:
                 return
 
-            if 'instrument' not in self.entry:
-                if (self._parent_entry is not None
-                        and 'instrument' in self._parent_entry):
-                    self.entry['instrument'] = self._parent_entry['instrument']
+            if 'instrument' not in self._scan_entry:
+                if (self.entry is not None
+                        and 'instrument' in self.entry):
+                    self._scan_entry['instrument'] = self.entry['instrument']
                 else:
-                    self.entry['instrument'] = NXinstrument()
-            if 'detector' not in self.entry['instrument']:
-                self.entry['instrument/detector'] = NXdetector()
-            if 'goniometer' not in self.entry['instrument']:
-                self.entry['instrument/goniometer'] = NXgoniometer()
-            if 'monochromator' not in self.entry['instrument']:
-                self.entry['instrument/monochromator'] = NXmonochromator()
-            if 'sample' not in self.entry['instrument']:
-                self.entry['instrument/sample'] = NXsample()
+                    self._scan_entry['instrument'] = NXinstrument()
+            if 'detector' not in self._scan_entry['instrument']:
+                self._scan_entry['instrument/detector'] = NXdetector()
+            if 'goniometer' not in self._scan_entry['instrument']:
+                self._scan_entry['instrument/goniometer'] = NXgoniometer()
+            if 'monochromator' not in self._scan_entry['instrument']:
+                self._scan_entry['instrument/monochromator'] = NXmonochromator()
+            if 'sample' not in self._scan_entry['instrument']:
+                self._scan_entry['instrument/sample'] = NXsample()
 
             self.write_parameter('instrument/monochromator/wavelength',
                                  self.wavelength)
@@ -615,10 +634,10 @@ class NXRefine:
             self.write_parameter('instrument/goniometer/xs', self.xs)
             self.write_parameter('instrument/goniometer/ys', self.ys)
             self.write_parameter('instrument/goniometer/zs', self.zs)
-            if 'peaks' not in self.entry:
-                if (self._parent_entry is not None
-                        and 'peaks' in self._parent_entry):
-                    self.entry['peaks'] = self._parent_entry['peaks']
+            if 'peaks' not in self._scan_entry:
+                if (self.entry is not None
+                        and 'peaks' in self.entry):
+                    self._scan_entry['peaks'] = self.entry['peaks']
             self.write_parameter('peaks/primary_reflection', self.primary)
             self.write_parameter('peaks/secondary_reflection', self.secondary)
             if isinstance(self.z, np.ndarray):
@@ -663,7 +682,7 @@ class NXRefine:
                     other.entry['instrument/monochromator'] = NXmonochromator()
                 if 'goniometer' not in other.entry['instrument']:
                     other.entry['instrument/goniometer'] = NXgoniometer()
-                if ('sample' in self.entry['instrument'] and
+                if ('sample' in self.scan_entry['instrument'] and
                         'sample' not in other.entry['instrument']):
                     other.entry['instrument/sample'] = NXsample()
                 other.write_parameter('instrument/detector/distance',
@@ -703,12 +722,12 @@ class NXRefine:
                     'instrument/goniometer/omega', self.omega)
                 other.write_parameter('instrument/goniometer/theta',
                                       self.theta)
-                if ('sample' in self.entry['instrument'] and
-                        'transmission' in self.entry['instrument/sample']):
+                if ('sample' in self.scan_entry['instrument'] and
+                        'transmission' in self.scan_entry['instrument/sample']):
                     if 'transmission' in other.entry['instrument/sample']:
                         del other.entry['instrument/sample/transmission']
                     other.entry['instrument/sample/transmission'] = (
-                        self.entry['instrument/sample/transmission'])
+                        self.scan_entry['instrument/sample/transmission'])
 
     def link_sample(self, other):
         """Link the sample group of this entry to another entry.
@@ -722,7 +741,7 @@ class NXRefine:
             if 'sample' in self.entry:
                 if 'sample' in other.entry:
                     del other.entry['sample']
-                other.entry.makelink(self.entry['sample'])
+                other.entry.makelink(self.scan_entry['sample'])
 
     def read_settings(self, settings_file):
         """Read the experimental parameters stored in a CCTW settings file.
@@ -821,7 +840,7 @@ class NXRefine:
             lines.append('parameters.gridOffset = [0,0,0];')
             lines.append('parameters.extraFlip = false;')
             input_chunks = [
-                int(c) for c in self.entry['data/data'].chunks[::-1]]
+                int(c) for c in self.scan_entry['data/data'].chunks[::-1]]
             lines.append(f'inputData.chunkSize = {input_chunks};')
             lines.append(f'outputData.dimensions = {list(self.grid_shape)};')
             lines.append('outputData.chunkSize = [50,50,50];')
@@ -853,8 +872,8 @@ class NXRefine:
         if entry is None:
             entry = self.entry
         with self:
-            if 'sample' not in self.entry:
-                self.entry['sample'] = NXsample()
+            if 'sample' not in self._scan_entry:
+                self._scan_entry['sample'] = NXsample()
             if 'peaks' not in entry:
                 entry['peaks'] = NXdata()
             else:
@@ -991,7 +1010,7 @@ class NXRefine:
         """
         if data_entry is None:
             data_entry = self.entry
-        parent_entry = (self._parent_entry if self._parent_entry is not None
+        parent_entry = (self.entry if self.entry is not None
                         else self.entry)
         entry = parent_entry.nxname
         if mask:
@@ -2056,12 +2075,12 @@ class NXRefine:
         array_like
             A 2D array of the polarization correction for the detector pixels.
         """
-        if 'polarization' in self.entry['instrument/detector']:
-            return self.entry['instrument/detector/polarization'].nxvalue
-        elif 'calibration' in self.entry['instrument']:
+        if 'polarization' in self.scan_entry['instrument/detector']:
+            return self.scan_entry['instrument/detector/polarization'].nxvalue
+        elif 'calibration' in self.scan_entry['instrument']:
             from pyFAI.integrator.azimuthal import AzimuthalIntegrator
             parameters = (
-                self.entry['instrument/calibration/refinement/parameters'])
+                self.scan_entry['instrument/calibration/refinement/parameters'])
             ai = AzimuthalIntegrator(
                 dist=parameters['Distance'].nxvalue,
                 poni1=parameters['Poni1'].nxvalue,
