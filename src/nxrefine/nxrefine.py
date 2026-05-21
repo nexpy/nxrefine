@@ -95,9 +95,11 @@ class NXRefine:
 
     Parameters
     ----------
-    node : NXobject
-        NeXus object within the NXentry group containing the
-        experimental data and parameters.
+    entry : NXobject, optional
+        NXroot, NXentry, NXsubentry, or NXgroup containing the
+        experimental data and parameters, by default None.
+    subentry : str, optional
+        Name of the NXsubentry group within the entry, by default ''.
 
     Attributes
     ----------
@@ -152,23 +154,23 @@ class NXRefine:
                     'I': 'I222', 'F': 'F222', 'R': 'R3'}
     """Space groups with minimal systematic absences for each centring."""
 
-    def __init__(self, node=None, subentry=''):
+    def __init__(self, entry=None, subentry=''):
         self._entry = None
         self._scan_entry = None
         self._subentry = subentry
-        if isinstance(node, NXroot) and 'entry' in node:
-            self._entry = node['entry']
+        if isinstance(entry, NXroot) and 'entry' in entry:
+            self._entry = entry['entry']
             self._scan_entry = self._entry
-        elif isinstance(node, NXsubentry):
-            self._entry = node.nxgroup
-            self._scan_entry = node
+        elif isinstance(entry, NXsubentry):
+            self._entry = entry.nxgroup
+            self._scan_entry = entry
             if not self._subentry:
-                self._subentry = node.nxname
-        elif isinstance(node, NXentry):
-            self._entry = node
-            self._scan_entry = node
-        elif isinstance(node, NXgroup):
-            self._entry = node.nxentry
+                self._subentry = entry.nxname
+        elif isinstance(entry, NXentry):
+            self._entry = entry
+            self._scan_entry = entry
+        elif isinstance(entry, NXgroup):
+            self._entry = entry.nxentry
             self._scan_entry = self._entry
         else:
             self._entry = None
@@ -334,16 +336,8 @@ class NXRefine:
         stored in `root[entry]`, so sample parameters are all read from
         `root[entry/sample]`.
         """
+        entry = self.scan_entry if path in self.scan_entry else self.entry
         try:
-            if path.startswith('sample'):
-                if 'sample' in self.entry:
-                    entry = self.entry
-                elif self.entry is not None:
-                    entry = self.entry
-                else:
-                    entry = self.entry.nxroot['entry']
-            else:
-                entry = self.entry
             if attr:
                 return entry[path].attrs[attr]
             elif isinstance(entry[path], NXgroup):
@@ -351,17 +345,6 @@ class NXRefine:
             else:
                 return entry[path].nxvalue
         except NeXusError:
-            if (self.entry is not None and
-                    not path.startswith('sample')):
-                try:
-                    if attr:
-                        return self.scan_entry[path].attrs[attr]
-                    elif isinstance(self.scan_entry[path], NXgroup):
-                        return self.scan_entry[path]
-                    else:
-                        return self.scan_entry[path].nxvalue
-                except NeXusError:
-                    pass
             return default
 
     def read_parameters(self, entry=None):
@@ -379,31 +362,29 @@ class NXRefine:
             self.name = parent.nxroot.nxname + "/" + parent.nxname
             if self._subentry:
                 self.name += "/" + self._subentry
-            if 'sample' in self.entry and 'unit_cell' in self.scan_entry['sample']:
-                lattice_parameters = self.read_parameter('sample/unit_cell')
-                if lattice_parameters is not None:
-                    self.a, self.b, self.c = lattice_parameters[:3]
-                    self.alpha, self.beta, self.gamma = lattice_parameters[3:]
-            elif ('sample' in self.entry
-                  and 'unit_cell_abc' in self.scan_entry['sample']):
+            lattice_parameters = self.read_parameter('sample/unit_cell')
+            if lattice_parameters is not None:
+                self.a, self.b, self.c = lattice_parameters[:3]
+                self.alpha, self.beta, self.gamma = lattice_parameters[3:]
+            else:
                 lattice_parameters = self.read_parameter(
                     'sample/unit_cell_abc')
                 if lattice_parameters is not None:
                     self.a, self.b, self.c = lattice_parameters
-                lattice_parameters = self.read_parameter(
-                    'sample/unit_cell_alphabetagamma')
-                if lattice_parameters is not None:
-                    self.alpha, self.beta, self.gamma = lattice_parameters
-            else:
-                self.a = self.read_parameter('sample/unitcell_a', self.a)
-                self.b = self.read_parameter('sample/unitcell_b', self.b)
-                self.c = self.read_parameter('sample/unitcell_c', self.c)
-                self.alpha = self.read_parameter(
-                    'sample/unitcell_alpha', self.alpha)
-                self.beta = self.read_parameter(
-                    'sample/unitcell_beta', self.beta)
-                self.gamma = self.read_parameter(
-                    'sample/unitcell_gamma', self.gamma)
+                    lattice_parameters = self.read_parameter(
+                        'sample/unit_cell_alphabetagamma')
+                    if lattice_parameters is not None:
+                        self.alpha, self.beta, self.gamma = lattice_parameters
+                else:
+                    self.a = self.read_parameter('sample/unitcell_a', self.a)
+                    self.b = self.read_parameter('sample/unitcell_b', self.b)
+                    self.c = self.read_parameter('sample/unitcell_c', self.c)
+                    self.alpha = self.read_parameter(
+                        'sample/unitcell_alpha', self.alpha)
+                    self.beta = self.read_parameter(
+                        'sample/unitcell_beta', self.beta)
+                    self.gamma = self.read_parameter(
+                        'sample/unitcell_gamma', self.gamma)
             self.formula = self.read_parameter('sample/chemical_formula',
                                                self.formula)
             self.space_group = self.read_parameter(
@@ -449,16 +430,14 @@ class NXRefine:
                 'instrument/goniometer/chi', self.chi)
             self.omega = self.read_parameter('instrument/goniometer/omega',
                                              self.omega)
-            if 'instrument/goniometer' in self.entry:
-                if 'theta' in self.scan_entry['instrument/goniometer']:
-                    self.theta = self.read_parameter(
-                        'instrument/goniometer/theta', self.theta)
-                elif 'goniometer_pitch' in self.scan_entry['instrument/goniometer']:
-                    self.theta = self.read_parameter(
-                        'instrument/goniometer/goniometer_pitch', self.theta)
-                elif 'gonpitch' in self.scan_entry['instrument/goniometer']:
-                    self.theta = self.read_parameter(
-                        'instrument/goniometer/gonpitch', self.theta)
+            theta = self.read_parameter('instrument/goniometer/theta')
+            if theta is None:
+                theta = self.read_parameter(
+                    'instrument/goniometer/goniometer_pitch')
+            if theta is None:
+                theta = self.read_parameter('instrument/goniometer/gonpitch')
+            if theta is not None:
+                self.theta = theta
             self.xs = self.read_parameter('instrument/goniometer/xs', 0.0)
             self.ys = self.read_parameter('instrument/goniometer/ys', 0.0)
             self.zs = self.read_parameter('instrument/goniometer/zs', 0.0)
