@@ -95,7 +95,7 @@ class WorkflowDialog(NXDialog):
 
     def subentry_layout(self):
         self.subentry_combo = self.select_box(self.parent.scan_entries,
-                                              default=self.parent.entry,
+                                              default=self.parent.entry_path,
                                               slot=self.select_subentry)
         sub_button = NXPushButton('Create New Subentry', self.create_subentry)
         return self.make_layout(NXLabel('Entry:'), self.subentry_combo,
@@ -238,7 +238,7 @@ class WorkflowDialog(NXDialog):
             status['entries'] = f.get_entries()
             if self.parent.subentry:
                 subentry_status = self.db.get_subentry_status(
-                    wrapper, self.parent.subentry)
+                    wrapper, self.parent.subentry_name)
                 for task_name in self.db.subentry_task_names:
                     col_name = task_name[2:]
                     self._set_checkbox(status[col_name],
