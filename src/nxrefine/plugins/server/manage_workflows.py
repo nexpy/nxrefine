@@ -520,6 +520,8 @@ class WorkflowDialog(NXDialog):
         self.defaultview = self.dataview
         scan = self.scan_combo.currentText()
         scan_directory = self.sample_directory / scan
+        if self.parent.subentry_name:
+            scan_directory = scan_directory / self.parent.subentry_name
         if not scan_directory.exists():
             self.output_box.setPlainText('Directory has not been created')
             return
