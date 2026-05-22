@@ -59,7 +59,7 @@ class InitializeDialog(NXDialog):
 
     def subentry_layout(self):
         self.subentry_combo = self.select_box(self.parent.scan_entries,
-                                              default=self.parent.entry,
+                                              default=self.parent.entry_path,
                                               slot=self.select_subentry)
         sub_button = NXPushButton('Create New Subentry', self.create_subentry)
         return self.make_layout(NXLabel('Entry:'), self.subentry_combo,

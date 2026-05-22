@@ -95,7 +95,7 @@ class WorkflowDialog(NXDialog):
 
     def subentry_layout(self):
         self.subentry_combo = self.select_box(self.parent.scan_entries,
-                                              default=self.parent.entry,
+                                              default=self.parent.entry_path,
                                               slot=self.select_subentry)
         sub_button = NXPushButton('Create New Subentry', self.create_subentry)
         return self.make_layout(NXLabel('Entry:'), self.subentry_combo,
@@ -238,7 +238,7 @@ class WorkflowDialog(NXDialog):
             status['entries'] = f.get_entries()
             if self.parent.subentry:
                 subentry_status = self.db.get_subentry_status(
-                    wrapper, self.parent.subentry)
+                    wrapper, self.parent.subentry_name)
                 for task_name in self.db.subentry_task_names:
                     col_name = task_name[2:]
                     self._set_checkbox(status[col_name],
@@ -520,6 +520,8 @@ class WorkflowDialog(NXDialog):
         self.defaultview = self.dataview
         scan = self.scan_combo.currentText()
         scan_directory = self.sample_directory / scan
+        if self.parent.subentry_name:
+            scan_directory = scan_directory / self.parent.subentry_name
         if not scan_directory.exists():
             self.output_box.setPlainText('Directory has not been created')
             return
@@ -527,7 +529,8 @@ class WorkflowDialog(NXDialog):
 
         def _getmtime(entry):
             return entry.stat().st_mtime
-        for f in sorted(scan_directory.iterdir(), key=_getmtime):
+        for f in sorted((f for f in scan_directory.iterdir()
+                         if not f.name.startswith('.')), key=_getmtime):
             text.append('{0}   {1}   {2}'.format(
                 format_mtime(f.stat().st_mtime),
                 human_size(f.stat().st_size, width=6),

@@ -89,7 +89,7 @@ class FilesDialog(NXDialog):
     def accept(self):
         try:
             with self.parent.root as root:
-                scan_info = root[f'{self.parent.entry}/nxscans']
+                scan_info = root[f'{self.parent.entry_path}/nxscans']
                 for f in self.scan_files:
                     if self.scan_files[f].vary:
                         scan_info['selected'][self.parent.index(f)] = True
