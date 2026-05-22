@@ -529,7 +529,8 @@ class WorkflowDialog(NXDialog):
 
         def _getmtime(entry):
             return entry.stat().st_mtime
-        for f in sorted(scan_directory.iterdir(), key=_getmtime):
+        for f in sorted((f for f in scan_directory.iterdir()
+                         if not f.name.startswith('.')), key=_getmtime):
             text.append('{0}   {1}   {2}'.format(
                 format_mtime(f.stat().st_mtime),
                 human_size(f.stat().st_size, width=6),
