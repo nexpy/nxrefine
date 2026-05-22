@@ -85,12 +85,18 @@ class NXReduce(QtCore.QObject):
         mask_parameters : dict, optional
             Thresholds and convolution sizes used to prepare 3D masks, by
             default None.
-        Qh : tuple of floats, optional
-            Minimum, step size, and maximum value of Qh array, by default None
-        Qk : tuple of floats, optional
-            Minimum, step size, and maximum value of Qk array, by default None
-        Ql : tuple of floats, optional
-            Minimum, step size, and maximum value of Ql array, by default None
+        Qh : ndarray, optional
+            Values of Qh along the H axis of the transform grid, by default
+            None. If None, the array is read from the parent file's
+            ``nxscans/transform`` group.
+        Qk : ndarray, optional
+            Values of Qk along the K axis of the transform grid, by default
+            None. If None, the array is read from the parent file's
+            ``nxscans/transform`` group.
+        Ql : ndarray, optional
+            Values of Ql along the L axis of the transform grid, by default
+            None. If None, the array is read from the parent file's
+            ``nxscans/transform`` group.
         load : bool, optional
             Load raw data files, by default False
         link : bool, optional
@@ -1997,33 +2003,14 @@ class NXReduce(QtCore.QObject):
             self.log(f"{task_name} already created")
 
     def get_transform_grid(self, mask=False):
-        if self.Qh and self.Qk and self.Ql:
+        if self.Qh is not None and self.Qk is not None and self.Ql is not None:
+            return
+        if self.parent and self.parent.transform is not None:
+            transform = self.parent.transform
             try:
-                self.Qh = [np.float32(v) for v in self.Qh]
-                self.Qk = [np.float32(v) for v in self.Qk]
-                self.Ql = [np.float32(v) for v in self.Ql]
-            except Exception:
-                self.Qh = self.Qk = self.Ql = None
-        else:
-            if self.parent:
-                root = self.parent.root
-                if mask and 'masked_transform' in root[self.entry_name]:
-                    transform = root[self.entry_name]['masked_transform']
-                elif 'transform' in root[self.entry_name]:
-                    transform = root[self.entry_name]['transform']
-            else:
-                target = self.scan_entry or self.entry
-                if mask and 'masked_transform' in target:
-                    transform = target['masked_transform']
-                elif 'transform' in target:
-                    transform = target['transform']
-            try:
-                Qh, Qk, Ql = (transform['Qh'].nxvalue,
-                              transform['Qk'].nxvalue,
-                              transform['Ql'].nxvalue)
-                self.Qh = Qh[0], Qh[1]-Qh[0], Qh[-1]
-                self.Qk = Qk[0], Qk[1]-Qk[0], Qk[-1]
-                self.Ql = Ql[0], Ql[1]-Ql[0], Ql[-1]
+                self.Qh = transform['Qh'].nxvalue
+                self.Qk = transform['Qk'].nxvalue
+                self.Ql = transform['Ql'].nxvalue
             except Exception:
                 self.Qh = self.Qk = self.Ql = None
 
@@ -2062,16 +2049,14 @@ class NXReduce(QtCore.QObject):
         self.get_transform_grid(mask=mask)
         if self.norm:
             self.get_normalization()
-        if self.Qh and self.Qk and self.Ql:
+        if self.Qh is not None and self.Qk is not None and self.Ql is not None:
             with self:
                 reduce_target = self._get_reduce_target()
             data_entry = (reduce_target if 'data' in reduce_target
                           else self.entry)
             refine = self.refine
             refine.read_parameters()
-            refine.h_start, refine.h_step, refine.h_stop = self.Qh
-            refine.k_start, refine.k_step, refine.k_stop = self.Qk
-            refine.l_start, refine.l_step, refine.l_stop = self.Ql
+            refine.Qh, refine.Qk, refine.Ql = self.Qh, self.Qk, self.Ql
             refine.define_grid()
             refine.prepare_transform(self.transform_file, mask=mask,
                                      output_entry=reduce_target,
@@ -2441,6 +2426,7 @@ class NXMultiReduce(NXReduce):
     def prepare_combine(self):
         try:
             with self:
+                self.refine.read_parameters()
                 first_entry = self._get_entry_target(self.entries[0])
                 Qh, Qk, Ql = (first_entry[self.transform_path]['Qh'],
                               first_entry[self.transform_path]['Qk'],

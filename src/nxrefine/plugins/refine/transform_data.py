@@ -72,15 +72,12 @@ class TransformDialog(NXDialog):
             k_shape = len(transform['Qk'])
             l_shape = len(transform['Ql'])
         else:
-            h_stop = self.refine.h_stop
-            k_stop = self.refine.k_stop
-            l_stop = self.refine.l_stop
-            h_step = self.refine.h_step
-            k_step = self.refine.k_step
-            l_step = self.refine.l_step
-            h_shape = self.refine.h_shape
-            k_shape = self.refine.k_shape
-            l_shape = self.refine.l_shape
+            Qh, Qk, Ql = self.refine.Qh, self.refine.Qk, self.refine.Ql
+            h_stop, k_stop, l_stop = Qh[-1], Qk[-1], Ql[-1]
+            h_step = Qh[1] - Qh[0]
+            k_step = Qk[1] - Qk[0]
+            l_step = Ql[1] - Ql[0]
+            h_shape, k_shape, l_shape = len(Qh), len(Qk), len(Ql)
         self.Qbox['H'].setText(f"{h_stop:g}")
         self.Qbox['K'].setText(f"{k_stop:g}")
         self.Qbox['L'].setText(f"{l_stop:g}")
