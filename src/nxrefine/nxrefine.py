@@ -799,13 +799,11 @@ class NXRefine:
         self.chi = d['parameters.chinom'] * degrees
         self.phi = d['parameters.phinom'] * degrees
         self.phi_step = d['parameters.phistep'] * degrees
-        self.h_start, self.k_start, self.l_start = d['parameters.gridorigin']
-        self.h_stop, self.k_stop, self.l_stop = [-v
-                                                 for v in d
-                                                 ['parameters.gridorigin']]
-        hs, ks, ls = d['parameters.griddim']
-        self.h_step, self.k_step, self.l_step = [1.0/hs, 1.0/ks, 1.0/ls]
-        self.h_shape, self.k_shape, self.l_shape = d['outputdata.dimensions']
+        origin = d['parameters.gridorigin']
+        shape = d['outputdata.dimensions']
+        self.Qh = np.linspace(origin[0], -origin[0], shape[0])
+        self.Qk = np.linspace(origin[1], -origin[1], shape[1])
+        self.Ql = np.linspace(origin[2], -origin[2], shape[2])
 
     def write_settings(self, settings_file, cctw_settings=None):
         """Write experimental parameters to a CCTW settings file.
@@ -912,47 +910,35 @@ class NXRefine:
         return find_nearest(stepsizes, value/multiplier) * multiplier
 
     def initialize_grid(self):
-        """Initialize the parameters that define HKL grid."""
-        if self.Qh is not None and self.Qk is not None and self.Ql is not None:
-            self.h_start, self.h_step, self.h_stop = (
-                self.Qh[0], self.Qh[1]-self.Qh[0], self.Qh[-1])
-            self.k_start, self.k_step, self.k_stop = (
-                self.Qk[0], self.Qk[1]-self.Qk[0], self.Qk[-1])
-            self.l_start, self.l_step, self.l_stop = (
-                self.Ql[0], self.Ql[1]-self.Ql[0], self.Ql[-1])
-        else:
+        """Build Qh/Qk/Ql arrays and the corresponding CCTW grid."""
+        if self.Qh is None or self.Qk is None or self.Ql is None:
 
             def round(value):
                 import math
                 return math.ceil(np.round(value) / 2.) * 2
 
-            self.h_stop = round(0.8 * self.Qmax / self.astar)
-            h_range = np.round(2*self.h_stop)
-            self.h_start = -self.h_stop
-            self.h_step = self.stepsize(h_range/1000)
-            self.k_stop = round(0.8 * self.Qmax / self.bstar)
-            k_range = np.round(2*self.k_stop)
-            self.k_start = -self.k_stop
-            self.k_step = self.stepsize(k_range/1000)
-            self.l_stop = round(0.8 * self.Qmax / self.cstar)
-            l_range = np.round(2*self.l_stop)
-            self.l_start = -self.l_stop
-            self.l_step = self.stepsize(l_range/1000)
+            h_stop = round(0.8 * self.Qmax / self.astar)
+            k_stop = round(0.8 * self.Qmax / self.bstar)
+            l_stop = round(0.8 * self.Qmax / self.cstar)
+            h_step = self.stepsize(np.round(2 * h_stop) / 1000)
+            k_step = self.stepsize(np.round(2 * k_stop) / 1000)
+            l_step = self.stepsize(np.round(2 * l_stop) / 1000)
+            self.Qh = np.linspace(
+                -h_stop, h_stop, int(np.round(2 * h_stop / h_step, 2)) + 1)
+            self.Qk = np.linspace(
+                -k_stop, k_stop, int(np.round(2 * k_stop / k_step, 2)) + 1)
+            self.Ql = np.linspace(
+                -l_stop, l_stop, int(np.round(2 * l_stop / l_step, 2)) + 1)
         self.define_grid()
 
     def define_grid(self):
-        """Define the HKL grid for CCTW."""
-        self.h_shape = int(
-            np.round((self.h_stop - self.h_start) / self.h_step, 2)) + 1
-        self.k_shape = int(
-            np.round((self.k_stop - self.k_start) / self.k_step, 2)) + 1
-        self.l_shape = int(
-            np.round((self.l_stop - self.l_start) / self.l_step, 2)) + 1
-        self.grid_origin = np.array([self.h_start, self.k_start, self.l_start])
-        self.grid_step = [int(np.rint(1.0/self.h_step)),
-                          int(np.rint(1.0/self.k_step)),
-                          int(np.rint(1.0/self.l_step))]
-        self.grid_shape = [self.h_shape, self.k_shape, self.l_shape]
+        """Define the HKL grid parameters required by CCTW."""
+        self.grid_shape = [len(self.Qh), len(self.Qk), len(self.Ql)]
+        self.grid_origin = np.array(
+            [self.Qh[0], self.Qk[0], self.Ql[0]], dtype=float)
+        self.grid_step = [int(np.rint(1.0 / (self.Qh[1] - self.Qh[0]))),
+                          int(np.rint(1.0 / (self.Qk[1] - self.Qk[0]))),
+                          int(np.rint(1.0 / (self.Ql[1] - self.Ql[0])))]
         self.grid_basis = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
 
     def prepare_transform(self, output_link, mask=False, output_entry=None,
@@ -979,15 +965,12 @@ class NXRefine:
             data_entry = self.entry
         command = self.cctw_command(mask, output_link=output_link,
                                     data_entry=data_entry)
-        H = NXfield(
-            np.linspace(self.h_start, self.h_stop, self.h_shape),
-            name='Qh', scaling_factor=self.astar, long_name='H (r.l.u.)')
-        K = NXfield(
-            np.linspace(self.k_start, self.k_stop, self.k_shape),
-            name='Qk', scaling_factor=self.bstar, long_name='K (r.l.u.)')
-        L = NXfield(
-            np.linspace(self.l_start, self.l_stop, self.l_shape),
-            name='Ql', scaling_factor=self.cstar, long_name='L (r.l.u.)')
+        H = NXfield(self.Qh, name='Qh',
+                    scaling_factor=self.astar, long_name='H (r.l.u.)')
+        K = NXfield(self.Qk, name='Qk',
+                    scaling_factor=self.bstar, long_name='K (r.l.u.)')
+        L = NXfield(self.Ql, name='Ql',
+                    scaling_factor=self.cstar, long_name='L (r.l.u.)')
         if mask:
             transform = 'masked_transform'
         else:

@@ -9,7 +9,17 @@
 
 import argparse
 
+import numpy as np
+
 from nxrefine.nxreduce import NXMultiReduce, NXReduce
+
+
+def to_array(triple):
+    if triple is None:
+        return None
+    qmin, qstep, qmax = (np.float32(v) for v in triple)
+    shape = int(np.round((qmax - qmin) / qstep, 2)) + 1
+    return np.linspace(qmin, qmax, shape)
 
 
 def main():
@@ -43,7 +53,7 @@ def main():
     for entry in entries:
         reduce = NXReduce(
             entry, args.subentry, args.directory, transform=True,
-            Qh=args.qh, Qk=args.qk, Ql=args.ql,
+            Qh=to_array(args.qh), Qk=to_array(args.qk), Ql=to_array(args.ql),
             regular=args.regular, mask=args.mask, overwrite=args.overwrite)
         if args.queue:
             reduce.queue('nxtransform', args)
