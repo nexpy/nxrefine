@@ -15,6 +15,7 @@ from nxrefine.nxreduce import NXMultiReduce
 from nxrefine.plugins.refine.copy_parameters import CopyDialog
 from nxrefine.plugins.refine.define_lattice import LatticeDialog
 from nxrefine.plugins.refine.edit_parameters import ParametersDialog
+from nxrefine.plugins.refine.new_subentry import SubentryDialog
 from nxrefine.plugins.refine.select_files import FilesDialog
 from nxrefine.plugins.refine.transform_data import TransformDialog
 
@@ -78,10 +79,11 @@ class InitializeDialog(NXDialog):
         self.parent.entry = self.subentry
 
     def create_subentry(self):
-        name = self.input_text('New Subentry', 'Enter subentry name:')
-        if name is None:
+        result = SubentryDialog.get_subentry(self)
+        if result is None:
             return
-        self.parent.create_scan_entry(name)
+        name, description = result
+        self.parent.create_scan_entry(name, description=description or None)
         self.refresh_subentries()
         self.subentry_combo.select(f'/entry/{name}')
         self.parent.reload()

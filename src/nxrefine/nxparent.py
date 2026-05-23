@@ -7,7 +7,7 @@
 # -----------------------------------------------------------------------------
 from pathlib import Path as Path
 
-from nexusformat.nexus import (NeXusError, NXdata, NXentry, NXfield,
+from nexusformat.nexus import (NeXusError, NXdata, NXentry, NXfield, NXnote,
                                NXparameters, NXprocess, NXroot, NXsample,
                                NXsubentry, nxconsolidate, nxopen)
 from nexusformat.nexus.tree import natural_sort, string_dtype
@@ -356,16 +356,33 @@ class NXParent:
                 continue
         return valid_files
 
-    def create_scan_entry(self, entry):
+    def create_scan_entry(self, entry, description=None):
+        """Create a new subentry with its own nxscans group.
+
+        Parameters
+        ----------
+        entry : str
+            Name of the new subentry.
+        description : str, optional
+            Free-text description, stored as ``nxscans/description``
+            (NXnote).
+        """
         with self.root:
             if entry not in self.root['entry']:
                 self.root['entry'][entry] = NXsubentry()
+            root_scans = (self.root['entry/nxscans']
+                          if 'nxscans' in self.root['entry'] else None)
             self._subentry = entry
-            if 'nxscans' in self.root['entry']:
-                self.scan_info = self.root['entry/nxscans']
-                self.scan_info.set_date()
-            else:
-                self.initialize()
+            self.initialize()
+            if root_scans is not None:
+                for field in ('scans', 'selected', 'parent'):
+                    if field in root_scans and field not in self.scan_info:
+                        self.scan_info[field] = NXfield(
+                            root_scans[field].nxvalue,
+                            dtype=root_scans[field].dtype,
+                            maxshape=root_scans[field].maxshape)
+            if description:
+                self.scan_info['description'] = NXnote(entry, description)
             if ('sample' in self.root['entry'] and
                     'sample' not in self.root['entry'][entry]):
                 self.root['entry'][entry]['sample'] = self.root['entry/sample']
