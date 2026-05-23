@@ -1721,8 +1721,7 @@ class NXRefine:
             except Exception as error:
                 raise NeXusError(str(error))
         load_julia(['julia/get_xyzs.jl'])
-        from julia import Main, Pkg
-        Pkg.add("Roots")
+        from juliacall import Main
         Main.Gmat0 = np.array(self.Gmat(0.0))
         Main.UBmat = np.array(self.UBmat)
         Main.Dmat = np.array(self.Dmat)

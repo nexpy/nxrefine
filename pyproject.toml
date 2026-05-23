@@ -35,7 +35,7 @@ dependencies = [
     "nexpy >= 2.0.0",
     "gemmi",
     "pyfai",
-    "julia",
+    "juliacall",
     "persist-queue",
     "sqlalchemy",
     "matplotlib",
@@ -85,6 +85,7 @@ server = "nxrefine.plugins.server:plugin_menu"
 version_file = "src/nxrefine/_version.py"
 
 [tool.setuptools.package-data]
+"nxrefine" = ["juliapkg.json"]
 "nxrefine.julia" = ["*.jl"]
 
 [tool.ruff]

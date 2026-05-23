@@ -277,7 +277,7 @@ class NXPDF:
     def punch_and_fill(self):
         self.logger.info(f"{self.title}: Performing punch-and-fill")
 
-        from julia import Main
+        from juliacall import Main
         LaplaceInterpolation = Main.LaplaceInterpolation
 
         tic = timeit.default_timer()
