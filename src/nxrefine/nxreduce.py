@@ -2724,7 +2724,7 @@ class NXMultiReduce(NXReduce):
     def punch_and_fill(self):
         self.log(f"{self.title}: Performing punch-and-fill")
 
-        from julia import Main
+        from juliacall import Main
         LaplaceInterpolation = Main.LaplaceInterpolation
 
         tic = timeit.default_timer()

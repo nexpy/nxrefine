@@ -323,19 +323,20 @@ def mask_volume(data_file, data_path, mask_file, mask_path, i, j, k,
 
 
 def init_julia():
-    from julia.api import Julia
-    from julia.core import JuliaError
-    try:
-        jl = Julia(compiled_modules=False)
-    except JuliaError:
-        import julia
-        julia.install()
-        jl = Julia(compile_modules=False)
-    return jl
+    """Start the Julia runtime via juliacall and return the Main module.
+
+    The first import of ``juliacall`` triggers juliapkg, which installs
+    the Julia binary (in a managed location) and pulls in the Julia
+    packages declared in ``nxrefine/juliapkg.json`` if they are not
+    already present. Subsequent calls reuse the cached session.
+    """
+    from juliacall import Main
+    return Main
 
 
 def load_julia(resources):
-    from julia import Main
+    """Load .jl resources shipped in ``nxrefine.julia`` into Main."""
+    from juliacall import Main
     for resource in resources:
         Main.include(str(package_files('nxrefine.julia') / resource))
 
