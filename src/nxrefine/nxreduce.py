@@ -507,6 +507,23 @@ class NXReduce(QtCore.QObject):
             return entry[self._subentry]
         return entry
 
+    def find_group(self, path):
+        """Return the group at *path* relative to the active entry.
+
+        When a subentry is set, look in ``self.scan_entry`` first; if
+        the path is not found there, fall back to ``self.entry``. This
+        mirrors the field-level fallback in
+        :meth:`NXRefine.read_parameter` so a subentry can transparently
+        reuse artifacts (typically the combined ``transform`` or
+        ``masked_transform`` NXdata group) created at the root entry
+        level.
+        """
+        if self.scan_entry is not None and path in self.scan_entry:
+            return self.scan_entry[path]
+        if self.entry is not None and path in self.entry:
+            return self.entry[path]
+        return None
+
     @property
     def data(self):
         """NXdata group containing the raw data for the current entry."""
@@ -2481,19 +2498,19 @@ class NXMultiReduce(NXReduce):
     def nxpdf(self, mask=False):
         if mask:
             task = 'nxmasked_pdf'
+            transform_path = 'masked_transform'
         else:
             task = 'nxpdf'
+            transform_path = 'transform'
         if self.not_processed(task) and self.pdf:
-            if mask:
-                if not self.complete('nxmasked_combine'):
-                    self.log("Cannot calculate PDF until the "
-                                     "masked transforms are combined")
-                    return
-            elif not self.complete('nxcombine'):
+            if self.find_group(transform_path) is None:
+                location = self.entry_name + (
+                    f"/{self._subentry}" if self._subentry else "")
                 self.log(
-                    "Cannot calculate PDF until the transforms are combined")
+                    f"Cannot calculate {task}: no '{transform_path}' "
+                    f"group found in {location} or its root entry")
                 return
-            elif self.refine.laue_group not in self.refine.laue_groups:
+            if self.refine.laue_group not in self.refine.laue_groups:
                 self.log(
                     "Need to define a valid Laue group before PDF calculation")
                 return
@@ -2524,7 +2541,6 @@ class NXMultiReduce(NXReduce):
             self.log(f"{self.title} already calculated")
 
     def init_pdf(self, mask=False):
-        target = self.scan_entry or self.entry
         if mask:
             self.title = 'Masked PDF'
             self.transform_path = 'masked_transform'
@@ -2536,9 +2552,6 @@ class NXMultiReduce(NXReduce):
             self.total_pdf_file = self.scan_directory.joinpath(
                 'masked_total_pdf.nxs')
             self.pdf_file = self.scan_directory.joinpath('masked_pdf.nxs')
-            self.Qh, self.Qk, self.Ql = (target['masked_transform/Qh'],
-                                         target['masked_transform/Qk'],
-                                         target['masked_transform/Ql'])
         else:
             self.title = 'PDF'
             self.transform_path = 'transform'
@@ -2550,10 +2563,11 @@ class NXMultiReduce(NXReduce):
             self.total_pdf_file = self.scan_directory.joinpath(
                 'total_pdf.nxs')
             self.pdf_file = self.scan_directory.joinpath('pdf.nxs')
-            self.Qh, self.Qk, self.Ql = (target['transform/Qh'],
-                                         target['transform/Qk'],
-                                         target['transform/Ql'])
-        total_size = target[self.transform_path].nxsignal.nbytes / 1e6
+        transform = self.find_group(self.transform_path)
+        self.Qh = transform['Qh']
+        self.Qk = transform['Qk']
+        self.Ql = transform['Ql']
+        total_size = transform.nxsignal.nbytes / 1e6
         if total_size > nxgetconfig('memory'):
             nxsetconfig(memory=total_size+1000)
         self.taper = self.fft_taper()
@@ -2564,13 +2578,13 @@ class NXMultiReduce(NXReduce):
         symm_root = nxopen(self.symm_file, 'w')
         symm_root['entry'] = NXentry()
         symm_root['entry/data'] = NXdata()
-        target = self.scan_entry or self.entry
-        symmetry = NXSymmetry(target[self.transform_path],
+        transform = self.find_group(self.transform_path)
+        symmetry = NXSymmetry(transform,
                               laue_group=self.refine.laue_group)
         symm_root['entry/data/data'] = symmetry.symmetrize(entries=True)
         symm_root['entry/data'].nxsignal = symm_root['entry/data/data']
         symm_root['entry/data'].nxweights = 1.0 / self.taper
-        symm_root['entry/data'].nxaxes = target[self.transform_path].nxaxes
+        symm_root['entry/data'].nxaxes = transform.nxaxes
         with self:
             write_target = self._get_reduce_target()
             if self.symm_data in write_target:
@@ -2578,7 +2592,7 @@ class NXMultiReduce(NXReduce):
             symm_data = NXlink('/entry/data/data', file=self.symm_file,
                                name='data')
             write_target[self.symm_data] = NXdata(
-                symm_data, target[self.transform_path].nxaxes)
+                symm_data, transform.nxaxes)
             write_target[self.symm_data].nxweights = NXlink(
                 '/entry/data/data_weights', file=self.symm_file)
             self.add_title(write_target[self.symm_data])
