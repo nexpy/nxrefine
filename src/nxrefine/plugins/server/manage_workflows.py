@@ -21,6 +21,7 @@ from nxrefine.nxdatabase import NXDatabase
 from nxrefine.nxparent import NXParent
 from nxrefine.nxreduce import NXMultiReduce, NXReduce
 from nxrefine.nxserver import NXServer
+from nxrefine.plugins.refine.new_subentry import SubentryDialog
 from nxrefine.plugins.refine.select_files import FilesDialog
 
 
@@ -115,10 +116,11 @@ class WorkflowDialog(NXDialog):
         self.update()
 
     def create_subentry(self):
-        name = self.input_text('New Subentry', 'Enter subentry name:')
-        if name is None:
+        result = SubentryDialog.get_subentry(self)
+        if result is None:
             return
-        self.parent.create_scan_entry(name)
+        name, description = result
+        self.parent.create_scan_entry(name, description=description or None)
         self.refresh_subentries()
         self.subentry_combo.select(f'/entry/{name}')
 
