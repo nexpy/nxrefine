@@ -329,8 +329,34 @@ def init_julia():
     the Julia binary (in a managed location) and pulls in the Julia
     packages declared in ``nxrefine/juliapkg.json`` if they are not
     already present. Subsequent calls reuse the cached session.
+
+    On macOS, ``Downloads.jl`` sometimes fails to verify HTTPS
+    certificates with the system SecureTransport store, breaking the
+    initial install. As a safety net, ``JULIA_SSL_CA_ROOTS_PATH`` is
+    pointed at certifi's CA bundle if the user has not already set it.
     """
-    from juliacall import Main
+    import os
+    import subprocess
+    if not os.environ.get('JULIA_SSL_CA_ROOTS_PATH'):
+        try:
+            import certifi
+            os.environ['JULIA_SSL_CA_ROOTS_PATH'] = certifi.where()
+        except ImportError:
+            pass
+    try:
+        from juliacall import Main
+    except subprocess.CalledProcessError as error:
+        details = []
+        for stream in (error.stderr, error.stdout):
+            if stream:
+                if isinstance(stream, bytes):
+                    stream = stream.decode(errors='replace')
+                details.append(stream.strip())
+        message = (f"juliacall failed to start Julia "
+                   f"(exit {error.returncode})")
+        if details:
+            message += ":\n" + "\n".join(details)
+        raise RuntimeError(message) from error
     return Main
 
 

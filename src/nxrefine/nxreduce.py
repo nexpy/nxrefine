@@ -2538,7 +2538,7 @@ class NXMultiReduce(NXReduce):
                 self.record_fail(task)
                 raise
         else:
-            self.log(f"{self.title} already calculated")
+            self.log(f"{'Masked PDF' if mask else 'PDF'} already calculated")
 
     def init_pdf(self, mask=False):
         if mask:
@@ -2622,12 +2622,18 @@ class NXMultiReduce(NXReduce):
         """
         if self.parent:
             entry = self.parent.root['entry']
+            weights = None
             if ('symm_transform' in entry
                     and entry['symm_transform'].nxweights):
-                return 1.0 / entry['symm_transform'].nxweights.nxvalue
+                weights = entry['symm_transform'].nxweights
             elif ('symm_masked_transform' in entry
                     and entry['symm_masked_transform'].nxweights):
-                return 1.0 / entry['symm_masked_transform'].nxweights.nxvalue
+                weights = entry['symm_masked_transform'].nxweights
+            if weights is not None:
+                weights_mb = weights.nbytes / 1e6
+                if weights_mb > nxgetconfig('memory'):
+                    nxsetconfig(memory=weights_mb + 1000)
+                return 1.0 / weights.nxvalue
         self.log(f"{self.title}: Calculating taper function")
         tic = timeit.default_timer()
         if qmax is None:
