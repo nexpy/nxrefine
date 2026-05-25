@@ -1640,6 +1640,32 @@ class NXReduce(QtCore.QObject):
             if self.qmax is None:
                 self.qmax = q_max
         self.write_parameters(qmin=self.qmin, qmax=self.qmax)
+        self._mark_wrapper_nxreduce_deprecated()
+
+    def _mark_wrapper_nxreduce_deprecated(self):
+        """Tag the wrapper's legacy /entry/nxreduce group as deprecated.
+
+        When a parent file is configured, reduction parameters are read
+        from the parent's ``/entry/nxscans/settings`` and writes go to
+        the parent (see :meth:`get_parameter` and
+        :meth:`write_parameters`); the wrapper's ``/entry/nxreduce``
+        group is retained for backward compatibility but is no longer
+        consulted. Set a ``deprecated`` attribute on the group so
+        tooling (e.g. NeXpy) can surface it. Idempotent — only writes
+        the attribute the first time.
+        """
+        if not self.parent:
+            return
+        if 'entry/nxreduce' not in self.root:
+            return
+        if 'deprecated' in self.root['entry/nxreduce'].attrs:
+            return
+        with self:
+            self.root['entry/nxreduce'].attrs['deprecated'] = (
+                "Reduction settings are now read from and written to "
+                "the parent file's /entry/nxscans/settings; this group "
+                "is retained for backward compatibility but is no "
+                "longer consulted.")
 
     def transmission_coordinates(self):
         """
