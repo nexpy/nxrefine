@@ -656,13 +656,17 @@ class NXReduce(QtCore.QObject):
         parameter = self.default[name]
         if field_name is None:
             field_name = name
-        if (self.parent and self.parent.settings is not None
-                and field_name in self.parent.settings):
-            parameter = self.parent.settings[field_name].nxvalue
-        elif (self.parent and
-                f'nxscans/settings/{field_name}' in self.parent.entry):
-            field = self.parent.entry[f'nxscans/settings/{field_name}']
-            parameter = field.nxvalue
+        if self.parent:
+            # Parent is canonical when present; do not fall back to the
+            # wrapper's /entry/nxreduce (stale legacy state from before
+            # the parent existed would otherwise shadow cleared parent
+            # settings).
+            if (self.parent.settings is not None
+                    and field_name in self.parent.settings):
+                parameter = self.parent.settings[field_name].nxvalue
+            elif f'nxscans/settings/{field_name}' in self.parent.entry:
+                field = self.parent.entry[f'nxscans/settings/{field_name}']
+                parameter = field.nxvalue
         elif f'entry/nxreduce/{field_name}' in self.root:
             parameter = self.root[f'entry/nxreduce/{field_name}'].nxvalue
         return parameter
