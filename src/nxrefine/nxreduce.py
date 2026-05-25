@@ -1615,25 +1615,26 @@ class NXReduce(QtCore.QObject):
                 QMAX_PIXEL_FRACTION * max_dist_y * pix_to_q)
 
     def ensure_transmission_q(self):
-        """Populate and persist qmin/qmax if blank.
+        """Populate and persist qmin/qmax.
 
-        If either ``self.qmin`` or ``self.qmax`` is unset (i.e. blank in
-        all of constructor args, ``nxscans/settings``, and the explicit
-        ``[nxreduce]`` defaults), derive it from detector geometry via
-        :meth:`_auto_transmission_q` and write the result to the parent
-        file's ``nxscans/settings`` (or the local wrapper's
-        ``/entry/nxreduce`` if no parent exists). No-op if both values
-        are already set.
+        Any unset value (i.e. blank in constructor args,
+        ``nxscans/settings``, and the explicit ``[nxreduce]`` defaults)
+        is derived from detector geometry via
+        :meth:`_auto_transmission_q`. The current values are then
+        written to the parent file's ``nxscans/settings`` (or the local
+        wrapper's ``/entry/nxreduce`` if no parent exists) so the
+        run-time qmin/qmax are visible to other tools (Edit Parameters
+        dialog, PDF taper, CLI). A no-op only when both values are
+        ``None`` and the geometry needed to derive them is unavailable.
         """
-        if self.qmin is not None and self.qmax is not None:
-            return
-        q_min, q_max = self._auto_transmission_q()
-        if q_min is None:
-            return
-        if self.qmin is None:
-            self.qmin = q_min
-        if self.qmax is None:
-            self.qmax = q_max
+        if self.qmin is None or self.qmax is None:
+            q_min, q_max = self._auto_transmission_q()
+            if q_min is None:
+                return
+            if self.qmin is None:
+                self.qmin = q_min
+            if self.qmax is None:
+                self.qmax = q_max
         self.write_parameters(qmin=self.qmin, qmax=self.qmax)
 
     def transmission_coordinates(self):
