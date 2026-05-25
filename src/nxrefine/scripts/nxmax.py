@@ -24,6 +24,10 @@ def main():
                         help='subentry to be processed')
     parser.add_argument('-f', '--first', type=int, help='first frame')
     parser.add_argument('-l', '--last', type=int, help='last frame')
+    parser.add_argument('--qmin', type=float,
+                        help='minimum scattering Q (Å⁻¹); auto if omitted')
+    parser.add_argument('--qmax', type=float,
+                        help='maximum scattering Q (Å⁻¹); auto if omitted')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing maximum')
     parser.add_argument('-m', '--monitor', action='store_true',
@@ -41,6 +45,7 @@ def main():
     for entry in entries:
         reduce = NXReduce(entry, args.subentry, args.directory, maxcount=True,
                           first=args.first, last=args.last,
+                          qmin=args.qmin, qmax=args.qmax,
                           overwrite=args.overwrite,
                           monitor_progress=args.monitor)
         if args.queue:

@@ -94,9 +94,18 @@ class MaximumDialog(NXDialog):
             self.parameters['first'].value = self.reduce.first
         if self.reduce.last:
             self.parameters['last'].value = self.reduce.last
-        if self.reduce.qmin:
+        if self.reduce.qmin is None or self.reduce.qmax is None:
+            q_min, q_max = self.reduce._auto_transmission_q()
+            if self.reduce.qmin is None and q_min is not None:
+                self.parameters['qmin'].value = f"{q_min:g}"
+            elif self.reduce.qmin is not None:
+                self.parameters['qmin'].value = self.reduce.qmin
+            if self.reduce.qmax is None and q_max is not None:
+                self.parameters['qmax'].value = f"{q_max:g}"
+            elif self.reduce.qmax is not None:
+                self.parameters['qmax'].value = self.reduce.qmax
+        else:
             self.parameters['qmin'].value = self.reduce.qmin
-        if self.reduce.qmax:
             self.parameters['qmax'].value = self.reduce.qmax
         target = self.reduce.scan_entry or self.entry
         if 'summed_frames' in target:

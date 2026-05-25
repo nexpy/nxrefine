@@ -118,7 +118,10 @@ class ParentDialog(NXDialog):
         self.parameters = GridParameters()
         self.parameters.add('parent', self.sample, 'Parent Prefix')
         for key, (label, fallback) in param_map.items():
-            self.parameters.add(key, default.get(key, fallback), label)
+            value = default.get(key, fallback)
+            if value is None:
+                value = ''
+            self.parameters.add(key, value, label)
 
         self.parameters_grid = self.parameters.grid(header=False, width=200)
         self.parameters_grid.setHorizontalSpacing(10)
@@ -196,7 +199,10 @@ class ParentDialog(NXDialog):
             else:
                 self.copy_file(self.configuration_file)
             for p in self.parameters:
-                self.parent.settings[p] = self.parameters[p].value
+                value = self.parameters[p].value
+                if value == '' or value is None:
+                    continue
+                self.parent.settings[p] = value
         if self.parent.root.nxfile is None:
             self.parent.root.save(self.parent_file, 'w')
 

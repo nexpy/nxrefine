@@ -36,6 +36,9 @@ from .nxsettings import NXSettings
 from .nxsymmetry import NXSymmetry
 from .nxutils import init_julia, load_julia, mask_volume, peak_search
 
+QMIN_PIXEL_FRACTION = 0.3
+QMAX_PIXEL_FRACTION = 0.9
+
 
 class NXReduce(QtCore.QObject):
     """Data reduction workflow for single crystal diffuse x-ray scattering.
@@ -844,9 +847,16 @@ class NXReduce(QtCore.QObject):
 
     @property
     def qmin(self):
-        """Minimum Q used in estimating the sample transmission."""
+        """Minimum Q used in estimating the sample transmission.
+
+        Returns ``None`` if no value is set anywhere in the precedence
+        chain (constructor arg, ``nxscans/settings``, explicit default).
+        Auto-derivation from detector geometry is handled by
+        :meth:`ensure_transmission_q`, which persists the result.
+        """
         if self._qmin is None:
-            self._qmin = float(self.get_parameter('qmin'))
+            param = self.get_parameter('qmin')
+            self._qmin = float(param) if param not in (None, '') else None
         return self._qmin
 
     @qmin.setter
@@ -857,11 +867,14 @@ class NXReduce(QtCore.QObject):
     def qmax(self):
         """Maximum Q used in the PDF taper function.
 
-        This parameter is also used define the maximum Q used in
-        estimating the sample transmission.
+        This parameter is also used to define the maximum Q used in
+        estimating the sample transmission. Returns ``None`` if unset;
+        :meth:`ensure_transmission_q` auto-derives and persists when
+        needed.
         """
         if self._qmax is None:
-            self._qmax = float(self.get_parameter('qmax'))
+            param = self.get_parameter('qmax')
+            self._qmax = float(param) if param not in (None, '') else None
         return self._qmax
 
     @qmax.setter
@@ -1315,6 +1328,7 @@ class NXReduce(QtCore.QObject):
                 return
             self.record_start('nxmax')
             try:
+                self.ensure_transmission_q()
                 result = self.find_maximum()
                 if self.gui:
                     if result:
@@ -1574,6 +1588,53 @@ class NXReduce(QtCore.QObject):
         group.attrs['frame_window'] = frame_window
         group.attrs['filter_size'] = filter_size
         return group
+
+    def _auto_transmission_q(self):
+        """Derive qmin and qmax from detector geometry.
+
+        Inverts the q→pixel formula used by
+        :meth:`transmission_coordinates`, taking the inner and outer
+        radii as :data:`QMIN_PIXEL_FRACTION` and
+        :data:`QMAX_PIXEL_FRACTION` of the beam-to-far-edge distance in
+        the y-direction.
+
+        Returns
+        -------
+        tuple of (float, float) or (None, None)
+            ``(qmin, qmax)`` in Å⁻¹, or ``(None, None)`` if the detector
+            geometry needed for the computation is not available.
+        """
+        refine = self.refine
+        if not (refine.yc and refine.wavelength and refine.distance
+                and refine.pixel_size and self.shape):
+            return None, None
+        max_dist_y = max(refine.yc, self.shape[1] - 1 - refine.yc)
+        pix_to_q = (2 * np.pi * refine.pixel_size
+                    / (refine.wavelength * refine.distance))
+        return (QMIN_PIXEL_FRACTION * max_dist_y * pix_to_q,
+                QMAX_PIXEL_FRACTION * max_dist_y * pix_to_q)
+
+    def ensure_transmission_q(self):
+        """Populate and persist qmin/qmax if blank.
+
+        If either ``self.qmin`` or ``self.qmax`` is unset (i.e. blank in
+        all of constructor args, ``nxscans/settings``, and the explicit
+        ``[nxreduce]`` defaults), derive it from detector geometry via
+        :meth:`_auto_transmission_q` and write the result to the parent
+        file's ``nxscans/settings`` (or the local wrapper's
+        ``/entry/nxreduce`` if no parent exists). No-op if both values
+        are already set.
+        """
+        if self.qmin is not None and self.qmax is not None:
+            return
+        q_min, q_max = self._auto_transmission_q()
+        if q_min is None:
+            return
+        if self.qmin is None:
+            self.qmin = q_min
+        if self.qmax is None:
+            self.qmax = q_max
+        self.write_parameters(qmin=self.qmin, qmax=self.qmax)
 
     def transmission_coordinates(self):
         """
@@ -2523,6 +2584,7 @@ class NXMultiReduce(NXReduce):
                     return
             load_julia(['LaplaceInterpolation.jl'])
             self.record_start(task)
+            self.ensure_transmission_q()
             self.init_pdf(mask)
             try:
                 self.symmetrize_transform()
