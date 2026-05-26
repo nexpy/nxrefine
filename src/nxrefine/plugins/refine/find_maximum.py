@@ -19,6 +19,8 @@ from nexusformat.nexus import (NeXusError, NXdata, NXfield, NXinstrument,
 from nxrefine.nxreduce import NXReduce
 from nxrefine.nxutils import detector_flipped
 
+from ._dialog_helpers import hide_combined_entry
+
 
 def show_dialog():
     try:
@@ -35,6 +37,7 @@ class MaximumDialog(NXDialog):
 
         self.select_entry(self.choose_entry, subentry=True,
                           subentries_callback=self.get_parent_subentries)
+        hide_combined_entry(self)
         self.output = NXLabel('Maximum Value:')
         self.parameters = GridParameters()
         self.parameters.add('first', '', 'First Frame')
@@ -79,6 +82,10 @@ class MaximumDialog(NXDialog):
         except Exception:
             pass
         return []
+
+    def switch_root(self):
+        super().switch_root()
+        hide_combined_entry(self)
 
     def choose_entry(self):
         self.reduce = NXReduce(self.entry, subentry=self.subentry or None)
