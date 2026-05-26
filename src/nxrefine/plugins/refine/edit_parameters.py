@@ -39,9 +39,12 @@ class ParametersDialog(NXDialog):
                             'Normalization Monitor')
         self.parameters['monitor'].value = default['monitor']
         self.parameters.add('norm', default['norm'], 'Normalization Value')
-        self.parameters.add('qmin', default['qmin'],
+        self.parameters.add('qmin', default['qmin'] if default['qmin']
+                            is not None else '',
                             'Minimum Scattering  Q (Å-1)')
-        self.parameters.add('qmax', default['qmax'], 'Maximum Taper Q (Å-1)')
+        self.parameters.add('qmax', default['qmax'] if default['qmax']
+                            is not None else '',
+                            'Maximum Taper Q (Å-1)')
         self.parameters.add('radius', default['radius'], 'Punch Radius (Å)')
         self.parameters.add('scan_path', default['scan_path'], 'Scan Path')
         self.parameters.add('scan_path', default['scan_path'], 'Scan Path')
@@ -116,8 +119,14 @@ class ParametersDialog(NXDialog):
             settings['hkl_tolerance'] = self.hkl_tolerance
             settings['monitor'] = self.monitor
             settings['norm'] = self.norm
-            settings['qmin'] = self.qmin
-            settings['qmax'] = self.qmax
+            if self.qmin is not None:
+                settings['qmin'] = self.qmin
+            elif 'qmin' in settings:
+                del settings['qmin']
+            if self.qmax is not None:
+                settings['qmax'] = self.qmax
+            elif 'qmax' in settings:
+                del settings['qmax']
             settings['radius'] = self.radius
             settings['scan_path'] = self.scan_path
         self.parent.reload()
@@ -152,11 +161,17 @@ class ParametersDialog(NXDialog):
 
     @property
     def qmin(self):
-        return float(self.parameters['qmin'].value)
+        value = self.parameters['qmin'].value
+        if value in (None, '', 'None'):
+            return None
+        return float(value)
 
     @property
     def qmax(self):
-        return float(self.parameters['qmax'].value)
+        value = self.parameters['qmax'].value
+        if value in (None, '', 'None'):
+            return None
+        return float(value)
 
     @property
     def radius(self):

@@ -20,6 +20,8 @@ from nxrefine.nxorient import UBMatrixFFT
 from nxrefine.nxreduce import NXReduce
 from nxrefine.nxrefine import NXRefine
 
+from ._dialog_helpers import hide_combined_entry
+
 
 def show_dialog():
     try:
@@ -50,6 +52,7 @@ class RefineLatticeDialog(NXDialog):
 
         self.select_entry(self.choose_entry, subentry=True,
                           subentries_callback=self.get_parent_subentries)
+        hide_combined_entry(self)
 
         self.refine_buttons = self.action_buttons(
             ('Refine Angles', self.refine_angles),
@@ -189,6 +192,10 @@ class RefineLatticeDialog(NXDialog):
             pass
         return []
 
+    def switch_root(self):
+        super().switch_root()
+        hide_combined_entry(self)
+
     def choose_entry(self):
         """
         Reads in the parameters from the selected entry.
@@ -213,7 +220,8 @@ class RefineLatticeDialog(NXDialog):
                     refine.azimuthal_angle = azimuthal
                     refine.initialize_peaks()
             if refine.peaks is None:
-                msg = str(refine._peaks_error) if refine._peaks_error else "unknown error"
+                msg = (str(refine._peaks_error) if refine._peaks_error
+                    else "unknown error")
                 raise NeXusError(f"Peak initialization failed: {msg}")
         except NeXusError as error:
             report_error("Refining Lattice", error)

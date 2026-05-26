@@ -14,6 +14,8 @@ from nexusformat.nexus import NeXusError, NXdata
 from nxrefine.nxreduce import NXReduce
 from nxrefine.nxsettings import NXSettings
 
+from ._dialog_helpers import hide_combined_entry
+
 
 def show_dialog():
     try:
@@ -30,6 +32,7 @@ class PrepareDialog(NXDialog):
 
         self.select_entry(self.choose_entry, subentry=True,
                           subentries_callback=self.get_parent_subentries)
+        hide_combined_entry(self)
         default = NXSettings().settings['nxreduce']
         self.parameters = GridParameters()
         self.parameters.add('first', default['first_frame'], 'First Frame')
@@ -59,6 +62,10 @@ class PrepareDialog(NXDialog):
         except Exception:
             pass
         return []
+
+    def switch_root(self):
+        super().switch_root()
+        hide_combined_entry(self)
 
     def choose_entry(self):
         self.reduce = NXReduce(self.entry, subentry=self.subentry or None)

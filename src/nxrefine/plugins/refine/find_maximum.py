@@ -19,6 +19,8 @@ from nexusformat.nexus import (NeXusError, NXdata, NXfield, NXinstrument,
 from nxrefine.nxreduce import NXReduce
 from nxrefine.nxutils import detector_flipped
 
+from ._dialog_helpers import hide_combined_entry
+
 
 def show_dialog():
     try:
@@ -35,6 +37,7 @@ class MaximumDialog(NXDialog):
 
         self.select_entry(self.choose_entry, subentry=True,
                           subentries_callback=self.get_parent_subentries)
+        hide_combined_entry(self)
         self.output = NXLabel('Maximum Value:')
         self.parameters = GridParameters()
         self.parameters.add('first', '', 'First Frame')
@@ -80,6 +83,10 @@ class MaximumDialog(NXDialog):
             pass
         return []
 
+    def switch_root(self):
+        super().switch_root()
+        hide_combined_entry(self)
+
     def choose_entry(self):
         self.reduce = NXReduce(self.entry, subentry=self.subentry or None)
         self.label = self.reduce.name
@@ -94,10 +101,18 @@ class MaximumDialog(NXDialog):
             self.parameters['first'].value = self.reduce.first
         if self.reduce.last:
             self.parameters['last'].value = self.reduce.last
-        if self.reduce.qmin:
-            self.parameters['qmin'].value = self.reduce.qmin
-        if self.reduce.qmax:
-            self.parameters['qmax'].value = self.reduce.qmax
+        qmin_val = self.reduce.qmin
+        qmax_val = self.reduce.qmax
+        if qmin_val is None or qmax_val is None:
+            q_min_auto, q_max_auto = self.reduce._auto_transmission_q()
+            if qmin_val is None:
+                qmin_val = q_min_auto
+            if qmax_val is None:
+                qmax_val = q_max_auto
+        if qmin_val is not None:
+            self.parameters['qmin'].value = f"{float(qmin_val):.1f}"
+        if qmax_val is not None:
+            self.parameters['qmax'].value = f"{float(qmax_val):.1f}"
         target = self.reduce.scan_entry or self.entry
         if 'summed_frames' in target:
             self.summed_frames = target['summed_frames'].nxsignal
@@ -263,8 +278,29 @@ class MaximumDialog(NXDialog):
             display_message('Partial Frames not available')
 
     def plot_transmission_mask(self):
-        self.reduce.qmin = self.qmin
-        self.reduce.qmax = self.qmax
+        refine = self.reduce.refine
+        entries = [e for e in (refine.scan_entry, refine.entry)
+                   if e is not None]
+        for path in ('instrument/detector/beam_center_x',
+                     'instrument/detector/beam_center_y'):
+            if not any(path in e for e in entries):
+                display_message(
+                    'Beam center not available for this entry; '
+                    'select an entry with detector geometry.')
+                return
+        try:
+            qmin_val = (float(self.qmin)
+                        if self.qmin not in (None, '') else None)
+            qmax_val = (float(self.qmax)
+                        if self.qmax not in (None, '') else None)
+        except (TypeError, ValueError):
+            qmin_val = qmax_val = None
+        if qmin_val is None or qmax_val is None:
+            display_message(
+                'qmin and qmax must be set to plot the transmission mask.')
+            return
+        self.reduce.qmin = qmin_val
+        self.reduce.qmax = qmax_val
         self.pv.plot(NXdata(self.reduce.transmission_coordinates(),
                             (NXfield(np.arange(self.reduce.shape[1]),
                                      name='y'),

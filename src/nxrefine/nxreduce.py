@@ -36,6 +36,9 @@ from .nxsettings import NXSettings
 from .nxsymmetry import NXSymmetry
 from .nxutils import init_julia, load_julia, mask_volume, peak_search
 
+QMIN_PIXEL_FRACTION = 0.3
+QMAX_PIXEL_FRACTION = 0.9
+
 
 class NXReduce(QtCore.QObject):
     """Data reduction workflow for single crystal diffuse x-ray scattering.
@@ -653,13 +656,17 @@ class NXReduce(QtCore.QObject):
         parameter = self.default[name]
         if field_name is None:
             field_name = name
-        if (self.parent and self.parent.settings is not None
-                and field_name in self.parent.settings):
-            parameter = self.parent.settings[field_name].nxvalue
-        elif (self.parent and
-                f'nxscans/settings/{field_name}' in self.parent.entry):
-            field = self.parent.entry[f'nxscans/settings/{field_name}']
-            parameter = field.nxvalue
+        if self.parent:
+            # Parent is canonical when present; do not fall back to the
+            # wrapper's /entry/nxreduce (stale legacy state from before
+            # the parent existed would otherwise shadow cleared parent
+            # settings).
+            if (self.parent.settings is not None
+                    and field_name in self.parent.settings):
+                parameter = self.parent.settings[field_name].nxvalue
+            elif f'nxscans/settings/{field_name}' in self.parent.entry:
+                field = self.parent.entry[f'nxscans/settings/{field_name}']
+                parameter = field.nxvalue
         elif f'entry/nxreduce/{field_name}' in self.root:
             parameter = self.root[f'entry/nxreduce/{field_name}'].nxvalue
         return parameter
@@ -844,9 +851,16 @@ class NXReduce(QtCore.QObject):
 
     @property
     def qmin(self):
-        """Minimum Q used in estimating the sample transmission."""
+        """Minimum Q used in estimating the sample transmission.
+
+        Returns ``None`` if no value is set anywhere in the precedence
+        chain (constructor arg, ``nxscans/settings``, explicit default).
+        Auto-derivation from detector geometry is handled by
+        :meth:`ensure_transmission_q`, which persists the result.
+        """
         if self._qmin is None:
-            self._qmin = float(self.get_parameter('qmin'))
+            param = self.get_parameter('qmin')
+            self._qmin = float(param) if param not in (None, '') else None
         return self._qmin
 
     @qmin.setter
@@ -857,11 +871,14 @@ class NXReduce(QtCore.QObject):
     def qmax(self):
         """Maximum Q used in the PDF taper function.
 
-        This parameter is also used define the maximum Q used in
-        estimating the sample transmission.
+        This parameter is also used to define the maximum Q used in
+        estimating the sample transmission. Returns ``None`` if unset;
+        :meth:`ensure_transmission_q` auto-derives and persists when
+        needed.
         """
         if self._qmax is None:
-            self._qmax = float(self.get_parameter('qmax'))
+            param = self.get_parameter('qmax')
+            self._qmax = float(param) if param not in (None, '') else None
         return self._qmax
 
     @qmax.setter
@@ -1315,6 +1332,7 @@ class NXReduce(QtCore.QObject):
                 return
             self.record_start('nxmax')
             try:
+                self.ensure_transmission_q()
                 result = self.find_maximum()
                 if self.gui:
                     if result:
@@ -1574,6 +1592,91 @@ class NXReduce(QtCore.QObject):
         group.attrs['frame_window'] = frame_window
         group.attrs['filter_size'] = filter_size
         return group
+
+    def _auto_transmission_q(self):
+        """Derive qmin and qmax from detector geometry.
+
+        Inverts the q→pixel formula used by
+        :meth:`transmission_coordinates`, taking the inner and outer
+        radii as :data:`QMIN_PIXEL_FRACTION` and
+        :data:`QMAX_PIXEL_FRACTION` of the beam-to-far-edge distance in
+        the y-direction.
+
+        Returns
+        -------
+        tuple of (float, float) or (None, None)
+            ``(qmin, qmax)`` in Å⁻¹, or ``(None, None)`` if the detector
+            geometry needed for the computation is not available
+            (notably, the entry must have explicit
+            ``instrument/detector/beam_center_x`` and ``beam_center_y``;
+            NXRefine silently falls back to defaults of 256/256 if they
+            are absent, which would otherwise produce a wrong-position
+            mask).
+        """
+        refine = self.refine
+        entries = [e for e in (refine.scan_entry, refine.entry)
+                   if e is not None]
+        for path in ('instrument/detector/beam_center_x',
+                     'instrument/detector/beam_center_y'):
+            if not any(path in e for e in entries):
+                return None, None
+        if not (refine.yc and refine.wavelength and refine.distance
+                and refine.pixel_size and self.shape):
+            return None, None
+        max_dist_y = max(refine.yc, self.shape[1] - 1 - refine.yc)
+        pix_to_q = (2 * np.pi * refine.pixel_size
+                    / (refine.wavelength * refine.distance))
+        return (QMIN_PIXEL_FRACTION * max_dist_y * pix_to_q,
+                QMAX_PIXEL_FRACTION * max_dist_y * pix_to_q)
+
+    def ensure_transmission_q(self):
+        """Populate and persist qmin/qmax.
+
+        Any unset value (i.e. blank in constructor args,
+        ``nxscans/settings``, and the explicit ``[nxreduce]`` defaults)
+        is derived from detector geometry via
+        :meth:`_auto_transmission_q`. The current values are then
+        written to the parent file's ``nxscans/settings`` (or the local
+        wrapper's ``/entry/nxreduce`` if no parent exists) so the
+        run-time qmin/qmax are visible to other tools (Edit Parameters
+        dialog, PDF taper, CLI). A no-op only when both values are
+        ``None`` and the geometry needed to derive them is unavailable.
+        """
+        if self.qmin is None or self.qmax is None:
+            q_min, q_max = self._auto_transmission_q()
+            if q_min is None:
+                return
+            if self.qmin is None:
+                self.qmin = q_min
+            if self.qmax is None:
+                self.qmax = q_max
+        self.write_parameters(qmin=self.qmin, qmax=self.qmax)
+        self._mark_wrapper_nxreduce_deprecated()
+
+    def _mark_wrapper_nxreduce_deprecated(self):
+        """Tag the wrapper's legacy /entry/nxreduce group as deprecated.
+
+        When a parent file is configured, reduction parameters are read
+        from the parent's ``/entry/nxscans/settings`` and writes go to
+        the parent (see :meth:`get_parameter` and
+        :meth:`write_parameters`); the wrapper's ``/entry/nxreduce``
+        group is retained for backward compatibility but is no longer
+        consulted. Set a ``deprecated`` attribute on the group so
+        tooling (e.g. NeXpy) can surface it. Idempotent — only writes
+        the attribute the first time.
+        """
+        if not self.parent:
+            return
+        if 'entry/nxreduce' not in self.root:
+            return
+        if 'deprecated' in self.root['entry/nxreduce'].attrs:
+            return
+        with self:
+            self.root['entry/nxreduce'].attrs['deprecated'] = (
+                "Reduction settings are now read from and written to "
+                "the parent file's /entry/nxscans/settings; this group "
+                "is retained for backward compatibility but is no "
+                "longer consulted.")
 
     def transmission_coordinates(self):
         """
@@ -2523,6 +2626,7 @@ class NXMultiReduce(NXReduce):
                     return
             load_julia(['LaplaceInterpolation.jl'])
             self.record_start(task)
+            self.ensure_transmission_q()
             self.init_pdf(mask)
             try:
                 self.symmetrize_transform()
