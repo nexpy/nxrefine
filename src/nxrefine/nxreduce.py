@@ -1606,9 +1606,20 @@ class NXReduce(QtCore.QObject):
         -------
         tuple of (float, float) or (None, None)
             ``(qmin, qmax)`` in Å⁻¹, or ``(None, None)`` if the detector
-            geometry needed for the computation is not available.
+            geometry needed for the computation is not available
+            (notably, the entry must have explicit
+            ``instrument/detector/beam_center_x`` and ``beam_center_y``;
+            NXRefine silently falls back to defaults of 256/256 if they
+            are absent, which would otherwise produce a wrong-position
+            mask).
         """
         refine = self.refine
+        entries = [e for e in (refine.scan_entry, refine.entry)
+                   if e is not None]
+        for path in ('instrument/detector/beam_center_x',
+                     'instrument/detector/beam_center_y'):
+            if not any(path in e for e in entries):
+                return None, None
         if not (refine.yc and refine.wavelength and refine.distance
                 and refine.pixel_size and self.shape):
             return None, None

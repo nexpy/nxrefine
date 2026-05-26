@@ -271,8 +271,29 @@ class MaximumDialog(NXDialog):
             display_message('Partial Frames not available')
 
     def plot_transmission_mask(self):
-        self.reduce.qmin = self.qmin
-        self.reduce.qmax = self.qmax
+        refine = self.reduce.refine
+        entries = [e for e in (refine.scan_entry, refine.entry)
+                   if e is not None]
+        for path in ('instrument/detector/beam_center_x',
+                     'instrument/detector/beam_center_y'):
+            if not any(path in e for e in entries):
+                display_message(
+                    'Beam center not available for this entry; '
+                    'select an entry with detector geometry.')
+                return
+        try:
+            qmin_val = (float(self.qmin)
+                        if self.qmin not in (None, '') else None)
+            qmax_val = (float(self.qmax)
+                        if self.qmax not in (None, '') else None)
+        except (TypeError, ValueError):
+            qmin_val = qmax_val = None
+        if qmin_val is None or qmax_val is None:
+            display_message(
+                'qmin and qmax must be set to plot the transmission mask.')
+            return
+        self.reduce.qmin = qmin_val
+        self.reduce.qmax = qmax_val
         self.pv.plot(NXdata(self.reduce.transmission_coordinates(),
                             (NXfield(np.arange(self.reduce.shape[1]),
                                      name='y'),
