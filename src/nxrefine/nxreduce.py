@@ -1407,6 +1407,26 @@ class NXReduce(QtCore.QObject):
             mask[np.where(pixel_mean < 100)] = 0
             pixel_mask = pixel_mask | mask
             transmission_mask = self.transmission_coordinates()
+            # Subsampled flat indices of the annulus pixels used to
+            # estimate the per-frame transmission baseline as a
+            # trimmed sum -- np.partition drops the brightest
+            # PEAK_FRACTION of pixels (the Bragg peaks) and sums the
+            # rest, rescaling to the full annulus magnitude. A
+            # trimmed sum is used instead of a median because
+            # background pixels often carry only 0-2 Poisson counts;
+            # the median is then a discrete integer that jumps
+            # between adjacent values as the background drifts, but
+            # a sum over ~50k pixels averages those counts into a
+            # smooth real-valued curve.
+            annulus_flat = np.flatnonzero(
+                ~(pixel_mask | transmission_mask).ravel())
+            n_annulus = annulus_flat.size
+            stride = max(1, n_annulus // 50000)
+            sub_idx = annulus_flat[::stride]
+            n_sub = sub_idx.size
+            peak_fraction = 0.1
+            n_keep = max(1, int((1.0 - peak_fraction) * n_sub))
+            scale = n_annulus / n_keep
             # Start looping over the data
             tic = self.start_progress(self.first, self.last)
             for i in range(self.first, self.last, chunk_size):
@@ -1414,21 +1434,24 @@ class NXReduce(QtCore.QObject):
                     return None
                 self.update_progress(i)
                 try:
-                    v = data[i:i+chunk_size, :, :]
+                    v_raw = data[i:i+chunk_size, :, :]
                 except IndexError:
                     pass
                 if i == self.first:
-                    vsum = v.sum(0)
+                    vsum = v_raw.sum(0)
                 else:
-                    vsum += v.sum(0)
-                v = np.ma.masked_array(v)
+                    vsum += v_raw.sum(0)
+                vflat = v_raw.reshape(v_raw.shape[0], -1)
+                sub_vals = vflat[:, sub_idx]
+                trimmed = np.partition(sub_vals, n_keep, axis=1)[:, :n_keep]
+                psum[i:i+chunk_size] = trimmed.sum(axis=1) * scale
+                v = np.ma.masked_array(v_raw)
                 v.mask = pixel_mask
                 fsum[i:i+chunk_size] = v.sum((1, 2))
                 v.mask = pixel_mask | transmission_mask
-                psum[i:i+chunk_size] = v.sum((1, 2))
                 if maximum < v.max():
                     maximum = v.max()
-                del v
+                del v, v_raw, vflat, sub_vals, trimmed
         self.pixel_mask = pixel_mask
         vsum = np.ma.masked_array(vsum)
         vsum.mask = pixel_mask
@@ -1440,7 +1463,7 @@ class NXReduce(QtCore.QObject):
         self.log(f"Maximum counts: {maximum} ({(toc-tic):g} seconds)")
         result = NXcollection(NXfield(maximum, name='maximum'),
                               self.summed_data, self.summed_frames,
-                              self.partial_frames, self.medians)
+                              self.partial_frames)
         return result
 
     def write_maximum(self):
@@ -1547,29 +1570,27 @@ class NXReduce(QtCore.QObject):
                 transmission *= correction
             return transmission
 
-    def calculate_transmission(self, frame_window=5, filter_size=20):
-        """
-        Calculate sample transmission from partial frames.
+    def calculate_transmission(self):
+        """Calculate sample transmission from per-frame baseline.
 
-        The sample transmission is calculated by smoothing the minimum
-        of partial frames over a specified window. The result is
-        normalized to the maximum transmission value.
-
-        Parameters
-        ----------
-        frame_window : integer, optional
-            Number of frames to average for minimum transmission
-            calculation. Default is 5.
-        filter_size : integer, optional
-            Size of median filter to apply to minimum transmission
-            values. Default is 20.
+        ``partial_frames`` is the robust per-frame transmission
+        baseline (trimmed sum of the annulus pixels, computed by
+        :meth:`find_maximum` after dropping the brightest fraction
+        as Bragg-peak contamination and rescaling to the full
+        annulus magnitude). This function normalises by the monitor
+        signal, holds the values outside ``[first, last)`` at the
+        edge values, applies a 7-frame median filter to null
+        isolated outliers that survived the spatial trim, and
+        rescales to a maximum of 1.0.
 
         Returns
         -------
         NXdata
-            Contains the calculated transmission values with the frame
-            number as the x-axis.
+            Calculated transmission values with frame number as the
+            x-axis. The pre-normalisation maximum is preserved in the
+            ``maximum`` attribute of the transmission signal.
         """
+        from scipy.ndimage import median_filter
         if self.partial_frames is None:
             target = self.scan_entry or self.entry
             if ('summed_frames' in target
@@ -1579,37 +1600,19 @@ class NXReduce(QtCore.QObject):
                 raise NeXusError('Partial frames not available')
         else:
             y = self.partial_frames.nxvalue
-
-        from scipy.interpolate import interp1d
-        from scipy.ndimage.filters import median_filter
-
-        y = y / self.read_monitor()
-        x = np.arange(self.nframes)
-        dx = frame_window
-        ms = filter_size
-        xmin = x[self.first+dx:self.last-dx:2*dx]
-        ymin = median_filter(np.array([min(y[i-dx:i+dx]) for i in xmin]),
-                             size=ms)
-        yabs = np.ones(shape=x.shape, dtype=np.float32)
-        yabs[xmin[0]:xmin[-1]] = interp1d(
-            xmin, ymin, kind='cubic')(x[xmin[0]:xmin[-1]])
-        yabs[0:xmin[0]] = yabs[xmin[0]]
-        yabs[xmin[-1]:] = yabs[xmin[-1]-1]
-        xout = list(x[::100])
-        yout = list(yabs[::100])
-        if max(xout) < x.max():
-            xout = xout + [x[-1]]
-            yout = yout + [yabs[-1]]
-        yabs = interp1d(xout, yout, kind='cubic')(x)
-        transmission = NXfield(yabs / yabs.max(), name='transmission',
+        y = (y / self.read_monitor()).astype(np.float64)
+        if self.first > 0:
+            y[:self.first] = y[self.first]
+        if self.last < self.nframes:
+            y[self.last:] = y[self.last - 1]
+        y = median_filter(y, size=7)
+        ymax = float(y.max())
+        transmission = NXfield(y / ymax, name='transmission',
                                long_name='Sample Transmission')
-        transmission.attrs['maximum'] = yabs.max()
+        transmission.attrs['maximum'] = ymax
         frames = NXfield(np.arange(self.nframes), name='nframes',
                          long_title='Frame No.')
-        group = NXdata(transmission, frames, title='Sample Transmission')
-        group.attrs['frame_window'] = frame_window
-        group.attrs['filter_size'] = filter_size
-        return group
+        return NXdata(transmission, frames, title='Sample Transmission')
 
     def _auto_transmission_q(self):
         """Derive qmin and qmax from detector geometry.

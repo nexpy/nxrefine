@@ -44,8 +44,6 @@ class MaximumDialog(NXDialog):
         self.parameters.add('last', '', 'Last Frame')
         self.parameters.add('qmin', '', 'Minimum Scattering Q (Ang-1)')
         self.parameters.add('qmax', '', 'Maximum Scattering Q (Ang-1)')
-        self.parameters.add('fw', '5', 'Frame Window')
-        self.parameters.add('fs', '20', 'Filter Size')
         self.checkbox['over'] = NXCheckBox('Over?')
         self.checkbox['copy'] = NXCheckBox('Copy to other entries?')
         self.maximum_layout = self.make_layout(
@@ -156,20 +154,6 @@ class MaximumDialog(NXDialog):
     def qmax(self):
         try:
             return self.parameters['qmax'].value
-        except Exception:
-            return None
-
-    @property
-    def frame_window(self):
-        try:
-            return int(self.parameters['fw'].value)
-        except Exception:
-            return None
-
-    @property
-    def filter_size(self):
-        try:
-            return int(self.parameters['fs'].value)
         except Exception:
             return None
 
@@ -306,8 +290,7 @@ class MaximumDialog(NXDialog):
 
     def calculate_transmission(self):
         self.reduce.partial_frames = self.partial_frames
-        return self.reduce.calculate_transmission(
-            frame_window=self.frame_window, filter_size=self.filter_size)
+        return self.reduce.calculate_transmission()
 
     def plot_transmission(self):
         if self.partial_frames:
