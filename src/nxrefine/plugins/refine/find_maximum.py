@@ -207,7 +207,6 @@ class MaximumDialog(NXDialog):
         self.summed_data = result['summed_data']
         self.summed_frames = result['summed_frames']
         self.partial_frames = result['partial_frames']
-        self.frame_medians = result['frame_medians']
 
     def stop(self):
         self.stop_progress()
