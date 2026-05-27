@@ -1395,7 +1395,6 @@ class NXReduce(QtCore.QObject):
             data = self.field.nxfile[self.raw_path]
             fsum = np.zeros(self.nframes, dtype=np.float64)
             psum = np.zeros(self.nframes, dtype=np.float64)
-            pmedian = np.zeros(self.nframes, dtype=np.float64)
             pixel_mask = self.pixel_mask
             # Add constantly firing pixels to the mask
             pixel_max = np.zeros((self.shape[1], self.shape[2]))
@@ -1427,7 +1426,6 @@ class NXReduce(QtCore.QObject):
                 fsum[i:i+chunk_size] = v.sum((1, 2))
                 v.mask = pixel_mask | transmission_mask
                 psum[i:i+chunk_size] = v.sum((1, 2))
-                pmedian[i:i+chunk_size] = np.median(v[v>0])
                 if maximum < v.max():
                     maximum = v.max()
                 del v
@@ -1438,7 +1436,6 @@ class NXReduce(QtCore.QObject):
         self.summed_data = NXfield(vsum, name='summed_data')
         self.summed_frames = NXfield(fsum, name='summed_frames')
         self.partial_frames = NXfield(psum, name='partial_frames')
-        self.medians = NXfield(pmedian, name='frame_medians')
         toc = self.stop_progress()
         self.log(f"Maximum counts: {maximum} ({(toc-tic):g} seconds)")
         result = NXcollection(NXfield(maximum, name='maximum'),
