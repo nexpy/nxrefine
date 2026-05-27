@@ -853,14 +853,22 @@ class NXReduce(QtCore.QObject):
     def qmin(self):
         """Minimum Q used in estimating the sample transmission.
 
-        Returns ``None`` if no value is set anywhere in the precedence
-        chain (constructor arg, ``nxscans/settings``, explicit default).
-        Auto-derivation from detector geometry is handled by
-        :meth:`ensure_transmission_q`, which persists the result.
+        Returns the value stored in ``nxscans/settings`` if explicitly
+        set; otherwise falls back to the geometry-derived value from
+        :meth:`_auto_transmission_q`. Returns ``None`` only when
+        neither the settings nor the detector geometry are available.
+
+        Use :meth:`get_parameter` (``self.get_parameter('qmin')``)
+        when you need to distinguish "explicitly set in settings"
+        from "auto-derived from geometry".
         """
         if self._qmin is None:
             param = self.get_parameter('qmin')
-            self._qmin = float(param) if param not in (None, '') else None
+            if param not in (None, ''):
+                self._qmin = float(param)
+            else:
+                q_min, _ = self._auto_transmission_q()
+                self._qmin = q_min
         return self._qmin
 
     @qmin.setter
@@ -872,13 +880,23 @@ class NXReduce(QtCore.QObject):
         """Maximum Q used in the PDF taper function.
 
         This parameter is also used to define the maximum Q used in
-        estimating the sample transmission. Returns ``None`` if unset;
-        :meth:`ensure_transmission_q` auto-derives and persists when
-        needed.
+        estimating the sample transmission. Returns the value stored
+        in ``nxscans/settings`` if explicitly set; otherwise falls
+        back to the geometry-derived value from
+        :meth:`_auto_transmission_q`. Returns ``None`` only when
+        neither the settings nor the detector geometry are available.
+
+        Use :meth:`get_parameter` (``self.get_parameter('qmax')``)
+        when you need to distinguish "explicitly set in settings"
+        from "auto-derived from geometry".
         """
         if self._qmax is None:
             param = self.get_parameter('qmax')
-            self._qmax = float(param) if param not in (None, '') else None
+            if param not in (None, ''):
+                self._qmax = float(param)
+            else:
+                _, q_max = self._auto_transmission_q()
+                self._qmax = q_max
         return self._qmax
 
     @qmax.setter
@@ -1377,6 +1395,7 @@ class NXReduce(QtCore.QObject):
             data = self.field.nxfile[self.raw_path]
             fsum = np.zeros(self.nframes, dtype=np.float64)
             psum = np.zeros(self.nframes, dtype=np.float64)
+            pmedian = np.zeros(self.nframes, dtype=np.float64)
             pixel_mask = self.pixel_mask
             # Add constantly firing pixels to the mask
             pixel_max = np.zeros((self.shape[1], self.shape[2]))
@@ -1408,6 +1427,7 @@ class NXReduce(QtCore.QObject):
                 fsum[i:i+chunk_size] = v.sum((1, 2))
                 v.mask = pixel_mask | transmission_mask
                 psum[i:i+chunk_size] = v.sum((1, 2))
+                pmedian[i:i+chunk_size] = np.median(v[v>0])
                 if maximum < v.max():
                     maximum = v.max()
                 del v
@@ -1418,11 +1438,12 @@ class NXReduce(QtCore.QObject):
         self.summed_data = NXfield(vsum, name='summed_data')
         self.summed_frames = NXfield(fsum, name='summed_frames')
         self.partial_frames = NXfield(psum, name='partial_frames')
+        self.medians = NXfield(pmedian, name='frame_medians')
         toc = self.stop_progress()
         self.log(f"Maximum counts: {maximum} ({(toc-tic):g} seconds)")
         result = NXcollection(NXfield(maximum, name='maximum'),
                               self.summed_data, self.summed_frames,
-                              self.partial_frames)
+                              self.partial_frames, self.medians)
         return result
 
     def write_maximum(self):
@@ -1642,13 +1663,15 @@ class NXReduce(QtCore.QObject):
         dialog, PDF taper, CLI). A no-op only when both values are
         ``None`` and the geometry needed to derive them is unavailable.
         """
-        if self.qmin is None or self.qmax is None:
+        qmin_set = self.get_parameter('qmin')
+        qmax_set = self.get_parameter('qmax')
+        if qmin_set in (None, '') or qmax_set in (None, ''):
             q_min, q_max = self._auto_transmission_q()
             if q_min is None:
                 return
-            if self.qmin is None:
+            if qmin_set in (None, ''):
                 self.qmin = q_min
-            if self.qmax is None:
+            if qmax_set in (None, ''):
                 self.qmax = q_max
         self.write_parameters(qmin=self.qmin, qmax=self.qmax)
         self._mark_wrapper_nxreduce_deprecated()

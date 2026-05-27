@@ -103,12 +103,6 @@ class MaximumDialog(NXDialog):
             self.parameters['last'].value = self.reduce.last
         qmin_val = self.reduce.qmin
         qmax_val = self.reduce.qmax
-        if qmin_val is None or qmax_val is None:
-            q_min_auto, q_max_auto = self.reduce._auto_transmission_q()
-            if qmin_val is None:
-                qmin_val = q_min_auto
-            if qmax_val is None:
-                qmax_val = q_max_auto
         if qmin_val is not None:
             self.parameters['qmin'].value = f"{float(qmin_val):.1f}"
         if qmax_val is not None:
@@ -213,6 +207,7 @@ class MaximumDialog(NXDialog):
         self.summed_data = result['summed_data']
         self.summed_frames = result['summed_frames']
         self.partial_frames = result['partial_frames']
+        self.frame_medians = result['frame_medians']
 
     def stop(self):
         self.stop_progress()
