@@ -98,10 +98,12 @@ class ParametersDialog(NXDialog):
                     self.parameters['monitor'].value = reduce.monitor
                 if reduce.norm:
                     self.parameters['norm'].value = reduce.norm
-                if reduce.qmin:
-                    self.parameters['qmin'].value = reduce.qmin
-                if reduce.qmax:
-                    self.parameters['qmax'].value = reduce.qmax
+                qmin = reduce.get_parameter('qmin')
+                if qmin not in (None, ''):
+                    self.parameters['qmin'].value = qmin
+                qmax = reduce.get_parameter('qmax')
+                if qmax not in (None, ''):
+                    self.parameters['qmax'].value = qmax
                 if reduce.radius:
                     self.parameters['radius'].value = reduce.radius
                 if reduce.scan_path:
