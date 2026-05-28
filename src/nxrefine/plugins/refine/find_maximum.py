@@ -76,7 +76,8 @@ class MaximumDialog(NXDialog):
         try:
             reduce = NXReduce(self.entry)
             if reduce.parent:
-                return [s.nxname for s in reduce.parent.root['entry'].NXsubentry]
+                return [s.nxname
+                        for s in reduce.parent.root['entry'].NXsubentry]
         except Exception:
             pass
         return []
@@ -229,29 +230,23 @@ class MaximumDialog(NXDialog):
 
     def plot_summed_frames(self):
         if self.summed_frames:
-            if self.over:
-                NXdata(self.summed_frames / self.monitor).oplot(markersize=2)
-            else:
-                self.pv.plot(NXdata(self.summed_frames / self.monitor,
-                                    NXfield(np.arange(self.reduce.nframes),
-                                            name='nframes',
-                                            long_title='Frame No.'),
-                                    title=f'Summed Frames: {self.label}'),
-                             markersize=2)
+            self.pv.plot(NXdata(self.summed_frames / self.monitor,
+                                NXfield(np.arange(self.reduce.nframes),
+                                        name='nframes',
+                                        long_title='Frame No.'),
+                                title=f'Summed Frames: {self.label}'),
+                                markersize=2, over=self.over)
         else:
             display_message('Summed Frames not available')
 
     def plot_partial_frames(self):
         if self.partial_frames:
-            if self.over:
-                NXdata(self.partial_frames / self.monitor).oplot(markersize=2)
-            else:
-                self.pv.plot(NXdata(self.partial_frames / self.monitor,
-                                    NXfield(np.arange(self.reduce.nframes),
-                                            name='nframes',
-                                            long_title='Frame No.'),
-                                    title=f'Partial Frames: {self.label}'),
-                             markersize=2)
+            self.pv.plot(NXdata(self.partial_frames / self.monitor,
+                                NXfield(np.arange(self.reduce.nframes),
+                                        name='nframes',
+                                        long_title='Frame No.'),
+                                title=f'Partial Frames: {self.label}'),
+                                markersize=2, over=self.over)
         else:
             display_message('Partial Frames not available')
 
@@ -299,10 +294,7 @@ class MaximumDialog(NXDialog):
             transmission = self.calculate_transmission()
             if 'maximum' in transmission.nxsignal.attrs:
                 transmission *= transmission.nxsignal.attrs['maximum']
-            if self.over:
-                transmission.oplot(markersize=2)
-            else:
-                self.pv.plot(transmission, markersize=2)
+            self.pv.plot(transmission, markersize=2, over=self.over)
         else:
             display_message('Partial frames not available')
 
