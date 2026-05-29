@@ -20,8 +20,8 @@ from pathlib import Path
 
 import numpy as np
 from nexusformat.nexus import (NeXusError, NXattenuator, NXcollection, NXdata,
-                               NXfield, NXfilter, NXinstrument, NXmonitor,
-                               NXsource, nxopen)
+                               NXfield, NXfilter, NXgoniometer, NXinstrument,
+                               NXmonitor, NXsource, nxopen)
 
 from .nxsettings import NXSettings
 
@@ -196,6 +196,25 @@ class NXBeamLine:
         """
         return None
 
+    def get_goniometer(self, logs=None):
+        """Return an NXgoniometer holding any goniometer angles
+        (phi/chi/theta/omega) that this beamline can supply from its
+        raw logs, or None.
+
+        Unlike the other ``get_*`` hooks, the returned group is
+        *merged* into ``entry['instrument/goniometer']`` rather than
+        replacing it: only the fields supplied by the beamline are
+        overwritten, so angles set elsewhere (e.g. by the
+        ``experiment/new_configuration`` plugin) are preserved when
+        the beamline doesn't supply them.
+
+        Beamlines that get goniometer values from a separate
+        configuration step (e.g. Sector 6) should leave this as
+        ``None``; beamlines whose log files carry the actual scan
+        angles (e.g. QM2 reading from a SPEC file) override it.
+        """
+        return None
+
     def get_start_time(self, logs=None):
         """Return an ISO-format start time, or None."""
         return None
@@ -234,6 +253,15 @@ class NXBeamLine:
                 if 'transmission' in self.entry['instrument/filter']:
                     del self.entry['instrument/filter/transmission']
                 self.entry['instrument/filter/transmission'] = ft
+            goniometer = self.get_goniometer(logs)
+            if goniometer is not None:
+                if 'goniometer' not in self.entry['instrument']:
+                    self.entry['instrument/goniometer'] = NXgoniometer()
+                target = self.entry['instrument/goniometer']
+                for name in goniometer.entries:
+                    if name in target:
+                        del target[name]
+                    target[name] = goniometer[name]
             start = self.get_start_time(logs)
             if start is not None:
                 self.entry['start_time'] = start
