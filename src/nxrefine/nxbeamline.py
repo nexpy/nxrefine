@@ -6,6 +6,7 @@
 # The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
+import logging
 import re
 import sys
 from datetime import datetime
@@ -24,28 +25,75 @@ from nexusformat.nexus import (NeXusError, NXattenuator, NXcollection, NXdata,
 
 from .nxsettings import NXSettings
 
+logger = logging.getLogger(__name__)
+
 prefix_pattern = re.compile(r'^([^.]+)(?:(?<!\d)|(?=_))')
 file_index_pattern = re.compile(r'^(.*?)([0-9]*)[.](.*)$')
 directory_index_pattern = re.compile(r'^(.*?)([0-9]*)$')
 
+_beamlines_imported = False
+
 
 def import_beamlines():
+    """Load NXBeamLine subclasses registered via the
+    ``nxrefine.beamlines`` entry-point group.
+
+    Idempotent; subsequent calls are no-ops. Plugins that fail to
+    import are logged with a traceback so authors can diagnose them
+    instead of silently disappearing.
+    """
+    global _beamlines_imported
+    if _beamlines_imported:
+        return
     for entry in entry_points(group='nxrefine.beamlines'):
         try:
             entry.load()
         except Exception:
-            pass
+            logger.warning(
+                f"Failed to load nxrefine beamline plugin {entry.name!r}",
+                exc_info=True)
+    _beamlines_imported = True
+
+
+def _all_subclasses(cls):
+    """Yield every direct and indirect subclass of ``cls``."""
+    for sub in cls.__subclasses__():
+        yield sub
+        yield from _all_subclasses(sub)
+
+
+def _discover_beamlines():
+    """Return ``{name: subclass}`` for every registered beamline.
+
+    Plugins are discovered lazily on first call. Two plugins
+    registering the same ``name`` produce a warning, with the
+    later-loaded one winning.
+    """
+    import_beamlines()
+    registry = {}
+    for cls in _all_subclasses(NXBeamLine):
+        name = cls.name
+        existing = registry.get(name)
+        if existing is not None and existing is not cls:
+            logger.warning(
+                f"Duplicate beamline name {name!r}: "
+                f"{existing.__module__}.{existing.__name__} replaced by "
+                f"{cls.__module__}.{cls.__name__}")
+        registry[name] = cls
+    return registry
 
 
 def get_beamlines():
-    """Return a list of available beamline names
+    """Return a list of available beamline names.
 
     Returns
     -------
     list of str
-        Names of beamlines defined by NXBeamLine subclasses
+        Names of beamlines defined by NXBeamLine subclasses, including
+        plugins discovered via the ``nxrefine.beamlines`` entry-point
+        group.
     """
-    return [beamline.name for beamline in NXBeamLine.__subclasses__()]
+    return list(_discover_beamlines())
 
 
 def get_beamline(instrument=None):
@@ -66,10 +114,9 @@ def get_beamline(instrument=None):
         instrument = NXSettings().settings['instrument']['instrument']
     if instrument == '':
         raise NeXusError("No beamline defined in settings")
-    else:
-        for beamline in NXBeamLine.__subclasses__():
-            if beamline.name == instrument:
-                return beamline
+    try:
+        return _discover_beamlines()[instrument]
+    except KeyError:
         raise NeXusError(f"No beamline defined for '{instrument}'")
 
 
@@ -111,11 +158,11 @@ class NXBeamLine:
 
     def create_macro(self, *args, **kwargs):
         raise NeXusError(
-            f"Making scan macros not implemented for {self.beamline.name}")
+            f"Making scan macros not implemented for {self.name}")
 
     def import_data(self, *args, **kwargs):
         raise NeXusError(
-            f"Importing data not implemented for {self.beamline.name}")
+            f"Importing data not implemented for {self.name}")
 
     def load_data(self, *args, **kwargs):
         if self.reduce:
@@ -307,6 +354,3 @@ class Sector6Beamline(NXBeamLine):
         except Exception:
             self.reduce.log(f"Cannot identify monitor {self.monitor}")
             return np.ones(shape=(self.reduce.nframes), dtype=float)
-
-
-import_beamlines()
