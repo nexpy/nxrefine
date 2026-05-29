@@ -21,7 +21,7 @@ from pathlib import Path
 import numpy as np
 from nexusformat.nexus import (NeXusError, NXattenuator, NXcollection, NXdata,
                                NXfield, NXfilter, NXgoniometer, NXinstrument,
-                               NXmonitor, NXsource, nxopen)
+                               NXmonitor, NXsample, NXsource, nxopen)
 
 from .nxsettings import NXSettings
 
@@ -215,6 +215,26 @@ class NXBeamLine:
         """
         return None
 
+    def get_sample(self, logs=None):
+        """Return an NXsample with sample fields (name/label/temperature/...)
+        that this beamline can supply from its raw logs, or None.
+
+        The returned group is *merged* into ``self.root['entry/sample']``
+        (the shared sample group) rather than replacing it: only fields
+        supplied by the beamline are overwritten, so fields set
+        elsewhere (e.g. by the ``experiment/new_configuration``
+        plugin) are preserved when the beamline doesn't supply them.
+        When the current reduction entry is a per-scan entry distinct
+        from ``root['entry']``, a NeXus link is added if one isn't
+        already present.
+
+        Beamlines that get sample data from a separate configuration
+        step (e.g. Sector 6) leave this as ``None``; beamlines whose
+        log files carry per-scan sample metadata (e.g. QM2 reading
+        temperature from a SPEC file) override it.
+        """
+        return None
+
     def get_start_time(self, logs=None):
         """Return an ISO-format start time, or None."""
         return None
@@ -262,6 +282,19 @@ class NXBeamLine:
                     if name in target:
                         del target[name]
                     target[name] = goniometer[name]
+            sample = self.get_sample(logs)
+            if sample is not None:
+                root_entry = self.root['entry']
+                if 'sample' not in root_entry:
+                    root_entry['sample'] = NXsample()
+                target = root_entry['sample']
+                for name in sample.entries:
+                    if name in target:
+                        del target[name]
+                    target[name] = sample[name]
+                if (self.entry is not root_entry
+                        and 'sample' not in self.entry):
+                    self.entry.makelink(root_entry['sample'])
             start = self.get_start_time(logs)
             if start is not None:
                 self.entry['start_time'] = start
