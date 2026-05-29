@@ -2252,9 +2252,9 @@ class NXReduce(QtCore.QObject):
             if not reduce.raw_file.exists():
                 self.log(f"'{reduce.raw_file}' does not exist")
                 status = False
-            elif 'monitor1' not in reduce.entry:
+            elif 'monitor' not in reduce.entry:
                 self.log(
-                    f"Monitor1 not present in {reduce.wrapper_file}")
+                    f"Monitor not present in {reduce.wrapper_file}")
                 status = False
         return status
 

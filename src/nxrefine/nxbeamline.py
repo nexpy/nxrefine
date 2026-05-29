@@ -170,11 +170,109 @@ class NXBeamLine:
         else:
             return False
 
-    def read_logs(self, *args, **kwargs):
-        pass
+    def get_logs(self):
+        """Return an NXcollection of raw beamline log values, or None."""
+        return None
+
+    def get_source(self, logs=None):
+        """Return an NXsource describing this beamline, or None."""
+        return None
+
+    def get_attenuator(self, logs=None):
+        """Return an NXattenuator, or None."""
+        return None
+
+    def get_filter_transmission(self, logs=None):
+        """Return an NXdata holding per-frame filter transmission, or None."""
+        return None
+
+    def get_monitor(self, logs=None):
+        """Return an NXmonitor for the channel named by ``self.monitor``,
+        or None.
+
+        Subclasses decide how to map ``self.monitor`` to their raw data
+        source; only one monitor is ever written to the wrapper file,
+        at ``entry['monitor']``.
+        """
+        return None
+
+    def get_start_time(self, logs=None):
+        """Return an ISO-format start time, or None."""
+        return None
+
+    def read_logs(self):
+        """Populate the wrapper entry with metadata from this beamline.
+
+        Composes the ``get_*`` accessors and writes the results in the
+        canonical NeXus paths. Subclasses normally only need to override
+        the ``get_*`` methods; override ``read_logs`` itself only when
+        the default layout doesn't fit.
+        """
+        with self.reduce:
+            if 'instrument' not in self.entry:
+                self.entry['instrument'] = NXinstrument()
+            # Sweep pre-refactor monitor groups so old wrappers don't
+            # accumulate stale data alongside the new entry['monitor'].
+            for stale in ('monitor1', 'monitor2'):
+                if stale in self.entry:
+                    del self.entry[stale]
+            logs = self.get_logs()
+            for path, value in (
+                    ('instrument/logs',       logs),
+                    ('instrument/source',     self.get_source(logs)),
+                    ('instrument/attenuator', self.get_attenuator(logs)),
+                    ('monitor',               self.get_monitor(logs)),
+            ):
+                if value is not None:
+                    if path in self.entry:
+                        del self.entry[path]
+                    self.entry[path] = value
+            ft = self.get_filter_transmission(logs)
+            if ft is not None:
+                if 'filter' not in self.entry['instrument']:
+                    self.entry['instrument/filter'] = NXfilter()
+                if 'transmission' in self.entry['instrument/filter']:
+                    del self.entry['instrument/filter/transmission']
+                self.entry['instrument/filter/transmission'] = ft
+            start = self.get_start_time(logs)
+            if start is not None:
+                self.entry['start_time'] = start
+                if 'data/frame_time' in self.entry:
+                    self.entry['data/frame_time'].attrs['start'] = start
 
     def read_monitor(self, monitor=None):
-        pass
+        """Return the per-frame monitor signal used for normalization.
+
+        Reads from ``entry['monitor']`` written by ``read_logs``, with
+        a fallback to ``entry['instrument/logs/{monitor}']`` for raw
+        data that hasn't been promoted to an NXmonitor.
+        """
+        try:
+            from scipy.signal import savgol_filter
+            if monitor is None:
+                monitor = self.monitor
+            if 'monitor' in self.entry:
+                monitor_signal = self.entry['monitor'].nxsignal
+            elif (monitor is not None
+                  and 'instrument/logs' in self.entry
+                  and monitor in self.entry['instrument/logs']):
+                monitor_signal = self.entry[f'instrument/logs/{monitor}']
+            else:
+                raise NeXusError(f"Monitor {monitor!r} not found")
+            monitor_signal = monitor_signal.nxvalue[:self.reduce.nframes]
+            monitor_signal[0] = monitor_signal[1]
+            monitor_signal[-1] = monitor_signal[-2]
+            monitor_signal = monitor_signal / self.reduce.norm
+            if monitor_signal.size > 1000:
+                filter_size = 501
+            elif monitor_signal.size > 200:
+                filter_size = 101
+            else:
+                filter_size = monitor_signal.size
+            return savgol_filter(monitor_signal, filter_size, 2)
+        except Exception:
+            self.reduce.log(f"Cannot identify monitor {self.monitor}")
+            return np.ones(shape=(self.reduce.nframes), dtype=float)
 
 
 class Sector6Beamline(NXBeamLine):
@@ -230,13 +328,10 @@ class Sector6Beamline(NXBeamLine):
                 parameters.append(f'{command} {temperature}')
         return parameters
 
-    def read_logs(self):
-        """Read metadata from experimental scans."""
+    def get_logs(self):
         head_file = self.directory / f"{self.entry.nxname}_head.txt"
         meta_file = self.directory / f"{self.entry.nxname}_meta.txt"
-        if head_file.exists() and meta_file.exists():
-            logs = NXcollection()
-        else:
+        if not (head_file.exists() and meta_file.exists()):
             if not head_file.exists():
                 self.reduce.log(
                     f"'{self.entry.nxname}_head.txt' does not exist")
@@ -244,6 +339,7 @@ class Sector6Beamline(NXBeamLine):
                 self.reduce.log(
                     f"'{self.entry.nxname}_meta.txt' does not exist")
             raise NeXusError('Metadata files not available')
+        logs = NXcollection()
         with open(head_file) as f:
             lines = f.readlines()
         for line in lines:
@@ -257,100 +353,58 @@ class Sector6Beamline(NXBeamLine):
         meta_input = np.genfromtxt(meta_file, delimiter=',', names=True)
         for i, key in enumerate(meta_input.dtype.names):
             logs[key] = [array[i] for array in meta_input]
+        return logs
 
-        with self.reduce:
-            if 'instrument' not in self.entry:
-                self.entry['instrument'] = NXinstrument()
-            if 'logs' in self.entry['instrument']:
-                del self.entry['instrument/logs']
-            self.entry['instrument/logs'] = logs
-            frame_number = self.entry['data/frame_number']
-            frames = frame_number.size
-            if 'MCS1' in logs:
-                if 'monitor1' in self.entry:
-                    del self.entry['monitor1']
-                data = logs['MCS1'][:frames]
-                # Remove outliers at beginning and end of frames
-                data[0] = data[1]
-                data[-1] = data[-2]
-                self.entry['monitor1'] = NXmonitor(NXfield(data, name='MCS1'),
-                                                   frame_number)
-                if 'data/frame_time' in self.entry:
-                    self.entry['monitor1/frame_time'] = (
-                        self.entry['data/frame_time'])
-            if 'MCS2' in logs:
-                if 'monitor2' in self.entry:
-                    del self.entry['monitor2']
-                data = logs['MCS2'][:frames]
-                # Remove outliers at beginning and end of frames
-                data[0] = data[1]
-                data[-1] = data[-2]
-                self.entry['monitor2'] = NXmonitor(NXfield(data, name='MCS2'),
-                                                   frame_number)
-                if 'data/frame_time' in self.entry:
-                    self.entry['monitor2/frame_time'] = (
-                        self.entry['data/frame_time'])
-            if 'source' not in self.entry['instrument']:
-                self.entry['instrument/source'] = NXsource()
-            self.entry['instrument/source/name'] = self.source_name
-            self.entry['instrument/source/type'] = self.source_type
-            self.entry['instrument/source/probe'] = 'x-ray'
+    def get_source(self, logs=None):
+        source = NXsource()
+        source['name'] = self.source_name
+        source['type'] = self.source_type
+        source['probe'] = 'x-ray'
+        if logs is not None:
             if 'Storage_Ring_Current' in logs:
-                self.entry['instrument/source/current'] = (
-                    logs['Storage_Ring_Current'])
+                source['current'] = logs['Storage_Ring_Current']
             if 'SCU_Current' in logs:
-                self.entry['instrument/source/undulator_current'] = (
-                    logs['SCU_Current'])
+                source['undulator_current'] = logs['SCU_Current']
             if 'UndulatorA_gap' in logs:
-                self.entry['instrument/source/undulator_gap'] = (
-                    logs['UndulatorA_gap'])
-            if 'Calculated_filter_transmission' in logs:
-                if 'attenuator' not in self.entry['instrument']:
-                    self.entry['instrument/attenuator'] = NXattenuator()
-                self.entry['instrument/attenuator/attenuator_transmission'] = (
-                    logs['Calculated_filter_transmission'])
-            if 'Shutter' in logs:
-                if 'filter' not in self.entry['instrument']:
-                    self.entry['instrument/filter'] = NXfilter()
-                transmission = NXfield(1.0 - logs['Shutter'][:frames],
-                                       name='transmission')
-                frames = NXfield(np.array(range(frames)), name='frame_number')
-                if 'transmission' in self.entry['instrument/filter']:
-                    del self.entry['instrument/filter/transmission']
-                self.entry['instrument/filter/transmission'] = (
-                    NXdata(transmission, frames))
-            time_path = 'entry/instrument/NDAttributes/NDArrayTimeStamp'
-            if time_path in self.root:
-                start = datetime.fromtimestamp(f[time_path][0])
-                # In EPICS, the epoch started in 1990, not 1970
-                start_time = start.replace(year=start.year+20).isoformat()
-                self.entry['start_time'] = start_time
-                self.entry['data/frame_time'].attrs['start'] = start_time
+                source['undulator_gap'] = logs['UndulatorA_gap']
+        return source
 
-    def read_monitor(self, monitor=None):
-        try:
-            from scipy.signal import savgol_filter
-            if monitor is None:
-                if self.monitor is None:
-                    monitor = self.settings['nxreduce']['monitor']
-                else:
-                    monitor = self.monitor
-            if monitor in self.entry:
-                monitor_signal = self.entry[monitor].nxsignal
-            elif monitor in self.entry['instrument/logs']:
-                monitor_signal = self.entry[
-                    f'instrument/logs/{monitor}']
-            monitor_signal = monitor_signal.nxvalue[:self.reduce.nframes]
-            monitor_signal[0] = monitor_signal[1]
-            monitor_signal[-1] = monitor_signal[-2]
-            monitor_signal = monitor_signal / self.reduce.norm
-            if monitor_signal.size > 1000:
-                filter_size = 501
-            elif monitor_signal.size > 200:
-                filter_size = 101
-            else:
-                filter_size = monitor_signal.size
-            return savgol_filter(monitor_signal, filter_size, 2)
-        except Exception:
-            self.reduce.log(f"Cannot identify monitor {self.monitor}")
-            return np.ones(shape=(self.reduce.nframes), dtype=float)
+    def get_attenuator(self, logs=None):
+        if logs is None or 'Calculated_filter_transmission' not in logs:
+            return None
+        attenuator = NXattenuator()
+        attenuator['attenuator_transmission'] = (
+            logs['Calculated_filter_transmission'])
+        return attenuator
+
+    def get_filter_transmission(self, logs=None):
+        if logs is None or 'Shutter' not in logs:
+            return None
+        frames = self.entry['data/frame_number'].size
+        transmission = NXfield(1.0 - logs['Shutter'][:frames],
+                               name='transmission')
+        frame_field = NXfield(np.arange(frames), name='frame_number')
+        return NXdata(transmission, frame_field)
+
+    def get_monitor(self, logs=None):
+        if (logs is None or self.monitor is None
+                or self.monitor not in logs):
+            return None
+        frame_number = self.entry['data/frame_number']
+        frames = frame_number.size
+        data = logs[self.monitor][:frames]
+        # Remove outliers at beginning and end of frames
+        data[0] = data[1]
+        data[-1] = data[-2]
+        monitor = NXmonitor(NXfield(data, name=self.monitor), frame_number)
+        if 'data/frame_time' in self.entry:
+            monitor['frame_time'] = self.entry['data/frame_time']
+        return monitor
+
+    def get_start_time(self, logs=None):
+        time_path = 'entry/instrument/NDAttributes/NDArrayTimeStamp'
+        if time_path not in self.root:
+            return None
+        start = datetime.fromtimestamp(self.root[time_path][0])
+        # In EPICS, the epoch started in 1990, not 1970
+        return start.replace(year=start.year+20).isoformat()
