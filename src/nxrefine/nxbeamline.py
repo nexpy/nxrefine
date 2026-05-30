@@ -146,7 +146,9 @@ class NXBeamLine:
             self.label = self.base_directory.name
             self.sample = self.base_directory.parent.name
             self.root = self.entry = self.scan = self.monitor = None
-        self.settings = NXSettings(self.base_directory.parent.parent).settings
+        self.experiment_directory = self.base_directory.parent.parent
+        self.task_directory = self.experiment_directory / 'tasks'
+        self.settings = NXSettings(self.experiment_directory).settings
         self.experiment = self.settings['instrument']['experiment']
         self.raw_home = Path(self.settings['instrument']['raw_home'])
         self.raw_path = self.settings['instrument']['raw_path']
