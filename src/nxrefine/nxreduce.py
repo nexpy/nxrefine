@@ -157,11 +157,11 @@ class NXReduce(QtCore.QObject):
             self.label = self.wrapper_file.parent.name
             self.scan = self.wrapper_file.stem.replace(self.sample+'_', '')
             self.directory = self.wrapper_file.parent.joinpath(self.scan)
-            self.root_directory = self.wrapper_file.parent.parent.parent
+            self.experiment_directory = self.wrapper_file.parent.parent.parent
             self._root = entry.nxroot
         elif directory is not None:
             self.directory = Path(directory).resolve()
-            self.root_directory = self.directory.parent.parent.parent
+            self.experiment_directory = self.directory.parent.parent.parent
             self.sample = self.directory.parent.parent.name
             self.label = self.directory.parent.name
             self.scan = self.directory.name
@@ -276,7 +276,7 @@ class NXReduce(QtCore.QObject):
     @property
     def task_directory(self):
         """Directory containing log files and the reduction database."""
-        _directory = self.root_directory.joinpath('tasks')
+        _directory = self.experiment_directory.joinpath('tasks')
         _directory.mkdir(exist_ok=True)
         return _directory
 
