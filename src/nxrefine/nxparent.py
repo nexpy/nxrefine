@@ -433,6 +433,11 @@ class NXParent:
                     if 'instrument' in self.root[entry]:
                         del self.root[entry]['instrument']
                     self.root[entry]['instrument'] = instrument
+                if 'data' in root[entry]:
+                    data = root[entry]['data']
+                    if 'data' in self.root[entry]:
+                        del self.root[entry]['data']
+                    self.root[entry]['data'] = data
             if 'sample' in root['entry']:
                 if 'sample' in self.root['entry']:
                     del self.root['entry/sample']
