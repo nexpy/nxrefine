@@ -28,14 +28,9 @@ class NewExperimentDialog(NXDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.directory_button = NXPushButton('Choose Experiment Directory',
-                                             self.choose_directory)
-
         settings = NXSettings().settings
-        raw_home = settings['instrument']['raw_home']
-        analysis_home = settings['instrument']['analysis_home']
-        self.parameters = GridParameters()
         defaults = settings['instrument']
+        self.parameters = GridParameters()
         self.parameters.add('source', defaults['source'], 'Source Name')
         self.parameters.add('instrument', defaults['instrument'], 'Instrument')
         self.parameters.add('raw_home', defaults['raw_home'],
@@ -47,21 +42,36 @@ class NewExperimentDialog(NXDialog):
         self.parameters.add('analysis_path', defaults['analysis_path'],
                             'Analysis Subdirectory')
         self.parameters.add('experiment', '', 'Name of Experiment')
-        self.directoryname = NXLabel(settings['instrument']['raw_home'])
+        self.directory_button = NXPushButton('Choose Experiment Directory',
+                                             self.choose_directory)
+        self.directoryname = NXLabel()
+        raw_home = defaults['raw_home']
+        analysis_home = defaults['analysis_home']
         if raw_home and Path(raw_home).exists():
             self.set_default_directory(raw_home)
-        else:
+        elif analysis_home and Path(analysis_home).exists():
             self.set_default_directory(analysis_home)
-        self.set_layout(self.make_layout(self.directory_button),
+        self.set_layout(self.parameters.grid(header=False, width=200),
+                        self.make_layout(self.directory_button),
                         self.close_layout(save=True))
         self.set_title('New Experiment')
 
     def choose_directory(self):
+        raw_home = self.parameters['raw_home'].value
+        analysis_home = self.parameters['analysis_home'].value
+        if raw_home and Path(raw_home).exists():
+            self.set_default_directory(raw_home)
+        elif analysis_home and Path(analysis_home).exists():
+            self.set_default_directory(analysis_home)
         super().choose_directory()
         directory = self.get_directory()
         if directory is None:
-            self.reject()
             return
+        if directory.name == 'nxrefine':
+            directory = directory.parent
+            self.parameters['analysis_path'].value = 'nxrefine'
+        elif (directory / 'nxrefine').is_dir():
+            self.parameters['analysis_path'].value = 'nxrefine'
         if self.parameters['analysis_home'].value == '':
             ahp = directory.parent
         else:
@@ -99,7 +109,6 @@ class NewExperimentDialog(NXDialog):
         self.parameters['experiment'].value = str(directory.name)
         self.parameters['raw_home'].value = str(rhp)
         self.parameters['analysis_home'].value = str(ahp)
-        self.insert_layout(1, self.parameters.grid(header=False, width=200))
         self.activate()
 
     def activate(self):
