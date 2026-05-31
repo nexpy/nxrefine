@@ -10,11 +10,9 @@ import numpy as np
 from nexpy.gui.dialogs import GridParameters, NXDialog
 from nexpy.gui.plotview import NXPlotView
 from nexpy.gui.pyqt import QtCore
-from nexpy.gui.utils import (confirm_action, display_message, is_file_locked,
-                             report_error)
+from nexpy.gui.utils import display_message, is_file_locked, report_error
 from nexpy.gui.widgets import NXCheckBox, NXLabel
-from nexusformat.nexus import (NeXusError, NXdata, NXfield, NXinstrument,
-                               NXsample)
+from nexusformat.nexus import NeXusError, NXdata, NXfield
 
 from nxrefine.nxreduce import NXReduce
 from nxrefine.nxutils import detector_flipped
@@ -45,7 +43,6 @@ class MaximumDialog(NXDialog):
         self.parameters.add('qmin', '', 'Minimum Scattering Q (Ang-1)')
         self.parameters.add('qmax', '', 'Maximum Scattering Q (Ang-1)')
         self.checkbox['over'] = NXCheckBox('Over?')
-        self.checkbox['copy'] = NXCheckBox('Copy to other entries?')
         self.maximum_layout = self.make_layout(
             self.action_buttons(('Find Maximum', self.find_maximum)),
             self.output)
@@ -59,9 +56,6 @@ class MaximumDialog(NXDialog):
             self.action_buttons(
                 ('Plot Transmission Mask', self.plot_transmission_mask),
                 ('Plot Transmission', self.plot_transmission)))
-        self.save_layout = self.make_layout(
-            self.action_buttons(('Save Transmission', self.save_transmission)),
-            self.checkbox['copy'])
         self.set_layout(self.entry_layout, self.progress_layout(save=True))
         self.progress_bar.setVisible(False)
         self.progress_bar.setValue(0)
@@ -95,7 +89,6 @@ class MaximumDialog(NXDialog):
             self.insert_layout(2, self.maximum_layout)
             self.insert_layout(3, self.plot_layout)
             self.insert_layout(4, self.transmission_layout)
-            self.insert_layout(5, self.save_layout)
         if self.reduce.first:
             self.parameters['first'].value = self.reduce.first
         if self.reduce.last:
@@ -107,17 +100,18 @@ class MaximumDialog(NXDialog):
         if qmax_val is not None:
             self.parameters['qmax'].value = f"{float(qmax_val):.1f}"
         target = self.reduce.scan_entry or self.entry
-        if 'summed_frames' in target:
-            self.summed_frames = target['summed_frames'].nxsignal
-            if 'partial_frames' in target['summed_frames']:
-                self.partial_frames = target['summed_frames/partial_frames']
+        sums = target['frame_sums'] if 'frame_sums' in target else target
+        if 'summed_frames' in sums:
+            self.summed_frames = sums['summed_frames'].nxsignal
+            if 'partial_frames' in sums['summed_frames']:
+                self.partial_frames = sums['summed_frames/partial_frames']
             else:
                 self.partial_frames = None
         else:
             self.summed_frames = None
             self.partial_frames = None
-        if 'summed_data' in target:
-            self.summed_data = target['summed_data'].nxsignal
+        if 'summed_data' in sums:
+            self.summed_data = sums['summed_data'].nxsignal
         else:
             self.summed_data = None
         self.monitor = self.reduce.read_monitor()
@@ -210,10 +204,6 @@ class MaximumDialog(NXDialog):
     def over(self):
         return self.checkbox['over'].isChecked()
 
-    @property
-    def copy(self):
-        return self.checkbox['copy'].isChecked()
-
     def plot_summed_data(self):
         if self.summed_data:
             self.pv.plot(NXdata(self.summed_data,
@@ -297,30 +287,6 @@ class MaximumDialog(NXDialog):
             self.pv.plot(transmission, markersize=2, over=self.over)
         else:
             display_message('Partial frames not available')
-
-    def save_transmission(self):
-        if self.partial_frames:
-            transmission = self.calculate_transmission()
-            if 'instrument' not in self.entry:
-                self.entry['instrument'] = NXinstrument()
-            if 'sample' not in self.entry['instrument']:
-                self.entry['instrument/sample'] = NXsample()
-            if 'transmission' in self.entry['instrument/sample']:
-                if confirm_action("Overwrite transmission?"):
-                    del self.entry['instrument/sample/transmission']
-                else:
-                    return
-            self.entry['instrument/sample/transmission'] = transmission
-            if self.copy:
-                for entry in [self.root[e] for e in self.root if
-                              e != self.entry.nxname and e[-1].isdigit()]:
-                    if 'instrument' not in entry:
-                        entry['instrument'] = NXinstrument()
-                    if 'sample' not in entry['instrument']:
-                        entry['instrument/sample'] = NXsample()
-                    if 'transmission' in entry['instrument/sample']:
-                        del entry['instrument/sample/transmission']
-                    entry['instrument/sample/transmission'] = transmission
 
     def accept(self):
         try:
