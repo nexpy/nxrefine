@@ -388,14 +388,30 @@ class NXParent:
                 self.root['entry'][entry]['sample'] = self.root['entry/sample']
 
     def create_scan_data(self, data_path):
-        """Create consolidated scan data."""
+        """Create consolidated scan data.
+
+        Mirrors the NXclass of any intermediate group from the first
+        valid scan file so paths like ``entry/frame_sums/summed_data``
+        work even when the parent does not yet contain ``frame_sums``.
+        """
         scan_files = self.valid_scans(data_path)
-        if scan_files:
-            with self.root:
-                if data_path in self.root:
-                    del self.root[data_path]
-                self.root[data_path] = nxconsolidate(scan_files, data_path,
-                                                     scan_path=self.scan_path)
+        if not scan_files:
+            return
+        parts = data_path.strip('/').split('/')
+        with self.root:
+            if len(parts) > 1:
+                with nxopen(scan_files[0]) as src:
+                    cursor = self.root
+                    src_cursor = src
+                    for name in parts[:-1]:
+                        src_cursor = src_cursor[name]
+                        if name not in cursor:
+                            cursor[name] = type(src_cursor)()
+                        cursor = cursor[name]
+            if data_path in self.root:
+                del self.root[data_path]
+            self.root[data_path] = nxconsolidate(scan_files, data_path,
+                                                 scan_path=self.scan_path)
 
     @property
     def scan_groups(self):
