@@ -77,6 +77,10 @@ class NXReduce(QtCore.QObject):
             Name of monitor used in normalizations, by default None
         norm : float, optional
             Value used to normalize monitor counts, by default None
+        sample_transmission : bool, optional
+            Whether to include the sample transmission factor when
+            computing ``monitor_weight``, by default None (read from
+            ``nxscans/settings``).
         polarization : float, optional
             Value of beam polarization, by default None
         qmin : float, optional
@@ -139,6 +143,7 @@ class NXReduce(QtCore.QObject):
             parent=None, entries=None,
             threshold=None, min_pixels=None, first=None, last=None,
             polar_max=None, hkl_tolerance=None, monitor=None, norm=None,
+            sample_transmission=None,
             polarization=None, qmin=None, qmax=None,
             radius=None, mask_parameters=None,
             Qh=None, Qk=None, Ql=None,
@@ -195,7 +200,9 @@ class NXReduce(QtCore.QObject):
         self._polar_max = polar_max
         self._hkl_tolerance = hkl_tolerance
         self._monitor = monitor
+        self._monitor_signal = None
         self._norm = norm
+        self._sample_transmission = sample_transmission
         self._polarization = polarization
         self._qmin = qmin
         self._qmax = qmax
@@ -673,7 +680,7 @@ class NXReduce(QtCore.QObject):
 
     def write_parameters(self, threshold=None, first=None, last=None,
                          polar_max=None, hkl_tolerance=None,
-                         monitor=None, norm=None,
+                         monitor=None, norm=None, sample_transmission=None,
                          qmin=None, qmax=None, radius=None):
         """Store the specified data reduction parameters.
 
@@ -703,6 +710,9 @@ class NXReduce(QtCore.QObject):
         if norm is not None:
             self.norm = norm
             params['norm'] = self.norm
+        if sample_transmission is not None:
+            self.sample_transmission = sample_transmission
+            params['sample_transmission'] = self.sample_transmission
         if qmin is not None:
             self.qmin = qmin
             params['qmin'] = self.qmin
@@ -826,6 +836,7 @@ class NXReduce(QtCore.QObject):
     @monitor.setter
     def monitor(self, value):
         self._monitor = value
+        self._monitor_signal = None
 
     @property
     def norm(self):
@@ -837,6 +848,23 @@ class NXReduce(QtCore.QObject):
     @norm.setter
     def norm(self, value):
         self._norm = value
+        self._monitor_signal = None
+
+    @property
+    def sample_transmission(self):
+        """Whether to include the sample transmission in monitor_weight."""
+        if self._sample_transmission is None:
+            val = self.get_parameter('sample_transmission')
+            if isinstance(val, str):
+                self._sample_transmission = val.strip().lower() in (
+                    'true', '1', 'yes', 'on')
+            else:
+                self._sample_transmission = bool(val)
+        return self._sample_transmission
+
+    @sample_transmission.setter
+    def sample_transmission(self, value):
+        self._sample_transmission = bool(value)
 
     @property
     def polarization(self):
@@ -1470,30 +1498,36 @@ class NXReduce(QtCore.QObject):
         """
         Write the maximum counts and the summed data to the file.
 
-        This includes the maximum counts found, the first and last
-        frames processed, the pixel mask, the summed data, the summed
-        frames, and the partial frames. Then it calculates the radial
-        sums.
+        Outputs are grouped under a `frame_sums` NXcollection on the
+        target group: `summed_data`, `summed_frames` (with the
+        `partial_frames` child field), `radial_sum`, and `transmission`.
+        Any legacy siblings at the target level are removed so re-running
+        `nxmax` on a pre-refactor file leaves a clean structure.
 
-        After writing the data, the parameters that were used
-        to select the frames are cleared from the 'peaks' group.
+        After writing the data, the parameters that were used to select
+        the frames are cleared from the 'peaks' group.
         """
+        transmission = self.calculate_transmission()
         with self:
             self.data.attrs['maximum'] = self.maximum
             self.data.attrs['first'] = self.first
             self.data.attrs['last'] = self.last
             self.entry['instrument/detector/pixel_mask'] = self.pixel_mask
             target = self._get_reduce_target()
-            if 'summed_data' in target:
-                del target['summed_data']
-            target['summed_data'] = NXdata(self.summed_data,
-                                           self.data.nxaxes[-2:])
-            if 'summed_frames' in target:
-                del target['summed_frames']
-            target['summed_frames'] = NXdata(self.summed_frames,
-                                             self.data.nxaxes[0])
-            target['summed_frames/partial_frames'] = self.partial_frames
+            if 'frame_sums' in target:
+                del target['frame_sums']
+            target['frame_sums'] = NXcollection()
+            frame_sums = target['frame_sums']
+            frame_sums['summed_data'] = NXdata(self.summed_data,
+                                               self.data.nxaxes[-2:])
+            frame_sums['summed_frames'] = NXdata(self.summed_frames,
+                                                 self.data.nxaxes[0])
+            frame_sums['summed_frames/partial_frames'] = self.partial_frames
             self.calculate_radial_sums()
+            frame_sums['transmission'] = transmission
+            for legacy in ('summed_data', 'summed_frames', 'radial_sum'):
+                if legacy in target:
+                    del target[legacy]
         self.clear_parameters(['first', 'last'])
 
     def calculate_radial_sums(self):
@@ -1535,9 +1569,12 @@ class NXReduce(QtCore.QObject):
                  / (ai.wavelength * 1e10))
             with self:
                 target = self._get_reduce_target()
-                if 'radial_sum' in target:
-                    del target['radial_sum']
-                target['radial_sum'] = NXdata(
+                if 'frame_sums' not in target:
+                    target['frame_sums'] = NXcollection()
+                frame_sums = target['frame_sums']
+                if 'radial_sum' in frame_sums:
+                    del frame_sums['radial_sum']
+                frame_sums['radial_sum'] = NXdata(
                     NXfield(intensity, name='radial_sum'),
                     NXfield(polar_angle, name='polar_angle', units='degrees'),
                     Q=NXfield(Q, name='Q', units='Ang-1'))
@@ -1549,20 +1586,26 @@ class NXReduce(QtCore.QObject):
             self.log(str(error))
             return None
 
-    def sample_transmission(self):
+    def get_sample_transmission(self):
         """Field containing the estimated sample transmission."""
-        path = 'instrument/sample/transmission'
-        if (self.parent and path in self.parent_entry):
-            transmission = self.parent_entry[path].nxsignal
-        elif path in self.entry:
-            transmission = self.entry[path].nxsignal
-        else:
+        def _read(group):
+            for path in ('frame_sums/transmission',
+                         'instrument/sample/transmission'):
+                if path in group:
+                    return group[path].nxsignal
+            return None
+        transmission = None
+        if self.parent:
+            transmission = _read(self.parent_entry)
+        if transmission is None:
+            transmission = _read(self.entry)
+        if transmission is None:
             return np.ones(shape=(self.nframes,), dtype=np.float32)
         if self.is_first_entry():
             return transmission
         else:
             first_reduce = NXReduce(self.first_entry)
-            first_transmission = first_reduce.sample_transmission()
+            first_transmission = first_reduce.get_sample_transmission()
             if ('maximum' in transmission.attrs and
                     'maximum' in first_transmission.attrs):
                 correction = (transmission.attrs['maximum'] /
@@ -1593,7 +1636,10 @@ class NXReduce(QtCore.QObject):
         from scipy.ndimage import median_filter
         if self.partial_frames is None:
             target = self.scan_entry or self.entry
-            if ('summed_frames' in target
+            if ('frame_sums/summed_frames/partial_frames' in target):
+                y = target[
+                    'frame_sums/summed_frames/partial_frames'].nxvalue
+            elif ('summed_frames' in target
                     and 'partial_frames' in target['summed_frames']):
                 y = target['summed_frames/partial_frames'].nxvalue
             else:
@@ -1737,7 +1783,9 @@ class NXReduce(QtCore.QObject):
         This function attempts to read the monitor signal using the
         beamline's read_monitor method. If an exception occurs, it
         returns an array of ones with a shape corresponding to the
-        number of frames.
+        number of frames. The result is cached on the NXReduce instance
+        and reused on subsequent calls; the cache is invalidated when
+        the ``monitor`` or ``norm`` setter is invoked.
 
         Returns
         -------
@@ -1746,10 +1794,13 @@ class NXReduce(QtCore.QObject):
             reading the monitor fails.
         """
 
-        try:
-            return self.beamline.read_monitor(self.monitor)
-        except Exception:
-            return np.ones(shape=(self.nframes), dtype=float)
+        if self._monitor_signal is None:
+            try:
+                self._monitor_signal = self.beamline.read_monitor(self.monitor)
+            except Exception:
+                self._monitor_signal = np.ones(
+                    shape=(self.nframes,), dtype=float)
+        return self._monitor_signal
 
     def nxfind(self):
         """Find the peaks in the data and write them to the output file."""
@@ -2171,10 +2222,11 @@ class NXReduce(QtCore.QObject):
                     transmission *= inst['filter/transmission'].nxsignal
                 except Exception:
                     pass
-                try:
-                    transmission *= self.sample_transmission()
-                except Exception:
-                    pass
+                if self.sample_transmission:
+                    try:
+                        transmission *= self.get_sample_transmission()
+                    except Exception:
+                        pass
                 monitor_weight *= transmission
             except Exception:
                 self.log('Unable to determine monitor weights')

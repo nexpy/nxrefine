@@ -35,6 +35,7 @@ class NXSettings(ConfigParser):
                          'first_frame': 10, 'last_frame': 3640,
                          'polar_max': 10.0, 'hkl_tolerance': 0.05,
                          'monitor': 'MCS1', 'norm': 50000,
+                         'sample_transmission': True,
                          'polarization': 0.99, 'qmin': None, 'qmax': None,
                          'radius': 0.2,
                          'scan_path': '/entry/sample/temperature',
