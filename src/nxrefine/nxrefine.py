@@ -11,10 +11,10 @@ from pathlib import Path
 import gemmi
 import numpy as np
 import numpy.ma as ma
-from nexusformat.nexus import (NeXusError, NXdata, NXdetector, NXentry,
-                               NXfield, NXgoniometer, NXgroup, NXinstrument,
-                               NXlink, NXmonochromator, NXprocess, NXroot,
-                               NXsample, NXsubentry)
+from nexusformat.nexus import (NeXusError, NXcollection, NXdata, NXdetector,
+                               NXentry, NXfield, NXgoniometer, NXgroup,
+                               NXinstrument, NXlink, NXmonochromator,
+                               NXprocess, NXroot, NXsample, NXsubentry)
 from numpy.linalg import inv, norm
 from scipy import optimize
 
@@ -582,8 +582,6 @@ class NXRefine:
             if 'monochromator' not in self._scan_entry['instrument']:
                 self._scan_entry['instrument/monochromator'] = (
                     NXmonochromator())
-            if 'sample' not in self._scan_entry['instrument']:
-                self._scan_entry['instrument/sample'] = NXsample()
 
             self.write_parameter('instrument/monochromator/wavelength',
                                  self.wavelength)
@@ -717,13 +715,19 @@ class NXRefine:
                     'instrument/goniometer/omega', self.omega)
                 other.write_parameter('instrument/goniometer/theta',
                                       self.theta)
-                if ('instrument/sample/transmission' in self.scan_entry):
-                    if 'sample' not in other.scan_entry['instrument']:
-                        other.scan_entry['instrument/sample'] = NXsample()
-                    if 'transmission' in other.scan_entry['instrument/sample']:
-                        del other.scan_entry['instrument/sample/transmission']
-                    other.scan_entry['instrument/sample/transmission'] = (
-                        self.scan_entry['instrument/sample/transmission'])
+                transmission_source = None
+                for path in ('frame_sums/transmission',
+                             'instrument/sample/transmission'):
+                    if path in self.scan_entry:
+                        transmission_source = self.scan_entry[path]
+                        break
+                if transmission_source is not None:
+                    if 'frame_sums' not in other.scan_entry:
+                        other.scan_entry['frame_sums'] = NXcollection()
+                    if 'transmission' in other.scan_entry['frame_sums']:
+                        del other.scan_entry['frame_sums/transmission']
+                    other.scan_entry['frame_sums/transmission'] = (
+                        transmission_source)
             if settings:
                 settings_src = None
                 if 'nxscans/settings' in self.scan_entry:

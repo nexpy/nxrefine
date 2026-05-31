@@ -39,6 +39,9 @@ class ParametersDialog(NXDialog):
                             'Normalization Monitor')
         self.parameters['monitor'].value = default['monitor']
         self.parameters.add('norm', default['norm'], 'Normalization Value')
+        self.parameters.add('sample_transmission',
+                            str(default['sample_transmission']),
+                            'Apply Sample Transmission')
         self.parameters.add('qmin', default['qmin'] if default['qmin']
                             is not None else '',
                             'Minimum Scattering  Q (Å-1)')
@@ -72,6 +75,9 @@ class ParametersDialog(NXDialog):
                 self.parameters['monitor'].value = reduce['monitor']
             if 'norm' in reduce:
                 self.parameters['norm'].value = reduce['norm']
+            if 'sample_transmission' in reduce:
+                self.parameters['sample_transmission'].value = str(
+                    reduce['sample_transmission'])
             if 'qmin' in reduce:
                 self.parameters['qmin'].value = reduce['qmin']
             if 'qmax' in reduce:
@@ -98,6 +104,8 @@ class ParametersDialog(NXDialog):
                     self.parameters['monitor'].value = reduce.monitor
                 if reduce.norm:
                     self.parameters['norm'].value = reduce.norm
+                self.parameters['sample_transmission'].value = str(
+                    reduce.sample_transmission)
                 qmin = reduce.get_parameter('qmin')
                 if qmin not in (None, ''):
                     self.parameters['qmin'].value = qmin
@@ -121,6 +129,7 @@ class ParametersDialog(NXDialog):
             settings['hkl_tolerance'] = self.hkl_tolerance
             settings['monitor'] = self.monitor
             settings['norm'] = self.norm
+            settings['sample_transmission'] = self.sample_transmission
             if self.qmin is not None:
                 settings['qmin'] = self.qmin
             elif 'qmin' in settings:
@@ -160,6 +169,13 @@ class ParametersDialog(NXDialog):
     @property
     def norm(self):
         return float(self.parameters['norm'].value)
+
+    @property
+    def sample_transmission(self):
+        value = self.parameters['sample_transmission'].value
+        if isinstance(value, str):
+            return value.strip().lower() in ('true', '1', 'yes', 'on')
+        return bool(value)
 
     @property
     def qmin(self):
