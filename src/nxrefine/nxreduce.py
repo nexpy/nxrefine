@@ -740,6 +740,22 @@ class NXReduce(QtCore.QObject):
                 if 'peaks' in target and p in target['peaks'].attrs:
                     del target['peaks'].attrs[p]
 
+    def consolidate(self, groups):
+        """Build virtual datasets in the parent for NXdata groups.
+
+        For each group, the parent's `create_scan_data` is invoked with
+        the group's NeXus path. Silent no-op when no parent is attached.
+        """
+        if not self.parent:
+            return
+        if not isinstance(groups, (list, tuple)):
+            groups = [groups]
+        for group in groups:
+            try:
+                self.parent.create_scan_data(group.nxpath)
+            except NeXusError as error:
+                self.log(f"Could not consolidate {group.nxpath}: {error}")
+
     @property
     def first(self):
         """First frame of the raw data to be used in the reduction."""
@@ -1227,6 +1243,8 @@ class NXReduce(QtCore.QObject):
                 try:
                     self.beamline.read_logs()
                     self.log("Scan logs imported")
+                    if 'monitor' in self.entry:
+                        self.consolidate(self.entry['monitor'])
                     self.record('nxlink', logs='Transferred')
                     self.record_end('nxlink')
                 except NeXusError as error:
@@ -1528,6 +1546,10 @@ class NXReduce(QtCore.QObject):
             for legacy in ('summed_data', 'summed_frames', 'radial_sum'):
                 if legacy in target:
                     del target[legacy]
+        self.consolidate([frame_sums[name] for name in
+                          ('summed_data', 'summed_frames',
+                           'radial_sum', 'transmission')
+                          if name in frame_sums])
         self.clear_parameters(['first', 'last'])
 
     def calculate_radial_sums(self):
@@ -2596,9 +2618,8 @@ class NXMultiReduce(NXReduce):
                         self.log(
                             f"{self.title} ({', '.join(self.entries)}) "
                             f"completed ({toc-tic:g} seconds)")
-                        if self.parent:
-                            self.parent.create_scan_data(
-                                self.scan_entry[transform_data].nxpath)
+                        self.consolidate(
+                            self.scan_entry[self.transform_path])
                         self.record(task, command=cctw_command,
                                     output=cctw_output,
                                     errors=cctw_errors)
@@ -2774,10 +2795,9 @@ class NXMultiReduce(NXReduce):
                 symm_data, transform.nxaxes)
             write_target[self.symm_data].nxweights = NXlink(
                 '/entry/data/data_weights', file=self.symm_file)
+            write_target[self.symm_data].nxauxiliary_signals = ['data_weights']
             self.add_title(write_target[self.symm_data])
-            if self.parent:
-                self.parent.create_scan_data(
-                    write_target[self.symm_data].nxpath)
+            self.consolidate(write_target[self.symm_data])
         self.log(f"'{self.symm_data}' added to entry")
         toc = timeit.default_timer()
         self.log(f"{self.title}: Symmetrization completed "
@@ -2872,9 +2892,7 @@ class NXMultiReduce(NXReduce):
             write_target[self.total_pdf_data].attrs['angles'] = (
                 self.refine.lattice_parameters[3:])
             self.add_title(write_target[self.total_pdf_data])
-            if self.parent:
-                self.parent.create_scan_data(
-                    write_target[self.total_pdf_data].nxpath)
+            self.consolidate(write_target[self.total_pdf_data])
 
         self.log(f"'{self.total_pdf_data}' added to entry")
         toc = timeit.default_timer()
@@ -2985,6 +3003,9 @@ class NXMultiReduce(NXReduce):
                 del write_target[self.symm_data]['punched_data']
             write_target[self.symm_data]['punched_data'] = NXlink(
                 '/entry/data/punch', file=self.symm_file)
+            write_target[self.symm_data].nxauxiliary_signals = [
+                'data_weights', 'filled_data', 'punched_data']
+            self.consolidate(write_target[self.symm_data])
 
         toc = timeit.default_timer()
         self.log(f"{self.title}: Punch-and-fill completed "
@@ -3030,9 +3051,7 @@ class NXMultiReduce(NXReduce):
             write_target[self.pdf_data].attrs['angles'] = (
                 self.refine.lattice_parameters[3:])
             self.add_title(write_target[self.pdf_data])
-        if self.parent:
-            self.parent.create_scan_data(
-                (self.scan_entry or self.entry)[self.pdf_data].nxpath)
+        self.consolidate((self.scan_entry or self.entry)[self.pdf_data])
 
         self.log(f"'{self.pdf_data}' added to entry")
         toc = timeit.default_timer()
