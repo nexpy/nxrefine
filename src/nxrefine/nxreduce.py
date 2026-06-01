@@ -207,12 +207,7 @@ class NXReduce(QtCore.QObject):
         self._qmin = qmin
         self._qmax = qmax
         self._radius = radius
-        if mask_parameters is None:
-            self.mask_parameters = {
-                'threshold_1': 2, 'horizontal_size_1': 11,
-                'threshold_2': 0.8, 'horizontal_size_2': 51}
-        else:
-            self.mask_parameters = mask_parameters
+        self._mask_parameters = mask_parameters
 
         self._maximum = None
         self.summed_data = None
@@ -681,7 +676,9 @@ class NXReduce(QtCore.QObject):
     def write_parameters(self, threshold=None, first=None, last=None,
                          polar_max=None, hkl_tolerance=None,
                          monitor=None, norm=None, sample_transmission=None,
-                         qmin=None, qmax=None, radius=None):
+                         qmin=None, qmax=None, radius=None,
+                         mask_t1=None, mask_h1=None,
+                         mask_t2=None, mask_h2=None):
         """Store the specified data reduction parameters.
 
         Parameters are written to the parent file's '/entry/nxscans/settings'
@@ -722,6 +719,18 @@ class NXReduce(QtCore.QObject):
         if radius is not None:
             self.radius = radius
             params['radius'] = self.radius
+        if mask_t1 is not None:
+            self.mask_parameters['mask_t1'] = float(mask_t1)
+            params['mask_t1'] = self.mask_parameters['mask_t1']
+        if mask_h1 is not None:
+            self.mask_parameters['mask_h1'] = int(mask_h1)
+            params['mask_h1'] = self.mask_parameters['mask_h1']
+        if mask_t2 is not None:
+            self.mask_parameters['mask_t2'] = float(mask_t2)
+            params['mask_t2'] = self.mask_parameters['mask_t2']
+        if mask_h2 is not None:
+            self.mask_parameters['mask_h2'] = int(mask_h2)
+            params['mask_h2'] = self.mask_parameters['mask_h2']
         if self.parent:
             self.parent.write_settings(**params)
         elif params:
@@ -957,6 +966,22 @@ class NXReduce(QtCore.QObject):
     @radius.setter
     def radius(self, value):
         self._radius = value
+
+    @property
+    def mask_parameters(self):
+        """Thresholds and convolution sizes used to prepare 3D masks."""
+        if self._mask_parameters is None:
+            self._mask_parameters = {
+                'mask_t1': float(self.get_parameter('mask_t1')),
+                'mask_h1': int(self.get_parameter('mask_h1')),
+                'mask_t2': float(self.get_parameter('mask_t2')),
+                'mask_h2': int(self.get_parameter('mask_h2')),
+            }
+        return self._mask_parameters
+
+    @mask_parameters.setter
+    def mask_parameters(self, value):
+        self._mask_parameters = dict(value) if value is not None else None
 
     @property
     def maximum(self):
@@ -2053,14 +2078,19 @@ class NXReduce(QtCore.QObject):
                     self.stop.emit()
                 elif mask:
                     self.write_mask(mask)
-                    self.write_parameters(first=self.first, last=self.last)
+                    self.write_parameters(
+                        first=self.first, last=self.last,
+                        mask_t1=self.mask_parameters['mask_t1'],
+                        mask_h1=self.mask_parameters['mask_h1'],
+                        mask_t2=self.mask_parameters['mask_t2'],
+                        mask_h2=self.mask_parameters['mask_h2'])
                     self.record(
                         'nxprepare', masked_file=self.mask_file,
                         first=self.first, last=self.last,
-                        threshold1=self.mask_parameters['threshold_1'],
-                        horizontal1=self.mask_parameters['horizontal_size_1'],
-                        threshold2=self.mask_parameters['threshold_2'],
-                        horizontal2=self.mask_parameters['horizontal_size_2'],
+                        mask_t1=self.mask_parameters['mask_t1'],
+                        mask_h1=self.mask_parameters['mask_h1'],
+                        mask_t2=self.mask_parameters['mask_t2'],
+                        mask_h2=self.mask_parameters['mask_h2'],
                         process='nxprepare_mask')
                     self.record_end('nxprepare')
                 else:
@@ -2075,10 +2105,10 @@ class NXReduce(QtCore.QObject):
     def prepare_mask(self):
         """Prepare 3D mask"""
         tic = self.start_progress(self.first, self.last)
-        t1 = self.mask_parameters['threshold_1']
-        h1 = self.mask_parameters['horizontal_size_1']
-        t2 = self.mask_parameters['threshold_2']
-        h2 = self.mask_parameters['horizontal_size_2']
+        t1 = self.mask_parameters['mask_t1']
+        h1 = self.mask_parameters['mask_h1']
+        t2 = self.mask_parameters['mask_t2']
+        h2 = self.mask_parameters['mask_h2']
 
         mask_root = nxopen(self.mask_file.with_suffix('.h5'), 'w')
         mask_root['entry'] = NXentry()

@@ -210,3 +210,49 @@ class TestNXReduceSettings:
         r = NXReduce(entry='entry1', subentry='entry1', directory=self.scan_dir)
         assert r.parent.entry_path == '/entry/entry1'
         assert r.parent.get_setting('threshold') == 77777
+
+    # 7. mask_parameters: defaults from settings.ini
+    def test_mask_parameters_default_from_settings(self):
+        r = self._make_reduce()
+        mp = r.mask_parameters
+        assert mp == {'mask_t1': 2.0, 'mask_h1': 11,
+                      'mask_t2': 0.8, 'mask_h2': 51}
+
+    # 8. mask_parameters: parent /entry/nxscans/settings overrides default
+    def test_mask_parameters_read_from_parent_settings(self):
+        r = self._make_reduce(parent_settings={
+            'mask_t1': 3.5, 'mask_h1': 13,
+            'mask_t2': 0.9, 'mask_h2': 53})
+        mp = r.mask_parameters
+        assert mp['mask_t1'] == 3.5
+        assert mp['mask_h1'] == 13
+        assert mp['mask_t2'] == 0.9
+        assert mp['mask_h2'] == 53
+
+    # 9. mask_parameters: __init__ kwarg overrides parent
+    def test_mask_parameters_kwarg_overrides_parent(self):
+        r = self._make_reduce(
+            parent_settings={'mask_t1': 3.5, 'mask_h1': 13,
+                             'mask_t2': 0.9, 'mask_h2': 53},
+            mask_parameters={'mask_t1': 5, 'mask_h1': 7,
+                             'mask_t2': 1.1, 'mask_h2': 21})
+        mp = r.mask_parameters
+        assert mp == {'mask_t1': 5, 'mask_h1': 7,
+                      'mask_t2': 1.1, 'mask_h2': 21}
+
+    # 10. mask_parameters: in-place mutation persists across reads
+    def test_mask_parameters_mutation_persists(self):
+        r = self._make_reduce()
+        r.mask_parameters['mask_t1'] = 9.0
+        assert r.mask_parameters['mask_t1'] == 9.0
+
+    # 11. write_parameters round-trips mask values to parent
+    def test_write_parameters_persists_mask_values(self):
+        r = self._make_reduce()
+        r.write_parameters(mask_t1=4.0, mask_h1=15,
+                           mask_t2=1.2, mask_h2=61)
+        p = NXParent(self.parent_file)
+        assert p.get_setting('mask_t1') == 4.0
+        assert p.get_setting('mask_h1') == 15
+        assert p.get_setting('mask_t2') == 1.2
+        assert p.get_setting('mask_h2') == 61
