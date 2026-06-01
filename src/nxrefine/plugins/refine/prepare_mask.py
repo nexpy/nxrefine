@@ -37,10 +37,12 @@ class PrepareDialog(NXDialog):
         self.parameters = GridParameters()
         self.parameters.add('first', default['first_frame'], 'First Frame')
         self.parameters.add('last', default['last_frame'], 'Last Frame')
-        self.parameters.add('threshold1', '2', 'Threshold 1')
-        self.parameters.add('horizontal1', '11', 'Horizontal Size 1')
-        self.parameters.add('threshold2', '0.8', 'Threshold 2')
-        self.parameters.add('horizontal2', '51', 'Horizontal Size 2')
+        self.parameters.add('threshold1', default['mask_t1'], 'Threshold 1')
+        self.parameters.add('horizontal1', default['mask_h1'],
+                            'Horizontal Size 1')
+        self.parameters.add('threshold2', default['mask_t2'], 'Threshold 2')
+        self.parameters.add('horizontal2', default['mask_h2'],
+                            'Horizontal Size 2')
         self.prepare_button = NXPushButton('Prepare Mask', self.prepare_mask)
         self.plot_button = NXPushButton('Plot Mask', self.plot_mask)
         self.prepare_layout = self.make_layout(self.prepare_button,
@@ -71,6 +73,14 @@ class PrepareDialog(NXDialog):
         self.reduce = NXReduce(self.entry, subentry=self.subentry or None)
         self.parameters['first'].value = self.reduce.first
         self.parameters['last'].value = self.reduce.last
+        self.parameters['threshold1'].value = self.reduce.mask_parameters[
+            'mask_t1']
+        self.parameters['horizontal1'].value = self.reduce.mask_parameters[
+            'mask_h1']
+        self.parameters['threshold2'].value = self.reduce.mask_parameters[
+            'mask_t2']
+        self.parameters['horizontal2'].value = self.reduce.mask_parameters[
+            'mask_h2']
         if self.layout.count() == 2:
             self.insert_layout(1, self.parameters.grid())
             self.insert_layout(2, self.prepare_layout)
@@ -124,12 +134,13 @@ class PrepareDialog(NXDialog):
         self.reduce = NXReduce(self.entry, prepare=True,
                                first=self.first, last=self.last,
                                subentry=self.subentry or None,
-                               overwrite=True, gui=True)
-        self.reduce.mask_parameters['threshold_1'] = self.threshold1
-        self.reduce.mask_parameters['threshold_1'] = self.threshold1
-        self.reduce.mask_parameters['horizontal_size_1'] = self.horizontal1
-        self.reduce.mask_parameters['threshold_2'] = self.threshold2
-        self.reduce.mask_parameters['horizontal_size_2'] = self.horizontal2
+                               overwrite=True, gui=True,
+                               mask_parameters={
+                                   'mask_t1': self.threshold1,
+                                   'mask_h1': self.horizontal1,
+                                   'mask_t2': self.threshold2,
+                                   'mask_h2': self.horizontal2,
+                               })
         self.reduce.moveToThread(self.thread)
         self.reduce.start.connect(self.start_progress)
         self.reduce.update.connect(self.update_progress)
@@ -162,11 +173,15 @@ class PrepareDialog(NXDialog):
             elif self.entry.nxfilemode == 'r':
                 raise NeXusError("NeXus file opened as readonly")
             self.reduce.write_mask(self.mask)
+            self.reduce.write_parameters(
+                first=self.first, last=self.last,
+                mask_t1=self.threshold1, mask_h1=self.horizontal1,
+                mask_t2=self.threshold2, mask_h2=self.horizontal2)
             self.reduce.record('nxprepare', masked_file=self.reduce.mask_file,
-                               threshold1=self.threshold1,
-                               horizontal1=self.horizontal1,
-                               threshold2=self.threshold2,
-                               horizontal2=self.horizontal2,
+                               mask_t1=self.threshold1,
+                               mask_h1=self.horizontal1,
+                               mask_t2=self.threshold2,
+                               mask_h2=self.horizontal2,
                                process='nxprepare_mask')
             self.reduce.record_end('nxprepare')
             super().accept()

@@ -44,14 +44,15 @@ def main():
     else:
         entries = NXMultiReduce(directory=args.directory).entries
 
+    mask_parameters = {
+        'mask_t1': args.t1, 'mask_h1': args.h1,
+        'mask_t2': args.t2, 'mask_h2': args.h2,
+    }
     for entry in entries:
         reduce = NXReduce(entry, args.subentry, args.directory, prepare=True,
                           overwrite=args.overwrite,
-                          monitor_progress=args.monitor)
-        reduce.mask_parameters['threshold_1'] = args.t1
-        reduce.mask_parameters['horizontal_size_1'] = args.h1
-        reduce.mask_parameters['threshold_2'] = args.t2
-        reduce.mask_parameters['horizontal_size_2'] = args.h2
+                          monitor_progress=args.monitor,
+                          mask_parameters=mask_parameters)
         if args.queue:
             reduce.queue('nxprepare', args)
         else:

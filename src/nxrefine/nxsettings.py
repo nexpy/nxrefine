@@ -38,6 +38,8 @@ class NXSettings(ConfigParser):
                          'sample_transmission': True,
                          'polarization': 0.99, 'qmin': None, 'qmax': None,
                          'radius': 0.2,
+                         'mask_t1': 2, 'mask_h1': 11,
+                         'mask_t2': 0.8, 'mask_h2': 51,
                          'scan_path': '/entry/sample/temperature',
                          'scan_units': 'K'}
         }

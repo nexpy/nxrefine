@@ -49,7 +49,14 @@ class ParametersDialog(NXDialog):
                             is not None else '',
                             'Maximum Taper Q (Å-1)')
         self.parameters.add('radius', default['radius'], 'Punch Radius (Å)')
-        self.parameters.add('scan_path', default['scan_path'], 'Scan Path')
+        self.parameters.add('mask_t1', default['mask_t1'],
+                            'Mask Threshold 1')
+        self.parameters.add('mask_h1', default['mask_h1'],
+                            'Mask Horizontal Size 1')
+        self.parameters.add('mask_t2', default['mask_t2'],
+                            'Mask Threshold 2')
+        self.parameters.add('mask_h2', default['mask_h2'],
+                            'Mask Horizontal Size 2')
         self.parameters.add('scan_path', default['scan_path'], 'Scan Path')
         self.read_parameters()
         self.set_layout(self.parameters.grid(header=False),
@@ -84,6 +91,14 @@ class ParametersDialog(NXDialog):
                 self.parameters['qmax'].value = reduce['qmax']
             if 'radius' in reduce:
                 self.parameters['radius'].value = reduce['radius']
+            if 'mask_t1' in reduce:
+                self.parameters['mask_t1'].value = reduce['mask_t1']
+            if 'mask_h1' in reduce:
+                self.parameters['mask_h1'].value = reduce['mask_h1']
+            if 'mask_t2' in reduce:
+                self.parameters['mask_t2'].value = reduce['mask_t2']
+            if 'mask_h2' in reduce:
+                self.parameters['mask_h2'].value = reduce['mask_h2']
             if 'scan_path' in reduce:
                 self.parameters['scan_path'].value = reduce['scan_path']
         else:
@@ -114,6 +129,11 @@ class ParametersDialog(NXDialog):
                     self.parameters['qmax'].value = qmax
                 if reduce.radius:
                     self.parameters['radius'].value = reduce.radius
+                mp = reduce.mask_parameters
+                self.parameters['mask_t1'].value = mp['mask_t1']
+                self.parameters['mask_h1'].value = mp['mask_h1']
+                self.parameters['mask_t2'].value = mp['mask_t2']
+                self.parameters['mask_h2'].value = mp['mask_h2']
                 if reduce.scan_path:
                     self.parameters['scan_path'].value = reduce.scan_path
             except Exception:
@@ -139,6 +159,10 @@ class ParametersDialog(NXDialog):
             elif 'qmax' in settings:
                 del settings['qmax']
             settings['radius'] = self.radius
+            settings['mask_t1'] = self.mask_t1
+            settings['mask_h1'] = self.mask_h1
+            settings['mask_t2'] = self.mask_t2
+            settings['mask_h2'] = self.mask_h2
             settings['scan_path'] = self.scan_path
         self.parent.reload()
 
@@ -194,6 +218,22 @@ class ParametersDialog(NXDialog):
     @property
     def radius(self):
         return float(self.parameters['radius'].value)
+
+    @property
+    def mask_t1(self):
+        return float(self.parameters['mask_t1'].value)
+
+    @property
+    def mask_h1(self):
+        return int(self.parameters['mask_h1'].value)
+
+    @property
+    def mask_t2(self):
+        return float(self.parameters['mask_t2'].value)
+
+    @property
+    def mask_h2(self):
+        return int(self.parameters['mask_h2'].value)
 
     @property
     def scan_path(self):
