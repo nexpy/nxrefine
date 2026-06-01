@@ -48,14 +48,15 @@ class MaximumDialog(NXDialog):
             self.output)
         self.plot_layout = self.make_layout(
             self.action_buttons(
-                ('Plot Summed Data', self.plot_summed_data),
                 ('Plot Summed Frames', self.plot_summed_frames),
-                ('Plot Partial Frames', self.plot_partial_frames)),
+                ('Plot Partial Frames', self.plot_partial_frames),
+                ('Plot Transmission', self.plot_transmission)),
             self.checkbox['over'])
         self.transmission_layout = self.make_layout(
             self.action_buttons(
+                ('Plot Summed Data', self.plot_summed_data),
                 ('Plot Transmission Mask', self.plot_transmission_mask),
-                ('Plot Transmission', self.plot_transmission)))
+                ))
         self.set_layout(self.entry_layout, self.progress_layout(save=True))
         self.progress_bar.setVisible(False)
         self.progress_bar.setValue(0)
