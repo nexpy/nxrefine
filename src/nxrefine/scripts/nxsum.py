@@ -35,7 +35,7 @@ def main():
         reduce.nxsum(args.scans)
     else:
         for entry in args.entries:
-            reduce = NXReduce(entry, args.directory, overwrite=args.overwrite)
+            reduce = NXReduce(entry, directory=args.directory, overwrite=args.overwrite)
             reduce.nxsum(args.scans, update=args.update)
 
 

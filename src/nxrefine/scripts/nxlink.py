@@ -33,7 +33,7 @@ def main():
         entries = NXMultiReduce(directory=args.directory).entries
 
     for entry in entries:
-        reduce = NXReduce(entry, args.directory, link=True,
+        reduce = NXReduce(entry, directory=args.directory, link=True,
                           overwrite=args.overwrite)
         if args.queue:
             reduce.queue('nxlink', args)
