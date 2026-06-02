@@ -32,8 +32,6 @@ def main():
                         help='subentry to be processed')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing mask')
-    parser.add_argument('-m', '--monitor', action='store_true',
-                        help='monitor progress in the command line')
     parser.add_argument('-q', '--queue', action='store_true',
                         help='add to server task queue')
 
@@ -51,7 +49,6 @@ def main():
     for entry in entries:
         reduce = NXReduce(entry, args.subentry, args.directory, prepare=True,
                           overwrite=args.overwrite,
-                          monitor_progress=args.monitor,
                           mask_parameters=mask_parameters)
         if args.queue:
             reduce.queue('nxprepare', args)
