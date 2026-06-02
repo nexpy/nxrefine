@@ -1653,10 +1653,10 @@ class NXReduce(QtCore.QObject):
         else:
             first_reduce = NXReduce(self.first_entry)
             first_transmission = first_reduce.get_sample_transmission()
-            if ('maximum' in transmission.attrs and
-                    'maximum' in first_transmission.attrs):
-                correction = (transmission.attrs['maximum'] /
-                              first_transmission.attrs['maximum'])
+            if ('median' in transmission.attrs and
+                    'median' in first_transmission.attrs):
+                correction = (transmission.attrs['median'] /
+                              first_transmission.attrs['median'])
                 transmission *= correction
             return transmission
 
@@ -1669,16 +1669,16 @@ class NXReduce(QtCore.QObject):
         as Bragg-peak contamination and rescaling to the full
         annulus magnitude). This function normalises by the monitor
         signal, holds the values outside ``[first, last)`` at the
-        edge values, applies a 7-frame median filter to null
-        isolated outliers that survived the spatial trim, and
-        rescales to a maximum of 1.0.
+        edge values, applies a 31-frame median filter to suppress
+        outlier bursts up to ~15 frames wide that survived the spatial
+        trim, and rescales to a median of 1.0.
 
         Returns
         -------
         NXdata
             Calculated transmission values with frame number as the
-            x-axis. The pre-normalisation maximum is preserved in the
-            ``maximum`` attribute of the transmission signal.
+            x-axis. The pre-normalisation median is preserved in the
+            ``median`` attribute of the transmission signal.
         """
         from scipy.ndimage import median_filter
         if self.partial_frames is None:
@@ -1698,11 +1698,11 @@ class NXReduce(QtCore.QObject):
             y[:self.first] = y[self.first]
         if self.last < self.nframes:
             y[self.last:] = y[self.last - 1]
-        y = median_filter(y, size=7)
-        ymax = float(y.max())
-        transmission = NXfield(y / ymax, name='transmission',
+        y = median_filter(y, size=31)
+        ymedian = float(np.median(y))
+        transmission = NXfield(y / ymedian, name='transmission',
                                long_name='Sample Transmission')
-        transmission.attrs['maximum'] = ymax
+        transmission.attrs['median'] = ymedian
         frames = NXfield(np.arange(self.nframes), name='nframes',
                          long_title='Frame No.')
         return NXdata(transmission, frames, title='Sample Transmission')
