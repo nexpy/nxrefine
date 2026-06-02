@@ -13,6 +13,7 @@ import os
 import platform
 import shutil
 import subprocess
+import sys
 import timeit
 from pathlib import Path
 
@@ -151,7 +152,7 @@ class NXReduce(QtCore.QObject):
             maxcount=False, find=False, refine=False, prepare=False,
             transform=False, combine=False, pdf=False,
             lattice=False, regular=False, mask=False, overwrite=False,
-            monitor_progress=False, gui=False, server=None):
+            monitor_progress=True, gui=False, server=None):
 
         super(NXReduce, self).__init__()
 
@@ -1099,12 +1100,12 @@ class NXReduce(QtCore.QObject):
             Timer value for calculating the completion time.
         """
         self._start = start
+        self._prog_stop = stop
+        self._prog_high = start
         if self.gui:
             self._step = (stop - start) / 100
             self._value = int(start)
             self.start.emit((0, 100))
-        elif self.monitor_progress:
-            print('Frame', end='')
         self.stopped = False
         return timeit.default_timer()
 
@@ -1115,12 +1116,20 @@ class NXReduce(QtCore.QObject):
             if _value > self._value:
                 self.update.emit(_value)
                 self._value = _value
-        elif self.monitor_progress:
-            print(f"\rFrame {i}", end="")
+        elif self.monitor_progress and sys.stdout.isatty():
+            if i <= self._prog_high:
+                return
+            self._prog_high = i
+            total = self._prog_stop - self._start
+            n = len(str(self._prog_stop))
+            bar_width = min(40, max(10, shutil.get_terminal_size().columns - 2*n - 8))
+            filled = int(bar_width * (i - self._start) / max(total, 1))
+            bar = '#' * filled + '.' * (bar_width - filled)
+            print(f"\r[{bar}] {i:{n}d} / {self._prog_stop}", end='', flush=True)
 
     def stop_progress(self):
         """Stop the progress counter and return the timer value."""
-        if self.monitor_progress:
+        if self.monitor_progress and sys.stdout.isatty():
             print('')
         self.stopped = True
         return timeit.default_timer()

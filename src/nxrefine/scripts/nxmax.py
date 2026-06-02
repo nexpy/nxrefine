@@ -30,8 +30,6 @@ def main():
                         help='maximum scattering Q (Å⁻¹); auto if omitted')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing maximum')
-    parser.add_argument('-m', '--monitor', action='store_true',
-                        help='monitor progress in the command line')
     parser.add_argument('-q', '--queue', action='store_true',
                         help='add to server task queue')
 
@@ -46,8 +44,7 @@ def main():
         reduce = NXReduce(entry, args.subentry, args.directory, maxcount=True,
                           first=args.first, last=args.last,
                           qmin=args.qmin, qmax=args.qmax,
-                          overwrite=args.overwrite,
-                          monitor_progress=args.monitor)
+                          overwrite=args.overwrite)
         if args.queue:
             reduce.queue('nxmax', args)
         else:

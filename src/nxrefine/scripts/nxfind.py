@@ -31,8 +31,6 @@ def main():
                         help='overwrite existing peaks')
     parser.add_argument('-p', '--parent', default=None,
                         help='The parent .nxs file to use')
-    parser.add_argument('-m', '--monitor', action='store_true',
-                        help='monitor progress in the command line')
     parser.add_argument('-q', '--queue', action='store_true',
                         help='add to server task queue')
 
@@ -48,8 +46,7 @@ def main():
                           threshold=args.threshold,
                           first=args.first, last=args.last,
                           min_pixels=args.pixels,
-                          overwrite=args.overwrite,
-                          monitor_progress=args.monitor)
+                          overwrite=args.overwrite)
         if args.queue:
             reduce.queue('nxfind', args)
         else:
