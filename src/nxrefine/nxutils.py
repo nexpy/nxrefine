@@ -322,6 +322,56 @@ def mask_volume(data_file, data_path, mask_file, mask_path, i, j, k,
     return i
 
 
+def find_maximum_chunk(data_file, data_path, i, j, k,
+                       pixel_mask, transmission_mask,
+                       sub_idx, n_keep, scale):
+    """Process a single chunk of frames for find_maximum.
+
+    Parameters
+    ----------
+    data_file : str
+        Path to the raw HDF5 data file.
+    data_path : str
+        Internal HDF5 path to the data array.
+    i : int
+        Starting frame index of this chunk within the full frame range;
+        returned as-is for progress tracking and result placement.
+    j : int
+        First frame to read from the file (equals i; no overlap needed).
+    k : int
+        Exclusive upper frame index to read.
+    pixel_mask : ndarray, shape (ny, nx)
+        Detector pixel mask including constantly-firing pixels.
+    transmission_mask : ndarray, shape (ny, nx)
+        Annulus mask derived from qmin/qmax.
+    sub_idx : ndarray
+        Subsampled flat indices into the annulus for the trimmed sum.
+    n_keep : int
+        Number of annulus pixels to retain after trimming.
+    scale : float
+        Rescaling factor for the trimmed sum.
+
+    Returns
+    -------
+    tuple of (i, local_vsum, local_fsum, local_psum, local_maximum)
+    """
+    nxsetconfig(lock=3600, lockexpiry=28800)
+    with nxopen(data_file, 'r') as data_root:
+        v_raw = data_root[data_path][j:k].nxvalue.clip(0)
+    local_vsum = v_raw.sum(0, dtype=np.float64)
+    vflat = v_raw.reshape(v_raw.shape[0], -1)
+    sub_vals = vflat[:, sub_idx]
+    trimmed = np.partition(sub_vals, n_keep, axis=1)[:, :n_keep]
+    local_psum = trimmed.sum(axis=1) * scale
+    v = np.ma.masked_array(v_raw)
+    v.mask = pixel_mask
+    local_fsum = v.sum((1, 2))
+    v.mask = pixel_mask | transmission_mask
+    local_maximum = float(v.max()) if v.count() > 0 else 0.0
+    del v, v_raw, vflat, sub_vals, trimmed
+    return i, local_vsum, local_fsum, local_psum, local_maximum
+
+
 def init_julia():
     """Start the Julia runtime via juliacall and return the Main module.
 
