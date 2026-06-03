@@ -109,8 +109,8 @@ class ParentDialog(NXDialog):
                               fallback['hkl_tolerance']),
             'monitor':       ('Normalization Monitor', fallback['monitor']),
             'norm':          ('Normalization Value', fallback['norm']),
-            'qmin':          ('Minimum Scattering Q (Å-1)', fallback['qmin']),
-            'qmax':          ('Maximum Taper Q (Å-1)', fallback['qmax']),
+            'qmin':          ('Minimum Scattering Q (Å-1)', None),
+            'qmax':          ('Maximum Taper Q (Å-1)', None),
             'radius':        ('Punch Radius (Å)', fallback['radius']),
             'scan_path':     ('Scan Path', fallback['scan_path']),
             'scan_units':    ('Scan Units', fallback['scan_units'])}
