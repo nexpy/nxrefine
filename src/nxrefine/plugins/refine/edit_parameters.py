@@ -42,12 +42,8 @@ class ParametersDialog(NXDialog):
         self.parameters.add('sample_transmission',
                             str(default['sample_transmission']),
                             'Apply Sample Transmission')
-        self.parameters.add('qmin', default['qmin'] if default['qmin']
-                            is not None else '',
-                            'Minimum Scattering  Q (Å-1)')
-        self.parameters.add('qmax', default['qmax'] if default['qmax']
-                            is not None else '',
-                            'Maximum Taper Q (Å-1)')
+        self.parameters.add('qmin', '', 'Minimum Scattering  Q (Å-1)')
+        self.parameters.add('qmax', '', 'Maximum Taper Q (Å-1)')
         self.parameters.add('radius', default['radius'], 'Punch Radius (Å)')
         self.parameters.add('mask_t1', default['mask_t1'],
                             'Mask Threshold 1')
@@ -121,12 +117,15 @@ class ParametersDialog(NXDialog):
                     self.parameters['norm'].value = reduce.norm
                 self.parameters['sample_transmission'].value = str(
                     reduce.sample_transmission)
-                qmin = reduce.get_parameter('qmin')
-                if qmin not in (None, ''):
-                    self.parameters['qmin'].value = qmin
-                qmax = reduce.get_parameter('qmax')
-                if qmax not in (None, ''):
-                    self.parameters['qmax'].value = qmax
+                parent_settings = (reduce.parent.settings
+                                   if reduce.parent is not None else None)
+                if parent_settings is not None:
+                    if 'qmin' in parent_settings:
+                        self.parameters['qmin'].value = (
+                            parent_settings['qmin'].nxvalue)
+                    if 'qmax' in parent_settings:
+                        self.parameters['qmax'].value = (
+                            parent_settings['qmax'].nxvalue)
                 if reduce.radius:
                     self.parameters['radius'].value = reduce.radius
                 mp = reduce.mask_parameters

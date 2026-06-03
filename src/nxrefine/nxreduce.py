@@ -904,21 +904,34 @@ class NXReduce(QtCore.QObject):
     def polarization(self, value):
         self._polarization = value
 
+    def _parent_q_setting(self, name):
+        """Return ``nxscans/settings[name]`` from the parent, or ``None``.
+
+        Used by :attr:`qmin`, :attr:`qmax`, and
+        :meth:`ensure_transmission_q` to bypass the ``settings.ini``
+        layer that :meth:`get_parameter` walks. ``qmin``/``qmax`` come
+        only from the parent's per-scan settings group; blank means
+        auto-calculate.
+        """
+        if self.parent is None or self.parent.settings is None:
+            return None
+        if name in self.parent.settings:
+            return self.parent.settings[name].nxvalue
+        return None
+
     @property
     def qmin(self):
         """Minimum Q used in estimating the sample transmission.
 
-        Returns the value stored in ``nxscans/settings`` if explicitly
-        set; otherwise falls back to the geometry-derived value from
-        :meth:`_auto_transmission_q`. Returns ``None`` only when
-        neither the settings nor the detector geometry are available.
-
-        Use :meth:`get_parameter` (``self.get_parameter('qmin')``)
-        when you need to distinguish "explicitly set in settings"
-        from "auto-derived from geometry".
+        Returns the value stored in the parent's ``nxscans/settings``
+        group if explicitly set; otherwise falls back to the
+        geometry-derived value from :meth:`_auto_transmission_q`.
+        Returns ``None`` only when neither the parent settings nor
+        the detector geometry are available. The ``settings.ini``
+        layer is not consulted for this parameter.
         """
         if self._qmin is None:
-            param = self.get_parameter('qmin')
+            param = self._parent_q_setting('qmin')
             if param not in (None, ''):
                 self._qmin = float(param)
             else:
@@ -936,17 +949,15 @@ class NXReduce(QtCore.QObject):
 
         This parameter is also used to define the maximum Q used in
         estimating the sample transmission. Returns the value stored
-        in ``nxscans/settings`` if explicitly set; otherwise falls
-        back to the geometry-derived value from
+        in the parent's ``nxscans/settings`` group if explicitly set;
+        otherwise falls back to the geometry-derived value from
         :meth:`_auto_transmission_q`. Returns ``None`` only when
-        neither the settings nor the detector geometry are available.
-
-        Use :meth:`get_parameter` (``self.get_parameter('qmax')``)
-        when you need to distinguish "explicitly set in settings"
-        from "auto-derived from geometry".
+        neither the parent settings nor the detector geometry are
+        available. The ``settings.ini`` layer is not consulted for
+        this parameter.
         """
         if self._qmax is None:
-            param = self.get_parameter('qmax')
+            param = self._parent_q_setting('qmax')
             if param not in (None, ''):
                 self._qmax = float(param)
             else:
@@ -1790,18 +1801,19 @@ class NXReduce(QtCore.QObject):
     def ensure_transmission_q(self):
         """Populate and persist qmin/qmax.
 
-        Any unset value (i.e. blank in constructor args,
-        ``nxscans/settings``, and the explicit ``[nxreduce]`` defaults)
-        is derived from detector geometry via
+        Any value missing or blank in the parent's ``nxscans/settings``
+        group is derived from detector geometry via
         :meth:`_auto_transmission_q`. The current values are then
         written to the parent file's ``nxscans/settings`` (or the local
         wrapper's ``/entry/nxreduce`` if no parent exists) so the
         run-time qmin/qmax are visible to other tools (Edit Parameters
         dialog, PDF taper, CLI). A no-op only when both values are
         ``None`` and the geometry needed to derive them is unavailable.
+        The ``settings.ini`` layer is not consulted for these
+        parameters.
         """
-        qmin_set = self.get_parameter('qmin')
-        qmax_set = self.get_parameter('qmax')
+        qmin_set = self._parent_q_setting('qmin')
+        qmax_set = self._parent_q_setting('qmax')
         if qmin_set in (None, '') or qmax_set in (None, ''):
             q_min, q_max = self._auto_transmission_q()
             if q_min is None:
