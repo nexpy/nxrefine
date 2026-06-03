@@ -35,7 +35,8 @@ from .nxrefine import NXRefine
 from .nxserver import NXServer
 from .nxsettings import NXSettings
 from .nxsymmetry import NXSymmetry
-from .nxutils import init_julia, load_julia, mask_volume, peak_search
+from .nxutils import (find_maximum_chunk, init_julia, load_julia,
+                       mask_volume, peak_search)
 
 QMIN_PIXEL_FRACTION = 0.3
 QMAX_PIXEL_FRACTION = 0.9
@@ -1467,16 +1468,14 @@ class NXReduce(QtCore.QObject):
         found.
         """
         self.log("Finding maximum counts")
+
+        # --- Phase 1: detect constantly-firing pixels (file opened then closed) ---
+        chunk_size = self.field.chunks[0]
+        if chunk_size < 20:
+            chunk_size = 50
+        pixel_mask = self.pixel_mask
         with self.field.nxfile:
-            maximum = 0.0
-            chunk_size = self.field.chunks[0]
-            if chunk_size < 20:
-                chunk_size = 50
             data = self.field.nxfile[self.raw_path]
-            fsum = np.zeros(self.nframes, dtype=np.float64)
-            psum = np.zeros(self.nframes, dtype=np.float64)
-            pixel_mask = self.pixel_mask
-            # Add constantly firing pixels to the mask
             pixel_max = np.zeros((self.shape[1], self.shape[2]))
             v = data[0:10, :, :]
             for i in range(10):
@@ -1486,65 +1485,101 @@ class NXReduce(QtCore.QObject):
             mask[np.where(pixel_max == pixel_mean)] = 1
             mask[np.where(pixel_mean < 100)] = 0
             pixel_mask = pixel_mask | mask
-            transmission_mask = self.transmission_coordinates()
-            # Subsampled flat indices of the annulus pixels used to
-            # estimate the per-frame transmission baseline as a
-            # trimmed sum -- np.partition drops the brightest
-            # PEAK_FRACTION of pixels (the Bragg peaks) and sums the
-            # rest, rescaling to the full annulus magnitude. A
-            # trimmed sum is used instead of a median because
-            # background pixels often carry only 0-2 Poisson counts;
-            # the median is then a discrete integer that jumps
-            # between adjacent values as the background drifts, but
-            # a sum over ~50k pixels averages those counts into a
-            # smooth real-valued curve.
-            annulus_flat = np.flatnonzero(
-                ~(pixel_mask | transmission_mask).ravel())
-            n_annulus = annulus_flat.size
-            stride = max(1, n_annulus // 50000)
-            sub_idx = annulus_flat[::stride]
-            n_sub = sub_idx.size
-            peak_fraction = 0.1
-            n_keep = max(1, int((1.0 - peak_fraction) * n_sub))
-            scale = n_annulus / n_keep
-            # Start looping over the data
-            tic = self.start_progress(self.first, self.last)
-            for i in range(self.first, self.last, chunk_size):
-                if self.stopped:
-                    return None
-                self.update_progress(i)
-                try:
-                    v_raw = data[i:i+chunk_size, :, :]
-                except IndexError:
-                    pass
-                if i == self.first:
-                    vsum = v_raw.sum(0)
-                else:
-                    vsum += v_raw.sum(0)
-                vflat = v_raw.reshape(v_raw.shape[0], -1)
-                sub_vals = vflat[:, sub_idx]
-                trimmed = np.partition(sub_vals, n_keep, axis=1)[:, :n_keep]
-                psum[i:i+chunk_size] = trimmed.sum(axis=1) * scale
-                v = np.ma.masked_array(v_raw)
-                v.mask = pixel_mask
-                fsum[i:i+chunk_size] = v.sum((1, 2))
-                v.mask = pixel_mask | transmission_mask
-                if maximum < v.max():
-                    maximum = v.max()
-                del v, v_raw, vflat, sub_vals, trimmed
+        # File is now closed; concurrent workers will open it independently.
+
+        # --- Phase 2: pre-compute annulus sampling (same for all chunks) ---
+        transmission_mask = self.transmission_coordinates()
+        # Subsampled flat indices of the annulus pixels used to
+        # estimate the per-frame transmission baseline as a
+        # trimmed sum -- np.partition drops the brightest
+        # PEAK_FRACTION of pixels (the Bragg peaks) and sums the
+        # rest, rescaling to the full annulus magnitude. A
+        # trimmed sum is used instead of a median because
+        # background pixels often carry only 0-2 Poisson counts;
+        # the median is then a discrete integer that jumps
+        # between adjacent values as the background drifts, but
+        # a sum over ~50k pixels averages those counts into a
+        # smooth real-valued curve.
+        annulus_flat = np.flatnonzero(
+            ~(pixel_mask | transmission_mask).ravel())
+        n_annulus = annulus_flat.size
+        stride = max(1, n_annulus // 50000)
+        sub_idx = annulus_flat[::stride]
+        n_sub = sub_idx.size
+        peak_fraction = 0.1
+        n_keep = max(1, int((1.0 - peak_fraction) * n_sub))
+        scale = n_annulus / n_keep
+
+        fsum = np.zeros(self.nframes, dtype=np.float64)
+        psum = np.zeros(self.nframes, dtype=np.float64)
+        maximum = 0.0
+        vsum = None
+        tic = self.start_progress(self.first, self.last)
+
+        if self.concurrent:
+            # --- Concurrent branch ---
+            from nxrefine.nxutils import NXExecutor, as_completed
+            # Use a larger chunk for workers to amortise IPC overhead,
+            # especially when the stored HDF5 chunk size is 1 frame.
+            worker_chunk_size = max(chunk_size, 100)
+            with NXExecutor(max_workers=self.process_count,
+                            mp_context=self.concurrent) as executor:
+                futures = []
+                for i in range(self.first, self.last, worker_chunk_size):
+                    k = min(i + worker_chunk_size, self.last)
+                    futures.append(executor.submit(
+                        find_maximum_chunk,
+                        self.field.nxfilename, self.field.nxfilepath,
+                        i, i, k,
+                        pixel_mask, transmission_mask,
+                        sub_idx, n_keep, scale))
+                for future in as_completed(futures):
+                    chunk_i, lv, lf, lp, lmax = future.result()
+                    vsum = lv if vsum is None else vsum + lv
+                    n = lf.shape[0]
+                    fsum[chunk_i:chunk_i + n] = lf
+                    psum[chunk_i:chunk_i + n] = lp
+                    if lmax > maximum:
+                        maximum = lmax
+                    self.update_progress(chunk_i)
+                    futures.remove(future)
+        else:
+            # --- Sequential branch ---
+            with self.field.nxfile:
+                data = self.field.nxfile[self.raw_path]
+                for i in range(self.first, self.last, chunk_size):
+                    if self.stopped:
+                        return None
+                    self.update_progress(i)
+                    try:
+                        v_raw = data[i:i+chunk_size, :, :]
+                    except IndexError:
+                        pass
+                    vsum = (v_raw.sum(0, dtype=np.float64) if vsum is None
+                            else vsum + v_raw.sum(0))
+                    vflat = v_raw.reshape(v_raw.shape[0], -1)
+                    sub_vals = vflat[:, sub_idx]
+                    trimmed = np.partition(sub_vals, n_keep, axis=1)[:, :n_keep]
+                    psum[i:i+chunk_size] = trimmed.sum(axis=1) * scale
+                    v = np.ma.masked_array(v_raw)
+                    v.mask = pixel_mask
+                    fsum[i:i+chunk_size] = v.sum((1, 2))
+                    v.mask = pixel_mask | transmission_mask
+                    if maximum < v.max():
+                        maximum = v.max()
+                    del v, v_raw, vflat, sub_vals, trimmed
+
         self.pixel_mask = pixel_mask
-        vsum = np.ma.masked_array(vsum)
-        vsum.mask = pixel_mask
+        vsum = np.ma.masked_array(vsum, mask=pixel_mask)
         self.maximum = maximum
         self.summed_data = NXfield(vsum, name='summed_data')
         self.summed_frames = NXfield(fsum, name='summed_frames')
         self.partial_frames = NXfield(psum, name='partial_frames')
         toc = self.stop_progress()
         self.log(f"Maximum counts: {maximum} ({(toc-tic):g} seconds)")
-        result = NXcollection(NXfield(maximum, name='maximum'),
-                              self.summed_data, self.summed_frames,
-                              self.partial_frames)
-        return result
+        return NXcollection(NXfield(maximum, name='maximum'),
+                            self.summed_data, self.summed_frames,
+                            self.partial_frames)
 
     def write_maximum(self):
         """
