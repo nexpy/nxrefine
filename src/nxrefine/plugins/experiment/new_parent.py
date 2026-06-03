@@ -13,6 +13,8 @@ from nexpy.gui.utils import confirm_action, display_message, report_error
 from nexusformat.nexus import NeXusError, NXentry, nxopen
 
 from nxrefine.nxparent import NXParent
+from nxrefine.nxrefine import NXRefine
+from nxrefine.nxreduce import auto_transmission_q
 from nxrefine.nxsettings import NXSettings
 
 
@@ -109,8 +111,6 @@ class ParentDialog(NXDialog):
                               fallback['hkl_tolerance']),
             'monitor':       ('Normalization Monitor', fallback['monitor']),
             'norm':          ('Normalization Value', fallback['norm']),
-            'qmin':          ('Minimum Scattering Q (Å-1)', None),
-            'qmax':          ('Maximum Taper Q (Å-1)', None),
             'radius':        ('Punch Radius (Å)', fallback['radius']),
             'scan_path':     ('Scan Path', fallback['scan_path']),
             'scan_units':    ('Scan Units', fallback['scan_units'])}
@@ -203,8 +203,30 @@ class ParentDialog(NXDialog):
                 if value == '' or value is None:
                     continue
                 self.parent.settings[p] = value
+            q_min, q_max = self._auto_q()
+            if q_min is not None:
+                self.parent.settings['qmin'] = q_min
+            if q_max is not None:
+                self.parent.settings['qmax'] = q_max
         if self.parent.root.nxfile is None:
             self.parent.root.save(self.parent_file, 'w')
+
+    def _auto_q(self):
+        """Compute (qmin, qmax) from the parent's copied geometry.
+
+        Returns ``(None, None)`` if the geometry needed for the
+        calculation is incomplete; the runtime will then fill in
+        qmin/qmax when nxmax first runs.
+        """
+        try:
+            refine = NXRefine(self.parent.entry)
+            data = (self.parent.entry['data']
+                    if 'data' in self.parent.entry else None)
+            shape = (tuple(ax.shape[0] for ax in data.nxaxes)
+                     if data is not None else None)
+            return auto_transmission_q(refine, shape)
+        except Exception:
+            return None, None
 
     def accept(self):
         if self.parent_file.is_file() and not confirm_action(
