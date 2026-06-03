@@ -36,7 +36,7 @@ class NXSettings(ConfigParser):
                          'polar_max': 10.0, 'hkl_tolerance': 0.05,
                          'monitor': 'MCS1', 'norm': 50000,
                          'sample_transmission': True,
-                         'polarization': 0.99, 'qmin': None, 'qmax': None,
+                         'polarization': 0.99,
                          'radius': 0.2,
                          'mask_t1': 2, 'mask_h1': 11,
                          'mask_t2': 0.8, 'mask_h2': 51,

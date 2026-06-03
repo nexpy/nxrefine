@@ -283,8 +283,8 @@ class MaximumDialog(NXDialog):
             self.reduce.qmin = self.qmin
             self.reduce.qmax = self.qmax
             transmission = self.calculate_transmission()
-            if 'maximum' in transmission.nxsignal.attrs:
-                transmission *= transmission.nxsignal.attrs['maximum']
+            if 'median' in transmission.nxsignal.attrs:
+                transmission *= transmission.nxsignal.attrs['median']
             self.pv.plot(transmission, markersize=2, over=self.over)
         else:
             display_message('Partial frames not available')

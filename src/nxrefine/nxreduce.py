@@ -42,6 +42,51 @@ QMIN_PIXEL_FRACTION = 0.3
 QMAX_PIXEL_FRACTION = 0.9
 
 
+def auto_transmission_q(refine, shape):
+    """Derive (qmin, qmax) in Å⁻¹ from detector geometry.
+
+    Inverts the q→pixel formula used by
+    :meth:`NXReduce.transmission_coordinates`, taking the inner and
+    outer radii as :data:`QMIN_PIXEL_FRACTION` and
+    :data:`QMAX_PIXEL_FRACTION` of the beam-to-far-edge distance in
+    the y-direction.
+
+    Parameters
+    ----------
+    refine : NXRefine
+        Refinement object exposing beam center (``yc``), wavelength,
+        sample-detector distance, and pixel size, plus its active
+        ``scan_entry`` and ``entry`` so the beam-center fields can be
+        checked for explicit values.
+    shape : tuple or None
+        Detector shape ``(nframes, ny, nx)``.
+
+    Returns
+    -------
+    tuple of (float, float) or (None, None)
+        ``(qmin, qmax)``, or ``(None, None)`` if the geometry needed
+        for the computation is not available — notably, the entry
+        must have explicit ``instrument/detector/beam_center_x`` and
+        ``beam_center_y``; NXRefine silently falls back to defaults
+        of 256/256 if they are absent, which would otherwise produce
+        a wrong-position mask.
+    """
+    entries = [e for e in (refine.scan_entry, refine.entry)
+               if e is not None]
+    for path in ('instrument/detector/beam_center_x',
+                 'instrument/detector/beam_center_y'):
+        if not any(path in e for e in entries):
+            return None, None
+    if not (refine.yc and refine.wavelength and refine.distance
+            and refine.pixel_size and shape):
+        return None, None
+    max_dist_y = max(refine.yc, shape[1] - 1 - refine.yc)
+    pix_to_q = (2 * np.pi * refine.pixel_size
+                / (refine.wavelength * refine.distance))
+    return (QMIN_PIXEL_FRACTION * max_dist_y * pix_to_q,
+            QMAX_PIXEL_FRACTION * max_dist_y * pix_to_q)
+
+
 class NXReduce(QtCore.QObject):
     """Data reduction workflow for single crystal diffuse x-ray scattering.
 
@@ -657,7 +702,7 @@ class NXReduce(QtCore.QObject):
         int, float, or str
             Value of the requested parameter.
         """
-        parameter = self.default[name]
+        parameter = self.default.get(name)
         if field_name is None:
             field_name = name
         if self.parent:
@@ -904,34 +949,17 @@ class NXReduce(QtCore.QObject):
     def polarization(self, value):
         self._polarization = value
 
-    def _parent_q_setting(self, name):
-        """Return ``nxscans/settings[name]`` from the parent, or ``None``.
-
-        Used by :attr:`qmin`, :attr:`qmax`, and
-        :meth:`ensure_transmission_q` to bypass the ``settings.ini``
-        layer that :meth:`get_parameter` walks. ``qmin``/``qmax`` come
-        only from the parent's per-scan settings group; blank means
-        auto-calculate.
-        """
-        if self.parent is None or self.parent.settings is None:
-            return None
-        if name in self.parent.settings:
-            return self.parent.settings[name].nxvalue
-        return None
-
     @property
     def qmin(self):
         """Minimum Q used in estimating the sample transmission.
 
         Returns the value stored in the parent's ``nxscans/settings``
-        group if explicitly set; otherwise falls back to the
-        geometry-derived value from :meth:`_auto_transmission_q`.
-        Returns ``None`` only when neither the parent settings nor
-        the detector geometry are available. The ``settings.ini``
-        layer is not consulted for this parameter.
+        group if present; otherwise falls back to the geometry-derived
+        value from :meth:`_auto_transmission_q`. ``settings.ini`` is
+        not consulted for this parameter.
         """
         if self._qmin is None:
-            param = self._parent_q_setting('qmin')
+            param = self.get_parameter('qmin')
             if param not in (None, ''):
                 self._qmin = float(param)
             else:
@@ -947,17 +975,15 @@ class NXReduce(QtCore.QObject):
     def qmax(self):
         """Maximum Q used in the PDF taper function.
 
-        This parameter is also used to define the maximum Q used in
-        estimating the sample transmission. Returns the value stored
-        in the parent's ``nxscans/settings`` group if explicitly set;
-        otherwise falls back to the geometry-derived value from
-        :meth:`_auto_transmission_q`. Returns ``None`` only when
-        neither the parent settings nor the detector geometry are
-        available. The ``settings.ini`` layer is not consulted for
-        this parameter.
+        Also used to bound the annulus when estimating the sample
+        transmission. Returns the value stored in the parent's
+        ``nxscans/settings`` group if present; otherwise falls back
+        to the geometry-derived value from
+        :meth:`_auto_transmission_q`. ``settings.ini`` is not
+        consulted for this parameter.
         """
         if self._qmax is None:
-            param = self._parent_q_setting('qmax')
+            param = self.get_parameter('qmax')
             if param not in (None, ''):
                 self._qmax = float(param)
             else:
@@ -1763,40 +1789,12 @@ class NXReduce(QtCore.QObject):
         return NXdata(transmission, frames, title='Sample Transmission')
 
     def _auto_transmission_q(self):
-        """Derive qmin and qmax from detector geometry.
+        """Derive qmin and qmax from this instance's detector geometry.
 
-        Inverts the q→pixel formula used by
-        :meth:`transmission_coordinates`, taking the inner and outer
-        radii as :data:`QMIN_PIXEL_FRACTION` and
-        :data:`QMAX_PIXEL_FRACTION` of the beam-to-far-edge distance in
-        the y-direction.
-
-        Returns
-        -------
-        tuple of (float, float) or (None, None)
-            ``(qmin, qmax)`` in Å⁻¹, or ``(None, None)`` if the detector
-            geometry needed for the computation is not available
-            (notably, the entry must have explicit
-            ``instrument/detector/beam_center_x`` and ``beam_center_y``;
-            NXRefine silently falls back to defaults of 256/256 if they
-            are absent, which would otherwise produce a wrong-position
-            mask).
+        Thin wrapper over :func:`auto_transmission_q`; see that
+        function for the calculation and the geometry it requires.
         """
-        refine = self.refine
-        entries = [e for e in (refine.scan_entry, refine.entry)
-                   if e is not None]
-        for path in ('instrument/detector/beam_center_x',
-                     'instrument/detector/beam_center_y'):
-            if not any(path in e for e in entries):
-                return None, None
-        if not (refine.yc and refine.wavelength and refine.distance
-                and refine.pixel_size and self.shape):
-            return None, None
-        max_dist_y = max(refine.yc, self.shape[1] - 1 - refine.yc)
-        pix_to_q = (2 * np.pi * refine.pixel_size
-                    / (refine.wavelength * refine.distance))
-        return (QMIN_PIXEL_FRACTION * max_dist_y * pix_to_q,
-                QMAX_PIXEL_FRACTION * max_dist_y * pix_to_q)
+        return auto_transmission_q(self.refine, self.shape)
 
     def ensure_transmission_q(self):
         """Populate and persist qmin/qmax.
@@ -1812,8 +1810,8 @@ class NXReduce(QtCore.QObject):
         The ``settings.ini`` layer is not consulted for these
         parameters.
         """
-        qmin_set = self._parent_q_setting('qmin')
-        qmax_set = self._parent_q_setting('qmax')
+        qmin_set = self.get_parameter('qmin')
+        qmax_set = self.get_parameter('qmax')
         if qmin_set in (None, '') or qmax_set in (None, ''):
             q_min, q_max = self._auto_transmission_q()
             if q_min is None:

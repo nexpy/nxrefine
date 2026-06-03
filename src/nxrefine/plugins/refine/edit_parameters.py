@@ -117,15 +117,12 @@ class ParametersDialog(NXDialog):
                     self.parameters['norm'].value = reduce.norm
                 self.parameters['sample_transmission'].value = str(
                     reduce.sample_transmission)
-                parent_settings = (reduce.parent.settings
-                                   if reduce.parent is not None else None)
-                if parent_settings is not None:
-                    if 'qmin' in parent_settings:
-                        self.parameters['qmin'].value = (
-                            parent_settings['qmin'].nxvalue)
-                    if 'qmax' in parent_settings:
-                        self.parameters['qmax'].value = (
-                            parent_settings['qmax'].nxvalue)
+                qmin = reduce.get_parameter('qmin')
+                if qmin not in (None, ''):
+                    self.parameters['qmin'].value = qmin
+                qmax = reduce.get_parameter('qmax')
+                if qmax not in (None, ''):
+                    self.parameters['qmax'].value = qmax
                 if reduce.radius:
                     self.parameters['radius'].value = reduce.radius
                 mp = reduce.mask_parameters
