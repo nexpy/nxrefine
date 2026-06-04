@@ -318,9 +318,14 @@ class NXReduce(QtCore.QObject):
         return self.root.__enter__()
 
     def __exit__(self, *args):
-        self.root.__exit__()
-        if self._mode == 'r':
-            self.root.lock()
+        try:
+            self.root.__exit__()
+        finally:
+            if self._mode == 'r':
+                try:
+                    self.root.lock()
+                except Exception:
+                    pass
 
     @property
     def task_directory(self):
