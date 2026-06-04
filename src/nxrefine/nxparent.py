@@ -355,11 +355,9 @@ class NXParent:
         for name, group in root.entries.items():
             if not isinstance(group, NXentry):
                 continue
-            if name == 'entry':
-                if ('nxreduce' in group
-                        and 'deprecated' not in group['nxreduce'].attrs):
-                    return True
-                continue
+            if (name == 'entry' and 'nxreduce' in group
+                    and 'deprecated' not in group['nxreduce'].attrs):
+                return True
             targets = [group] + [sub for sub in group.entries.values()
                                   if isinstance(sub, NXsubentry)]
             for target in targets:
@@ -381,11 +379,9 @@ class NXParent:
             for name, group in list(root.entries.items()):
                 if not isinstance(group, NXentry):
                     continue
-                if name == 'entry':
-                    if ('nxreduce' in group
-                            and 'deprecated' not in group['nxreduce'].attrs):
-                        group['nxreduce'].attrs['deprecated'] = deprecation_msg
-                    continue
+                if (name == 'entry' and 'nxreduce' in group
+                        and 'deprecated' not in group['nxreduce'].attrs):
+                    group['nxreduce'].attrs['deprecated'] = deprecation_msg
                 targets = [group] + [sub for sub in group.entries.values()
                                      if isinstance(sub, NXsubentry)]
                 for target in targets:
