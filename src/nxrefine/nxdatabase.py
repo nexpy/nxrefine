@@ -65,7 +65,6 @@ class File(Base):
     nxlink = Column(Integer, default=NOT_STARTED)
     nxmax = Column(Integer, default=NOT_STARTED)
     nxfind = Column(Integer, default=NOT_STARTED)
-    nxcopy = Column(Integer, default=NOT_STARTED)
     nxrefine = Column(Integer, default=NOT_STARTED)
     nxprepare = Column(Integer, default=NOT_STARTED)
     nxtransform = Column(Integer, default=NOT_STARTED)
@@ -118,10 +117,10 @@ File.tasks = relationship('Task', back_populates='file', order_by=Task.id)
 
 class NXDatabase:
 
-    task_names = ('nxload', 'nxlink', 'nxmax', 'nxfind', 'nxcopy', 'nxrefine',
+    task_names = ('nxload', 'nxlink', 'nxmax', 'nxfind', 'nxrefine',
                   'nxprepare', 'nxtransform', 'nxmasked_transform',
                   'nxcombine', 'nxmasked_combine', 'nxpdf', 'nxmasked_pdf')
-    subentry_task_names = ('nxcopy', 'nxmax', 'nxfind', 'nxrefine', 'nxprepare',
+    subentry_task_names = ('nxmax', 'nxfind', 'nxrefine', 'nxprepare',
                            'nxtransform', 'nxmasked_transform',
                            'nxcombine', 'nxmasked_combine',
                            'nxpdf', 'nxmasked_pdf')
@@ -289,8 +288,6 @@ class NXDatabase:
                         tasks['nxmax'] += 1
                     if self._task_in_group(nxentry, 'nxfind'):
                         tasks['nxfind'] += 1
-                    if self._task_in_group(nxentry, 'nxcopy'):
-                        tasks['nxcopy'] += 1
                     if self._task_in_group(nxentry, 'nxrefine'):
                         tasks['nxrefine'] += 1
                     if self._task_in_group(nxentry, 'nxprepare_mask'):

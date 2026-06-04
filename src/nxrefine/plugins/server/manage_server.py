@@ -169,7 +169,7 @@ class ServerDialog(NXDialog):
     def show_processes(self):
         self.reset_buttons()
         self.pushbutton['Server Processes'].setChecked(True)
-        patterns = ['nxcombine', 'nxcopy', 'nxfind', 'nxlink', 'nxmax',
+        patterns = ['nxcombine', 'nxfind', 'nxlink', 'nxmax',
                     'nxpdf', 'nxprepare', 'nxreduce', 'nxrefine', 'nxsum',
                     'nxtransform']
         if self.server.run_command:

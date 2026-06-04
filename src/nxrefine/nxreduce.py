@@ -194,7 +194,7 @@ class NXReduce(QtCore.QObject):
             polarization=None, qmin=None, qmax=None,
             radius=None, mask_parameters=None,
             Qh=None, Qk=None, Ql=None,
-            load=False, link=False, copy=False,
+            load=False, link=False,
             maxcount=False, find=False, refine=False, prepare=False,
             transform=False, combine=False, pdf=False,
             lattice=False, regular=False, mask=False, overwrite=False,
@@ -264,7 +264,6 @@ class NXReduce(QtCore.QObject):
 
         self.load = load
         self.link = link
-        self.copy = copy
         self.maxcount = maxcount
         self.find = find
         self.refine_lattice = refine
@@ -1390,81 +1389,6 @@ class NXReduce(QtCore.QObject):
         else:
             self.log("No raw data loaded")
 
-    def nxcopy(self):
-        """Copy parameters from parent."""
-        if not self.copy:
-            return
-        elif self.not_processed('nxcopy'):
-            self.record_start('nxcopy')
-            try:
-                if self.parent:
-                    self.copy_parameters()
-                    self.record('nxcopy', parent=self.parent_file)
-                    self.log("Entry parameters copied from parent")
-                    self.record_end('nxcopy')
-                else:
-                    self.log("No parent defined or accessible")
-                    self.record_fail('nxcopy')
-            except Exception as error:
-                self.log(str(error))
-                self.record_fail('nxcopy')
-                raise
-        else:
-            self.log("Parameters already copied")
-
-    def copy_parameters(self):
-        """Copy the experimental parameters from the parent.
-
-        Sample, settings, and transform live under '/entry' (or
-        '/entry/{subentry}') and are copied between the parent's and
-        wrapper's top-level entry. Instrument is per-entry and is copied
-        from the matching parent entry to the same entry on the wrapper.
-        For NXMultiReduce (entry_name='entry'), the per-entry block is
-        skipped — no per-entry instrument exists for the top-level entry.
-        """
-        if self._subentry:
-            with self:
-                if self._subentry not in self.root['entry']:
-                    self.root['entry'][self._subentry] = NXsubentry()
-        common_src = NXRefine(self.parent.root['entry'],
-                              subentry=self._subentry)
-        common_dst = NXRefine(self.root['entry'],
-                              subentry=self._subentry)
-        common_src.copy_parameters(common_dst, sample=True,
-                                   settings=True, transform=True)
-
-        if self.entry_name != 'entry':
-            instr_src = NXRefine(self.parent.root[self.entry_name],
-                                 subentry=self._subentry)
-            instr_src.copy_parameters(self.refine, instrument=True)
-
-        self._link_sample()
-        self.log(
-            f"Parameters for {self.name} copied from '{self.parent_file}'")
-
-    def _link_sample(self):
-        """Link per-entry sample to the canonical /entry/sample.
-
-        NXReduce operates on per-entry groups (/f1, /f2, /f3), and the
-        per-entry NXRefine reads sample fields via self.entry['sample'].
-        Each per-entry group therefore needs a 'sample' link pointing at
-        the canonical /entry/sample group. Skipped for NXMultiReduce,
-        where entry_name is already 'entry' and the sample group sits at
-        the destination directly.
-        """
-        if self.entry_name == 'entry':
-            return
-        with self:
-            if ('entry' not in self.root
-                    or 'sample' not in self.root['entry']):
-                return
-            entry = self.entry
-            if entry is None:
-                return
-            if 'sample' in entry:
-                del entry['sample']
-            entry.makelink(self.root['entry/sample'])
-
     def nxmax(self):
         """Find the maximum counts in the data."""
         if self.not_processed('nxmax') and self.maxcount:
@@ -2039,6 +1963,58 @@ class NXReduce(QtCore.QObject):
                             entry=self.scan_entry or self.entry)
         self.clear_parameters(['threshold', 'first', 'last'])
 
+    def warn_missing_normalization(self):
+        """Log a warning if nxtransform would normalise with all-ones.
+
+        Monitor data is written by ``nxlink`` (via the beamline
+        ``read_logs`` step) and the sample transmission is written by
+        ``nxmax``. If a workflow rerun skipped those tasks, the silent
+        all-ones fallback in ``get_normalization`` /
+        ``get_sample_transmission`` would degrade the transform without
+        any user-visible signal.  Surface that here, but continue the
+        run so unattended scripts still complete.
+        """
+        targets = [self.entry]
+        if self.parent_entry is not None:
+            targets.append(self.parent_entry)
+        monitor_missing = not any('monitor' in t for t in targets)
+        transmission_missing = not any(
+            'frame_sums/transmission' in t
+            or 'instrument/sample/transmission' in t
+            for t in targets)
+        if monitor_missing or transmission_missing:
+            self.log(
+                "Monitor and/or transmission not found; rerun nxlink and "
+                "nxmax before nxtransform for accurate normalization")
+
+    def pull_parent_orientation(self):
+        """Copy the parent's orientation matrix into the wrapper file.
+
+        The manual Refine Lattice dialog is the only path that writes
+        an orientation matrix back to the parent file, so a matrix at
+        ``parent/{entry_name}/instrument/detector/orientation_matrix``
+        is always the result of a manual refinement and should win over
+        any stale matrix in the wrapper before the automatic refinement
+        runs. Silent no-op if no parent is attached or the parent has
+        no matrix for this entry.
+        """
+        if not self.parent or self.entry_name == 'entry':
+            return
+        try:
+            parent_entry = self.parent.root[self.entry_name]
+            parent_path = 'instrument/detector/orientation_matrix'
+            if parent_path not in parent_entry:
+                return
+            parent_matrix = parent_entry[parent_path].nxvalue
+        except (NeXusError, KeyError):
+            return
+        with self:
+            target = self.entry['instrument/detector']
+            if 'orientation_matrix' in target:
+                del target['orientation_matrix']
+            target['orientation_matrix'] = parent_matrix
+            self.log("Orientation matrix copied from parent")
+
     def nxrefine(self):
         """
         Refines the sample orientation based on the peak search results.
@@ -2061,6 +2037,7 @@ class NXReduce(QtCore.QObject):
                 return
             self.record_start('nxrefine')
             try:
+                self.pull_parent_orientation()
                 self.log("Refining orientation")
                 if self.lattice or self.is_first_entry():
                     lattice = True
@@ -2242,6 +2219,7 @@ class NXReduce(QtCore.QObject):
                 self.log(
                     'Cannot transform until the orientation is complete')
                 return
+            self.warn_missing_normalization()
             self.record_start(task)
             try:
                 cctw_command, settings_file = self.prepare_transform(mask=mask)
@@ -2476,14 +2454,12 @@ class NXReduce(QtCore.QObject):
             self.nxload()
         if self.link:
             self.nxlink()
-        if self.copy:
-            self.nxcopy()
         if self.maxcount:
             self.nxmax()
         if self.find:
             self.nxfind()
         if self.refine_lattice:
-            if self.complete('nxcopy') and self.complete('nxfind'):
+            if self.complete('nxfind'):
                 self.nxrefine()
             else:
                 self.log("Cannot refine orientation matrix")
@@ -2533,9 +2509,6 @@ class NXReduce(QtCore.QObject):
         if self.link:
             tasks.append('link')
             self.queue_task('nxlink')
-        if self.copy:
-            tasks.append('copy')
-            self.queue_task('nxcopy')
         if self.maxcount:
             tasks.append('max')
             self.queue_task('nxmax')
