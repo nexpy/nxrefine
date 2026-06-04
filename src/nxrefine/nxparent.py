@@ -5,11 +5,14 @@
 #
 # The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
+import datetime
+import shutil
 from pathlib import Path as Path
 
-from nexusformat.nexus import (NeXusError, NXdata, NXentry, NXfield, NXnote,
-                               NXparameters, NXprocess, NXroot, NXsample,
-                               NXsubentry, nxconsolidate, nxopen)
+from nexusformat.nexus import (NeXusError, NXcollection, NXdata, NXentry,
+                               NXfield, NXlink, NXnote, NXparameters,
+                               NXprocess, NXroot, NXsample, NXsubentry,
+                               nxconsolidate, nxopen)
 from nexusformat.nexus.tree import natural_sort, string_dtype
 
 
@@ -322,6 +325,102 @@ class NXParent:
             root[f'{self.entry_path}/nxscans/parent'] = self.filename.name
             root[f'{self.entry_path}/nxscans'].set_date()
 
+    def backup_scan(self, scan):
+        """Copy scan file to {base_dir}/backup/ before restructuring."""
+        src = self.scan_file(scan)
+        backup_dir = src.parent / 'backup'
+        backup_dir.mkdir(exist_ok=True)
+        ts = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        dst = backup_dir / f'{src.stem}_{ts}.nxs'
+        shutil.copy2(src, dst)
+        return dst
+
+    def clean_backups(self, days=30):
+        """Delete backup files in {base_dir}/backup/ older than `days` days."""
+        backup_dir = self.filename.parent / 'backup'
+        if not backup_dir.exists():
+            return
+        cutoff = datetime.datetime.now() - datetime.timedelta(days=days)
+        for path in backup_dir.glob('*.nxs'):
+            if datetime.datetime.fromtimestamp(path.stat().st_mtime) < cutoff:
+                path.unlink()
+
+    def _needs_restructuring(self, root):
+        """Return True if the scan file has legacy structure to migrate."""
+        for name, group in root.entries.items():
+            if not isinstance(group, NXentry):
+                continue
+            if name == 'entry':
+                if ('nxreduce' in group
+                        and 'deprecated' not in group['nxreduce'].attrs):
+                    return True
+                continue
+            targets = [group] + [sub for sub in group.entries.values()
+                                  if isinstance(sub, NXsubentry)]
+            for target in targets:
+                if 'nxworkflow' in target:
+                    continue
+                if any(isinstance(item, NXprocess) and 'program' in item
+                       for item in target.entries.values()):
+                    return True
+        return False
+
+    def restructure_scan(self, scan):
+        """Migrate legacy NXprocess groups into nxworkflow; deprecate /entry/nxreduce."""
+        deprecation_msg = (
+            "Reduction settings are now read from and written to "
+            "the parent file's /entry/nxscans/settings; this group "
+            "is retained for backward compatibility but is no "
+            "longer consulted.")
+        with nxopen(self.scan_file(scan), 'rw') as root:
+            for name, group in list(root.entries.items()):
+                if not isinstance(group, NXentry):
+                    continue
+                if name == 'entry':
+                    if ('nxreduce' in group
+                            and 'deprecated' not in group['nxreduce'].attrs):
+                        group['nxreduce'].attrs['deprecated'] = deprecation_msg
+                    continue
+                targets = [group] + [sub for sub in group.entries.values()
+                                     if isinstance(sub, NXsubentry)]
+                for target in targets:
+                    if 'nxworkflow' in target:
+                        continue
+                    legacy = [n for n, item in target.entries.items()
+                              if isinstance(item, NXprocess) and 'program' in item]
+                    if legacy:
+                        target['nxworkflow'] = NXcollection()
+                        for n in legacy:
+                            target.move(n, target['nxworkflow'])
+
+    def copy_parameters_to_scan(self, scan):
+        """Copy sample, settings, transform, and instrument parameters from parent."""
+        if self.settings is None and self.sample_info is None:
+            return
+        from .nxrefine import NXRefine
+        with nxopen(self.scan_file(scan), 'rw') as dst_root:
+            if 'entry' not in dst_root:
+                return
+            common_src = NXRefine(self.root['entry'], subentry=self._subentry)
+            common_dst = NXRefine(dst_root['entry'], subentry=self._subentry)
+            common_src.copy_parameters(common_dst, sample=True,
+                                       settings=True, transform=True)
+            for entry_name in list(self.root.entries):
+                if entry_name == 'entry':
+                    continue
+                src_group = self.root[entry_name]
+                if not isinstance(src_group, NXentry):
+                    continue
+                if entry_name not in dst_root:
+                    continue
+                instr_src = NXRefine(src_group, subentry=self._subentry)
+                instr_dst = NXRefine(dst_root[entry_name], subentry=self._subentry)
+                instr_src.copy_parameters(instr_dst, instrument=True)
+                if ('entry' in dst_root and 'sample' in dst_root['entry']
+                        and 'sample' not in dst_root[entry_name]):
+                    dst_root[entry_name]['sample'] = NXlink(
+                        '/entry/sample', file=str(self.scan_file(scan)))
+
     def add_scan(self, scan, selected=True):
 
         scan_file = self.scan_file(scan)
@@ -336,6 +435,13 @@ class NXParent:
                 scan_info['selected'].resize((current_count + 1,))
                 scan_info['selected'][current_count] = selected
         self.add_parent(scan)
+        with nxopen(scan_file) as root:
+            needs = self._needs_restructuring(root)
+        if needs:
+            self.clean_backups()
+            self.backup_scan(scan)
+            self.restructure_scan(scan)
+        self.copy_parameters_to_scan(scan)
 
     def add_scans(self, selected=True):
         directory = self.filename.parent

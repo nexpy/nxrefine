@@ -58,6 +58,7 @@ Changelog = "https://github.com/nexpy/nxrefine/releases"
 
 [project.scripts]
 nxchoose = "nxrefine.scripts.nxchoose:main"
+nxclean = "nxrefine.scripts.nxclean:main"
 nxcombine = "nxrefine.scripts.nxcombine:main"
 nxcopy = "nxrefine.scripts.nxcopy:main"
 nxdatabase = "nxrefine.scripts.nxdatabase:main"
