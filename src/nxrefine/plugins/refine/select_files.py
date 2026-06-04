@@ -35,7 +35,7 @@ class ScanDataWorker(QtCore.QObject):
         super().__init__()
         self._parent = nxparent
         _active_workers.add(self)
-        self.finished.connect(nxparent.reload_parent)
+        self.finished.connect(nxparent.reload)
         self.finished.connect(lambda: _active_workers.discard(self))
 
     def start(self):
