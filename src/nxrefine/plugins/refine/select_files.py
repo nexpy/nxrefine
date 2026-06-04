@@ -35,7 +35,7 @@ class ScanDataWorker(QtCore.QObject):
         super().__init__()
         self._parent = nxparent
         _active_workers.add(self)
-        self.finished.connect(nxparent.reload)
+        self.finished.connect(nxparent.reload_parent)
         self.finished.connect(lambda: _active_workers.discard(self))
 
     def start(self):
@@ -138,6 +138,7 @@ class FilesDialog(NXDialog):
                             self.parent.add_scan(other_file, selected=True)
                     else:
                         self.parent.add_scan(other_file, selected=True)
+            self.parent.reload()
             super().accept()
             ScanDataWorker(self.parent).start()
         except Exception as error:

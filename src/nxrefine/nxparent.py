@@ -531,11 +531,14 @@ class NXParent:
         then yields only the paths that correspond to NXdata groups.
         Groups named in _skip and NXentry/NXsubentry children are excluded
         from recursion so that raw data and metadata are not consolidated.
+        The scan file is closed before any path is yielded so its lock is
+        not held across subsequent consolidation calls.
         """
         if not self.selected_scans:
             return
         _skip = frozenset(
             {'data', 'nxscans', 'nxworkflow', 'nxreduce', 'instrument', 'sample'})
+        paths = []
         try:
             with nxopen(self.selected_scans[0]) as scan_root:
                 target = scan_root[self.entry_path]
@@ -544,14 +547,15 @@ class NXParent:
                         continue
                     path1 = f'{self.entry_path}/{name}'
                     if isinstance(child, NXdata):
-                        yield path1
+                        paths.append(path1)
                     elif isinstance(child, NXgroup) and not isinstance(
                             child, (NXentry, NXsubentry)):
                         for name2, grandchild in child.entries.items():
                             if isinstance(grandchild, NXdata):
-                                yield f'{path1}/{name2}'
+                                paths.append(f'{path1}/{name2}')
         except (NeXusError, OSError, KeyError):
-            pass
+            return
+        yield from paths
 
     def update_scan_data(self):
         """Consolidate scan data for all discovered NXdata groups."""
@@ -569,6 +573,16 @@ class NXParent:
             for node in [mainwindow.tree.node_from_file(f) for f in filenames]:
                 if node:
                     mainwindow.tree[node].reload()
+        except Exception:
+            pass
+
+    def reload_parent(self):
+        try:
+            from nexpy.gui.utils import get_mainwindow
+            mainwindow = get_mainwindow()
+            node = mainwindow.tree.node_from_file(self.filename)
+            if node:
+                mainwindow.tree[node].reload()
         except Exception:
             pass
 
