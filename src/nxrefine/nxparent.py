@@ -10,7 +10,7 @@ import shutil
 from pathlib import Path as Path
 
 from nexusformat.nexus import (NeXusError, NXcollection, NXdata, NXentry,
-                               NXfield, NXlink, NXnote, NXparameters,
+                               NXfield, NXgroup, NXlink, NXnote, NXparameters,
                                NXprocess, NXroot, NXsample, NXsubentry,
                                nxconsolidate, nxopen)
 from nexusformat.nexus.tree import natural_sort, string_dtype
@@ -304,7 +304,8 @@ class NXParent:
         if self.scan_file(scan).is_file():
             with nxopen(self.scan_file(scan), 'r') as root:
                 if f'{self.entry_path}/nxscans/parent' in root:
-                    parent = Path(root[f'{self.entry_path}/nxscans/parent'].nxvalue)
+                    parent = Path(
+                        root[f'{self.entry_path}/nxscans/parent'].nxvalue)
                 return self.filename.parent / parent == self.filename
         else:
             return False
@@ -366,7 +367,7 @@ class NXParent:
         return False
 
     def restructure_scan(self, scan):
-        """Migrate legacy NXprocess groups into nxworkflow; deprecate /entry/nxreduce."""
+        """Migrate legacy NXprocess groups into nxworkflow."""
         deprecation_msg = (
             "Reduction settings are now read from and written to "
             "the parent file's /entry/nxscans/settings; this group "
@@ -387,14 +388,15 @@ class NXParent:
                     if 'nxworkflow' in target:
                         continue
                     legacy = [n for n, item in target.entries.items()
-                              if isinstance(item, NXprocess) and 'program' in item]
+                              if isinstance(item, NXprocess) and
+                              'program' in item]
                     if legacy:
                         target['nxworkflow'] = NXcollection()
                         for n in legacy:
                             target.move(n, target['nxworkflow'])
 
     def copy_parameters_to_scan(self, scan):
-        """Copy sample, settings, transform, and instrument parameters from parent."""
+        """Copy parameters from parent."""
         if self.settings is None and self.sample_info is None:
             return
         from .nxrefine import NXRefine
@@ -414,7 +416,8 @@ class NXParent:
                 if entry_name not in dst_root:
                     continue
                 instr_src = NXRefine(src_group, subentry=self._subentry)
-                instr_dst = NXRefine(dst_root[entry_name], subentry=self._subentry)
+                instr_dst = NXRefine(dst_root[entry_name],
+                                     subentry=self._subentry)
                 instr_src.copy_parameters(instr_dst, instrument=True)
                 if ('entry' in dst_root and 'sample' in dst_root['entry']
                         and 'sample' not in dst_root[entry_name]):
@@ -499,36 +502,60 @@ class NXParent:
         Mirrors the NXclass of any intermediate group from the first
         valid scan file so paths like ``entry/frame_sums/summed_data``
         work even when the parent does not yet contain ``frame_sums``.
+        Opens a fresh file handle each call so it is safe to call from
+        a background thread.
         """
         scan_files = self.valid_scans(data_path)
         if not scan_files:
             return
         parts = data_path.strip('/').split('/')
-        with self.root:
+        with nxopen(self.filename, 'rw') as root:
             if len(parts) > 1:
                 with nxopen(scan_files[0]) as src:
-                    cursor = self.root
+                    cursor = root
                     src_cursor = src
                     for name in parts[:-1]:
                         src_cursor = src_cursor[name]
                         if name not in cursor:
                             cursor[name] = type(src_cursor)()
                         cursor = cursor[name]
-            if data_path in self.root:
-                del self.root[data_path]
-            self.root[data_path] = nxconsolidate(scan_files, data_path,
-                                                 scan_path=self.scan_path)
+            if data_path in root:
+                del root[data_path]
+            root[data_path] = nxconsolidate(scan_files, data_path,
+                                            scan_path=self.scan_path)
 
-    @property
-    def scan_groups(self):
-        return ['transform', 'masked_transform',
-                'symm_transform', 'symm_masked_transform',
-                'pdf', 'masked_pdf',
-                'total_pdf', 'total_masked_pdf']
+    def _data_paths(self):
+        """Yield NXdata paths at depth 1 and 2 under entry_path in scan files.
+
+        Opens the first selected scan file to discover what groups exist,
+        then yields only the paths that correspond to NXdata groups.
+        Groups named in _skip and NXentry/NXsubentry children are excluded
+        from recursion so that raw data and metadata are not consolidated.
+        """
+        if not self.selected_scans:
+            return
+        _skip = frozenset(
+            {'data', 'nxscans', 'nxworkflow', 'nxreduce', 'instrument', 'sample'})
+        try:
+            with nxopen(self.selected_scans[0]) as scan_root:
+                target = scan_root[self.entry_path]
+                for name, child in target.entries.items():
+                    if name in _skip:
+                        continue
+                    path1 = f'{self.entry_path}/{name}'
+                    if isinstance(child, NXdata):
+                        yield path1
+                    elif isinstance(child, NXgroup) and not isinstance(
+                            child, (NXentry, NXsubentry)):
+                        for name2, grandchild in child.entries.items():
+                            if isinstance(grandchild, NXdata):
+                                yield f'{path1}/{name2}'
+        except (NeXusError, OSError, KeyError):
+            pass
 
     def update_scan_data(self):
-        for group in self.scan_groups:
-            data_path = f'{self.entry_path}/{group}'
+        """Consolidate scan data for all discovered NXdata groups."""
+        for data_path in self._data_paths():
             try:
                 self.create_scan_data(data_path)
             except NeXusError:

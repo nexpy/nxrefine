@@ -6,12 +6,44 @@
 # The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
+import threading
+
 from nexpy.gui.dialogs import GridParameters, NXDialog
 from nexpy.gui.utils import confirm_action, report_error
 from nexpy.gui.widgets import (NXLabel, NXLineEdit, NXPushButton, NXScrollArea,
                                NXWidget)
+from qtpy import QtCore
 
 from nxrefine.nxparent import NXParent
+
+# Keeps ScanDataWorker instances alive until their background thread finishes.
+_active_workers = set()
+
+
+class ScanDataWorker(QtCore.QObject):
+    """Run NXParent.update_scan_data() on a daemon thread.
+
+    Lives independently of the FilesDialog so the dialog can close
+    immediately while the (potentially slow) consolidation continues.
+    A Qt signal is emitted on completion so that reload() is called on
+    the main thread via the event loop.
+    """
+
+    finished = QtCore.Signal()
+
+    def __init__(self, nxparent):
+        super().__init__()
+        self._parent = nxparent
+        _active_workers.add(self)
+        self.finished.connect(nxparent.reload)
+        self.finished.connect(lambda: _active_workers.discard(self))
+
+    def start(self):
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def _run(self):
+        self._parent.update_scan_data()
+        self.finished.emit()
 
 
 class FilesDialog(NXDialog):
@@ -106,9 +138,8 @@ class FilesDialog(NXDialog):
                             self.parent.add_scan(other_file, selected=True)
                     else:
                         self.parent.add_scan(other_file, selected=True)
-            self.parent.update_scan_data()
-            self.parent.reload()
             super().accept()
+            ScanDataWorker(self.parent).start()
         except Exception as error:
             report_error("Selecting Scan Files", error)
             self.parent.reload()
