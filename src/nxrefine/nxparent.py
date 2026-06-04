@@ -200,6 +200,10 @@ class NXParent:
         if self.scans_defined:
             scans = self.scan_info['scans'].nxvalue
             selected = self.scan_info['selected'].nxvalue
+            if isinstance(scans, str):
+                scans = [scans]
+            if not hasattr(selected, '__iter__'):
+                selected = [selected]
             return sorted(zip(scans, selected),
                           key=lambda x: natural_sort(x[0]))
         return []
