@@ -313,10 +313,10 @@ class WorkflowDialog(NXDialog):
     @property
     def tasks(self):
         if self.parent.subentry:
-            return ['copy', 'max', 'find', 'refine', 'prepare',
+            return ['max', 'find', 'refine', 'prepare',
                     'transform', 'masked_transform', 'combine',
                     'masked_combine', 'pdf', 'masked_pdf']
-        return ['load', 'link', 'copy', 'max', 'find', 'refine', 'prepare',
+        return ['load', 'link', 'max', 'find', 'refine', 'prepare',
                 'transform', 'masked_transform', 'combine', 'masked_combine',
                 'pdf', 'masked_pdf']
 
@@ -429,8 +429,6 @@ class WorkflowDialog(NXDialog):
                     if not self.parent.subentry and self.selected(scan,
                                                                   'link'):
                         reduce.link = True
-                    if self.selected(scan, 'copy'):
-                        reduce.copy = True
                     if self.selected(scan, 'max'):
                         reduce.maxcount = True
                     if self.selected(scan, 'find'):
@@ -622,7 +620,7 @@ class WorkflowDialog(NXDialog):
             self.output_box.setPlainText('No Entries')
 
     def procview(self):
-        patterns = ['nxcombine', 'nxcopy', 'nxfind', 'nxlink', 'nxload',
+        patterns = ['nxcombine', 'nxfind', 'nxlink', 'nxload',
                     'nxmax', 'nxpdf', 'nxprepare', 'nxreduce', 'nxrefine',
                     'nxsum', 'nxtransform']
         if self.server.run_command.startswith('pdsh'):

@@ -8,7 +8,7 @@
 
 from nexpy.gui.dialogs import NXDialog
 from nexpy.gui.utils import display_message, report_error
-from nexusformat.nexus import NeXusError, NXdata, nxopen
+from nexusformat.nexus import NeXusError, NXdata, NXentry, nxopen
 from nxrefine.nxparent import NXParent
 
 
@@ -40,7 +40,8 @@ class CopyDialog(NXDialog):
             self.insert_layout(1, self.checkboxes(
                 ("settings", "Settings", True),
                 ("sample", "Copy Sample", True),
-                ("transform", "Transform", True)))
+                ("transform", "Transform", True),
+                ("instrument", "Instrument", True)))
 
     @property
     def copy_settings(self):
@@ -53,6 +54,10 @@ class CopyDialog(NXDialog):
     @property
     def copy_transform(self):
         return self.checkbox['transform'].isChecked()
+
+    @property
+    def copy_instrument(self):
+        return self.checkbox['instrument'].isChecked()
 
     def copy_file(self):
         entry = self.parent.entry.nxname
@@ -85,6 +90,20 @@ class CopyDialog(NXDialog):
             if self.parent.transform:
                 del self.parent.scan_info['transform']
             self.parent.scan_info['transform'] = NXdata(axes=(L, K, H))
+        if self.copy_instrument:
+            for name in self.nexus_root.entries:
+                if name == 'entry':
+                    continue
+                src = self.nexus_root[name]
+                if (not isinstance(src, NXentry)
+                        or 'instrument' not in src):
+                    continue
+                if name not in self.parent.root:
+                    self.parent.root[name] = NXentry()
+                dst = self.parent.root[name]
+                if 'instrument' in dst:
+                    del dst['instrument']
+                dst['instrument'] = src['instrument']
 
     def accept(self):
         try:
