@@ -98,7 +98,9 @@ class FilesDialog(NXDialog):
             for i, f in enumerate(self.other_files):
                 if self.other_files[f].vary:
                     other_file = self.other_files[f].name
-                    if self.parent.has_parent(other_file):
+                    if self.parent.is_parent(other_file):
+                        self.parent.add_scan(other_file, selected=True)
+                    elif self.parent.has_parent(other_file):
                         if confirm_action('Overwrite Parent?',
                             f'File {other_file} already has a parent.'):
                             self.parent.add_scan(other_file, selected=True)
