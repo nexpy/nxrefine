@@ -271,7 +271,7 @@ class CalibrateDialog(NXDialog):
 
     @property
     def calibrant(self):
-        return ALL_CALIBRANTS[self.parameters['calibrant'].value]
+        return ALL_CALIBRANTS(self.parameters['calibrant'].value)
 
     @property
     def point_array(self):
