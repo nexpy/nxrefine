@@ -39,7 +39,7 @@ from .nxutils import (find_maximum_chunk, init_julia, load_julia,
                        mask_volume, peak_search)
 
 QMIN_PIXEL_FRACTION = 0.3
-QMAX_PIXEL_FRACTION = 0.9
+QMAX_PIXEL_FRACTION = 0.95
 
 
 def auto_transmission_q(refine, shape):

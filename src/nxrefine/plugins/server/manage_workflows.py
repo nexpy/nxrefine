@@ -222,8 +222,9 @@ class WorkflowDialog(NXDialog):
         self.grid.addWidget(NXLabel('All'), row, 0, QtCore.Qt.AlignCenter)
         all_boxes = {}
         for task in self.tasks:
-            all_boxes[task] = self.new_checkbox(
-                lambda t=task: self.select_status(t))
+            checkbox = self.new_checkbox()
+            checkbox.clicked.connect(lambda _, t=task: self.select_status(t))
+            all_boxes[task] = checkbox
         all_boxes['overwrite'] = self.new_checkbox(self.select_all)
         all_boxes['sync'] = self.new_checkbox(self.select_all)
         for col, col_name in enumerate(all_cols):
@@ -269,14 +270,17 @@ class WorkflowDialog(NXDialog):
             checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
             checkbox.setEnabled(True)
             checkbox.setStyleSheet("color: green")
+            checkbox.setProperty('_saved_state', "color: green")
         elif file_status == self.db.QUEUED:
             checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
             checkbox.setEnabled(True)
             checkbox.setStyleSheet("color: blue")
+            checkbox.setProperty('_saved_state', "color: blue")
         elif file_status == self.db.FAILED:
             checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
             checkbox.setEnabled(True)
             checkbox.setStyleSheet("color: red")
+            checkbox.setProperty('_saved_state', "color: red")
 
     def sync_db(self):
         for scan in self.scans:
@@ -288,9 +292,25 @@ class WorkflowDialog(NXDialog):
         checkbox = QtWidgets.QCheckBox()
         checkbox.setCheckState(QtCore.Qt.Unchecked)
         checkbox.setEnabled(True)
+        checkbox.clicked.connect(lambda _: self._normalize_checkbox(checkbox))
         if slot:
             checkbox.stateChanged.connect(slot)
         return checkbox
+
+    def _normalize_checkbox(self, checkbox):
+        state = checkbox.checkState()
+        if state == QtCore.Qt.Unchecked:
+            saved = checkbox.property('_saved_state')
+            if saved is not None:
+                checkbox.blockSignals(True)
+                checkbox.setCheckState(QtCore.Qt.PartiallyChecked)
+                checkbox.setStyleSheet(saved)
+                checkbox.blockSignals(False)
+        else:
+            checkbox.blockSignals(True)
+            checkbox.setCheckState(QtCore.Qt.Checked)
+            checkbox.setStyleSheet("")
+            checkbox.blockSignals(False)
 
     def update_checkbox(self, checkbox, idx, status):
         if status and idx == 0:
