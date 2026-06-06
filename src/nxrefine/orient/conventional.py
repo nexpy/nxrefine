@@ -50,6 +50,9 @@ class ConventionalCell:
                 adjusted_UB = cls.standardize_tetragonal(adjusted_UB)
             elif cell_type == 'HEXAGONAL' or cell_type == 'RHOMBOHEDRAL':
                 adjusted_UB = cls.standardize_hexagonal(adjusted_UB)
+
+        if cell_type == 'MONOCLINIC':
+            adjusted_UB = cls.standardize_monoclinic(adjusted_UB)
         
         return cls(form_num, 
                    scalars_error, 
@@ -112,4 +115,43 @@ class ConventionalCell:
 
         return new_UB
 
-        
+    @staticmethod
+    def standardize_monoclinic(UB:np.ndarray):
+        """Permute a, b, c so that b is the unique axis.
+
+        Monoclinic cells follow the b-unique convention used elsewhere in
+        nxrefine: alpha = gamma = 90 deg, beta != 90 deg. After permutation
+        the obtuse setting (beta >= 90 deg) is preferred. Permutations are
+        cyclic so the cell handedness is preserved.
+        """
+        success, a, b, c = get_abc(UB)
+
+        if not success:
+            raise ValueError("standardize_monoclinic(): not valid UB")
+
+        alpha = np.degrees(angle_cal(b, c))
+        beta = np.degrees(angle_cal(c, a))
+        gamma = np.degrees(angle_cal(a, b))
+        # The unique axis is the one whose angles with the other two are 90 deg
+        # (i.e. it is the axis NOT involved in the non-90 angle). For b-unique
+        # the non-90 angle is beta (the angle between a and c).
+        dev = [abs(alpha - 90), abs(beta - 90), abs(gamma - 90)]
+        unique_idx = int(np.argmax(dev))
+
+        if unique_idx == 0:
+            # alpha is non-90 -> a is the unique axis; cyclic shift (c, a, b)
+            a, b, c = c, a, b
+        elif unique_idx == 2:
+            # gamma is non-90 -> c is the unique axis; cyclic shift (b, c, a)
+            a, b, c = b, c, a
+        # unique_idx == 1: already b-unique
+
+        # Prefer the obtuse setting (beta >= 90). Negating a and b together
+        # flips beta to 180 - beta while preserving right-handedness.
+        beta = np.degrees(angle_cal(c, a))
+        if beta < 90:
+            a = -a
+            b = -b
+
+        _, new_UB = get_UB(a, b, c)
+        return new_UB
