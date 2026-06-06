@@ -350,6 +350,19 @@ class NXParent:
             if datetime.datetime.fromtimestamp(path.stat().st_mtime) < cutoff:
                 path.unlink()
 
+    def restore_scan(self, scan):
+        """Restore the most recent backup of a scan file."""
+        dst = self.scan_file(scan)
+        backup_dir = dst.parent / 'backup'
+        if not backup_dir.exists():
+            raise FileNotFoundError(
+                f"No backup directory found at '{backup_dir}'")
+        backups = sorted(backup_dir.glob(f'{dst.stem}_*.nxs'))
+        if not backups:
+            raise FileNotFoundError(f"No backups found for '{dst.stem}'")
+        shutil.copy2(backups[-1], dst)
+        return backups[-1]
+
     def _needs_restructuring(self, root):
         """Return True if the scan file has legacy structure to migrate."""
         for name, group in root.entries.items():
