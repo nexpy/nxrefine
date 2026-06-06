@@ -154,6 +154,7 @@ class NXBeamLine:
         self.raw_path = self.settings['instrument']['raw_path']
         self.raw_directory = self.raw_home / self.experiment / self.raw_path
         self.probe = 'xrays'
+        self.logs = None
 
     def __repr__(self):
         return f"NXBeamLine('{self.name}')"
@@ -176,19 +177,19 @@ class NXBeamLine:
         """Return an NXcollection of raw beamline log values, or None."""
         return None
 
-    def get_source(self, logs=None):
+    def get_source(self):
         """Return an NXsource describing this beamline, or None."""
         return None
 
-    def get_attenuator(self, logs=None):
+    def get_attenuator(self):
         """Return an NXattenuator, or None."""
         return None
 
-    def get_filter_transmission(self, logs=None):
+    def get_filter_transmission(self):
         """Return an NXdata holding per-frame filter transmission, or None."""
         return None
 
-    def get_monitor(self, logs=None):
+    def get_monitor(self):
         """Return an NXmonitor for the channel named by ``self.monitor``,
         or None.
 
@@ -198,7 +199,7 @@ class NXBeamLine:
         """
         return None
 
-    def get_goniometer(self, logs=None):
+    def get_goniometer(self):
         """Return an NXgoniometer holding any goniometer angles
         (phi/chi/theta/omega) that this beamline can supply from its
         raw logs, or None.
@@ -217,7 +218,7 @@ class NXBeamLine:
         """
         return None
 
-    def get_sample(self, logs=None):
+    def get_sample(self):
         """Return an NXsample with sample fields (name/label/temperature/...)
         that this beamline can supply from its raw logs, or None.
 
@@ -237,7 +238,7 @@ class NXBeamLine:
         """
         return None
 
-    def get_start_time(self, logs=None):
+    def get_start_time(self):
         """Return an ISO-format start time, or None."""
         return None
 
@@ -257,25 +258,25 @@ class NXBeamLine:
             for stale in ('monitor1', 'monitor2'):
                 if stale in self.entry:
                     del self.entry[stale]
-            logs = self.get_logs()
+            self.logs = self.get_logs()
             for path, value in (
-                    ('instrument/logs',       logs),
-                    ('instrument/source',     self.get_source(logs)),
-                    ('instrument/attenuator', self.get_attenuator(logs)),
-                    ('monitor',               self.get_monitor(logs)),
+                    ('instrument/logs',       self.logs),
+                    ('instrument/source',     self.get_source()),
+                    ('instrument/attenuator', self.get_attenuator()),
+                    ('monitor',               self.get_monitor()),
             ):
                 if value is not None:
                     if path in self.entry:
                         del self.entry[path]
                     self.entry[path] = value
-            ft = self.get_filter_transmission(logs)
+            ft = self.get_filter_transmission()
             if ft is not None:
                 if 'filter' not in self.entry['instrument']:
                     self.entry['instrument/filter'] = NXfilter()
                 if 'transmission' in self.entry['instrument/filter']:
                     del self.entry['instrument/filter/transmission']
                 self.entry['instrument/filter/transmission'] = ft
-            goniometer = self.get_goniometer(logs)
+            goniometer = self.get_goniometer()
             if goniometer is not None:
                 if 'goniometer' not in self.entry['instrument']:
                     self.entry['instrument/goniometer'] = NXgoniometer()
@@ -284,7 +285,7 @@ class NXBeamLine:
                     if name in target:
                         del target[name]
                     target[name] = goniometer[name]
-            sample = self.get_sample(logs)
+            sample = self.get_sample()
             if sample is not None:
                 root_entry = self.root['entry']
                 if 'sample' not in root_entry:
@@ -297,7 +298,7 @@ class NXBeamLine:
                 if (self.entry is not root_entry
                         and 'sample' not in self.entry):
                     self.entry.makelink(root_entry['sample'])
-            start = self.get_start_time(logs)
+            start = self.get_start_time()
             if start is not None:
                 self.entry['start_time'] = start
                 if 'data/frame_time' in self.entry:
@@ -418,44 +419,45 @@ class Sector6Beamline(NXBeamLine):
             logs[key] = [array[i] for array in meta_input]
         return logs
 
-    def get_source(self, logs=None):
+    def get_source(self):
         source = NXsource()
         source['name'] = self.source_name
         source['type'] = self.source_type
         source['probe'] = 'x-ray'
-        if logs is not None:
-            if 'Storage_Ring_Current' in logs:
-                source['current'] = logs['Storage_Ring_Current']
-            if 'SCU_Current' in logs:
-                source['undulator_current'] = logs['SCU_Current']
-            if 'UndulatorA_gap' in logs:
-                source['undulator_gap'] = logs['UndulatorA_gap']
+        if self.logs is not None:
+            if 'Storage_Ring_Current' in self.logs:
+                source['current'] = self.logs['Storage_Ring_Current']
+            if 'SCU_Current' in self.logs:
+                source['undulator_current'] = self.logs['SCU_Current']
+            if 'UndulatorA_gap' in self.logs:
+                source['undulator_gap'] = self.logs['UndulatorA_gap']
         return source
 
-    def get_attenuator(self, logs=None):
-        if logs is None or 'Calculated_filter_transmission' not in logs:
+    def get_attenuator(self):
+        if (self.logs is None
+                or 'Calculated_filter_transmission' not in self.logs):
             return None
         attenuator = NXattenuator()
         attenuator['attenuator_transmission'] = (
-            logs['Calculated_filter_transmission'])
+            self.logs['Calculated_filter_transmission'])
         return attenuator
 
-    def get_filter_transmission(self, logs=None):
-        if logs is None or 'Shutter' not in logs:
+    def get_filter_transmission(self):
+        if self.logs is None or 'Shutter' not in self.logs:
             return None
         frames = self.entry['data/frame_number'].size
-        transmission = NXfield(1.0 - logs['Shutter'][:frames],
+        transmission = NXfield(1.0 - self.logs['Shutter'][:frames],
                                name='transmission')
         frame_field = NXfield(np.arange(frames), name='frame_number')
         return NXdata(transmission, frame_field)
 
-    def get_monitor(self, logs=None):
-        if (logs is None or self.monitor is None
-                or self.monitor not in logs):
+    def get_monitor(self):
+        if (self.logs is None or self.monitor is None
+                or self.monitor not in self.logs):
             return None
         frame_number = self.entry['data/frame_number']
         frames = frame_number.size
-        data = logs[self.monitor][:frames]
+        data = self.logs[self.monitor][:frames]
         # Remove outliers at beginning and end of frames
         data[0] = data[1]
         data[-1] = data[-2]
@@ -464,7 +466,7 @@ class Sector6Beamline(NXBeamLine):
             monitor['frame_time'] = self.entry['data/frame_time']
         return monitor
 
-    def get_start_time(self, logs=None):
+    def get_start_time(self):
         time_path = 'entry/instrument/NDAttributes/NDArrayTimeStamp'
         if time_path not in self.root:
             return None
