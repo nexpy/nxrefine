@@ -30,8 +30,6 @@ def main():
                         help='find maximum counts')
     parser.add_argument('-f', '--find', action='store_true',
                         help='find peaks')
-    parser.add_argument('-c', '--copy', action='store_true',
-                        help='copy parameters')
     parser.add_argument('-r', '--refine', action='store_true',
                         help='refine lattice parameters')
     parser.add_argument('-p', '--prepare', action='store_true',
@@ -62,7 +60,7 @@ def main():
         reduce = NXReduce(entry=entry, subentry=args.subentry,
                           directory=args.directory,
                           load=args.load, link=args.link, maxcount=args.max,
-                          find=args.find, copy=args.copy, refine=args.refine,
+                          find=args.find, refine=args.refine,
                           prepare=args.prepare, transform=args.transform,
                           combine=args.combine, pdf=args.pdf,
                           regular=args.regular, mask=args.mask,
