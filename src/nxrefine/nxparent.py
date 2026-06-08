@@ -10,7 +10,7 @@ import shutil
 from pathlib import Path as Path
 
 from nexusformat.nexus import (NeXusError, NXcollection, NXdata, NXentry,
-                               NXfield, NXgroup, NXlink, NXnote, NXparameters,
+                               NXfield, NXgroup, NXnote, NXparameters,
                                NXprocess, NXroot, NXsample, NXsubentry,
                                nxconsolidate, nxopen)
 from nexusformat.nexus.tree import natural_sort, string_dtype
@@ -408,35 +408,6 @@ class NXParent:
                         target['nxworkflow'] = NXcollection()
                         for n in legacy:
                             target.move(n, target['nxworkflow'])
-
-    def copy_parameters_to_scan(self, scan):
-        """Copy parameters from parent."""
-        if self.settings is None and self.sample_info is None:
-            return
-        from .nxrefine import NXRefine
-        with nxopen(self.scan_file(scan), 'rw') as dst_root:
-            if 'entry' not in dst_root:
-                return
-            common_src = NXRefine(self.root['entry'], subentry=self._subentry)
-            common_dst = NXRefine(dst_root['entry'], subentry=self._subentry)
-            common_src.copy_parameters(common_dst, sample=True,
-                                       settings=True, transform=True)
-            for entry_name in list(self.root.entries):
-                if entry_name == 'entry':
-                    continue
-                src_group = self.root[entry_name]
-                if not isinstance(src_group, NXentry):
-                    continue
-                if entry_name not in dst_root:
-                    continue
-                instr_src = NXRefine(src_group, subentry=self._subentry)
-                instr_dst = NXRefine(dst_root[entry_name],
-                                     subentry=self._subentry)
-                instr_src.copy_parameters(instr_dst, instrument=True)
-                if ('entry' in dst_root and 'sample' in dst_root['entry']
-                        and 'sample' not in dst_root[entry_name]):
-                    dst_root[entry_name]['sample'] = NXlink(
-                        '/entry/sample', file=str(self.scan_file(scan)))
 
     def add_scan(self, scan, selected=True):
 
