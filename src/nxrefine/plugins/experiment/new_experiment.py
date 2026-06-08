@@ -73,6 +73,9 @@ class NewExperimentDialog(NXDialog):
             self.parameters['analysis_path'].value = 'nxrefine'
         elif (directory / 'nxrefine').is_dir():
             self.parameters['analysis_path'].value = 'nxrefine'
+        experiment = self.parameters['experiment'].value
+        if experiment and experiment != directory.name:
+            directory = directory / experiment
         if self.parameters['analysis_home'].value == '':
             ahp = directory.parent
         else:
