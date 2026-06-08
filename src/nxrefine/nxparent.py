@@ -310,7 +310,8 @@ class NXParent:
                 if f'{self.entry_path}/nxscans/parent' in root:
                     parent = Path(
                         root[f'{self.entry_path}/nxscans/parent'].nxvalue)
-                return self.filename.parent / parent == self.filename
+                    return self.filename.parent / parent == self.filename
+                return False
         else:
             return False
 
