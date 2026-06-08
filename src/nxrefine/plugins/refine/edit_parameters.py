@@ -11,7 +11,8 @@ from nexpy.gui.utils import report_error
 from nexusformat.nexus import NeXusError
 
 from nxrefine.nxparent import NXParent
-from nxrefine.nxreduce import NXMultiReduce, NXReduce
+from nxrefine.nxreduce import NXMultiReduce, NXReduce, auto_transmission_q
+from nxrefine.nxrefine import NXRefine
 from nxrefine.nxsettings import NXSettings
 
 
@@ -55,10 +56,30 @@ class ParametersDialog(NXDialog):
                             'Mask Horizontal Size 2')
         self.parameters.add('scan_path', default['scan_path'], 'Scan Path')
         self.read_parameters()
+        if (self.parameters['qmin'].value in (None, '', 'None')
+                or self.parameters['qmax'].value in (None, '', 'None')):
+            qmin, qmax = self._auto_q()
+            if (qmin is not None
+                    and self.parameters['qmin'].value in (None, '', 'None')):
+                self.parameters['qmin'].value = f"{float(qmin):.1f}"
+            if (qmax is not None
+                    and self.parameters['qmax'].value in (None, '', 'None')):
+                self.parameters['qmax'].value = f"{float(qmax):.1f}"
         self.set_layout(self.parameters.grid(header=False),
                         self.close_layout(save=True))
         self.set_title('Edit Settings')
         self.setMinimumWidth(450)
+
+    def _auto_q(self):
+        try:
+            entry = self.entries[0]
+            refine = NXRefine(entry)
+            data = entry['data'] if 'data' in entry else None
+            shape = (tuple(ax.shape[0] for ax in data.nxaxes)
+                     if data is not None else None)
+            return auto_transmission_q(refine, shape)
+        except Exception:
+            return None, None
 
     def read_parameters(self):
         reduce = self.parent.settings
@@ -82,9 +103,9 @@ class ParametersDialog(NXDialog):
                 self.parameters['sample_transmission'].value = str(
                     reduce['sample_transmission'])
             if 'qmin' in reduce:
-                self.parameters['qmin'].value = reduce['qmin']
+                self.parameters['qmin'].value = f"{float(reduce['qmin']):.1f}"
             if 'qmax' in reduce:
-                self.parameters['qmax'].value = reduce['qmax']
+                self.parameters['qmax'].value = f"{float(reduce['qmax']):.1f}"
             if 'radius' in reduce:
                 self.parameters['radius'].value = reduce['radius']
             if 'mask_t1' in reduce:
@@ -119,10 +140,10 @@ class ParametersDialog(NXDialog):
                     reduce.sample_transmission)
                 qmin = reduce.get_parameter('qmin')
                 if qmin not in (None, ''):
-                    self.parameters['qmin'].value = qmin
+                    self.parameters['qmin'].value = f"{float(qmin):.1f}"
                 qmax = reduce.get_parameter('qmax')
                 if qmax not in (None, ''):
-                    self.parameters['qmax'].value = qmax
+                    self.parameters['qmax'].value = f"{float(qmax):.1f}"
                 if reduce.radius:
                     self.parameters['radius'].value = reduce.radius
                 mp = reduce.mask_parameters

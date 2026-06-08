@@ -6,6 +6,7 @@
 # The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
+import os
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed  # noqa: F401
 from multiprocessing import get_context, resource_tracker
@@ -772,6 +773,8 @@ class NXExecutor(ProcessPoolExecutor):
     """ProcessPoolExecutor class using 'spawn' for new processes."""
 
     def __init__(self, max_workers=None, mp_context='spawn'):
+        os.environ.setdefault('PYTHONWARNINGS',
+                              'ignore:resource_tracker:UserWarning')
         if mp_context:
             mp_context = get_context(mp_context)
         else:
