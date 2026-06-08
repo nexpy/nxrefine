@@ -458,7 +458,6 @@ class NXParent:
             self.clean_backups()
             self.backup_scan(scan)
             self.restructure_scan(scan)
-        self.copy_parameters_to_scan(scan)
 
     def add_scans(self, selected=True):
         directory = self.filename.parent
