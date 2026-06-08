@@ -492,21 +492,25 @@ class NXParent:
         scan_files = self.valid_scans(data_path)
         if not scan_files:
             return
+        scan_data = nxconsolidate(scan_files, data_path,
+                                  scan_path=self.scan_path)
         parts = data_path.strip('/').split('/')
+        intermediate_types = []
+        if len(parts) > 1:
+            with nxopen(scan_files[0]) as src:
+                src_cursor = src
+                for name in parts[:-1]:
+                    src_cursor = src_cursor[name]
+                    intermediate_types.append((name, type(src_cursor)))
         with nxopen(self.filename, 'rw') as root:
-            if len(parts) > 1:
-                with nxopen(scan_files[0]) as src:
-                    cursor = root
-                    src_cursor = src
-                    for name in parts[:-1]:
-                        src_cursor = src_cursor[name]
-                        if name not in cursor:
-                            cursor[name] = type(src_cursor)()
-                        cursor = cursor[name]
+            cursor = root
+            for name, cls in intermediate_types:
+                if name not in cursor:
+                    cursor[name] = cls()
+                cursor = cursor[name]
             if data_path in root:
                 del root[data_path]
-            root[data_path] = nxconsolidate(scan_files, data_path,
-                                            scan_path=self.scan_path)
+            root[data_path] = scan_data
 
     def _data_paths(self):
         """Yield NXdata paths at depth 1 and 2 under entry_path in scan files.
