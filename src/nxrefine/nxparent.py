@@ -6,6 +6,7 @@
 # The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 import datetime
+import logging
 import shutil
 from pathlib import Path as Path
 
@@ -562,7 +563,7 @@ class NXParent:
                 if node:
                     mainwindow.tree[node].reload()
         except Exception:
-            pass
+            logging.exception("NXParent.reload failed")
 
     def reload_parent(self):
         try:
@@ -572,7 +573,7 @@ class NXParent:
             if node:
                 mainwindow.tree[node].reload()
         except Exception:
-            pass
+            logging.exception("NXParent.reload_parent failed")
 
     def copy_file(self, config_file):
         with nxopen(config_file) as root:
