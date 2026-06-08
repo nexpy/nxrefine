@@ -441,7 +441,8 @@ class WorkflowDialog(NXDialog):
                     else:
                         break
                 else:
-                    reduce = NXReduce(entry, scan, server=self.server)
+                    reduce = NXReduce(entry, directory=scan,
+                                      server=self.server)
                     reduce.regular = reduce.mask = False
                     if not self.parent.subentry and self.selected(scan,
                                                                   'load'):
