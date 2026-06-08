@@ -67,6 +67,7 @@ class NewExperimentDialog(NXDialog):
         directory = self.get_directory()
         if directory is None:
             return
+        directory = Path(directory)
         if directory.name == 'nxrefine':
             directory = directory.parent
             self.parameters['analysis_path'].value = 'nxrefine'
