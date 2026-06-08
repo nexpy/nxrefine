@@ -361,7 +361,7 @@ class NXParent:
         backups = sorted(backup_dir.glob(f'{dst.stem}_*.nxs'))
         if not backups:
             raise FileNotFoundError(f"No backups found for '{dst.stem}'")
-        shutil.copy2(backups[-1], dst)
+        shutil.copy(backups[-1], dst)
         return backups[-1]
 
     def _needs_restructuring(self, root):
