@@ -2731,11 +2731,11 @@ class NXMultiReduce(NXReduce):
             self.log("Unable to initialize transform group")
             self.log(str(error))
             return None
-        input = ' '.join([self.scan_directory.joinpath(
-            fr'{entry}_{self.transform_path}.nxs\#/entry/data')
+        input = ' '.join([str(self.scan_directory.joinpath(
+            fr'{entry}_{self.transform_path}.nxs\#/entry/data'))
             for entry in self.entries])
-        output = self.scan_directory.joinpath(
-            fr'{self.transform_path}.nxs\#/entry/data/v')
+        output = str(self.scan_directory.joinpath(
+            fr'{self.transform_path}.nxs\#/entry/data/v'))
         return f"cctw merge {input} -o {output}"
 
     def add_title(self, data):
