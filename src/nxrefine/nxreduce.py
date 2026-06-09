@@ -3170,9 +3170,17 @@ class NXMultiReduce(NXReduce):
                 self.nxcombine(mask=True)
         if self.pdf:
             if self.regular:
-                self.nxpdf()
+                if self.complete('nxcombine'):
+                    self.nxpdf()
+                else:
+                    self.log("Skipping nxpdf: nxcombine has not completed")
             if self.mask:
-                self.nxpdf(mask=True)
+                if self.complete('nxmasked_combine'):
+                    self.nxpdf(mask=True)
+                else:
+                    self.log(
+                        "Skipping nxmasked_pdf: nxmasked_combine has not "
+                        "completed")
 
     def queue(self, command, args=None):
         """ Add tasks to the server's fifo, and log this in the database """
