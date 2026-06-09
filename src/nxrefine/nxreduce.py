@@ -2573,7 +2573,8 @@ class NXReduce(QtCore.QObject):
         if self.not_processed(task):
             self.queue_time[task] = datetime.datetime.now()
             self.db.queue_task(self.wrapper_file, task, entry,
-                               queue_time=self.queue_time[task])
+                               queue_time=self.queue_time[task],
+                               subentry=self.subentry_name)
 
 
 class NXMultiReduce(NXReduce):
