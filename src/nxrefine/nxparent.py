@@ -327,6 +327,8 @@ class NXParent:
 
     def add_parent(self, scan):
         with nxopen(self.scan_file(scan), 'rw') as root:
+            if self._subentry and self._subentry not in root['entry']:
+                root['entry'][self._subentry] = NXsubentry()
             if 'nxscans' not in root[self.entry_path]:
                 root[f'{self.entry_path}/nxscans'] = NXprocess()
             root[f'{self.entry_path}/nxscans/parent'] = self.filename.name
