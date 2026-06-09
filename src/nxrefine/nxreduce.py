@@ -2620,7 +2620,11 @@ class NXMultiReduce(NXReduce):
     def complete(self, task):
         if task in ['nxcombine', 'nxmasked_combine', 'nxpdf', 'nxmasked_pdf']:
             target = self.scan_entry
-            return target is not None and task in target
+            if target is None:
+                return False
+            if 'nxworkflow' in target:
+                return task in target['nxworkflow']
+            return task in target
         return self.all_complete(task)
 
     def nxcombine(self, mask=False):
