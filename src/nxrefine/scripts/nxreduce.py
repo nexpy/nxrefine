@@ -74,7 +74,8 @@ def main():
             reduce.combine = reduce.pdf = False
             reduce.nxreduce()
     if (args.combine or args.pdf) and not args.queue:
-        reduce = NXMultiReduce(directory=args.directory, combine=args.combine,
+        reduce = NXMultiReduce(directory=args.directory,
+                               subentry=args.subentry, combine=args.combine,
                                pdf=args.pdf, regular=args.regular,
                                mask=args.mask, overwrite=args.overwrite)
         reduce.nxreduce()

@@ -436,12 +436,15 @@ class WorkflowDialog(NXDialog):
             for i, entry in enumerate(self.enabled_scans[scan]['entries']):
                 if self.only_combined(scan):
                     if i == 0:
-                        reduce = NXMultiReduce(directory=scan)
+                        reduce = NXMultiReduce(
+                            directory=scan,
+                            subentry=self.parent.subentry_name)
                         reduce.regular = reduce.mask = False
                     else:
                         break
                 else:
                     reduce = NXReduce(entry, directory=scan,
+                                      subentry=self.parent.subentry_name,
                                       server=self.server)
                     reduce.regular = reduce.mask = False
                     if not self.parent.subentry and self.selected(scan,

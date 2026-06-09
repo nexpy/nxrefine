@@ -2563,9 +2563,12 @@ class NXReduce(QtCore.QObject):
                 args.directory = str(Path(args.directory).resolve())
             self.server.add_task(f"{command} {switches(args)}")
         else:
+            subentry_arg = (f" --subentry {self.subentry_name}"
+                            if self.subentry_name else "")
             self.server.add_task(
                 f"{command} --directory {self.directory} "
-                f"--entries {self.entry_name} --{' --'.join(tasks)}")
+                f"--entries {self.entry_name}{subentry_arg} "
+                f"--{' --'.join(tasks)}")
 
     def queue_task(self, task, entry=None):
         if entry is None:
@@ -3228,6 +3231,8 @@ class NXMultiReduce(NXReduce):
                 args.directory = str(Path(args.directory).resolve())
             self.server.add_task(f"{command} {switches(args)}")
         else:
+            subentry_arg = (f" --subentry {self.subentry_name}"
+                            if self.subentry_name else "")
             self.server.add_task(
-                f"{command} --directory {self.directory} "
+                f"{command} --directory {self.directory}{subentry_arg} "
                 f"--{' --'.join(tasks)}")
