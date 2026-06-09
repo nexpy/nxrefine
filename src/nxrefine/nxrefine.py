@@ -500,14 +500,30 @@ class NXRefine:
             self.peaks = None
             self._idx = None
 
+    @property
+    def sample_entry(self):
+        """Entry containing the shared sample group.
+
+        Per-scan entries (`/f1`, `/f2`, ...) link their `sample` group
+        to `root[entry/sample]`, so sample writes must be routed there
+        rather than through the linked group on `self.entry`. Falls
+        back to `self.entry` when no `entry` group exists at the root.
+        """
+        if self.entry is None:
+            return None
+        root = self.entry.nxroot
+        if root is not None and 'entry' in root:
+            return root['entry']
+        return self.entry
+
     def write_parameter(self, path, value, attr=None):
         """Write a value to the NeXus object defined by its path.
 
         If the `attr` keyword argument is present, the value of the
         specified attribute of the object is returned instead.
 
-        Sample parameters are written to `self.entry` because the sample
-        group is shared across subentries via a link to
+        Sample parameters are written to `self.sample_entry` because the
+        sample group is shared across subentries via a link to
         `root[entry/sample]`. All other parameters are written to
         `self.scan_entry` so that, when a subentry is active, they are
         stored there rather than in the top-level entry.
@@ -522,7 +538,7 @@ class NXRefine:
             Name of attribute, by default None
         """
         if path.startswith('sample'):
-            entry = self.entry
+            entry = self.sample_entry
         else:
             entry = self.scan_entry
         if entry is None:
@@ -553,8 +569,9 @@ class NXRefine:
         if entry:
             self._scan_entry = entry
         with self:
-            if 'sample' not in self._scan_entry:
-                self._scan_entry['sample'] = NXsample()
+            sample_entry = self.sample_entry
+            if sample_entry is not None and 'sample' not in sample_entry:
+                sample_entry['sample'] = NXsample()
             self.write_parameter('sample/chemical_formula', self.formula)
             self.write_parameter('sample/space_group', self.space_group)
             self.write_parameter('sample/laue_group', self.laue_group)
