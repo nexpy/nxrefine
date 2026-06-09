@@ -2736,7 +2736,7 @@ class NXMultiReduce(NXReduce):
             for entry in self.entries])
         output = str(self.scan_directory.joinpath(
             fr'{self.transform_path}.nxs\#/entry/data/v'))
-        return f"{self.cctw} merge {input} -o {output}"
+        return f"{self.cctw} merge {input} --normalization 1 -o {output}"
 
     def add_title(self, data):
         title = []
