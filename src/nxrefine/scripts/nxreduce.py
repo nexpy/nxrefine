@@ -8,8 +8,11 @@
 # -----------------------------------------------------------------------------
 
 import argparse
+import os
 
-from nxrefine.nxreduce import NXMultiReduce, NXReduce
+os.environ.setdefault('HDF5_USE_FILE_LOCKING', 'FALSE')
+
+from nxrefine.nxreduce import NXMultiReduce, NXReduce  # noqa: E402
 
 
 def main():
