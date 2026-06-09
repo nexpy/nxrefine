@@ -2898,7 +2898,10 @@ class NXMultiReduce(NXReduce):
                 weights_mb = weights.nbytes / 1e6
                 if weights_mb > nxgetconfig('memory'):
                     nxsetconfig(memory=weights_mb + 1000)
-                return 1.0 / weights.nxvalue
+                data = weights.nxvalue
+                if data.ndim > 3:
+                    data = data[0]
+                return 1.0 / data
         self.log(f"{self.title}: Calculating taper function")
         tic = timeit.default_timer()
         if qmax is None:
