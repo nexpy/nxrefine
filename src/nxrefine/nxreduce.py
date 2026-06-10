@@ -2496,12 +2496,17 @@ class NXReduce(QtCore.QObject):
                 if self.mask and self.complete('nxmasked_combine'):
                     reduce.nxpdf(mask=True)
 
-    def queue(self, command, args=None):
-        """ Add tasks to the server's fifo, and log this in the database """
-
+    def queue(self, command, args=None, entries=None):
+        """Insert DB rows for this entry's tasks and submit a command."""
         if self.server is None:
             raise NeXusError("NXServer not configured")
+        tasks = self.queue_db_rows()
+        if not tasks:
+            return
+        self.submit_command(command, tasks, args=args, entries=entries)
 
+    def queue_db_rows(self):
+        """Insert DB rows for enabled tasks; return the task-flag list."""
         tasks = []
         if self.load:
             tasks.append('load')
@@ -2539,10 +2544,14 @@ class NXReduce(QtCore.QObject):
                 self.queue_task('nxpdf', entry='entry')
             if self.mask:
                 self.queue_task('nxmasked_pdf', entry='entry')
+        return tasks
 
-        if not tasks:
-            return
+    def submit_command(self, command, tasks, args=None, entries=None):
+        """Build and send a single multi-task command via the server.
 
+        ``entries``, when supplied, becomes the value of ``--entries``;
+        otherwise ``self.entry_name`` is used.
+        """
         if set(tasks).intersection(['transform', 'combine', 'pdf']):
             if self.regular:
                 tasks.append('regular')
@@ -2551,11 +2560,13 @@ class NXReduce(QtCore.QObject):
         if self.overwrite:
             tasks.append('overwrite')
 
+        entries_arg = ' '.join(entries) if entries else self.entry_name
+
         def switches(args):
             d = vars(args)
             s = [f"--{k} {d[k]}" if d[k] is not True else f"--{k}"
                  for k in d if d[k] and k != 'entries' and k != 'queue']
-            s.insert(1, f"--entries {self.entry_name}")
+            s.insert(1, f"--entries {entries_arg}")
             return ' '.join(s)
 
         if args:
@@ -2567,7 +2578,7 @@ class NXReduce(QtCore.QObject):
                             if self.subentry_name else "")
             self.server.add_task(
                 f"{command} --directory {self.directory} "
-                f"--entries {self.entry_name}{subentry_arg} "
+                f"--entries {entries_arg}{subentry_arg} "
                 f"--{' --'.join(tasks)}")
 
     def queue_task(self, task, entry=None):
