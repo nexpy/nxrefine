@@ -7,7 +7,6 @@
 # -----------------------------------------------------------------------------
 
 import subprocess
-import time
 from pathlib import Path
 
 from nexpy.gui.pyqt import QtCore, QtWidgets
@@ -433,16 +432,30 @@ class WorkflowDialog(NXDialog):
         if self.grid is None:
             raise NeXusError('Need to update status')
         for scan in [s for s in self.enabled_scans if self.any_selected(s)]:
-            for i, entry in enumerate(self.enabled_scans[scan]['entries']):
-                if self.only_combined(scan):
-                    if i == 0:
-                        reduce = NXMultiReduce(
-                            directory=scan,
-                            subentry=self.parent.subentry_name)
-                        reduce.regular = reduce.mask = False
-                    else:
-                        break
-                else:
+            entries = self.enabled_scans[scan]['entries']
+            if self.only_combined(scan):
+                reduce = NXMultiReduce(directory=scan,
+                                       subentry=self.parent.subentry_name)
+                reduce.regular = reduce.mask = False
+                if self.selected(scan, 'combine'):
+                    reduce.combine = True
+                    reduce.regular = True
+                if self.selected(scan, 'masked_combine'):
+                    reduce.combine = True
+                    reduce.mask = True
+                if self.selected(scan, 'pdf'):
+                    reduce.pdf = True
+                    reduce.regular = True
+                if self.selected(scan, 'masked_pdf'):
+                    reduce.pdf = True
+                    reduce.mask = True
+                if self.selected(scan, 'overwrite'):
+                    reduce.overwrite = True
+                reduce.queue('nxreduce')
+            else:
+                tasks = []
+                reduce = None
+                for entry in entries:
                     reduce = NXReduce(entry, directory=scan,
                                       subentry=self.parent.subentry_name,
                                       server=self.server)
@@ -467,22 +480,23 @@ class WorkflowDialog(NXDialog):
                     if self.selected(scan, 'masked_transform'):
                         reduce.transform = True
                         reduce.mask = True
-                if self.selected(scan, 'combine'):
-                    reduce.combine = True
-                    reduce.regular = True
-                if self.selected(scan, 'masked_combine'):
-                    reduce.combine = True
-                    reduce.mask = True
-                if self.selected(scan, 'pdf'):
-                    reduce.pdf = True
-                    reduce.regular = True
-                if self.selected(scan, 'masked_pdf'):
-                    reduce.pdf = True
-                    reduce.mask = True
-                if self.selected(scan, 'overwrite'):
-                    reduce.overwrite = True
-                reduce.queue('nxreduce')
-                time.sleep(0.5)
+                    if self.selected(scan, 'combine'):
+                        reduce.combine = True
+                        reduce.regular = True
+                    if self.selected(scan, 'masked_combine'):
+                        reduce.combine = True
+                        reduce.mask = True
+                    if self.selected(scan, 'pdf'):
+                        reduce.pdf = True
+                        reduce.regular = True
+                    if self.selected(scan, 'masked_pdf'):
+                        reduce.pdf = True
+                        reduce.mask = True
+                    if self.selected(scan, 'overwrite'):
+                        reduce.overwrite = True
+                    tasks = reduce.queue_db_rows()
+                if tasks:
+                    reduce.submit_command('nxreduce', tasks, entries=entries)
             for task in self.tasks:
                 if self.selected(scan, task):
                     self.queued(scan, task)
