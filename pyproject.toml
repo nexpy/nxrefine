@@ -36,6 +36,7 @@ dependencies = [
     "gemmi",
     "pyfai",
     "juliacall",
+    "certifi",
     "persist-queue",
     "sqlalchemy",
     "matplotlib",
@@ -62,6 +63,7 @@ nxclean = "nxrefine.scripts.nxclean:main"
 nxcombine = "nxrefine.scripts.nxcombine:main"
 nxdatabase = "nxrefine.scripts.nxdatabase:main"
 nxfind = "nxrefine.scripts.nxfind:main"
+nxinstall = "nxrefine.scripts.nxinstall:main"
 nxlink = "nxrefine.scripts.nxlink:main"
 nxload = "nxrefine.scripts.nxload:main"
 nxmax = "nxrefine.scripts.nxmax:main"
