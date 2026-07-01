@@ -25,7 +25,7 @@ def main():
     from juliacall import Main
     Main.seval("using Roots, LinearAlgebra, SparseArrays")
 
-    load_julia(['LaplaceInterpolation.jl', 'get_xyzs.jl'])
+    load_julia(['LaplaceInterpolation.jl'])
 
     print("\nJulia environment:")
     juliapkg.status()
