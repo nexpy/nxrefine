@@ -373,6 +373,39 @@ def find_maximum_chunk(data_file, data_path, i, j, k,
     return i, local_vsum, local_fsum, local_psum, local_maximum
 
 
+def prime_julia_environment():
+    """Set env vars so juliapkg uses a shared, in-env Julia depot.
+
+    Must be called before ``juliacall`` or ``juliapkg`` are imported. In
+    a virtual environment or conda environment, points
+    ``JULIA_DEPOT_PATH`` and ``JULIAUP_DEPOT_PATH`` at
+    ``{prefix}/julia_depot`` so the Julia binary and packages are shared
+    across all users of the environment (rather than landing in each
+    user's ``~/.julia``). Outside a venv, no depot override is set and
+    juliapkg's ``~/.julia`` default applies.
+
+    Also sets ``JULIA_SSL_CA_ROOTS_PATH`` to certifi's CA bundle as a
+    macOS ``Downloads.jl`` HTTPS workaround. Existing values of any of
+    these three variables are respected.
+    """
+    import os
+    import sys
+    if not os.environ.get('JULIA_SSL_CA_ROOTS_PATH'):
+        try:
+            import certifi
+            os.environ['JULIA_SSL_CA_ROOTS_PATH'] = certifi.where()
+        except ImportError:
+            pass
+    if sys.prefix != sys.base_prefix:
+        prefix = sys.prefix
+    else:
+        prefix = os.environ.get('CONDA_PREFIX')
+    if prefix:
+        depot = os.path.join(prefix, 'julia_depot')
+        os.environ.setdefault('JULIA_DEPOT_PATH', depot)
+        os.environ.setdefault('JULIAUP_DEPOT_PATH', depot)
+
+
 def init_julia():
     """Start the Julia runtime via juliacall and return the Main module.
 
@@ -381,19 +414,12 @@ def init_julia():
     packages declared in ``nxrefine/juliapkg.json`` if they are not
     already present. Subsequent calls reuse the cached session.
 
-    On macOS, ``Downloads.jl`` sometimes fails to verify HTTPS
-    certificates with the system SecureTransport store, breaking the
-    initial install. As a safety net, ``JULIA_SSL_CA_ROOTS_PATH`` is
-    pointed at certifi's CA bundle if the user has not already set it.
+    ``prime_julia_environment`` runs first to redirect the Julia depot
+    into the active venv/conda env (so all users of a shared install
+    see the same cache) and to apply the macOS SSL workaround.
     """
-    import os
     import subprocess
-    if not os.environ.get('JULIA_SSL_CA_ROOTS_PATH'):
-        try:
-            import certifi
-            os.environ['JULIA_SSL_CA_ROOTS_PATH'] = certifi.where()
-        except ImportError:
-            pass
+    prime_julia_environment()
     try:
         from juliacall import Main
     except subprocess.CalledProcessError as error:
