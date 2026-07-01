@@ -9,17 +9,13 @@
 
 """Prefetch Julia and its packages so NXRefine can run offline."""
 
-import os
 import sys
+
+from nxrefine.nxutils import load_julia, prime_julia_environment
 
 
 def main():
-    if not os.environ.get('JULIA_SSL_CA_ROOTS_PATH'):
-        try:
-            import certifi
-            os.environ['JULIA_SSL_CA_ROOTS_PATH'] = certifi.where()
-        except ImportError:
-            pass
+    prime_julia_environment()
 
     import juliapkg
 
@@ -29,7 +25,6 @@ def main():
     from juliacall import Main
     Main.seval("using Roots, LinearAlgebra, SparseArrays")
 
-    from nxrefine.nxutils import load_julia
     load_julia(['LaplaceInterpolation.jl', 'get_xyzs.jl'])
 
     print("\nJulia environment:")
