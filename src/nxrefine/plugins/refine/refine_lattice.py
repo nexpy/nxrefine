@@ -57,8 +57,11 @@ class RefineLatticeDialog(NXDialog):
         self.refine_buttons = self.action_buttons(
             ('Refine Angles', self.refine_angles),
             ('Refine HKLs', self.refine_hkls),
-            ('Restore', self.restore_parameters),
-            ('Reset', self.reset_parameters))
+            ('Restore Parameters', self.restore_parameters))
+
+        self.parameter_buttons = self.action_buttons(
+            ('Reload Parent', self.reload_parent),
+            ('Reset Parameters', self.reset_parameters))
 
         self.orientation_buttons = self.action_buttons(
             ('Refine Orientation Matrix', self.refine_orientation),
@@ -70,9 +73,8 @@ class RefineLatticeDialog(NXDialog):
             ('Update', self.update_scaling),
             ('Save', self.write_parameters))
 
-        self.set_layout(self.entry_layout, self.close_layout())
-
-        self.layout.setSpacing(2)
+        self.set_layout(self.entry_layout, self.close_layout(), spacing=2)
+        self.layout.setContentsMargins(9, 2, 9, 2)
 
         self.set_title('Refining Lattice')
 
@@ -187,7 +189,8 @@ class RefineLatticeDialog(NXDialog):
         try:
             reduce = NXReduce(self.entry)
             if reduce.parent:
-                return [s.nxname for s in reduce.parent.root['entry'].NXsubentry]
+                return [s.nxname
+                        for s in reduce.parent.root['entry'].NXsubentry]
         except Exception:
             pass
         return []
@@ -229,13 +232,18 @@ class RefineLatticeDialog(NXDialog):
         self.refine = refine
         self.reduce = NXReduce(self.entry, subentry=self.subentry or None)
         self.set_title(f"Refining {self.refine.name}")
+        if not self.already_refined:
+            self.load_from_parent()
         if self.layout.count() == 2:
             self.define_parameters()
             self.insert_layout(1, self.parameters.grid_layout)
             self.insert_layout(2, self.refine_buttons)
-            self.insert_layout(3, self.orientation_buttons)
-            self.insert_layout(4, self.parameters.report_layout())
-            self.insert_layout(5, self.lattice_buttons)
+            self.insert_layout(3, self.parameter_buttons)
+            self.insert_layout(4, self.orientation_buttons)
+            self.insert_layout(5, self.parameters.report_layout())
+            self.insert_layout(6, self.lattice_buttons)
+        self.pushbutton['Reload Parent'].setVisible(
+            self.already_refined and self.reduce.parent is not None)
         self.set_lattice_parameters()
         self.update_parameters()
         self.update_peak_table()
@@ -332,9 +340,7 @@ class RefineLatticeDialog(NXDialog):
         if self.entry.nxfilemode == 'r':
             display_message("NeXus file opened as readonly")
             return
-        elif ('nxrefine' in self.refine.entry or
-              ('instrument/detector' in self.refine.entry and
-               'orientation_matrix' in self.refine.entry['instrument/detector'])):
+        elif self.already_refined:
             if not self.confirm_action('Overwrite existing refinement?'):
                 return
         self.transfer_parameters()
@@ -731,8 +737,9 @@ class RefineLatticeDialog(NXDialog):
 
     def refine_orientation(self):
         if self.refine.peaks is None:
-            report_error("Refining Lattice",
-                         NeXusError("No peaks available for orientation refinement"))
+            report_error(
+                "Refining Lattice",
+                NeXusError("No peaks available for orientation refinement"))
             return
         self.parameters.status_message.setText('Fitting...')
         self.parameters.status_message.repaint()
@@ -766,6 +773,42 @@ class RefineLatticeDialog(NXDialog):
             self.fit_report.pop()
         except IndexError:
             pass
+
+    @property
+    def already_refined(self):
+        entry = self.refine.entry
+        return (('nxworkflow' in entry
+                 and 'nxrefine' in entry['nxworkflow'])
+                or ('instrument/detector' in entry
+                    and 'orientation_matrix' in
+                    entry['instrument/detector']))
+
+    def load_from_parent(self):
+        if self.reduce.parent is None:
+            return
+        parent_root = self.reduce.parent.root
+        if 'entry' in parent_root:
+            parent_refine = NXRefine(parent_root['entry'])
+            for attr in ('a', 'b', 'c', 'alpha', 'beta', 'gamma',
+                         'formula', 'space_group', 'laue_group',
+                         'symmetry', 'centring'):
+                setattr(self.refine, attr, getattr(parent_refine, attr))
+        entry_name = self.refine.entry.nxname
+        if entry_name in parent_root:
+            parent_pos_refine = NXRefine(parent_root[entry_name])
+            for attr in ('wavelength', 'distance',
+                         'yaw', 'pitch', 'roll',
+                         'xc', 'yc', 'xd', 'yd',
+                         'phi', 'phi_step', 'chi', 'omega', 'theta',
+                         'detector_orientation', 'pixel_size',
+                         'frame_time'):
+                setattr(self.refine, attr, getattr(parent_pos_refine, attr))
+        self.refine.set_symmetry()
+
+    def reload_parent(self):
+        self.load_from_parent()
+        self.update_parameters()
+        self.set_symmetry()
 
     def list_peaks(self):
         if self.peaks_box in self.mainwindow.dialogs:
