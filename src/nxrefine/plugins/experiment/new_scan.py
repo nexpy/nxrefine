@@ -55,7 +55,7 @@ class ScanDialog(NXDialog):
         self.scandir_layout = self.make_layout(NXLabel('Scan Directory'),
                                                self.scandir_box)
         self.update_scan()
-        self.insert_layout(2, self.scandir_layout) 
+        self.insert_layout(2, self.scandir_layout)
         self.insert_layout(3, self.action_buttons(('Make Scan File',
                                                    self.make_scan)))
 
