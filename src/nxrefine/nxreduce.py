@@ -3046,20 +3046,63 @@ class NXMultiReduce(NXReduce):
         self.refine.polar_max = max([NXRefine(
             self.root[e], subentry=self._subentry).two_theta_max()
             for e in self.entries])
-        for H, K, L in self.indices:
+        indices = self.indices
+        self.log(f"{self.title}: Punching {len(indices)} reflections; "
+                 f"mask shape {mask.shape}, {len(mask_indices)} interior "
+                 f"voxels; cube half-widths (ml,mk,mh)=({ml},{mk},{mh})")
+        counts = {'punched': 0, 'off_grid': 0, 'no_signal': 0,
+                  'edge': 0, 'matern_failed': 0, 'other': 0}
+        examples = {k: [] for k in counts if k != 'punched'}
+
+        def _record(bucket, hkl, msg=None):
+            counts[bucket] += 1
+            if bucket in examples and len(examples[bucket]) < 3:
+                tag = f"({hkl[0]},{hkl[1]},{hkl[2]})"
+                if msg:
+                    tag += f": {msg}"
+                examples[bucket].append(tag)
+
+        for H, K, L in indices:
+            ih_hits = np.argwhere(np.isclose(Qh, H))
+            ik_hits = np.argwhere(np.isclose(Qk, K))
+            il_hits = np.argwhere(np.isclose(Ql, L))
+            if not (len(ih_hits) and len(ik_hits) and len(il_hits)):
+                _record('off_grid', (H, K, L))
+                continue
+            ih, ik, il = ih_hits[0][0], ik_hits[0][0], il_hits[0][0]
+            lslice = slice(il-ml, il+ml+1)
+            kslice = slice(ik-mk, ik+mk+1)
+            hslice = slice(ih-mh, ih+mh+1)
             try:
-                ih = np.argwhere(np.isclose(Qh, H))[0][0]
-                ik = np.argwhere(np.isclose(Qk, K))[0][0]
-                il = np.argwhere(np.isclose(Ql, L))[0][0]
-                lslice = slice(il-ml, il+ml+1)
-                kslice = slice(ik-mk, ik+mk+1)
-                hslice = slice(ih-mh, ih+mh+1)
                 v = symm_data[(lslice, kslice, hslice)].nxvalue
-                if v.max() > 0.0:
-                    w = LaplaceInterpolation.matern_3d_grid(v, idx)
-                    fill_data[(lslice, kslice, hslice)] += np.where(mask, w, 0)
-            except Exception:
-                pass
+            except Exception as error:
+                _record('other', (H, K, L), f"read failed: {error}")
+                continue
+            if v.shape != mask.shape:
+                _record('edge', (H, K, L), f"cube {v.shape} vs mask "
+                                            f"{mask.shape}")
+                continue
+            if not np.any(v > 0.0):
+                _record('no_signal', (H, K, L),
+                        f"max={float(np.nanmax(v)):.3g}")
+                continue
+            try:
+                w = LaplaceInterpolation.matern_3d_grid(v, idx)
+            except Exception as error:
+                _record('matern_failed', (H, K, L), str(error))
+                continue
+            try:
+                fill_data[(lslice, kslice, hslice)] += np.where(mask, w, 0)
+            except Exception as error:
+                _record('other', (H, K, L), f"assign failed: {error}")
+                continue
+            counts['punched'] += 1
+        self.log(f"{self.title}: Punch outcomes: " +
+                 ", ".join(f"{k}={v}" for k, v in counts.items()))
+        for bucket, exs in examples.items():
+            if exs:
+                self.log(f"{self.title}: First {bucket}: "
+                         + "; ".join(exs))
 
         self.log(f"{self.title}: Symmetrizing punch-and-fill")
 
