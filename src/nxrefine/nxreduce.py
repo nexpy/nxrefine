@@ -2845,9 +2845,9 @@ class NXMultiReduce(NXReduce):
                 'total_pdf.nxs')
             self.pdf_file = self.scan_directory.joinpath('pdf.nxs')
         transform = self.find_group(self.transform_path)
-        self.Qh = transform['Qh']
-        self.Qk = transform['Qk']
-        self.Ql = transform['Ql']
+        self.Qh = transform['Qh'].centers()
+        self.Qk = transform['Qk'].centers()
+        self.Ql = transform['Ql'].centers()
         total_size = transform.nxsignal.nbytes / 1e6
         if total_size > nxgetconfig('memory'):
             nxsetconfig(memory=total_size+1000)
@@ -3031,7 +3031,9 @@ class NXMultiReduce(NXReduce):
         tic = timeit.default_timer()
         target = self.scan_entry or self.entry
         symm_group = target[self.symm_data]
-        Qh, Qk, Ql = (symm_group['Qh'], symm_group['Qk'], symm_group['Ql'])
+        Qh, Qk, Ql = (symm_group['Qh'].centers(),
+                      symm_group['Qk'].centers(),
+                      symm_group['Ql'].centers())
 
         symm_root = nxopen(self.symm_file, 'rw')
         symm_data = symm_root['entry/data/data']
@@ -3046,6 +3048,7 @@ class NXMultiReduce(NXReduce):
         self.refine.polar_max = max([NXRefine(
             self.root[e], subentry=self._subentry).two_theta_max()
             for e in self.entries])
+        punched = 0
         for H, K, L in self.indices:
             try:
                 ih = np.argwhere(np.isclose(Qh, H))[0][0]
@@ -3058,8 +3061,11 @@ class NXMultiReduce(NXReduce):
                 if v.max() > 0.0:
                     w = LaplaceInterpolation.matern_3d_grid(v, idx)
                     fill_data[(lslice, kslice, hslice)] += np.where(mask, w, 0)
-            except Exception:
-                pass
+                    punched += 1
+            except Exception as error:
+                self.log(f"{self.title}: skipped ({H},{K},{L}): {error}")
+        self.log(f"{self.title}: punched {punched} of {len(self.indices)} "
+                 "reflections")
 
         self.log(f"{self.title}: Symmetrizing punch-and-fill")
 
