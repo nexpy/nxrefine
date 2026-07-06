@@ -481,7 +481,8 @@ class NXParent:
                 self.scan_info['description'] = NXnote(entry, description)
             if ('sample' in self.root['entry'] and
                     'sample' not in self.root['entry'][entry]):
-                self.root['entry'][entry]['sample'] = self.root['entry/sample']
+                self.root['entry'][entry].makelink(
+                    self.root['entry/sample'])
 
     def create_scan_data(self, data_path):
         """Create consolidated scan data.
@@ -599,6 +600,25 @@ class NXParent:
             if 'transform' in root['entry']:
                 L, K, H = root['entry/transform'].nxaxes
                 self.transform = NXdata(axes=(L, K, H))
+        self._link_position_samples()
+
+    def _link_position_samples(self):
+        """Link /f{n}/sample to /entry/sample for every per-position entry.
+
+        Idempotent: skips entries that already have a sample group so
+        this is safe to call from copy_file, add_scan, or any future
+        initialization path.
+        """
+        if 'entry' not in self.root or 'sample' not in self.root['entry']:
+            return
+        sample = self.root['entry/sample']
+        for name in list(self.root.entries):
+            if name == 'entry' or not name[-1].isdigit():
+                continue
+            entry = self.root[name]
+            if 'sample' in entry:
+                continue
+            entry.makelink(sample)
 
     def initialize(self):
         with self.root:
