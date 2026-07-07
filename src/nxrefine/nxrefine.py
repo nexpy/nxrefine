@@ -1582,7 +1582,7 @@ class NXRefine:
         """
         g1 = norm_vec(self.Gvec(self.xp[i], self.yp[i], self.zp[i]))
         g2 = norm_vec(self.Gvec(self.xp[j], self.yp[j], self.zp[j]))
-        return np.around(np.arccos(float(g1.T*g2)) * degrees, 3)
+        return np.around(np.arccos((g1.T*g2).item()) * degrees, 3)
 
     def angle_hkls(self, h1, h2):
         """Return the angle in degrees between two HKL vectors.
@@ -1599,7 +1599,7 @@ class NXRefine:
         """
         h1v = norm_vec((vec(*h1).T * self.Bmat)).T
         h2v = norm_vec((vec(*h2).T * self.Bmat)).T
-        return np.around(np.arccos(h1v.T*h2v)[0, 0] * degrees, 3)
+        return np.around(np.arccos((h1v.T*h2v).item()) * degrees, 3)
 
     def unitarity(self):
         """Return the unitarity of the refined orientation matrix."""
