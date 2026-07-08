@@ -46,6 +46,7 @@ temperature, are complete.
    experiment
    sample
    reduction
+   parent_scans
    server
    glossary
 
