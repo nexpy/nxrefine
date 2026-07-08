@@ -33,21 +33,21 @@ Experiment Layout
 In *NXRefine*, it is assumed that all the files associated with a
 particular experiment are stored in a single directory. At synchrotron
 x-ray facilities, it is common to schedule all the measurements
-associated with a particular proposal together, associated with a
-proposal number and/or run cycle. For example, on beamline 6-ID-D at the
-Advanced Photon Source, measurements resulting from Proposal No.
-GUP-75969 may be scheduled in a specific run cycle, say 23-1, and stored
-in, *e.g.*, ``/data/6-id-d/GUP-75969-23-1``. This directory should
-contain sub-directories that conform to a particular layout, with
-calibration files stored in the directory ``calibrations``, NeXus files
-containing measurement templates stored in ``configurations``, settings
-and log files stored in ``tasks``, and experimental data from each
-sample stored in separate directories with a name that is typically
-derived from the chemical formula or a commonly used abbreviation. It is
-common to test and/or measure multiple crystals with the same chemical
-formula, so each of the sample directories contain sub-directories for
-each measured crystal. These contain the NeXus files for each scan and
-linked sub-directories containing the raw data.
+associated with a particular proposal together, labelled by a proposal
+number and/or run cycle. For example, on beamline 6-ID-D at the Advanced
+Photon Source, measurements resulting from Proposal GUP-75969 that are
+scheduled in run cycle 23-1 are stored in
+``/data/6-id-d/GUP-75969-23-1``. This directory should contain
+sub-directories that conform to a particular layout, with calibration
+files stored in the directory ``calibrations``, NeXus files containing
+measurement templates stored in ``configurations``, settings and log
+files stored in ``tasks``, and experimental data from each sample stored
+in separate directories with a name that is typically derived from the
+chemical formula or a commonly used abbreviation. It is common to test
+and/or measure multiple crystals with the same chemical formula, so each
+of the sample directories contain sub-directories for each measured
+crystal. These contain the NeXus files for each scan and linked
+sub-directories containing the raw data.
 
 Here is the structure of a possible experiment directory. Most of the
 names in this example are chosen to be generic, *i.e.*, they will be
@@ -62,7 +62,7 @@ different for every experiment. The only exceptions are the files in the
     └── calibrations
         └── powder_calibration.tiff
     └── configurations
-        ├── configuration.nxs
+        └── configuration.nxs
     └── sample1
         └── label1
             ├── sample1_100K.nxs
@@ -112,10 +112,6 @@ sub-directory, called ``nxrefine``, contained within the existing
         .
         .
 
-.. note:: The name of this sub-directory is defined in the server
-          settings, which are described below. It is strongly recommended that it be called by the default name, *i.e.*,
-          ``nxrefine`` to facilitate parsing of the directory tree.
-
 Experiment Sub-Directories
 ==========================
 
@@ -144,12 +140,12 @@ Experiment Sub-Directories
     The ``configurations`` sub-directory contains NeXus files that act
     as templates to be used when creating the files used to store the
     scan results. There should be a separate template file for each new
-    experimental configuration, *.e.g.*, with a different wavelength or
-    detector distance. If multiple sample rotations are to be performed
-    with different detector translations and/or goniometer angles, the
-    corresponding template files will have entries for each scan
-    containing pre-defined values of the scan variables. These files are
-    initialized by a *NeXpy* GUI dialog.
+    experimental configuration, *e.g.*, with a different wavelength
+    and/or detector distance. If multiple sample rotations are to be
+    performed with different detector translations and/or goniometer
+    angles, the corresponding template files will have entries for each
+    scan containing pre-defined values of the scan variables. These
+    files are initialized by a *NeXpy* GUI dialog.
 
 .. note:: On QM2 at CHESS, it is usually only necessary
           to create template files with a single entry, since the
