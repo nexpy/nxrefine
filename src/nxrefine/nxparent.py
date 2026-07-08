@@ -440,6 +440,25 @@ class NXParent:
             if scan_file.name != self.name:
                 self.add_scan(scan_file, selected)
 
+    def sync_scans(self, selected=True):
+        """Register scan files in the directory that name this parent.
+
+        Reconciles a parent copied to another disk before its scans were
+        registered: each scan file carries a `/entry/nxscans/parent`
+        back-pointer, so the parent's scan list can be rebuilt from them.
+        Only files whose back-pointer matches this parent (``is_parent``)
+        and that are not already listed are added. Returns the list of
+        newly added stems.
+        """
+        if not self.scans_defined:
+            return []
+        added = []
+        for scan_file in self.other_scan_files:
+            if self.is_parent(scan_file):
+                self.add_scan(scan_file, selected=selected)
+                added.append(scan_file.stem)
+        return added
+
     def valid_scans(self, scan_group):
         valid_files = []
         for file_path in self.selected_scans:
