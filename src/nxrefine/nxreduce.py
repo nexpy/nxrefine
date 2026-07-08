@@ -235,6 +235,7 @@ class NXReduce(QtCore.QObject):
         self._pixel_mask = None
         self._parent = parent
         self._parent_entry = None
+        self._registered_with_parent = False
         self._entries = entries
         self._subentry = subentry
         self._refine = None
@@ -668,6 +669,30 @@ class NXReduce(QtCore.QObject):
             else:
                 self._parent = None
         return self._parent
+
+    def register_with_parent(self):
+        """Ensure this scan is listed in its parent's nxscans registry.
+
+        Handles parents copied to another disk before this scan existed:
+        the scan names its parent at /entry/nxscans/parent, so if the
+        parent does not yet list this scan, add it. Runs at most once per
+        instance and is a no-op for scans with no recorded parent or for
+        the parent file itself.
+        """
+        if self._registered_with_parent:
+            return
+        self._registered_with_parent = True
+        if 'entry/nxscans/parent' not in self.root:
+            return                                  # scan reports no parent
+        parent = self.parent
+        if parent is None or parent.filename == self.wrapper_file:
+            return                                  # missing parent, or self
+        try:
+            if self.wrapper_file.stem not in parent.scans:
+                parent.add_scan(self.wrapper_file, selected=True)
+                parent.reload_parent()              # refresh GUI tree if present
+        except Exception as error:
+            self.log(str(error))
 
     @property
     def parent_entry(self):
@@ -1248,6 +1273,7 @@ class NXReduce(QtCore.QObject):
 
     def record_start(self, task):
         """Record that a task has started in the database """
+        self.register_with_parent()
         try:
             self.db.start_task(self.wrapper_file, task, self.entry_name,
                                subentry=self.subentry_name)

@@ -51,6 +51,7 @@ class FilesDialog(NXDialog):
     def __init__(self, scans_file, subentry=None):
         super().__init__()
         self.parent = NXParent(scans_file, subentry=subentry)
+        self.parent.sync_scans()          # register copied scans that name this parent
 
         layout = []
 
