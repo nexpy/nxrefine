@@ -2041,6 +2041,39 @@ class NXReduce(QtCore.QObject):
             target['orientation_matrix'] = parent_matrix
             self.log("Orientation matrix copied from parent")
 
+    def pull_parent_sample(self):
+        """Copy the parent's crystallographic sample parameters into the file.
+
+        The lattice parameters and space-group information are authored on
+        the parent (via the Define Lattice or Refine Lattice dialogs), so
+        the parent is canonical. They seed the automatic refinement,
+        mirroring ``pull_parent_orientation``. Scan-specific sample metadata
+        (name, label, temperature) is left untouched. Silent no-op if no
+        parent is attached or it has no sample group.
+        """
+        if not self.parent:
+            return
+        fields = ['chemical_formula', 'space_group', 'laue_group',
+                  'unit_cell_group', 'lattice_centring',
+                  'unitcell_a', 'unitcell_b', 'unitcell_c',
+                  'unitcell_alpha', 'unitcell_beta', 'unitcell_gamma']
+        try:
+            parent_sample = self.parent.root['entry']['sample']
+        except (NeXusError, KeyError):
+            return
+        values = {f: parent_sample[f] for f in fields if f in parent_sample}
+        if not values:
+            return
+        with self:
+            if 'sample' not in self.root['entry']:
+                return
+            sample = self.root['entry']['sample']
+            for name, field in values.items():
+                if name in sample:
+                    del sample[name]
+                sample[name] = field
+            self.log("Sample parameters copied from parent")
+
     def nxrefine(self):
         """
         Refines the sample orientation based on the peak search results.
@@ -2064,6 +2097,7 @@ class NXReduce(QtCore.QObject):
             self.record_start('nxrefine')
             try:
                 self.pull_parent_orientation()
+                self.pull_parent_sample()
                 self.log("Refining orientation")
                 if self.lattice or self.is_first_entry():
                     lattice = True
@@ -2073,8 +2107,9 @@ class NXReduce(QtCore.QObject):
                 if refine:
                     if not self.gui:
                         refine.write_parameters()
-                    self.write_parameters(polar_max=self.polar_max,
-                                          hkl_tolerance=self.hkl_tolerance)
+                    if not self.parent:
+                        self.write_parameters(polar_max=self.polar_max,
+                                              hkl_tolerance=self.hkl_tolerance)
                     self.record('nxrefine', polar_max=self.polar_max,
                                 hkl_tolerance=self.hkl_tolerance,
                                 fit_report=refine.fit_report)
