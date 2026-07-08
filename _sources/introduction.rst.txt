@@ -52,19 +52,21 @@ the horizontal or vertical axes by θ or ω, respectively. When θ = ω = 0,
 the χ-circle is perpendicular to the incident beam. During a scan, the
 sample is rotated about the Φ-axis, which is vertical when χ = θ = 0.
 However, the Φ-axis can be reoriented by adjusting any of the other
-three angles. The figure shows the configuration in use on Sector
-6-ID-D, in which the Φ-axis is horizontal, with θ = ω = 0 and χ = -90°.
-The dotted lines show the orientation of the Φ-axis with ω = ±15°;
-rotating ω between Φ-rotation scans can be used to improve the quality
-of the merged data, for reasons that are explained in a later section. 
+three angles, χ, θ, or ω. The figure above shows the configuration in
+use on Sector 6-ID-D, in which the Φ-axis is horizontal, with θ = ω = 0
+and χ = -90°. The dotted lines show the orientation of the Φ-axis with ω
+= ±15°; rotating ω between Φ-rotation scans can be used to improve the
+quality of the merged data, for reasons that are explained in a later
+section. 
 
 .. note:: This geometry is equivalent to the four-circle geometry
-          defined by H. You [see Fig. 1 in J. Appl. Cryst. **32**, 614
-          (1999)], with θ and ω corresponding to η and μ, respectively.
-          At present, *NXRefine* assumes that the two angles coupled to
+          defined by H. You [see `Fig. 1
+          <https://journals.iucr.org/paper?S0021889899001223>`_ 
+          in J. Appl. Cryst. **32**, 614 (1999)], with θ and ω 
+          corresponding to η and μ, respectively. At present, 
+          *NXRefine* assumes that the two angles coupled to
           the detector (δ and ν in You's paper), are fixed at 0°, with
-          detector misalignments handled by the yaw and pitch angles
-          refined in powder calibrations.
+          detector misalignments handled by the yaw and pitch angles, which are refined in powder calibrations.
 
 .. warning:: In earlier versions of *NXRefine*, θ was called the
              goniometer pitch angle, since it corresponds to a tilting
@@ -219,7 +221,7 @@ Coordinate Transformation Workflow* (*CCTW*), written by Guy Jennings
 
 *CCTW* needs to be built from the source code, which is available on
 `SourceForge <https://sourceforge.net/projects/cctw/>`_. *NXRefine*
-generates the parameter file used by *CCTW* for each set of Φ-rotations
+generates the parameter file used by *CCTW* for each set of Φ-rotations,
 launches the application, and links to the results. 
 
 .. figure:: /images/rotation-transforms.png

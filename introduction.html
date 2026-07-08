@@ -89,20 +89,21 @@ the horizontal or vertical axes by θ or ω, respectively. When θ = ω = 0,
 the χ-circle is perpendicular to the incident beam. During a scan, the
 sample is rotated about the Φ-axis, which is vertical when χ = θ = 0.
 However, the Φ-axis can be reoriented by adjusting any of the other
-three angles. The figure shows the configuration in use on Sector
-6-ID-D, in which the Φ-axis is horizontal, with θ = ω = 0 and χ = -90°.
-The dotted lines show the orientation of the Φ-axis with ω = ±15°;
-rotating ω between Φ-rotation scans can be used to improve the quality
-of the merged data, for reasons that are explained in a later section.</p>
+three angles, χ, θ, or ω. The figure above shows the configuration in
+use on Sector 6-ID-D, in which the Φ-axis is horizontal, with θ = ω = 0
+and χ = -90°. The dotted lines show the orientation of the Φ-axis with ω
+= ±15°; rotating ω between Φ-rotation scans can be used to improve the
+quality of the merged data, for reasons that are explained in a later
+section.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>This geometry is equivalent to the four-circle geometry
-defined by H. You [see Fig. 1 in J. Appl. Cryst. <strong>32</strong>, 614
-(1999)], with θ and ω corresponding to η and μ, respectively.
-At present, <em>NXRefine</em> assumes that the two angles coupled to
+defined by H. You [see <a class="reference external" href="https://journals.iucr.org/paper?S0021889899001223">Fig. 1</a>
+in J. Appl. Cryst. <strong>32</strong>, 614 (1999)], with θ and ω
+corresponding to η and μ, respectively. At present,
+<em>NXRefine</em> assumes that the two angles coupled to
 the detector (δ and ν in You’s paper), are fixed at 0°, with
-detector misalignments handled by the yaw and pitch angles
-refined in powder calibrations.</p>
+detector misalignments handled by the yaw and pitch angles, which are refined in powder calibrations.</p>
 </div>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
@@ -239,7 +240,7 @@ Coordinate Transformation Workflow</em> (<em>CCTW</em>), written by Guy Jennings
 (APS).</p>
 <p><em>CCTW</em> needs to be built from the source code, which is available on
 <a class="reference external" href="https://sourceforge.net/projects/cctw/">SourceForge</a>. <em>NXRefine</em>
-generates the parameter file used by <em>CCTW</em> for each set of Φ-rotations
+generates the parameter file used by <em>CCTW</em> for each set of Φ-rotations,
 launches the application, and links to the results.</p>
 <div class="figure align-center" id="id2">
 <a class="reference internal image-reference" href="_images/rotation-transforms.png"><img alt="_images/rotation-transforms.png" src="_images/rotation-transforms.png" style="width: 100%;" /></a>

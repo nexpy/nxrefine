@@ -33,7 +33,7 @@ The workflow is written as a set of Python modules that can either be
 run from the command line, launched from a GUI that is implemented as a
 plugin to `NeXpy <https://nexpy.github.io.nexpy/>`_, or by submitting
 jobs to a batch queue. After the initial refinement of the sample
-orientation, the entire workflow can be run in an automated fashion,
+orientation, the entire workflow can be run in an automated fashion
 while the data is being collected so that reduced data is available for
 inspection before a set of measurements, *e.g.*, as a function of
 temperature, are complete.
@@ -46,6 +46,7 @@ temperature, are complete.
    experiment
    sample
    reduction
+   parent_scans
    server
    glossary
 
@@ -55,3 +56,11 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+Acknowledgements
+================
+This project was supported by the U.S. Department of Energy, Office of
+Science, Basic Energy Sciences, Materials Sciences and Engineering
+Division. The software is free for distribution under an `Open Source
+License <https://github.com/nexpy/nxrefine/blob/main/LICENSE.pdf>`_
+owned by Argonne National Laboratory.

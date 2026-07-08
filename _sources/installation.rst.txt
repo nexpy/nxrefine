@@ -112,7 +112,7 @@ ways.
 
 1. If *NXRefine* is being configured by a system administrator, it is
    possible to use a system-wide environment variable, ``NX_SERVER``, to
-   to define the path to the server directory. Alternatively, this
+   define the path to the server directory. Alternatively, this
    environment variable could be added to each user's login script.
 
 2. The ``nxserver`` command used to initialize the server directory also
@@ -127,17 +127,19 @@ ways.
              takes precedence over the path in
              ``~/.nxserver/settings.ini``.
 
-*NXRefine* uses file-based locking to prevent corruption of data files.
-This system is provided by the 
-`nexusformat package <https://nexpy.github.io/nexpy/>`_, which defines
-the directory to contain the lock files using the ``NX_LOCKDIRECTORY``
-environment variable. It is recommended that this directory be placed
-within the server directory.
+*NXRefine* uses file-based locking implemented by the `nexusformat
+package <https://nexpy.github.io/nexpy/>`_ to prevent corruption of data
+files. The directory containing the lock files can be defined by the
+``NX_LOCKDIRECTORY`` environment variable. It is recommended that
+this directory be placed within the server directory.
 
-.. note:: The *NeXpy* GUI has a settings file that can be used to define
-          the lock directory, but it is overridden by the environment
-          variable if it is defined. This allows system administrators
-          to set up a unique lock file directory for all their users.
+.. seealso:: `File Locking
+             <https://nexpy.github.io/nexpy/pythonshell.html#file-locking>`_
+
+.. note:: The ``NX_LOCKDIRECTORY`` environment variable overrides the 
+          directory defined the *NeXpy* GUI settings. This allows 
+          system administrators to set up a unique lock file directory 
+          for all their users.
 
 User Support
 ------------

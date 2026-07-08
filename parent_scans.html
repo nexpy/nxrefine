@@ -1,0 +1,325 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Parent Files and the Scan Registry &#8212; NXRefine 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinxdoc.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Server Management" href="server.html" />
+    <link rel="prev" title="Data Reduction" href="reduction.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="server.html" title="Server Management"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="reduction.html" title="Data Reduction"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">NXRefine 0.1.0 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Parent Files and the Scan Registry</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="parent-files-and-the-scan-registry">
+<h1>Parent Files and the Scan Registry<a class="headerlink" href="#parent-files-and-the-scan-registry" title="Permalink to this headline">¶</a></h1>
+<p>This page documents how <em>NXRefine</em> relates a <em>parent</em> file to the individual
+<em>scan</em> files it groups together, the on-disk data model that records the
+relationship, and the classes and dialogs that read and write it. It is aimed
+at developers extending the reduction workflow.</p>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h2>
+<p>A single experiment is organised around a <strong>parent file</strong>, named
+<code class="docutils literal notranslate"><span class="pre">{sample}_scans.nxs</span></code>, which holds the shared geometry, reduction settings,
+and a registry of the scans that belong to it. Each <strong>scan file</strong> is an
+individual rotation dataset (for example one temperature point) that records
+which parent it belongs to.</p>
+<p>The relationship is <em>bidirectional by convention</em>:</p>
+<ul class="simple">
+<li><p>the <strong>parent lists each scan</strong> in <code class="docutils literal notranslate"><span class="pre">/entry/nxscans/scans</span></code> (with a parallel
+<code class="docutils literal notranslate"><span class="pre">selected</span></code> flag), and</p></li>
+<li><p>each <strong>scan names its parent</strong> in its own <code class="docutils literal notranslate"><span class="pre">/entry/nxscans/parent</span></code> field.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">NXParent.is_parent</span></code> verifies that the two agree. Keeping both sides
+consistent is the responsibility of the code that creates scans
+(<code class="docutils literal notranslate"><span class="pre">NXParent.add_scan</span></code>) and of the reconciliation paths described in
+<a class="reference internal" href="#reconciling-a-copied-parent">Reconciling a copied parent</a>.</p>
+</div>
+<div class="section" id="the-nxscans-data-model">
+<h2>The <code class="docutils literal notranslate"><span class="pre">nxscans</span></code> data model<a class="headerlink" href="#the-nxscans-data-model" title="Permalink to this headline">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">nxscans</span></code> is an <code class="docutils literal notranslate"><span class="pre">NXprocess</span></code> group that lives in the <strong>parent</strong> file at
+<code class="docutils literal notranslate"><span class="pre">/entry/nxscans</span></code> (or <code class="docutils literal notranslate"><span class="pre">/entry/{subentry}/nxscans</span></code> when a subentry is
+active). It is the central registry of the scan collection and contains:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">scans</span></code></dt><dd><p>A resizable 1-D string field (<code class="docutils literal notranslate"><span class="pre">string_dtype</span></code>, <code class="docutils literal notranslate"><span class="pre">maxshape=(None,)</span></code>).
+Each element is a scan file <strong>stem</strong> (the filename without <code class="docutils literal notranslate"><span class="pre">.nxs</span></code>),
+e.g. <code class="docutils literal notranslate"><span class="pre">sample1_300K</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">selected</span></code></dt><dd><p>A resizable 1-D <code class="docutils literal notranslate"><span class="pre">bool</span></code> field, index-aligned with <code class="docutils literal notranslate"><span class="pre">scans</span></code>. Only the
+selected scans feed downstream consolidation and reduction.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">settings</span></code></dt><dd><p>An <code class="docutils literal notranslate"><span class="pre">NXparameters</span></code> group of reduction parameters shared by all scans
+(threshold, frame limits, monitor/normalisation, Q limits, mask
+parameters, <code class="docutils literal notranslate"><span class="pre">scan_path</span></code>/<code class="docutils literal notranslate"><span class="pre">scan_units</span></code>, …).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">transform</span></code></dt><dd><p>An optional <code class="docutils literal notranslate"><span class="pre">NXdata</span></code> group holding the output Q-grid axes (Qh/Qk/Ql).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">description</span></code></dt><dd><p>An optional <code class="docutils literal notranslate"><span class="pre">NXnote</span></code> describing a subentry.</p>
+</dd>
+</dl>
+<p>Note that the on-disk field is named <code class="docutils literal notranslate"><span class="pre">scans</span></code>; <code class="docutils literal notranslate"><span class="pre">scan_files</span></code> is a <em>Python
+property</em> on <code class="docutils literal notranslate"><span class="pre">NXParent</span></code> that resolves those stems to absolute <code class="docutils literal notranslate"><span class="pre">Path</span></code>
+objects — the two are not the same thing.</p>
+<p>In a <strong>scan</strong> file, the same <code class="docutils literal notranslate"><span class="pre">nxscans</span></code> group instead holds a single
+<code class="docutils literal notranslate"><span class="pre">parent</span></code> field: the parent’s file <strong>name</strong> (e.g. <code class="docutils literal notranslate"><span class="pre">sample_scans.nxs</span></code>),
+stored as a plain string, not a NeXus link. It is resolved relative to the
+scan’s own directory, which is what makes the reference survive a copy to
+another disk.</p>
+</div>
+<div class="section" id="the-nxparent-class">
+<h2>The <code class="docutils literal notranslate"><span class="pre">NXParent</span></code> class<a class="headerlink" href="#the-nxparent-class" title="Permalink to this headline">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">NXParent</span></code> (<code class="docutils literal notranslate"><span class="pre">src/nxrefine/nxparent.py</span></code>) wraps a parent <code class="docutils literal notranslate"><span class="pre">_scans.nxs</span></code>
+file and is the single source of truth for the data model above. All of the
+refine/experiment dialogs and <code class="docutils literal notranslate"><span class="pre">NXReduce</span></code> build on it.</p>
+<div class="section" id="construction-and-entry-selection">
+<h3>Construction and entry selection<a class="headerlink" href="#construction-and-entry-selection" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">NXParent(filename,</span> <span class="pre">subentry=None)</span></code> accepts a path, an <code class="docutils literal notranslate"><span class="pre">NXroot</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">None</span></code>. The filename must end with <code class="docutils literal notranslate"><span class="pre">_scans</span></code>. A <code class="docutils literal notranslate"><span class="pre">subentry</span></code> selects a
+group within <code class="docutils literal notranslate"><span class="pre">/entry</span></code>; when set, all accessors operate on
+<code class="docutils literal notranslate"><span class="pre">/entry/{subentry}</span></code> instead of <code class="docutils literal notranslate"><span class="pre">/entry</span></code> (see <code class="docutils literal notranslate"><span class="pre">entry_path</span></code>,
+<code class="docutils literal notranslate"><span class="pre">scan_entry</span></code>, <code class="docutils literal notranslate"><span class="pre">scan_info</span></code>).</p>
+</div>
+<div class="section" id="key-accessors">
+<h3>Key accessors<a class="headerlink" href="#key-accessors" title="Permalink to this headline">¶</a></h3>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">scan_info</span></code></dt><dd><p>The active <code class="docutils literal notranslate"><span class="pre">nxscans</span></code> <code class="docutils literal notranslate"><span class="pre">NXprocess</span></code> group; <code class="docutils literal notranslate"><span class="pre">settings</span></code> and <code class="docutils literal notranslate"><span class="pre">transform</span></code>
+return its like-named children.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">scans</span></code> / <code class="docutils literal notranslate"><span class="pre">selected</span></code></dt><dd><p>Sorted (<code class="docutils literal notranslate"><span class="pre">natural_sort</span></code>) lists of scan stems and their booleans;
+<code class="docutils literal notranslate"><span class="pre">index(scan)</span></code> gives the raw, unsorted position needed for in-place
+writes.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">scan_file(scan)</span></code> / <code class="docutils literal notranslate"><span class="pre">scan_files</span></code> / <code class="docutils literal notranslate"><span class="pre">selected_scans</span></code></dt><dd><p>Resolve a stem to an absolute <code class="docutils literal notranslate"><span class="pre">.nxs</span></code> path; the paths of all registered
+scans; and the paths of only the selected scans.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">other_scan_files</span></code></dt><dd><p><code class="docutils literal notranslate"><span class="pre">.nxs</span></code> files in the directory that are neither registered scans nor
+<code class="docutils literal notranslate"><span class="pre">*_scans</span></code> parents.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">is_parent(scan)</span></code> / <code class="docutils literal notranslate"><span class="pre">has_parent(scan)</span></code></dt><dd><p>Whether a scan’s <code class="docutils literal notranslate"><span class="pre">parent</span></code> back-pointer names <em>this</em> parent, and whether
+it records <em>any</em> parent.</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="key-mutators">
+<h3>Key mutators<a class="headerlink" href="#key-mutators" title="Permalink to this headline">¶</a></h3>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">initialize()</span></code></dt><dd><p>Builds the <code class="docutils literal notranslate"><span class="pre">entry</span> <span class="pre">-&gt;</span> <span class="pre">nxscans</span> <span class="pre">(scans,</span> <span class="pre">selected,</span> <span class="pre">settings)</span></code> skeleton plus
+an <code class="docutils literal notranslate"><span class="pre">NXsample</span></code>. The <code class="docutils literal notranslate"><span class="pre">scans</span></code> and <code class="docutils literal notranslate"><span class="pre">selected</span></code> fields are created empty.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">add_scan(scan,</span> <span class="pre">selected=True)</span></code></dt><dd><p>The central mutator. Resizes and appends to <code class="docutils literal notranslate"><span class="pre">scans</span></code>/<code class="docutils literal notranslate"><span class="pre">selected</span></code> (guarded
+against duplicates), then calls <code class="docutils literal notranslate"><span class="pre">add_parent</span></code> to stamp the scan’s
+back-pointer, and migrates any legacy structure.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">add_parent(scan)</span></code></dt><dd><p>Writes <code class="docutils literal notranslate"><span class="pre">{entry_path}/nxscans/parent</span> <span class="pre">=</span> <span class="pre">&lt;parent</span> <span class="pre">filename&gt;</span></code> into the <em>scan</em>
+file.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">add_scans(selected=True)</span></code></dt><dd><p>Globs <code class="docutils literal notranslate"><span class="pre">{sample}_*.nxs</span></code> and adds each one (does not check <code class="docutils literal notranslate"><span class="pre">is_parent</span></code>).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sync_scans(selected=True)</span></code></dt><dd><p>Reconciles the registry from the scans’ back-pointers — see
+<a class="reference internal" href="#reconciling-a-copied-parent">Reconciling a copied parent</a>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">update_scan_data()</span></code> / <code class="docutils literal notranslate"><span class="pre">create_scan_data()</span></code></dt><dd><p>Consolidate per-scan <code class="docutils literal notranslate"><span class="pre">NXdata</span></code> groups into the parent with
+<code class="docutils literal notranslate"><span class="pre">nxconsolidate</span></code> along <code class="docutils literal notranslate"><span class="pre">scan_path</span></code>.</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="section" id="dialogs">
+<h2>Dialogs<a class="headerlink" href="#dialogs" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="the-new-parent-dialog">
+<h3>The New Parent dialog<a class="headerlink" href="#the-new-parent-dialog" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">src/nxrefine/plugins/experiment/new_parent.py</span></code> (<code class="docutils literal notranslate"><span class="pre">Experiment</span> <span class="pre">-&gt;</span> <span class="pre">New</span>
+<span class="pre">Parent</span></code>). A wizard that chooses the experiment directory, sample/label, and a
+configuration file to copy geometry from, then edits reduction parameters.
+<code class="docutils literal notranslate"><span class="pre">create_parent()</span></code> calls <code class="docutils literal notranslate"><span class="pre">NXParent.initialize()</span></code> and <code class="docutils literal notranslate"><span class="pre">copy_file(...)</span></code> and
+writes the parameters into <code class="docutils literal notranslate"><span class="pre">nxscans/settings</span></code>. <strong>The parent is created with
+an empty scan list</strong> — scans are added later.</p>
+</div>
+<div class="section" id="the-new-scan-dialog">
+<h3>The New Scan dialog<a class="headerlink" href="#the-new-scan-dialog" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">src/nxrefine/plugins/experiment/new_scan.py</span></code> (<code class="docutils literal notranslate"><span class="pre">Experiment</span> <span class="pre">-&gt;</span> <span class="pre">New</span> <span class="pre">Scan</span></code>).
+<code class="docutils literal notranslate"><span class="pre">create_scan()</span></code> clones the parent entries into a new per-value scan file,
+repoints the raw-data links, writes the scan variable, then calls
+<code class="docutils literal notranslate"><span class="pre">NXParent.add_scan(...)</span></code>. That single call is what appends the new scan to
+the parent registry <em>and</em> stamps the back-pointer into the scan file.</p>
+</div>
+<div class="section" id="the-initialize-scans-and-select-files-dialogs">
+<h3>The Initialize Scans and Select Files dialogs<a class="headerlink" href="#the-initialize-scans-and-select-files-dialogs" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">src/nxrefine/plugins/refine/initialize_scans.py</span></code> is a hub for a chosen
+parent: pick/create a subentry, then open <strong>Select Files</strong>, <strong>Edit Settings</strong>,
+<strong>Define Lattice</strong>, <strong>Setup Transforms</strong>, or <strong>Copy NeXus File</strong>.</p>
+<p><strong>Select Files</strong> (<code class="docutils literal notranslate"><span class="pre">select_files.py</span></code>, <code class="docutils literal notranslate"><span class="pre">FilesDialog</span></code>) shows two checkbox
+lists: the already-registered <strong>Scan Files</strong> (pre-checked per <code class="docutils literal notranslate"><span class="pre">selected</span></code>)
+and the unregistered <strong>Other Files</strong> (<code class="docutils literal notranslate"><span class="pre">other_scan_files</span></code>). On <code class="docutils literal notranslate"><span class="pre">accept</span></code> it
+toggles <code class="docutils literal notranslate"><span class="pre">selected</span></code> in place for existing scans (by <code class="docutils literal notranslate"><span class="pre">index</span></code>) and calls
+<code class="docutils literal notranslate"><span class="pre">add_scan</span></code> for newly chosen files, then consolidates data on a background
+thread (<code class="docutils literal notranslate"><span class="pre">ScanDataWorker</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">update_scan_data</span></code>).</p>
+</div>
+</div>
+<div class="section" id="nxreduce-and-the-parent">
+<h2><code class="docutils literal notranslate"><span class="pre">NXReduce</span></code> and the parent<a class="headerlink" href="#nxreduce-and-the-parent" title="Permalink to this headline">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">NXReduce</span></code> (<code class="docutils literal notranslate"><span class="pre">src/nxrefine/nxreduce.py</span></code>) is the reduction workflow
+controller for a single scan entry (<code class="docutils literal notranslate"><span class="pre">NXMultiReduce</span></code> handles the cross-entry
+combine/PDF steps).</p>
+<p>Parent resolution is lazy through three properties:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">parent_file</span></code></dt><dd><p>Reads <code class="docutils literal notranslate"><span class="pre">entry/nxscans/parent</span></code> from the scan’s <em>own</em> wrapper file and
+resolves it against <code class="docutils literal notranslate"><span class="pre">base_directory</span></code>; falls back to
+<code class="docutils literal notranslate"><span class="pre">{sample}_scans.nxs</span></code> when the field is absent.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">parent</span></code></dt><dd><p>Wraps <code class="docutils literal notranslate"><span class="pre">parent_file</span></code> as an <code class="docutils literal notranslate"><span class="pre">NXParent</span></code> (with the current subentry)
+when the file exists.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">parent_entry</span></code></dt><dd><p>The parent’s <code class="docutils literal notranslate"><span class="pre">NXentry</span></code> matching the current entry name.</p>
+</dd>
+</dl>
+<p>Reduction parameters are read from the parent’s <code class="docutils literal notranslate"><span class="pre">nxscans/settings</span></code>
+(<code class="docutils literal notranslate"><span class="pre">get_parameter</span></code>) and written back there (<code class="docutils literal notranslate"><span class="pre">write_parameters</span></code> -&gt;
+<code class="docutils literal notranslate"><span class="pre">NXParent.write_settings</span></code>); when no parent exists they fall back to the
+wrapper’s <code class="docutils literal notranslate"><span class="pre">/entry/nxreduce</span></code> for backward compatibility.</p>
+<p>The workflow operations — <code class="docutils literal notranslate"><span class="pre">nxload</span></code>, <code class="docutils literal notranslate"><span class="pre">nxlink</span></code>, <code class="docutils literal notranslate"><span class="pre">nxmax</span></code>, <code class="docutils literal notranslate"><span class="pre">nxfind</span></code>,
+<code class="docutils literal notranslate"><span class="pre">nxrefine</span></code>, <code class="docutils literal notranslate"><span class="pre">nxprepare</span></code>, <code class="docutils literal notranslate"><span class="pre">nxtransform</span></code>, <code class="docutils literal notranslate"><span class="pre">nxsum</span></code> (and
+<code class="docutils literal notranslate"><span class="pre">NXMultiReduce.nxcombine</span></code> / <code class="docutils literal notranslate"><span class="pre">nxpdf</span></code>) — are dispatched by <code class="docutils literal notranslate"><span class="pre">nxreduce()</span></code>
+according to boolean flags. They all pass through <code class="docutils literal notranslate"><span class="pre">record_start</span></code> /
+<code class="docutils literal notranslate"><span class="pre">record</span></code> / <code class="docutils literal notranslate"><span class="pre">record_end</span></code> for status tracking, which makes <code class="docutils literal notranslate"><span class="pre">record_start</span></code>
+a convenient single choke point for per-run hooks.</p>
+</div>
+<div class="section" id="reconciling-a-copied-parent">
+<h2>Reconciling a copied parent<a class="headerlink" href="#reconciling-a-copied-parent" title="Permalink to this headline">¶</a></h2>
+<p>A parent is often created on one machine and copied to a second disk <em>before</em>
+any scans are added, so the copy starts with an empty registry even though the
+scan files (each carrying a <code class="docutils literal notranslate"><span class="pre">parent</span></code> back-pointer) are also copied over. Two
+paths rebuild the registry from those back-pointers:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">NXParent.sync_scans()</span></code></dt><dd><p>Iterates <code class="docutils literal notranslate"><span class="pre">other_scan_files</span></code> and registers each file whose back-pointer
+matches this parent (<code class="docutils literal notranslate"><span class="pre">is_parent</span></code>) and that is not already listed. It is
+called from <code class="docutils literal notranslate"><span class="pre">FilesDialog.__init__</span></code> so <strong>Select Files</strong> shows the
+recovered scans pre-checked rather than under <em>Other Files</em>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">NXReduce.register_with_parent()</span></code></dt><dd><p>Called once per instance from <code class="docutils literal notranslate"><span class="pre">record_start</span></code>. When the scan reports a
+parent that does not yet list it, the scan adds itself via
+<code class="docutils literal notranslate"><span class="pre">add_scan(...,</span> <span class="pre">selected=True)</span></code>. It is a no-op for scans with no recorded
+parent and for the parent file itself.</p>
+</dd>
+</dl>
+<p>Because both paths funnel through <code class="docutils literal notranslate"><span class="pre">add_scan</span></code> (which is duplicate-guarded and
+resizes under the file lock configured by <code class="docutils literal notranslate"><span class="pre">nxsetconfig</span></code>), they are
+idempotent. Concurrency between reduction jobs each registering themselves is
+serialised by that same NeXus file locking.</p>
+</div>
+</div>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Parent Files and the Scan Registry</a><ul>
+<li><a class="reference internal" href="#overview">Overview</a></li>
+<li><a class="reference internal" href="#the-nxscans-data-model">The <code class="docutils literal notranslate"><span class="pre">nxscans</span></code> data model</a></li>
+<li><a class="reference internal" href="#the-nxparent-class">The <code class="docutils literal notranslate"><span class="pre">NXParent</span></code> class</a><ul>
+<li><a class="reference internal" href="#construction-and-entry-selection">Construction and entry selection</a></li>
+<li><a class="reference internal" href="#key-accessors">Key accessors</a></li>
+<li><a class="reference internal" href="#key-mutators">Key mutators</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#dialogs">Dialogs</a><ul>
+<li><a class="reference internal" href="#the-new-parent-dialog">The New Parent dialog</a></li>
+<li><a class="reference internal" href="#the-new-scan-dialog">The New Scan dialog</a></li>
+<li><a class="reference internal" href="#the-initialize-scans-and-select-files-dialogs">The Initialize Scans and Select Files dialogs</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#nxreduce-and-the-parent"><code class="docutils literal notranslate"><span class="pre">NXReduce</span></code> and the parent</a></li>
+<li><a class="reference internal" href="#reconciling-a-copied-parent">Reconciling a copied parent</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="reduction.html"
+                          title="previous chapter">Data Reduction</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="server.html"
+                          title="next chapter">Server Management</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/parent_scans.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="server.html" title="Server Management"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="reduction.html" title="Data Reduction"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">NXRefine 0.1.0 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Parent Files and the Scan Registry</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2023, Ray Osborn.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

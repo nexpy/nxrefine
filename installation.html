@@ -173,7 +173,7 @@ ways.</p>
 <ol class="arabic">
 <li><p>If <em>NXRefine</em> is being configured by a system administrator, it is
 possible to use a system-wide environment variable, <code class="docutils literal notranslate"><span class="pre">NX_SERVER</span></code>, to
-to define the path to the server directory. Alternatively, this
+define the path to the server directory. Alternatively, this
 environment variable could be added to each user’s login script.</p></li>
 <li><p>The <code class="docutils literal notranslate"><span class="pre">nxserver</span></code> command used to initialize the server directory also
 adds a hidden file to the user’s home directory,
@@ -190,18 +190,21 @@ takes precedence over the path in
 </div>
 </li>
 </ol>
-<p><em>NXRefine</em> uses file-based locking to prevent corruption of data files.
-This system is provided by the
-<a class="reference external" href="https://nexpy.github.io/nexpy/">nexusformat package</a>, which defines
-the directory to contain the lock files using the <code class="docutils literal notranslate"><span class="pre">NX_LOCKDIRECTORY</span></code>
-environment variable. It is recommended that this directory be placed
-within the server directory.</p>
+<p><em>NXRefine</em> uses file-based locking implemented by the <a class="reference external" href="https://nexpy.github.io/nexpy/">nexusformat
+package</a> to prevent corruption of data
+files. The directory containing the lock files can be defined by the
+<code class="docutils literal notranslate"><span class="pre">NX_LOCKDIRECTORY</span></code> environment variable. It is recommended that
+this directory be placed within the server directory.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference external" href="https://nexpy.github.io/nexpy/pythonshell.html#file-locking">File Locking</a></p>
+</div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The <em>NeXpy</em> GUI has a settings file that can be used to define
-the lock directory, but it is overridden by the environment
-variable if it is defined. This allows system administrators
-to set up a unique lock file directory for all their users.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">NX_LOCKDIRECTORY</span></code> environment variable overrides the
+directory defined the <em>NeXpy</em> GUI settings. This allows
+system administrators to set up a unique lock file directory
+for all their users.</p>
 </div>
 <div class="section" id="user-support">
 <h3>User Support<a class="headerlink" href="#user-support" title="Permalink to this headline">¶</a></h3>
