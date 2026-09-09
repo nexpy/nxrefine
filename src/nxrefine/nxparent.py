@@ -11,15 +11,28 @@ import shutil
 from pathlib import Path as Path
 
 from nexusformat.nexus import (NeXusError, NXcollection, NXdata, NXentry,
-                               NXfield, NXgroup, NXnote, NXparameters,
+                               NXfield, NXgroup, NXlink, NXnote, NXparameters,
                                NXprocess, NXroot, NXsample, NXsubentry,
                                nxconsolidate, nxopen)
 from nexusformat.nexus.tree import natural_sort, string_dtype
 
 
+def format_scan_prefix(prefix, sample):
+    """Return the scan-directory prefix implied by `prefix` for `sample`.
+
+    Scan directories are named without the leading sample name, since
+    that is already carried by the scan filename. A prefix of 'sample'
+    therefore yields '' (scan directory '300K', file 'sample_300K.nxs'),
+    while 'sample_atten' yields 'atten_' (scan directory 'atten_300K',
+    file 'sample_atten_300K.nxs').
+    """
+    prefix = prefix.replace(sample, '').strip('_')
+    return f'{prefix}_' if prefix else ''
+
+
 class NXParent:
 
-    def __init__(self, filename, subentry=None):
+    def __init__(self, filename, subentry=None, prefix=None):
         if isinstance(filename, NXroot):
             self.filename = Path(filename.nxfilename).resolve()
             self.root = filename
@@ -31,8 +44,8 @@ class NXParent:
                 self.root = nxopen(self.filename)
             else:
                 self.root = NXroot()
-        if not self.filename.stem.endswith('_scans'):
-            raise ValueError("Parent file must end with '_scans.nxs'")
+        self.is_registry = self.filename.stem.endswith('_scans')
+        self._prefix = prefix
         self.name = self.filename.name
         if isinstance(subentry, NXsubentry):
             self._subentry = subentry.nxname
@@ -123,26 +136,38 @@ class NXParent:
         if self.scan_entry:
             self.scan_entry['sample'] = value
 
+    def require_scan_info(self):
+        """Return the ``nxscans`` group, creating it if necessary.
+
+        Both parent registry files and standalone scan files store their
+        settings and transform under ``nxscans``; only a registry also
+        holds the ``scans``/``selected`` fields.
+        """
+        if self.scan_info is None:
+            if self.scan_entry is None:
+                raise NeXusError(
+                    f"'{self.entry_path}' does not exist in '{self.name}'")
+            self.scan_info = NXprocess()
+        return self.scan_info
+
     @property
     def settings(self):
         if self.scan_info and 'settings' in self.scan_info:
             return self.scan_info['settings']
-        else:
-            return None
+        return None
 
     @settings.setter
     def settings(self, value):
-        if self.scan_info:
-            self.scan_info['settings'] = value
+        self.require_scan_info()['settings'] = value
 
     def get_setting(self, name, default=None):
-        """Return a single setting from /entry/nxscans/settings."""
+        """Return a single setting from ``nxscans/settings``."""
         if self.settings is not None and name in self.settings:
             return self.settings[name].nxvalue
         return default
 
     def write_settings(self, **kwargs):
-        """Write reduction settings to /entry/nxscans/settings."""
+        """Write reduction settings to ``nxscans/settings``."""
         with nxopen(self.filename, 'rw') as root:
             entry = root[self.entry_path]
             if 'nxscans' not in entry:
@@ -158,15 +183,14 @@ class NXParent:
     def transform(self):
         if self.scan_info and 'transform' in self.scan_info:
             return self.scan_info['transform']
-        else:
-            return None
+        return None
 
     @transform.setter
     def transform(self, value):
-        if self.scan_info:
-            if 'transform' in self.scan_info:
-                del self.scan_info['transform']
-            self.scan_info['transform'] = value
+        scan_info = self.require_scan_info()
+        if 'transform' in scan_info:
+            del scan_info['transform']
+        scan_info['transform'] = value
 
     @property
     def sample(self):
@@ -194,7 +218,13 @@ class NXParent:
 
     @property
     def scans_defined(self):
-        return self.scan_info is not None
+        """True if this file is a registry holding a list of scans.
+
+        A standalone scan file also has an ``nxscans`` group (for its
+        settings and transform), so the presence of the group alone is
+        not enough -- the ``scans`` field is what marks a registry.
+        """
+        return self.scan_info is not None and 'scans' in self.scan_info
 
     @property
     def _sorted_scans(self):
@@ -278,11 +308,13 @@ class NXParent:
 
     @property
     def scan_prefix(self):
+        if self._prefix is not None:
+            return format_scan_prefix(self._prefix, self.sample)
         if self.filename.name == self.sample + '_scans.nxs':
             return ''
         else:
-            return self.filename.stem.replace(
-                self.sample, '').replace('scans', '').strip('_') + '_'
+            return format_scan_prefix(
+                self.filename.stem.replace('scans', ''), self.sample)
 
     def get_scan_directory(self, value):
         try:
@@ -432,6 +464,25 @@ class NXParent:
             self.clean_backups()
             self.backup_scan(scan)
             self.restructure_scan(scan)
+
+    def relink_data(self, scan_directory):
+        """Rewrite raw-data links to point into a new scan subdirectory.
+
+        Any entry (numbered position entries in a multi-detector scan, or
+        the top-level 'entry' itself for a single-detector scan) that has a
+        'data/data' link has that link's filename rewritten to be relative
+        to ``scan_directory``, leaving the link target unchanged.
+        """
+        with self.root:
+            for name in list(self.root.entries):
+                group = self.root[name]
+                if 'data/data' in group:
+                    data_link = group['data/data']
+                    _target, _filename = (data_link._target,
+                                          data_link._filename)
+                    _filename = Path(scan_directory).joinpath(_filename)
+                    del group['data/data']
+                    group['data/data'] = NXlink(_target, _filename)
 
     def add_scans(self, selected=True):
         directory = self.filename.parent
@@ -616,7 +667,10 @@ class NXParent:
                 if 'sample' in self.root['entry']:
                     del self.root['entry/sample']
                 self.sample_info = root['entry/sample']
-            if 'transform' in root['entry']:
+            if 'nxscans/transform' in root['entry']:
+                L, K, H = root['entry/nxscans/transform'].nxaxes
+                self.transform = NXdata(axes=(L, K, H))
+            elif 'transform' in root['entry']:
                 L, K, H = root['entry/transform'].nxaxes
                 self.transform = NXdata(axes=(L, K, H))
         self._link_position_samples()
@@ -646,11 +700,10 @@ class NXParent:
                     self.scan_entry = NXsubentry(name=self.subentry_name)
                 else:
                     self.scan_entry = NXentry()
-            if self.scan_info is None:
-                self.scan_info = NXprocess()
+            self.require_scan_info()
             if self.settings is None:
                 self.settings = NXparameters()
-            if 'scans' not in self.scan_info:
+            if self.is_registry and 'scans' not in self.scan_info:
                 self.scan_info['scans'] = NXfield([], dtype=string_dtype,
                                                   maxshape=(None,))
                 self.scan_info['selected'] = NXfield([], dtype=bool,

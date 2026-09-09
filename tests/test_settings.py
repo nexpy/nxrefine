@@ -4,8 +4,8 @@ import pathlib
 import tempfile
 
 import pytest
-from nexusformat.nexus import (NXentry, NXfield, NXparameters, NXprocess,
-                               NXroot, NXsubentry, nxopen)
+from nexusformat.nexus import (NXdata, NXentry, NXfield, NXparameters,
+                               NXprocess, NXsubentry, nxopen)
 from nexusformat.nexus.tree import string_dtype
 
 from nxrefine.nxparent import NXParent
@@ -190,13 +190,13 @@ class TestNXReduceSettings:
         r = NXReduce(directory=self.scan_dir)
         assert r.threshold == 33333
 
-    # 5. No-parent fallback: write_parameters writes to local /entry/nxreduce
+    # 5. No-parent fallback: write_parameters writes local nxscans/settings
     def test_write_parameters_fallback_to_local_when_no_parent(self):
         make_wrapper_file(self.wrapper_file, parent_name=None)
         r = NXReduce(directory=self.scan_dir)
         r.write_parameters(threshold=55555)
         with nxopen(self.wrapper_file) as root:
-            assert root['entry/nxreduce/threshold'].nxvalue == 55555
+            assert root['entry/nxscans/settings/threshold'].nxvalue == 55555
 
     # 6. Subentry: parent property uses /entry/{entry_name} path
     def test_parent_entry_path_for_subentry(self):
@@ -256,3 +256,118 @@ class TestNXReduceSettings:
         assert p.get_setting('mask_h1') == 15
         assert p.get_setting('mask_t2') == 1.2
         assert p.get_setting('mask_h2') == 61
+
+
+def make_parentless_file(path, settings=None, transform=None, subentry=None):
+    """Write a standalone scan file: nxscans, but no 'parent' field."""
+    with nxopen(path, 'w') as root:
+        root['entry'] = NXentry()
+        target = 'entry'
+        if subentry:
+            root[f'entry/{subentry}'] = NXsubentry()
+            target = f'entry/{subentry}'
+        root[f'{target}/nxscans'] = NXprocess()
+        root[f'{target}/nxscans/settings'] = NXparameters()
+        for k, v in (settings or {}).items():
+            root[f'{target}/nxscans/settings/{k}'] = v
+        if transform:
+            root[f'{target}/nxscans/transform'] = NXdata(
+                axes=(NXfield(transform, name='Ql'),
+                      NXfield(transform, name='Qk'),
+                      NXfield(transform, name='Qh')))
+
+
+class TestParentlessScans:
+    """A scan with an nxscans group but no 'parent' field is parentless."""
+
+    def setup_method(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = pathlib.Path(self._tmp.name)
+        (self.scan_dir, self.wrapper_file,
+         self.parent_file, _) = make_directory_structure(self.tmp)
+
+    def teardown_method(self):
+        self._tmp.cleanup()
+
+    def test_parent_is_none_despite_registry_sibling(self):
+        # The registry sits in the same directory and matches the name
+        # NXReduce would otherwise guess; it must not be adopted.
+        make_parentless_file(self.wrapper_file, settings={'threshold': 4321})
+        make_parent_file(self.parent_file, settings={'threshold': 9999})
+        assert self.parent_file.is_file()
+        r = NXReduce(directory=self.scan_dir)
+        assert r.parent is None
+        assert r.threshold == 4321
+
+    def test_legacy_file_without_nxscans_still_guesses_registry(self):
+        make_wrapper_file(self.wrapper_file, parent_name=None)
+        make_parent_file(self.parent_file, settings={'threshold': 9999})
+        r = NXReduce(directory=self.scan_dir)
+        assert r.parent is not None
+        assert r.threshold == 9999
+
+    def test_transform_grid_read_from_own_nxscans(self):
+        # Registry sibling has no transform: the pre-fix code found no
+        # grid at all here because the local branch required no parent.
+        make_parentless_file(self.wrapper_file, transform=[-2.0, 0.0, 2.0])
+        make_parent_file(self.parent_file)
+        r = NXReduce(directory=self.scan_dir)
+        r.get_transform_grid()
+        assert r.Qh is not None and list(r.Qh) == [-2.0, 0.0, 2.0]
+        assert r.Qk is not None and r.Ql is not None
+
+    def test_transform_grid_read_from_subentry(self):
+        make_parentless_file(self.wrapper_file, transform=[-1.0, 0.0, 1.0],
+                             subentry='entry1')
+        r = NXReduce(directory=self.scan_dir, subentry='entry1')
+        r.get_transform_grid()
+        assert r.Qh is not None and list(r.Qh) == [-1.0, 0.0, 1.0]
+
+
+class TestNXParentTransform:
+    """transform/settings resolve to nxscans for both kinds of file."""
+
+    def _transform(self):
+        return NXdata(axes=(NXfield([-1.0, 1.0], name='Ql'),
+                            NXfield([-1.0, 1.0], name='Qk'),
+                            NXfield([-1.0, 1.0], name='Qh')))
+
+    @pytest.mark.parametrize('name', ['sample_scans.nxs', 'sample_300K.nxs'])
+    def test_transform_round_trips_to_nxscans(self, tmp_path, name):
+        path = tmp_path / name
+        p = NXParent(path)
+        p.initialize()
+        p.root.save(path, 'w')
+        with p.root:
+            p.transform = self._transform()
+        with nxopen(path) as root:
+            assert 'entry/nxscans/transform' in root
+            assert list(root['entry/nxscans/transform/Qh']) == [-1.0, 1.0]
+        assert NXParent(path).transform is not None
+
+    def test_setter_creates_missing_nxscans_group(self, tmp_path):
+        # Previously a missing nxscans group made the write a silent no-op.
+        path = tmp_path / 'sample_300K.nxs'
+        with nxopen(path, 'w') as root:
+            root['entry'] = NXentry()
+        p = NXParent(path)
+        with p.root:
+            p.transform = self._transform()
+        with nxopen(path) as root:
+            assert 'entry/nxscans/transform' in root
+
+    def test_scans_defined_false_without_scans_field(self, tmp_path):
+        path = tmp_path / 'sample_300K.nxs'
+        p = NXParent(path)
+        p.initialize()
+        p.root.save(path, 'w')
+        # An nxscans group alone must not make this look like a registry.
+        assert 'nxscans' in NXParent(path).scan_entry
+        assert NXParent(path).scans_defined is False
+
+    def test_scans_defined_true_for_registry(self, tmp_path):
+        path = tmp_path / 'sample_scans.nxs'
+        p = NXParent(path)
+        p.initialize()
+        p.root.save(path, 'w')
+        assert NXParent(path).scans_defined is True
