@@ -11,20 +11,20 @@ from pathlib import Path
 from nexpy.gui.dialogs import NXDialog
 from nexpy.gui.utils import confirm_action, report_error
 from nexpy.gui.widgets import NXLabel, NXLineEdit
-from nexusformat.nexus import NeXusError, NXfield, NXlink, nxopen
+from nexusformat.nexus import NeXusError, NXfield, nxopen
 
 from nxrefine.nxparent import NXParent
 
 
 def show_dialog():
     try:
-        dialog = ScanDialog()
+        dialog = AddScanDialog()
         dialog.show()
     except NeXusError as error:
         report_error("Creating Scan", error)
 
 
-class ScanDialog(NXDialog):
+class AddScanDialog(NXDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -34,7 +34,7 @@ class ScanDialog(NXDialog):
 
         self.set_layout(self.filebox('Choose Parent File'),
                         self.close_layout(close=True))
-        self.set_title('Creating New Scan(s)')
+        self.set_title('Add Scan')
 
     def choose_file(self):
         super().choose_file(filter="Parent Files (*_scans.nxs)")
@@ -118,12 +118,7 @@ class ScanDialog(NXDialog):
         with nxopen(self.directory / self.scan_file, 'w') as root:
             for entry in self.parent.root.entries:
                 root[entry] = self.parent.root[entry]
-                if entry != 'entry':
-                    data_link = root[f"{entry}/data/data"]
-                    _target, _filename = data_link._target, data_link._filename
-                    _filename = Path(self.scan_directory).joinpath(_filename)
-                    del root[f"{entry}/data/data"]
-                    root[f"{entry}/data/data"] = NXlink(_target, _filename)
+            NXParent(root).relink_data(self.scan_directory)
             root[self.scan_path] = NXfield(self.scan_value,
                                            units=self.scan_units)
         self.parent.add_scan(self.scan_file, selected=self.scan_selected)
