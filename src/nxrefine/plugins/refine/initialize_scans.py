@@ -32,12 +32,12 @@ class InitializeDialog(NXDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.set_layout(self.filebox('Choose Parent File'),
+        self.set_layout(self.filebox('Choose Scan File'),
                         self.close_layout(close=True))
         self.set_title('Initialize Scans')
 
     def choose_file(self):
-        super().choose_file(filter="Parent Files (*_scans.nxs)")
+        super().choose_file(filter="NeXus Files (*.nxs)")
         self.parent_file = self.get_filename()
         if self.parent_file is None:
             return
@@ -47,12 +47,15 @@ class InitializeDialog(NXDialog):
         self.reduce = NXMultiReduce(entry=self.parent.root)
         if self.layout.count() == 2:
             self.insert_layout(1, self.subentry_layout())
-            self.layout.insertLayout(2, self.action_buttons(
-                ('Select Files', self.setup_files),
+            buttons = []
+            if self.parent.scans_defined:
+                buttons.append(('Select Files', self.setup_files))
+            buttons.extend([
                 ('Edit Settings', self.setup_settings),
                 ('Define Lattice', self.setup_lattice),
                 ('Setup Transforms', self.setup_transforms),
-                ('Copy NeXus File', self.copy_parameters)))
+                ('Copy NeXus File', self.copy_parameters)])
+            self.layout.insertLayout(2, self.action_buttons(*buttons))
 
     @property
     def subentry(self):

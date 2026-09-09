@@ -8,7 +8,7 @@
 
 from nexpy.gui.dialogs import GridParameters, NXDialog
 from nexpy.gui.utils import report_error
-from nexusformat.nexus import NeXusError
+from nexusformat.nexus import NeXusError, NXparameters
 
 from nxrefine.nxparent import NXParent
 from nxrefine.nxreduce import NXMultiReduce, NXReduce, auto_transmission_q
@@ -158,7 +158,9 @@ class ParametersDialog(NXDialog):
 
     def write_parameters(self):
         with self.parent.root:
-            settings = self.parent.scan_entry['nxscans/settings']
+            if self.parent.settings is None:
+                self.parent.settings = NXparameters()
+            settings = self.parent.settings
             settings['threshold'] = self.threshold
             settings['first_frame'] = self.first
             settings['last_frame'] = self.last

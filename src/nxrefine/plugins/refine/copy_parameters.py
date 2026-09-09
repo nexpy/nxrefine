@@ -79,17 +79,15 @@ class CopyDialog(NXDialog):
                     self.parent.sample_info[s] = self.nexus_root[
                         f'{entry}/sample/{s}']
         if self.copy_transform:
-            if 'transform' in self.nexus_root[f'{entry}']:
-                transform = self.nexus_root[f'{entry}/transform']
-            elif 'transform' in self.nexus_root[f'{entry}/nxscans']:
+            if f'{entry}/nxscans/transform' in self.nexus_root:
                 transform = self.nexus_root[f'{entry}/nxscans/transform']
+            elif 'transform' in self.nexus_root[f'{entry}']:
+                transform = self.nexus_root[f'{entry}/transform']
             else:
                 display_message(f"No transform found in {self.nexus_file}")
                 return
             H, K, L = transform['Qh'], transform['Qk'], transform['Ql']
-            if self.parent.transform:
-                del self.parent.scan_info['transform']
-            self.parent.scan_info['transform'] = NXdata(axes=(L, K, H))
+            self.parent.transform = NXdata(axes=(L, K, H))
         if self.copy_instrument:
             for name in self.nexus_root.entries:
                 if name == 'entry':
