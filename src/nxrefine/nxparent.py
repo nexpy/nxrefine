@@ -353,6 +353,17 @@ class NXParent:
             units = ''
         return f"{self.scan_prefix}{prefix}{value_str}{units}"
 
+    @property
+    def parent_file(self):
+        """Path to this file's own parent registry, or None if parentless.
+
+        A scan names its parent at '{entry_path}/nxscans/parent', stored
+        as a bare filename in the same directory as the scan itself.
+        """
+        if self.scan_info is not None and 'parent' in self.scan_info:
+            return self.filename.parent / self.scan_info['parent'].nxvalue
+        return None
+
     def is_parent(self, scan):
         if isinstance(scan, NXroot):
             scan = scan.nxfilename
