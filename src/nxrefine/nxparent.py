@@ -30,6 +30,24 @@ def format_scan_prefix(prefix, sample):
     return f'{prefix}_' if prefix else ''
 
 
+def load_file(filename):
+    """Load a file into the NeXpy tree and lock it.
+
+    If the file is already in the tree, it is reloaded rather than
+    added a second time under a new name.
+    """
+    from nexpy.gui.utils import get_mainwindow
+    tree = get_mainwindow().tree
+    node = tree.node_from_file(filename)
+    if node:
+        root = tree[node]
+        root.reload()
+    else:
+        root = tree.load(filename, 'rw')
+    root.lock()
+    return root
+
+
 class NXParent:
 
     def __init__(self, filename, subentry=None, prefix=None):

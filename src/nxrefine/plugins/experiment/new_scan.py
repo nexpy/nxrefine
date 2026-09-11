@@ -13,7 +13,7 @@ from nexpy.gui.utils import confirm_action, display_message, report_error
 from nexpy.gui.widgets import NXLabel, NXLineEdit
 from nexusformat.nexus import NeXusError, NXfield, nxopen
 
-from nxrefine.nxparent import NXParent, format_scan_prefix
+from nxrefine.nxparent import NXParent, format_scan_prefix, load_file
 from nxrefine.nxrefine import NXRefine
 from nxrefine.nxreduce import auto_transmission_q
 from nxrefine.nxsettings import NXSettings
@@ -396,5 +396,7 @@ class NewScanDialog(NXDialog):
                 f"'{scan_path}' already exists."):
             return
         self.create_scan_set()
-        self.treeview.tree.load(scan_path, 'rw')
+        load_file(scan_path)
+        if self.create_parent_checked:
+            load_file(self.parent_file)
         super().accept()

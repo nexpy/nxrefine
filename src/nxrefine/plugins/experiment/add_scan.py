@@ -13,7 +13,7 @@ from nexpy.gui.utils import confirm_action, report_error
 from nexpy.gui.widgets import NXLabel, NXLineEdit
 from nexusformat.nexus import NeXusError, NXfield, nxopen
 
-from nxrefine.nxparent import NXParent
+from nxrefine.nxparent import NXParent, load_file
 
 
 def show_dialog():
@@ -123,12 +123,6 @@ class AddScanDialog(NXDialog):
                                            units=self.scan_units)
         self.parent.add_scan(self.scan_file, selected=self.scan_selected)
 
-    def reload(self):
-        try:
-            self.tree[self.tree.node_from_file(self.scan_file)].reload()
-        except Exception:
-            pass
-
     def make_scan(self):
         scan_file = self.parent.directory / self.scan_file
         if scan_file.exists() and not confirm_action(
@@ -138,5 +132,5 @@ class AddScanDialog(NXDialog):
         self.create_scan()
         new_scan_path = scan_file.relative_to(self.experiment_directory.parent)
         self.status_message.setText(f"Created scan file '{new_scan_path}'")
-        self.reload()
         self.parent.reload()
+        load_file(scan_file)
