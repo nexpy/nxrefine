@@ -48,15 +48,15 @@ class InitializeDialog(NXDialog):
         self.reduce = NXMultiReduce(entry=self.parent.root)
         if self.layout.count() == 2:
             self.insert_layout(1, self.subentry_layout())
-            buttons = []
-            if self.parent.scans_defined:
-                buttons.append(('Select Files', self.setup_files))
-            buttons.extend([
+            self.layout.insertLayout(2, self.action_buttons(
+                ('Select Files', self.setup_files),
                 ('Edit Settings', self.setup_settings),
                 ('Define Lattice', self.setup_lattice),
                 ('Setup Transforms', self.setup_transforms),
-                ('Copy NeXus File', self.copy_parameters)])
-            self.layout.insertLayout(2, self.action_buttons(*buttons))
+                ('Copy NeXus File', self.copy_parameters)))
+        else:
+            self.refresh_subentries()
+        self.pushbutton['Select Files'].setVisible(self.parent.scans_defined)
 
     def select_parent(self):
         """Redirect the selection to the parent of a registered scan.
@@ -97,6 +97,7 @@ class InitializeDialog(NXDialog):
         if current in self.parent.scan_entries:
             self.subentry_combo.select(current)
         self.subentry_combo.blockSignals(False)
+        self.parent.entry = self.subentry_combo.selected
 
     def select_subentry(self):
         self.parent.entry = self.subentry
