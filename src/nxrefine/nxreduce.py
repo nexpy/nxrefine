@@ -663,8 +663,9 @@ class NXReduce(QtCore.QObject):
         NXReduce instance.
         """
         if self._parent is None:
-            if self.parent_file.is_file():
-                self._parent = NXParent(self.parent_file,
+            parent_file = self.parent_file
+            if parent_file is not None and parent_file.is_file():
+                self._parent = NXParent(parent_file,
                                         subentry=self.subentry_name or None)
             else:
                 self._parent = None
@@ -703,10 +704,19 @@ class NXReduce(QtCore.QObject):
 
     @property
     def parent_file(self):
-        """Absolute file path to the parent file."""
+        """Absolute file path to the parent file, or None if parentless.
+
+        A scan names its parent at /entry/nxscans/parent. A scan that has
+        an nxscans group but no such field is deliberately parentless, so
+        no parent is inferred. Only a scan with no nxscans group at all
+        falls back to guessing the sample's registry file, since that
+        predates the back-pointer convention.
+        """
         if 'entry/nxscans/parent' in self.root:
             parent = self.root['entry/nxscans/parent'].nxvalue
             return self.base_directory.joinpath(parent)
+        elif 'entry/nxscans' in self.root:
+            return None
         else:
             return self.base_directory.joinpath(self.sample+'_scans.nxs')
 
@@ -714,8 +724,9 @@ class NXReduce(QtCore.QObject):
         """Return the requested data reduction parameter.
 
         If a parent has been selected, the parameter is read from the
-        '/entry/nxreduce' group stored in the parent. Otherwise, the
-        parameter is read from the current wrapper file.
+        '/entry/nxscans/settings' group stored in the parent. Otherwise
+        it is read from the wrapper file's own '/entry/nxscans/settings',
+        falling back to the legacy '/entry/nxreduce' group.
 
         Parameters
         ----------
@@ -745,7 +756,11 @@ class NXReduce(QtCore.QObject):
             elif f'nxscans/settings/{field_name}' in self.parent.entry:
                 field = self.parent.entry[f'nxscans/settings/{field_name}']
                 parameter = field.nxvalue
+        elif f'entry/nxscans/settings/{field_name}' in self.root:
+            field = self.root[f'entry/nxscans/settings/{field_name}']
+            parameter = field.nxvalue
         elif f'entry/nxreduce/{field_name}' in self.root:
+            # Legacy location, predating the nxscans convention.
             parameter = self.root[f'entry/nxreduce/{field_name}'].nxvalue
         return parameter
 
@@ -758,8 +773,8 @@ class NXReduce(QtCore.QObject):
         """Store the specified data reduction parameters.
 
         Parameters are written to the parent file's '/entry/nxscans/settings'
-        group. If no parent exists, they are written to the local wrapper
-        file's '/entry/nxreduce' group for backward compatibility.
+        group. If no parent exists, they are written to the wrapper file's
+        own '/entry/nxscans/settings' group.
         """
         params = {}
         if threshold is not None:
@@ -811,10 +826,13 @@ class NXReduce(QtCore.QObject):
             self.parent.write_settings(**params)
         elif params:
             with self:
-                if 'nxreduce' not in self.root['entry']:
-                    self.root['entry/nxreduce'] = NXparameters()
+                entry = self.root['entry']
+                if 'nxscans' not in entry:
+                    entry['nxscans'] = NXprocess()
+                if 'settings' not in entry['nxscans']:
+                    entry['nxscans/settings'] = NXparameters()
                 for key, value in params.items():
-                    self.root['entry/nxreduce'][key] = value
+                    entry['nxscans/settings'][key] = value
 
     def clear_parameters(self, parameters):
         """Remove legacy records of parameters in the 'peaks' group."""
@@ -2355,16 +2373,29 @@ class NXReduce(QtCore.QObject):
             self.log(f"{task_name} already created")
 
     def get_transform_grid(self, mask=False):
+        """Set Qh/Qk/Ql from the transform grid defined for this scan.
+
+        The grid comes from the parent's nxscans/transform when this scan
+        has a parent, and otherwise from the scan's own nxscans/transform,
+        which `find_group` resolves against the active subentry first.
+        Values supplied explicitly on the command line take precedence
+        over both.
+        """
         if self.Qh is not None and self.Qk is not None and self.Ql is not None:
             return
-        if self.parent and self.parent.transform is not None:
+        transform = None
+        if self.parent is not None:
             transform = self.parent.transform
-            try:
-                self.Qh = transform['Qh'].nxvalue
-                self.Qk = transform['Qk'].nxvalue
-                self.Ql = transform['Ql'].nxvalue
-            except Exception:
-                self.Qh = self.Qk = self.Ql = None
+        if transform is None:
+            transform = self.find_group('nxscans/transform')
+        if transform is None:
+            return
+        try:
+            self.Qh = transform['Qh'].nxvalue
+            self.Qk = transform['Qk'].nxvalue
+            self.Ql = transform['Ql'].nxvalue
+        except Exception:
+            self.Qh = self.Qk = self.Ql = None
 
     def get_normalization(self):
         with self:

@@ -39,11 +39,11 @@ class SampleDialog(NXDialog):
         self.default_directory = settings['instrument']['analysis_home']
         self.analysis_path = settings['instrument']['analysis_path']
 
-        self.set_layout(self.directorybox('Choose Experiment Directory'), 
+        self.set_layout(self.directorybox('Choose Experiment Directory'),
                         self.sample_layout,
                         self.action_buttons(('Create Sample Directory',
                                              self.create_sample_directory)),
-                        self.close_buttons(close=True))
+                        self.close_layout(close=True))
         self.set_title('New Sample')
 
     def choose_directory(self):
@@ -71,4 +71,8 @@ class SampleDialog(NXDialog):
                                  self.sample /
                                  self.label)
         self.sample_directory.mkdir(parents=True, exist_ok=True)
+        new_sample_path = self.sample_directory.relative_to(
+            self.experiment_directory.parent)
+        self.status_message.setText(
+            f"Created sample directory '{new_sample_path}'")
 

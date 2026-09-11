@@ -12,6 +12,7 @@ from nexusformat.nexus import NeXusError
 
 from nxrefine.nxparent import NXParent
 from nxrefine.nxreduce import NXMultiReduce
+from nxrefine.plugins.refine._dialog_helpers import select_parent
 from nxrefine.plugins.refine.copy_parameters import CopyDialog
 from nxrefine.plugins.refine.define_lattice import LatticeDialog
 from nxrefine.plugins.refine.edit_parameters import ParametersDialog
@@ -32,16 +33,17 @@ class InitializeDialog(NXDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.set_layout(self.filebox('Choose Parent File'),
+        self.set_layout(self.filebox('Choose Scan File'),
                         self.close_layout(close=True))
         self.set_title('Initialize Scans')
 
     def choose_file(self):
-        super().choose_file(filter="Parent Files (*_scans.nxs)")
+        super().choose_file(filter="NeXus Files (*.nxs)")
         self.parent_file = self.get_filename()
         if self.parent_file is None:
             return
         self.parent = NXParent(self.parent_file)
+        select_parent(self)
         self.entries = [self.parent.root[entry]
                         for entry in self.parent.root if entry[-1].isdigit()]
         self.reduce = NXMultiReduce(entry=self.parent.root)
@@ -53,6 +55,9 @@ class InitializeDialog(NXDialog):
                 ('Define Lattice', self.setup_lattice),
                 ('Setup Transforms', self.setup_transforms),
                 ('Copy NeXus File', self.copy_parameters)))
+        else:
+            self.refresh_subentries()
+        self.pushbutton['Select Files'].setVisible(self.parent.scans_defined)
 
     @property
     def subentry(self):
@@ -74,6 +79,7 @@ class InitializeDialog(NXDialog):
         if current in self.parent.scan_entries:
             self.subentry_combo.select(current)
         self.subentry_combo.blockSignals(False)
+        self.parent.entry = self.subentry_combo.selected
 
     def select_subentry(self):
         self.parent.entry = self.subentry

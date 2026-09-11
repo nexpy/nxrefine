@@ -20,6 +20,7 @@ from nxrefine.nxdatabase import NXDatabase
 from nxrefine.nxparent import NXParent
 from nxrefine.nxreduce import NXMultiReduce, NXReduce
 from nxrefine.nxserver import NXServer
+from nxrefine.plugins.refine._dialog_helpers import select_parent
 from nxrefine.plugins.refine.new_subentry import SubentryDialog
 from nxrefine.plugins.refine.select_files import FilesDialog
 
@@ -37,7 +38,7 @@ class WorkflowDialog(NXDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.set_layout(self.filebox('Choose Parent File'),
+        self.set_layout(self.filebox('Choose Scan File'),
                         self.close_layout(close=True, progress=True))
         self.progress_bar.setVisible(False)
         self.set_title('Manage Workflows')
@@ -52,11 +53,12 @@ class WorkflowDialog(NXDialog):
         return f"WorkflowDialog('{self.sample_directory}')"
 
     def choose_file(self):
-        super().choose_file(filter="Parent Files (*_scans.nxs)")
+        super().choose_file(filter="NeXus Files (*.nxs)")
         self.parent_file = self.get_filename()
         if self.parent_file is None:
             return
         self.parent = NXParent(self.parent_file)
+        select_parent(self)
         if self.layout.count() == 2:
             self.insert_layout(1, self.subentry_layout())
             self.insert_layout(2, self.action_buttons(
@@ -65,6 +67,7 @@ class WorkflowDialog(NXDialog):
                 ('Add to Queue', self.add_tasks),
                 ('View Logs', self.view_logs),
                 ('Sync Database', self.sync_db)))
+        self.pushbutton['Select Scans'].setVisible(self.parent.scans_defined)
         self.sample_directory = self.parent.filename.parent
         self.sample = self.sample_directory.parent.name
         self.label = self.sample_directory.name
@@ -109,6 +112,7 @@ class WorkflowDialog(NXDialog):
         if current in self.parent.scan_entries:
             self.subentry_combo.select(current)
         self.subentry_combo.blockSignals(False)
+        self.parent.entry = self.subentry_combo.selected
 
     def select_subentry(self):
         self.parent.entry = self.subentry
@@ -185,7 +189,10 @@ class WorkflowDialog(NXDialog):
         self.add_grid_headers()
 
         # Map from wrapper files to scan directories
-        files = self.parent.selected_scans
+        if self.parent.scans_defined:
+            files = self.parent.selected_scans
+        else:
+            files = [self.parent.filename]
         wrapper_files = {self.sample_directory / f: self.get_scan(f)
                          for f in sorted(files, key=natural_sort)}
         self.grid = QtWidgets.QGridLayout()

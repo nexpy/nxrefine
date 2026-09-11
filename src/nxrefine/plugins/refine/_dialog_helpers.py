@@ -5,9 +5,38 @@
 #
 # The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
-"""Shared helpers for the refine-menu dialogs."""
+"""Shared helpers for the dialogs that operate on scan files."""
 
+from nexpy.gui.utils import display_message
+
+from nxrefine.nxparent import NXParent
 from nxrefine.nxreduce import NXReduce
+
+
+def select_parent(dialog):
+    """Redirect a dialog's selection to the parent of a registered scan.
+
+    A scan that belongs to a parent is edited through that parent, so
+    that its settings stay consistent with the other scans.
+
+    Parameters
+    ----------
+    dialog : NXDialog
+        The dialog whose ``parent``, ``parent_file`` and file box are to
+        be redirected.
+    """
+    parent_file = dialog.parent.parent_file
+    if parent_file is None or not parent_file.is_file():
+        return
+    scan_name = dialog.parent_file.name
+    dialog.parent_file = parent_file
+    dialog.parent = NXParent(parent_file)
+    dialog.filename.setText(str(parent_file))
+    display_message(
+        f"'{scan_name}' has a parent file",
+        f"'{parent_file.name}' has been selected instead. To edit "
+        f"'{scan_name}' separately, remove it from the parent's "
+        "selected files.")
 
 
 def add_parent_subentries(dialog):

@@ -6,8 +6,8 @@
 # The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
-from . import (calibrate_powder, create_mask, edit_settings, import_scans,
-               new_configuration, new_experiment, new_macro, new_parent,
+from . import (add_scan, calibrate_powder, create_mask, edit_settings,
+               import_scans, new_configuration, new_experiment, new_macro,
                new_sample, new_scan, sum_scans)
 
 
@@ -19,8 +19,8 @@ def plugin_menu():
     actions.append(('Calibrate Powder', calibrate_powder.show_dialog))
     actions.append(('Create Mask', create_mask.show_dialog))
     actions.append(('New Sample', new_sample.show_dialog))
-    actions.append(('New Parent', new_parent.show_dialog))
     actions.append(('New Scan', new_scan.show_dialog))
+    actions.append(('Add Scan', add_scan.show_dialog))
     actions.append(('New Macro', new_macro.show_dialog))
     actions.append(('Import Scans', import_scans.show_dialog))
     actions.append(('Sum Scans', sum_scans.show_dialog))
