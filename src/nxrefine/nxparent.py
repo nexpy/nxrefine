@@ -363,6 +363,10 @@ class NXParent:
                 root['entry'][self._subentry] = NXsubentry()
             if 'nxscans' not in root[self.entry_path]:
                 root[f'{self.entry_path}/nxscans'] = NXprocess()
+            nxscans = root[f'{self.entry_path}/nxscans']
+            for field in ('scans', 'selected'):
+                if field in nxscans:
+                    del nxscans[field]
             root[f'{self.entry_path}/nxscans/parent'] = self.filename.name
             root[f'{self.entry_path}/nxscans'].set_date()
 
