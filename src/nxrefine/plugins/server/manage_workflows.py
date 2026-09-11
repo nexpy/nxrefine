@@ -112,6 +112,7 @@ class WorkflowDialog(NXDialog):
         if current in self.parent.scan_entries:
             self.subentry_combo.select(current)
         self.subentry_combo.blockSignals(False)
+        self.parent.entry = self.subentry_combo.selected
 
     def select_subentry(self):
         self.parent.entry = self.subentry
