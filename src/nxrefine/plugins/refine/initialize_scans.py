@@ -6,12 +6,13 @@
 # The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 from nexpy.gui.dialogs import NXDialog
-from nexpy.gui.utils import display_message, report_error
+from nexpy.gui.utils import report_error
 from nexpy.gui.widgets import NXLabel, NXPushButton
 from nexusformat.nexus import NeXusError
 
 from nxrefine.nxparent import NXParent
 from nxrefine.nxreduce import NXMultiReduce
+from nxrefine.plugins.refine._dialog_helpers import select_parent
 from nxrefine.plugins.refine.copy_parameters import CopyDialog
 from nxrefine.plugins.refine.define_lattice import LatticeDialog
 from nxrefine.plugins.refine.edit_parameters import ParametersDialog
@@ -42,7 +43,7 @@ class InitializeDialog(NXDialog):
         if self.parent_file is None:
             return
         self.parent = NXParent(self.parent_file)
-        self.select_parent()
+        select_parent(self)
         self.entries = [self.parent.root[entry]
                         for entry in self.parent.root if entry[-1].isdigit()]
         self.reduce = NXMultiReduce(entry=self.parent.root)
@@ -57,25 +58,6 @@ class InitializeDialog(NXDialog):
         else:
             self.refresh_subentries()
         self.pushbutton['Select Files'].setVisible(self.parent.scans_defined)
-
-    def select_parent(self):
-        """Redirect the selection to the parent of a registered scan.
-
-        A scan that belongs to a parent is edited through that parent, so
-        that its settings stay consistent with the other scans.
-        """
-        parent_file = self.parent.parent_file
-        if parent_file is None or not parent_file.is_file():
-            return
-        scan_name = self.parent_file.name
-        self.parent_file = parent_file
-        self.parent = NXParent(parent_file)
-        self.filename.setText(str(parent_file))
-        display_message(
-            f"'{scan_name}' has a parent file",
-            f"'{parent_file.name}' has been selected instead. To edit "
-            f"'{scan_name}' separately, remove it from the parent's "
-            "selected files.")
 
     @property
     def subentry(self):
