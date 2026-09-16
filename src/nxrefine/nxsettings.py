@@ -20,7 +20,13 @@ class NXSettings(ConfigParser):
         super().__init__(allow_no_value=True)
         self.defaults = {
             'server': {'type': 'multicore', 'cores': 4, 'concurrent': True,
-                       'run_command': None, 'template': None, 'cctw': 'cctw'},
+                       'cctw': 'cctw'},
+            'parsl': {'config': None, 'account': None, 'walltime': '3:00:00',
+                      'small_nodes': 2, 'large_nodes': 10, 'max_blocks': 10,
+                      'batch_threshold': 4, 'cpus_per_node': 64,
+                      'filesystems': None, 'worker_init': None,
+                      'monitoring': True, 'hub_address': None,
+                      'retries': 0},
             'instrument': {'source': None, 'instrument': None,
                            'raw_home': None, 'raw_path': None,
                            'analysis_home': None, 'analysis_path': None,
@@ -125,8 +131,9 @@ class NXSettings(ConfigParser):
                     self.set('server', option, self.get('setup', option))
                 self.remove_section('setup')
             update_section('server')
+            update_section('parsl')
         else:
-            for section in ['server', 'nodes', 'setup']:
+            for section in ['server', 'parsl', 'nodes', 'setup']:
                 if section in self.sections():
                     self.remove_section(section)
         update_section('instrument')
@@ -136,7 +143,7 @@ class NXSettings(ConfigParser):
     def input_defaults(self):
         sections = ['Instrument', 'NXRefine', 'NXReduce']
         if self.server:
-            sections.insert(0, 'Server')
+            sections[:0] = ['Server', 'Parsl']
         for s in sections:
             print(f'\n{s} Parameters\n-------------------')
             s = s.lower()
@@ -152,7 +159,7 @@ class NXSettings(ConfigParser):
     def settings(self):
         sections = ['instrument', 'nxrefine', 'nxreduce']
         if self.server:
-            sections.insert(0, 'server')
+            sections[:0] = ['server', 'parsl']
         _settings = {}
         for section in sections:
             _settings[section] = {k: v for (k, v) in self.items(section)}

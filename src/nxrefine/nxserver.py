@@ -6,15 +6,32 @@
 # The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
+"""Server that dispatches NXRefine workflow tasks through Parsl.
+
+Tasks are shell commands, normally one `nxreduce` invocation covering
+every entry in a scan. They are submitted either one at a time with
+`NXServer.add_task` or as a batch with `NXServer.submit_batch`, which
+records the size of the batch so that the dispatcher can choose an
+appropriate allocation for it.
+
+Three server types are supported. In `direct` mode, commands run in
+this process as they are submitted. In `multicore` and `multinode`
+modes, they are written to a file queue and dispatched by a daemon,
+which is what allows a task to be queued while the server is down.
+
+The Parsl configuration itself lives in `nxrefine.nxparsl`, or in the
+site-specific module named by the `config` setting in the `[parsl]`
+section.
+"""
+
 import os
-import subprocess
-import tempfile
+import shutil
 import time
+import uuid
 from configparser import ConfigParser
 from datetime import datetime
 from pathlib import Path
-from queue import Queue
-from threading import Thread
+from queue import Empty, Queue
 
 import psutil
 from nexusformat.nexus import NeXusError, NXLock
@@ -23,7 +40,10 @@ from persistqueue.exceptions import Empty as FileEmpty
 from persistqueue.serializers import json
 
 from .nxdaemon import NXDaemon
+from .nxparsl import import_config
 from .nxsettings import NXSettings
+
+POLL_INTERVAL = 5
 
 
 def get_servers():
@@ -38,7 +58,13 @@ def get_servers():
 
 
 class NXFileQueue(FileQueue):
-    """A file-based queue with locked access"""
+    """A file-based queue with locked access.
+
+    Items are stored as dictionaries carrying the command and, when the
+    command was submitted as part of a batch, the identity and size of
+    that batch. Bare strings written by an earlier version are still
+    read correctly.
+    """
 
     def __init__(self, directory, autosave=False):
         """
@@ -74,23 +100,27 @@ class NXFileQueue(FileQueue):
         self.lock.release()
 
     def put(self, item, block=True, timeout=None):
-        """Add an item to the queue."""
+        """Add an NXTask, or a bare command, to the queue."""
+        if isinstance(item, NXTask):
+            item = item.payload()
+        elif not isinstance(item, dict):
+            item = {'command': str(item)}
         with self:
-            super().put(str(item), block=block, timeout=timeout)
+            super().put(item, block=block, timeout=timeout)
 
     def get(self, block=True, timeout=None):
-        """Get the next item in the queue."""
+        """Return the next item in the queue as an NXTask."""
         with self:
-            item = str(super().get(block=block, timeout=timeout))
-        return item
+            item = super().get(block=block, timeout=timeout)
+        return NXTask.from_payload(item)
 
-    def queued_items(self):
-        """Return a list of items still remaining in the queue."""
+    def queued_tasks(self):
+        """Return the NXTasks still remaining in the queue."""
         with self:
-            items = []
+            tasks = []
             while self.qsize() > 0:
-                items.append(super().get(timeout=0))
-        return items
+                tasks.append(NXTask.from_payload(super().get(timeout=0)))
+        return tasks
 
     def fix_access(self):
         """Ensure that the file queue pointer is readable."""
@@ -106,156 +136,42 @@ class NXFileQueue(FileQueue):
                 pass
 
 
-class NXController(Thread):
-    """Class to run tasks submitted to an internal queue in the shell."""
-
-    def __init__(self, controller_queue, server):
-        super().__init__()
-        self.controller_queue = controller_queue
-        self.server = server
-        self.server_log = self.server.server_log
-        self.cpu_file = self.server_log.parent.joinpath('last_cpu')
-
-    def __repr__(self):
-        return f"NXController(pid={os.getpid()})"
-
-    def run(self):
-        self.log(f"Starting controller on pid={os.getpid()}")
-        while True:
-            time.sleep(10)
-            next_task = self.controller_queue.get()
-            if next_task is None or next_task == 'stop':
-                self.log(f"Stopping controller on pid={os.getpid()}")
-                self.controller_queue.task_done()
-                break
-            else:
-                self.submit_task(next_task)
-            self.controller_queue.task_done()
-        return
-
-    def stop(self):
-        self.controller_queue.put('stop')
-
-    def submit_task(self, task):
-        """Run the task directly in the shell."""
-        cpu = self.get_cpu()
-        worker_queue = Queue()
-        worker = NXWorker(cpu, worker_queue, self.server_log)
-        worker.start()
-        worker_queue.put(NXTask(task, self.server))
-        worker_queue.put(None)
-
-    def get_cpu(self):
-        with NXLock(self.cpu_file, timeout=60, expiry=60):
-            try:
-                with open(self.cpu_file, 'r') as f:
-                    last_cpu = f.read()
-                cpu = 'cpu' + str(int(last_cpu) % len(self.server.cpus) + 1)
-            except Exception:
-                last_cpu = len(self.server.cpus)
-                cpu = 'cpu1'
-            with open(self.cpu_file, 'w+') as f:
-                f.write(str(int(last_cpu) % len(self.server.cpus) + 1))
-        return cpu
-
-    @property
-    def cpu_logs(self):
-        log_files = [self.server_log.parent.joinpath(cpu+'.log')
-                     for cpu in self.server.cpus]
-        return [log_file for log_file in log_files if log_file.exists()]
-
-    def log(self, message):
-        with NXLock(self.server_log, timeout=60, expiry=60):
-            with open(self.server_log, 'a') as f:
-                f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' +
-                        str(message) + '\n')
-
-
-class NXWorker(Thread):
-    """Class for processing tasks on a specific cpu."""
-
-    def __init__(self, cpu, worker_queue, server_log):
-        super().__init__()
-        self.cpu = cpu
-        self.worker_queue = worker_queue
-        self.server_log = server_log
-        cpu_log = self.cpu + '.log'
-        self.cpu_log = self.server_log.parent / cpu_log
-
-    def __repr__(self):
-        return f"NXWorker(cpu='{self.cpu}')"
-
-    def run(self):
-        self.log(f"Starting worker on {self.cpu}")
-        while True:
-            time.sleep(5)
-            next_task = self.worker_queue.get()
-            if next_task is None:
-                self.log(f"Stopping worker on {self.cpu}")
-                self.worker_queue.task_done()
-                break
-            else:
-                self.log(f"{self.cpu}: Executing '{next_task.command}'")
-                with NXLock(self.cpu_log, timeout=3600, expiry=3600):
-                    next_task.execute(self.cpu, self.cpu_log)
-            self.worker_queue.task_done()
-            self.log(f"{self.cpu}: Finished '{next_task.command}'")
-        return
-
-    def log(self, message):
-        with NXLock(self.server_log, timeout=60, expiry=60):
-            with open(self.server_log, 'a') as f:
-                f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' +
-                    str(message) + '\n')
-
-
 class NXTask:
-    """Class for submitting tasks to different cpus."""
+    """A command waiting to be dispatched.
 
-    def __init__(self, command, server):
-        self.command = command
-        self.name = command.split()[0]
-        self.server = server
+    Attributes
+    ----------
+    command : str
+        The shell command to be run.
+    batch_id : str or None
+        Identifies the batch the command was submitted with, so that
+        the grouping survives a restart of the server.
+    batch_size : int
+        Number of commands in that batch, used to choose the executor.
+    """
+
+    def __init__(self, command, batch_id=None, batch_size=1):
+        self.command = str(command)
+        self.name = self.command.split()[0] if self.command else ''
+        self.batch_id = batch_id
+        self.batch_size = batch_size
 
     def __repr__(self):
         return f"NXTask('{self.name}')"
 
-    def executable_command(self, cpu, cpu_log):
-        """Wrap command according to the server type."""
-        if self.server.template:
-            with open(self.server.template) as f:
-                text = f.read()
-            self.script = Path(tempfile.mkstemp(suffix='.sh')[1])
-            with open(self.script, 'w') as f:
-                f.write(text.replace('<NXSERVER>', self.command))
-            command = str(self.script)
-        else:
-            self.script = None
-            command = self.command
-        if self.server.run_command:
-            if self.server.run_command.startswith('pdsh'):
-                command = f"{self.server.run_command} -w {cpu} '{command}'"
-            elif self.server.run_command.startswith('qsub'):
-                command = (f"{self.server.run_command} -j y -o {cpu_log} "
-                           f"-N {cpu} -hold_jid {cpu} -S /bin/bash {command}")
-        return command
+    @classmethod
+    def from_payload(cls, payload):
+        """Return an NXTask read from a queue entry."""
+        if isinstance(payload, dict):
+            return cls(payload.get('command', ''),
+                       batch_id=payload.get('batch_id'),
+                       batch_size=payload.get('batch_size', 1))
+        return cls(payload)
 
-    def execute(self, cpu, cpu_log):
-        with open(cpu_log, 'a') as f:
-            f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' +
-                    self.command + '\n')
-        process = subprocess.run(self.executable_command(cpu, cpu_log),
-                                 shell=True,
-                                 stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE)
-        if process.stdout:
-            with open(cpu_log, 'a') as f:
-                f.write('[stdout]\n' + process.stdout.decode() + '\n')
-        if process.stderr:
-            with open(cpu_log, 'a') as f:
-                f.write('[stderr]\n' + process.stderr.decode() + '\n')
-        if self.script and self.script.exists():
-            self.script.unlink()
+    def payload(self):
+        """Return this task as a queue entry."""
+        return {'command': self.command, 'batch_id': self.batch_id,
+                'batch_size': self.batch_size}
 
 
 class NXServer(NXDaemon):
@@ -263,10 +179,11 @@ class NXServer(NXDaemon):
     def __init__(self, directory=None, server_type=None):
         self.pid_name = 'nxserver'
         self.initialize(directory, server_type)
-        self.worker_queue = None
-        self.workers = []
         self._task_queue = None
-        self._controller = None
+        self._config = None
+        self._module = None
+        self._apps = None
+        self.tasks = {}
         if self.server_type != 'direct':
             super(NXServer, self).__init__(self.pid_name, self.pid_file)
 
@@ -299,8 +216,8 @@ class NXServer(NXDaemon):
 
     def initialize(self, directory, server_type):
         if directory is None:
-            self.directory = self.get_directory()
-            self.settings = NXSettings(directory=self.directory)
+            self.settings = NXSettings(directory=self.get_directory())
+            self.directory = self.settings.directory
         else:
             self.settings = NXSettings(directory=directory)
             self.directory = self.settings.directory
@@ -318,9 +235,7 @@ class NXServer(NXDaemon):
         else:
             self.server_type = 'direct'
         if self.server_type == 'multinode':
-            if 'nodes' not in self.settings.sections():
-                self.settings.add_section('nodes')
-            self.cpus = self.read_nodes()
+            self.cpus = []
         else:
             if self.settings.has_option('server', 'cores'):
                 cpu_count = int(self.settings.get('server', 'cores'))
@@ -330,51 +245,50 @@ class NXServer(NXDaemon):
                 cpu_count = psutil.cpu_count()
             self.cpus = ['cpu'+str(cpu) for cpu in range(1, cpu_count+1)]
         self.concurrent = self.settings.get('server', 'concurrent')
-        self.run_command = self.settings.get('server', 'run_command')
-        self.template = self.settings.get('server', 'template')
         self.server_log = self.directory / 'nxserver.log'
         self.pid_file = self.directory / 'nxserver.pid'
         self.queue_directory = self.directory / 'task_list'
+        self.parsl_directory = self.directory / 'parsl'
 
     @property
     def task_queue(self):
         if self._task_queue is None:
             if self.server_type == 'direct':
                 self._task_queue = Queue()
-                self.controller.start()
             else:
                 self._task_queue = NXFileQueue(self.queue_directory,
                                                autosave=True)
         return self._task_queue
 
     @property
-    def controller(self):
-        if self._controller is None:
-            self._controller = NXController(self._task_queue, self)
-        return self._controller
+    def parsl_options(self):
+        """Settings passed to the Parsl configuration functions."""
+        options = {}
+        if 'parsl' in self.settings.sections():
+            options = {option: self.settings.get('parsl', option)
+                       for option in self.settings.options('parsl')}
+        options['server_type'] = self.server_type
+        options['cores'] = len(self.cpus) or 1
+        return options
 
     def read_nodes(self):
-        """Read available nodes"""
-        if 'nodes' in self.settings.sections():
-            nodes = self.settings.options('nodes')
-        else:
-            nodes = []
-        return sorted(nodes)
+        """Return the list of nodes.
+
+        Nodes are allocated by the batch scheduler, so this is always
+        empty. It is retained because the server CLI and the Manage
+        Server dialog still call it.
+        """
+        return []
 
     def write_nodes(self, nodes):
-        """Write additional nodes"""
-        current_nodes = self.read_nodes()
-        for node in [cpu for cpu in nodes if cpu not in current_nodes]:
-            self.settings.set('nodes', node)
-        self.settings.save()
-        self.cpus = self.read_nodes()
+        """Log that nodes are no longer configured by the server."""
+        if nodes:
+            self.log("Nodes are allocated by the scheduler and cannot be set")
 
     def remove_nodes(self, nodes):
-        """Remove specified nodes"""
-        for node in nodes:
-            self.settings.remove_option('nodes', node)
-        self.settings.save()
-        self.cpus = self.read_nodes()
+        """Log that nodes are no longer configured by the server."""
+        if nodes:
+            self.log("Nodes are allocated by the scheduler and cannot be set")
 
     def set_cores(self, cpu_count):
         """Select number of cores"""
@@ -392,71 +306,166 @@ class NXServer(NXDaemon):
                 f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' +
                         str(message) + '\n')
 
-    def run(self):
-        """
-        Create worker processes to process commands from the task queue
+    def load_parsl(self):
+        """Load Parsl and define one bash app per executor.
 
-        Create a worker for each cpu, read commands from the server
-        queue, and add an NXTask for each command to a Queue.
+        Parsl binds an app to its executors when the app is defined, so
+        routing a command to a chosen allocation means holding a
+        separate app for each executor label.
+        """
+        if self._apps is not None:
+            return
+        import parsl
+        from parsl.app.app import bash_app
+
+        module = import_config(self.settings.get('parsl', 'config')
+                               if self.settings.has_option('parsl', 'config')
+                               else None, self.directory)
+        self._module = module
+        self._config = module.get_config(self.parsl_options,
+                                         self.parsl_directory)
+        parsl.load(self._config)
+        self._apps = {}
+        for label in [executor.label for executor in self._config.executors]:
+            @bash_app(executors=[label])
+            def run_command(command, stdout=parsl.AUTO_LOGNAME,
+                            stderr=parsl.AUTO_LOGNAME):
+                return command
+            self._apps[label] = run_command
+
+    def dispatch(self, task):
+        """Submit a task to the executor chosen for its batch."""
+        self.load_parsl()
+        label = self._module.select_executor(self.parsl_options,
+                                             task.batch_size)
+        if label not in self._apps:
+            self.log(f"No executor '{label}'; using '{list(self._apps)[0]}'")
+            label = list(self._apps)[0]
+        self.log(f"Submitting '{task.command}' to {label}")
+        self.tasks[self._apps[label](task.command)] = task
+
+    def reap(self):
+        """Log the outcome of any tasks that have finished."""
+        for future in [f for f in self.tasks if f.done()]:
+            task = self.tasks.pop(future)
+            try:
+                future.result()
+                self.log(f"Completed '{task.command}'")
+            except Exception as error:
+                self.log(f"Failed '{task.command}': {error}")
+
+    def run(self):
+        """Dispatch commands read from the task queue.
+
+        Any commands left in the queue when the server last stopped are
+        resubmitted first, preserving their batch grouping. The loop
+        then dispatches new commands until a 'stop' command is read.
         """
         self.log(f'Starting server (pid={os.getpid()})')
-        self.worker_queue = Queue()
-        self.workers = [NXWorker(cpu, self.worker_queue, self.server_log)
-                        for cpu in self.cpus]
-        for worker in self.workers:
-            worker.start()
-        while True:
-            time.sleep(10)
-            command = self.read_task()
-            if command == 'stop':
-                break
-            elif command:
-                self.worker_queue.put(NXTask(command, self))
-        for worker in self.workers:
-            self.worker_queue.put(None)
-        self.worker_queue.join()
-        for worker in self.workers:
-            worker.join()
+        try:
+            self.load_parsl()
+        except Exception as error:
+            self.log(f"Could not configure Parsl: {error}")
+            super(NXServer, self).stop()
+            return
+        stopped = False
+        while not stopped:
+            time.sleep(POLL_INTERVAL)
+            while True:
+                task = self.read_task()
+                if task is None:
+                    break
+                elif task.command == 'stop':
+                    stopped = True
+                    break
+                try:
+                    self.dispatch(task)
+                except Exception as error:
+                    self.log(f"Could not submit '{task.command}': {error}")
+            self.reap()
+        self.log("Waiting for submitted tasks to finish")
+        self.shutdown()
         self.log("Stopping server")
         super(NXServer, self).stop()
 
-    def add_task(self, tasks):
-        """Add a task to the server queue."""
+    def add_task(self, tasks, batch_id=None, batch_size=1):
+        """Add one or more commands to the server queue.
+
+        Parameters
+        ----------
+        tasks : str or list of str
+            Commands to be queued, either as a list or separated by
+            newlines.
+        batch_id : str, optional
+            Identifier shared by every command in a batch.
+        batch_size : int, optional
+            Number of commands in that batch, by default 1.
+        """
         if isinstance(tasks, str):
             tasks = tasks.split('\n')
-        for task in tasks:
-            if task == 'stop':
+        queued = self.queued_tasks()
+        for command in [task for task in tasks if task]:
+            if command != 'stop' and command in queued:
+                continue
+            task = NXTask(command, batch_id=batch_id, batch_size=batch_size)
+            if self.server_type == 'direct' and command != 'stop':
+                self.dispatch(task)
+            else:
                 self.task_queue.put(task)
-            elif task not in self.queued_tasks():
-                self.task_queue.put(task)
+            queued.append(command)
+
+    def submit_batch(self, commands):
+        """Submit a group of commands to be run in one allocation.
+
+        Recording the size of the batch is what allows the dispatcher
+        to pick an allocation that fits it, so this should be preferred
+        to calling `add_task` for each command in turn.
+
+        Parameters
+        ----------
+        commands : list of str
+            Commands to be queued, normally one per scan.
+
+        Returns
+        -------
+        str or None
+            The batch identifier, or None if there was nothing to do.
+        """
+        commands = [command for command in commands if command]
+        if not commands:
+            return None
+        batch_id = uuid.uuid4().hex[:8]
+        self.add_task(commands, batch_id=batch_id, batch_size=len(commands))
+        return batch_id
 
     def read_task(self):
         """Read the next task from the server queue"""
         try:
-            task = self.task_queue.get(block=False)
-        except FileEmpty:
+            return self.task_queue.get(block=False)
+        except (FileEmpty, Empty):
             return None
         except Exception as error:
             self.log(str(error))
             return None
-        return task
 
     def remove_task(self, task):
         """Remove task from the server queue."""
-        tasks = self.queued_tasks()
-        if task in tasks:
-            tasks.remove(task)
+        tasks = [t for t in self.pending_tasks() if t.command != task]
         self.clear()
-        for task in tasks:
-            self.add_task(task)
+        for t in tasks:
+            self.add_task(t.command, batch_id=t.batch_id,
+                          batch_size=t.batch_size)
 
-    def queued_tasks(self):
-        """List tasks remaining on the server queue."""
+    def pending_tasks(self):
+        """List the NXTasks remaining on the server queue."""
         if self.server_type == 'direct':
             return list(self.task_queue.queue)
-        else:
-            queue = NXFileQueue(self.queue_directory, autosave=False)
-            return queue.queued_items()
+        queue = NXFileQueue(self.queue_directory, autosave=False)
+        return queue.queued_tasks()
+
+    def queued_tasks(self):
+        """List the commands remaining on the server queue."""
+        return [task.command for task in self.pending_tasks()]
 
     def status(self):
         if self.server_type == 'direct':
@@ -468,20 +477,36 @@ class NXServer(NXDaemon):
         """
         Check if the server is running.
 
-        If the server is running in direct mode, this is done by checking
-        if the controller thread is alive. Otherwise, it is done by calling
-        the NXDaemon class method.
+        If the server is running in direct mode, this is done by
+        checking if Parsl has been loaded in this process. Otherwise, it
+        is done by calling the NXDaemon class method.
         """
         if self.server_type == 'direct':
-            return self.controller.is_alive()
+            return self._apps is not None
         else:
             return super(NXServer, self).is_running()
-
 
     def stop(self):
         """Stop the server when active tasks are completed."""
         if self.is_running():
-            self.add_task('stop')
+            if self.server_type == 'direct':
+                self.shutdown()
+            else:
+                self.add_task('stop')
+
+    def shutdown(self):
+        """Wait for tasks running in this process and unload Parsl."""
+        if self._apps is None:
+            return
+        try:
+            import parsl
+            parsl.dfk().wait_for_current_tasks()
+            self.reap()
+            parsl.dfk().cleanup()
+        except Exception as error:
+            self.log(str(error))
+        self._apps = None
+        self._config = None
 
     def clear(self):
         """Clear the server queue."""
@@ -490,7 +515,6 @@ class NXServer(NXDaemon):
         else:
             with self.task_queue.lock:
                 if self.queue_directory.exists():
-                    import shutil
                     shutil.rmtree(self.queue_directory, ignore_errors=True)
             self._task_queue = NXFileQueue(self.queue_directory)
 

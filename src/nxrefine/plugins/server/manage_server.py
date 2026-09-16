@@ -172,22 +172,27 @@ class ServerDialog(NXDialog):
         patterns = ['nxcombine', 'nxfind', 'nxlink', 'nxmax',
                     'nxpdf', 'nxprepare', 'nxreduce', 'nxrefine', 'nxsum',
                     'nxtransform']
-        if self.server.run_command:
-            if self.server.run_command.startswith('pdsh'):
-                command = (f"pdsh -w {','.join(self.server.cpus)} 'ps -f' | "
-                           f"grep -e {' -e '.join(patterns)}")
-        elif self.server_type == 'multicore' or self.server_type is None :
+        qstat = self.server.directory / 'nxqstat.sh'
+        if self.server_type == 'multinode':
+            if not qstat.exists():
+                self.text_box.setPlainText(
+                    f"Create {qstat} to list jobs on this server")
+                return
+            command = f'bash {qstat}'
+        else:
             command = f"ps auxww | grep -e {' -e '.join(patterns)}"
         process = subprocess.run(command, shell=True, stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE)
-        if process.returncode == 0:
+        if process.returncode != 0:
+            text = process.stderr.decode()
+        elif self.server_type == 'multinode':
+            text = process.stdout.decode()
+        else:
             lines = [line for line in sorted(
                 process.stdout.decode().split('\n')) if line]
             lines = [line[line.index('nx'):]
                      for line in lines if 'grep' not in line]
             text = '\n'.join(set(lines))
-        else:
-            text = process.stderr.decode()
         if text != self.current_text:
             self.text_box.setPlainText(text)
         self.current_text = text

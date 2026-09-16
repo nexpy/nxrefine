@@ -2647,7 +2647,12 @@ class NXReduce(QtCore.QObject):
         return tasks
 
     def submit_command(self, command, tasks, args=None, entries=None):
-        """Build and send a single multi-task command via the server.
+        """Build and send a single multi-task command via the server."""
+        self.server.add_task(
+            self.build_command(command, tasks, args=args, entries=entries))
+
+    def build_command(self, command, tasks, args=None, entries=None):
+        """Return a single multi-task command for this scan.
 
         ``entries``, when supplied, becomes the value of ``--entries``;
         otherwise ``self.entry_name`` is used.
@@ -2672,12 +2677,10 @@ class NXReduce(QtCore.QObject):
         if args:
             if 'directory' in args:
                 args.directory = str(Path(args.directory).resolve())
-            self.server.add_task(f"{command} {switches(args)}")
-        else:
-            subentry_arg = (f" --subentry {self.subentry_name}"
-                            if self.subentry_name else "")
-            self.server.add_task(
-                f"{command} --directory {self.directory} "
+            return f"{command} {switches(args)}"
+        subentry_arg = (f" --subentry {self.subentry_name}"
+                        if self.subentry_name else "")
+        return (f"{command} --directory {self.directory} "
                 f"--entries {entries_arg}{subentry_arg} "
                 f"--{' --'.join(tasks)}")
 
@@ -3349,7 +3352,12 @@ class NXMultiReduce(NXReduce):
 
     def queue(self, command, args=None):
         """ Add tasks to the server's fifo, and log this in the database """
+        task = self.build_command(command, args=args)
+        if task:
+            self.server.add_task(task)
 
+    def queue_db_rows(self):
+        """Insert DB rows for the combined tasks; return the task list."""
         tasks = []
         if self.combine:
             tasks.append('combine')
@@ -3363,9 +3371,19 @@ class NXMultiReduce(NXReduce):
                 self.queue_task('nxpdf')
             if self.mask:
                 self.queue_task('nxmasked_pdf')
+        return tasks
 
+    def build_command(self, command, tasks=None, args=None, entries=None):
+        """Return the command for this scan's combine and PDF tasks.
+
+        Unlike the per-entry command, this takes no ``--entries``, since
+        the tasks operate on the scan as a whole. Returns None if no
+        tasks are selected.
+        """
+        if tasks is None:
+            tasks = self.queue_db_rows()
         if not tasks:
-            return
+            return None
 
         if self.regular:
             tasks.append('regular')
@@ -3383,10 +3401,8 @@ class NXMultiReduce(NXReduce):
         if args:
             if 'directory' in args:
                 args.directory = str(Path(args.directory).resolve())
-            self.server.add_task(f"{command} {switches(args)}")
-        else:
-            subentry_arg = (f" --subentry {self.subentry_name}"
-                            if self.subentry_name else "")
-            self.server.add_task(
-                f"{command} --directory {self.directory}{subentry_arg} "
+            return f"{command} {switches(args)}"
+        subentry_arg = (f" --subentry {self.subentry_name}"
+                        if self.subentry_name else "")
+        return (f"{command} --directory {self.directory}{subentry_arg} "
                 f"--{' --'.join(tasks)}")

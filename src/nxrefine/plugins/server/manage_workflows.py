@@ -438,6 +438,7 @@ class WorkflowDialog(NXDialog):
     def add_tasks(self):
         if self.grid is None:
             raise NeXusError('Need to update status')
+        commands = []
         for scan in [s for s in self.enabled_scans if self.any_selected(s)]:
             entries = self.enabled_scans[scan]['entries']
             if self.only_combined(scan):
@@ -458,7 +459,9 @@ class WorkflowDialog(NXDialog):
                     reduce.mask = True
                 if self.selected(scan, 'overwrite'):
                     reduce.overwrite = True
-                reduce.queue('nxreduce')
+                command = reduce.build_command('nxreduce')
+                if command:
+                    commands.append(command)
             else:
                 tasks = []
                 reduce = None
@@ -503,10 +506,12 @@ class WorkflowDialog(NXDialog):
                         reduce.overwrite = True
                     tasks = reduce.queue_db_rows()
                 if tasks:
-                    reduce.submit_command('nxreduce', tasks, entries=entries)
+                    commands.append(reduce.build_command('nxreduce', tasks,
+                                                         entries=entries))
             for task in self.tasks:
                 if self.selected(scan, task):
                     self.queued(scan, task)
+        self.server.submit_batch(commands)
         self.deselect_all()
 
     def view_logs(self):
@@ -668,21 +673,27 @@ class WorkflowDialog(NXDialog):
         patterns = ['nxcombine', 'nxfind', 'nxlink', 'nxload',
                     'nxmax', 'nxpdf', 'nxprepare', 'nxreduce', 'nxrefine',
                     'nxsum', 'nxtransform']
-        if self.server.run_command.startswith('pdsh'):
-            command = "pdsh -w {} 'ps -f' | grep -e {}".format(
-                ",".join(self.server.cpus), " -e ".join(patterns))
+        qstat = self.server.directory / 'nxqstat.sh'
+        if self.server.server_type == 'multinode':
+            if not qstat.exists():
+                self.output_box.setPlainText(
+                    f"Create {qstat} to list jobs on this server")
+                return
+            command = f'bash {qstat}'
         else:
             command = f"ps auxww | grep -e {' -e '.join(patterns)}"
         process = subprocess.run(command, shell=True, stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE)
-        if process.returncode == 0:
+        if process.returncode != 0:
+            self.output_box.setPlainText(process.stderr.decode())
+        elif self.server.server_type == 'multinode':
+            self.output_box.setPlainText(process.stdout.decode())
+        else:
             lines = [line for line in sorted(
                 process.stdout.decode().split('\n')) if line]
             lines = [line[line.index('nx'):]
                      for line in lines if 'grep' not in line]
             self.output_box.setPlainText('\n'.join(set(lines)))
-        else:
-            self.output_box.setPlainText(process.stderr.decode())
 
     def cpuview(self):
         cpu = self.cpu_combo.selected
