@@ -529,12 +529,12 @@ class WorkflowDialog(NXDialog):
         self.task_combo = dialog.select_box(self.tasks, slot=self.refreshview)
         self.defaultview = None
         self.output_box = NXPlainTextEdit(wrap=False)
-        cpu_process_button = NXPushButton('View CPU Processes', self.procview)
-        cpu_log_button = NXPushButton('View CPU Log', self.cpuview)
-        self.cpu_combo = dialog.select_box(['nxserver'] + self.server.cpus,
-                                           slot=self.cpuview)
-        close_layout = self.make_layout(cpu_process_button, cpu_log_button,
-                                        self.cpu_combo, 'stretch',
+        process_button = NXPushButton('View Processes', self.procview)
+        task_log_button = NXPushButton('View Task Log', self.taskview)
+        self.log_combo = dialog.select_box(self.server.task_names(),
+                                           slot=self.taskview)
+        close_layout = self.make_layout(process_button, task_log_button,
+                                        self.log_combo, 'stretch',
                                         dialog.close_buttons(close=True),
                                         align='justified')
         dialog.set_layout(
@@ -695,13 +695,21 @@ class WorkflowDialog(NXDialog):
                      for line in lines if 'grep' not in line]
             self.output_box.setPlainText('\n'.join(set(lines)))
 
-    def cpuview(self):
-        cpu = self.cpu_combo.selected
-        cpu_log = self.server.directory / f'{cpu}.log'
-        if cpu_log.exists():
-            with open(cpu_log) as f:
-                lines = f.readlines()
-            self.output_box.setPlainText(''.join(lines))
+    def update_logs(self):
+        """Refresh the list of task logs, preserving the selection."""
+        names = self.server.task_names()
+        if names != self.log_combo.items():
+            selected = self.log_combo.selected
+            self.log_combo.clear()
+            self.log_combo.add(*names)
+            if selected in names:
+                self.log_combo.select(selected)
+
+    def taskview(self):
+        self.update_logs()
+        if self.log_combo.selected:
+            self.output_box.setPlainText(
+                self.server.task_output(self.log_combo.selected))
             self.output_box.verticalScrollBar().setValue(
                 self.output_box.verticalScrollBar().maximum())
         else:

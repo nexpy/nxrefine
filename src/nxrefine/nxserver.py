@@ -26,6 +26,7 @@ section.
 
 import os
 import shutil
+import sqlite3
 import time
 import uuid
 from configparser import ConfigParser
@@ -173,6 +174,22 @@ class NXTask:
         return {'command': self.command, 'batch_id': self.batch_id,
                 'batch_size': self.batch_size}
 
+    @property
+    def label(self):
+        """Return a name identifying this task in its log files.
+
+        Parsl names the logs after the app function, which is the same
+        for every command, so the scan is used instead. That makes both
+        the files and the rows pointing at them in the monitoring
+        database identifiable.
+        """
+        words = self.command.split()
+        for switch in ['--directory', '-d']:
+            if switch in words[:-1]:
+                directory = Path(words[words.index(switch) + 1])
+                return '_'.join([self.name, *directory.parts[-2:]])
+        return self.name
+
 
 class NXServer(NXDaemon):
 
@@ -249,6 +266,8 @@ class NXServer(NXDaemon):
         self.pid_file = self.directory / 'nxserver.pid'
         self.queue_directory = self.directory / 'task_list'
         self.parsl_directory = self.directory / 'parsl'
+        self.log_directory = self.parsl_directory / 'task_logs'
+        self.monitoring_db = self.parsl_directory / 'monitoring.db'
 
     @property
     def task_queue(self):
@@ -328,8 +347,7 @@ class NXServer(NXDaemon):
         self._apps = {}
         for label in [executor.label for executor in self._config.executors]:
             @bash_app(executors=[label])
-            def run_command(command, stdout=parsl.AUTO_LOGNAME,
-                            stderr=parsl.AUTO_LOGNAME):
+            def run_command(command, stdout=None, stderr=None):
                 return command
             self._apps[label] = run_command
 
@@ -342,7 +360,11 @@ class NXServer(NXDaemon):
             self.log(f"No executor '{label}'; using '{list(self._apps)[0]}'")
             label = list(self._apps)[0]
         self.log(f"Submitting '{task.command}' to {label}")
-        self.tasks[self._apps[label](task.command)] = task
+        prefix = self.log_directory / (
+            task.label + datetime.now().strftime('_%Y%m%d_%H%M%S'))
+        self.tasks[self._apps[label](task.command,
+                                     stdout=str(prefix) + '.out',
+                                     stderr=str(prefix) + '.err')] = task
 
     def reap(self):
         """Log the outcome of any tasks that have finished."""
@@ -353,6 +375,97 @@ class NXServer(NXDaemon):
                 self.log(f"Completed '{task.command}'")
             except Exception as error:
                 self.log(f"Failed '{task.command}': {error}")
+
+    def task_status(self):
+        """Return what Parsl monitoring records about each task.
+
+        The records are keyed on the task's standard output file, which
+        is the only field the monitoring database and the log directory
+        have in common. An empty dictionary is returned when monitoring
+        is disabled, which it is for the `direct` server type.
+
+        Returns
+        -------
+        dict
+            Executor, status and timestamps, keyed on output file.
+        """
+        if not self.monitoring_db.exists():
+            return {}
+        query = """
+            SELECT task_stdout AS log,
+                   task_time_invoked AS invoked,
+                   task_time_returned AS returned,
+                   (SELECT task_executor FROM try
+                     WHERE try.run_id = task.run_id
+                       AND try.task_id = task.task_id
+                     ORDER BY try.try_id DESC LIMIT 1) AS executor,
+                   (SELECT task_status_name FROM status
+                     WHERE status.run_id = task.run_id
+                       AND status.task_id = task.task_id
+                     ORDER BY status.timestamp DESC LIMIT 1) AS status
+            FROM task WHERE task_stdout IS NOT NULL
+        """
+        try:
+            with sqlite3.connect(f'file:{self.monitoring_db}?mode=ro',
+                                 uri=True) as db:
+                db.row_factory = sqlite3.Row
+                return {row['log']: {key: row[key] for key in row.keys()
+                                     if key != 'log'}
+                        for row in db.execute(query)}
+        except sqlite3.Error:
+            return {}
+
+    def task_records(self, limit=50):
+        """Return a summary of recently dispatched tasks, newest first.
+
+        The tasks are listed from their log files, which are written
+        whatever the server type, and annotated with what the Parsl
+        monitoring database knows about them when it is available.
+
+        Parameters
+        ----------
+        limit : int, optional
+            Maximum number of tasks to list, by default 50.
+        """
+        if not self.log_directory.exists():
+            return []
+        logs = sorted((f for f in self.log_directory.iterdir()
+                       if f.suffix == '.out'),
+                      key=lambda f: f.stat().st_mtime, reverse=True)
+        status = self.task_status()
+        records = []
+        for log in logs[:limit]:
+            record = {'name': log.stem, 'stdout': log,
+                      'stderr': log.with_suffix('.err')}
+            record.update(status.get(str(log), {}))
+            records.append(record)
+        return records
+
+    def task_names(self):
+        """List the names of recently dispatched tasks, newest first."""
+        return [record['name'] for record in self.task_records()]
+
+    def task_output(self, name):
+        """Return the output of a dispatched task.
+
+        Parameters
+        ----------
+        name : str
+            Name of the task, as listed by `task_names`.
+        """
+        record = next((record for record in self.task_records()
+                       if record['name'] == name), None)
+        if record is None:
+            return f"No output for '{name}'"
+        text = [' '.join(str(record[key]) for key in
+                         ['executor', 'status', 'invoked', 'returned']
+                         if record.get(key))]
+        for key in ['stdout', 'stderr']:
+            path = record[key]
+            if path.exists() and path.stat().st_size:
+                text.append(f'--- {path.name} ---')
+                text.append(path.read_text())
+        return '\n'.join(t for t in text if t) or f"No output for '{name}'"
 
     def run(self):
         """Dispatch commands read from the task queue.
