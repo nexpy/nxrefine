@@ -59,6 +59,8 @@ def main():
     else:
         entries = NXMultiReduce(directory=args.directory).entries
 
+    reduce = None
+    tasks = []
     for entry in entries:
         reduce = NXReduce(entry=entry, subentry=args.subentry,
                           directory=args.directory,
@@ -69,11 +71,15 @@ def main():
                           regular=args.regular, mask=args.mask,
                           overwrite=args.overwrite)
         if args.queue:
-            reduce.queue('nxreduce', args)
+            tasks = reduce.queue_db_rows()
         else:
             reduce.combine = reduce.pdf = False
             reduce.nxreduce()
-    if (args.combine or args.pdf) and not args.queue:
+    if args.queue:
+        if tasks:
+            reduce.server.submit_batch(
+                [reduce.build_command('nxreduce', tasks, entries=entries)])
+    elif args.combine or args.pdf:
         reduce = NXMultiReduce(directory=args.directory,
                                subentry=args.subentry, combine=args.combine,
                                pdf=args.pdf, regular=args.regular,
