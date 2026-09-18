@@ -12,11 +12,12 @@ Select it by setting the following in the `[parsl]` section of the
 server settings, where `account` is the project the jobs are charged
 against::
 
-    config = nxrefine.nxparsl_polaris
+    config = nxrefine.parsl.polaris
     account = YourProject
 
-To adapt it, copy this file into the server directory and set `config`
-to its name there.
+To adapt it for another PBS Pro cluster, copy this file into the server
+directory and set `config` to its name there. See `nxrefine.parsl.pbs`
+for documentation of the `pbs_executor` helper this wraps.
 
 Polaris runs PBS Pro. Its queue policies determine the shape of the two
 executors declared below.
@@ -50,8 +51,9 @@ jobs must declare the filesystems they use, and Parsl needs `TMPDIR`
 pointed at a short path to avoid `AF_UNIX path too long`.
 """
 
-from .nxparsl import (LARGE, MPIEXEC_OVERRIDES, SMALL, get_config,  # noqa: F401
-                      monitoring_hub, option, pbs_executor, select_executor)
+from . import (LARGE, SMALL, get_config as _default_config,  # noqa: F401
+               monitoring_hub, option, select_executor)  # noqa: F401
+from .pbs import MPIEXEC_OVERRIDES, pbs_executor  # noqa: F401
 
 TMPDIR = 'export TMPDIR=/tmp'
 
@@ -71,7 +73,13 @@ def worker_init(options):
 
 
 def polaris_executor(label, options, nodes, max_blocks, queue, walltime):
-    """Return an executor backed by a Polaris PBS Pro allocation."""
+    """Return an executor backed by a Polaris PBS Pro allocation.
+
+    Polaris requires `MpiExecLauncher` to start workers within a
+    multi-node PBS allocation, a GPU declaration in the select directive,
+    and `TMPDIR` set to a short path. These are all handled here on top
+    of the generic `pbs_executor`.
+    """
     from parsl.launchers import MpiExecLauncher
     polaris_options = dict(options)
     polaris_options['worker_init'] = worker_init(options)
@@ -86,7 +94,7 @@ def polaris_executor(label, options, nodes, max_blocks, queue, walltime):
         select_options='ngpus=4')
 
 
-def get_config(options, run_dir):  # noqa: F811
+def get_config(options, run_dir):
     """Return the Parsl configuration for Polaris.
 
     Parameters
@@ -101,10 +109,8 @@ def get_config(options, run_dir):  # noqa: F811
 
     from parsl.config import Config
 
-    from .nxparsl import get_config as default_config
-
     if option(options, 'server_type') != 'multinode':
-        return default_config(options, run_dir)
+        return _default_config(options, run_dir)
 
     run_dir = Path(run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)

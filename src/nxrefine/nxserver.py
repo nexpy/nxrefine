@@ -19,7 +19,7 @@ this process as they are submitted. In `multicore` and `multinode`
 modes, they are written to a file queue and dispatched by a daemon,
 which is what allows a task to be queued while the server is down.
 
-The Parsl configuration itself lives in `nxrefine.nxparsl`, or in the
+The Parsl configuration itself lives in `nxrefine.parsl`, or in the
 site-specific module named by the `config` setting in the `[parsl]`
 section.
 """
@@ -41,7 +41,7 @@ from persistqueue.exceptions import Empty as FileEmpty
 from persistqueue.serializers import json
 
 from .nxdaemon import NXDaemon
-from .nxparsl import import_config
+from .parsl import import_config
 from .nxsettings import NXSettings
 
 POLL_INTERVAL = 5

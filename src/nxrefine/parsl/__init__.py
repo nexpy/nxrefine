@@ -6,7 +6,7 @@
 # The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
-"""Parsl configuration for the NXRefine workflow server.
+"""Scheduler-neutral Parsl configuration for the NXRefine workflow server.
 
 `NXServer` dispatches every task through Parsl. The Parsl `Config` is
 supplied by a pair of functions:
@@ -21,17 +21,23 @@ batch might be run, and `select_executor` chooses between them for a
 batch of `ntasks` commands.
 
 The defaults below cover the `direct` and `multicore` server types and
-a generic PBS Pro cluster. Sites whose scheduler needs more than the
-`[parsl]` settings express should supply their own module and name it
-in the `config` setting; see `nxrefine.nxparsl_polaris` for a worked
-example. Executors are declared with no initial blocks, so declaring
-one that a given batch does not use costs nothing.
+provide a starting-point PBS Pro configuration for `multinode`. Sites
+whose scheduler is not PBS Pro, or whose cluster has requirements beyond
+what the `[parsl]` settings express, should supply their own module and
+name it in the `config` setting:
 
-Task memoisation is deliberately left off. Parsl memoises on the
-command string, which would silently skip a command resubmitted after
-an upstream fix; the `nxXXX` scripts already skip completed tasks based
-on the workflow record in the wrapper file, which is both persistent
-and aware of what was actually computed.
+    config = nxrefine.parsl.polaris   ; ALCF Polaris
+    config = /path/to/my_config.py    ; arbitrary site file
+
+Scheduler-specific helpers live in sub-modules:
+
+    nxrefine.parsl.pbs      PBS Pro (including Polaris at ALCF)
+
+Executors are declared with no initial blocks, so an unused executor
+costs nothing. Task memoisation is deliberately left off — the `nxXXX`
+scripts already skip completed tasks from the workflow record in the
+wrapper file, which is both persistent and aware of what was actually
+computed.
 """
 
 import importlib
@@ -44,8 +50,6 @@ from nexusformat.nexus import NeXusError
 LOCAL = 'nx-local'
 SMALL = 'nx-small'
 LARGE = 'nx-large'
-
-MPIEXEC_OVERRIDES = '--depth=64 --ppn 1'
 
 
 def option(options, key, default=None):
@@ -127,75 +131,6 @@ def monitoring_hub(options, local):
         resource_monitoring_interval=30)
 
 
-def scheduler_options(options):
-    """Return the `#PBS` directives prepended to the submit script."""
-    directives = []
-    filesystems = option(options, 'filesystems')
-    if filesystems:
-        directives.append(f"#PBS -l filesystems={filesystems}")
-    directives.append('#PBS -r y')
-    return '\n'.join(directives)
-
-
-def pbs_executor(label, options, nodes, max_blocks, queue, walltime,
-                 launcher=None, select_options=''):
-    """Return a HighThroughputExecutor backed by a PBS Pro allocation.
-
-    One worker is started per node. A single `nxreduce` process already
-    fills a node - `NXReduce.process_count` is half the hardware thread
-    count - so packing more than one task onto a node would oversubscribe
-    it.
-
-    Parameters
-    ----------
-    label : str
-        Executor label, used to route batches to this allocation.
-    options : dict
-        Settings from the `[parsl]` section.
-    nodes : int
-        Nodes requested per block. Each block is one `qsub`.
-    max_blocks : int
-        Maximum number of concurrent blocks. This must be at least
-        `ntasks / nodes` or the tasks that do not fit will wait for a
-        free worker and may exceed the block walltime.
-    queue : str
-        Scheduler queue to submit to.
-    walltime : str
-        Walltime requested per block, as `HH:MM:SS`.
-    launcher : parsl.launchers.base.Launcher, optional
-        Launcher used to start workers within the allocation.
-    select_options : str, optional
-        Text appended to the `#PBS -l select` line.
-    """
-    from parsl.executors import HighThroughputExecutor
-    from parsl.launchers import SingleNodeLauncher
-    from parsl.providers import PBSProProvider
-
-    if launcher is None:
-        launcher = SingleNodeLauncher()
-    provider = PBSProProvider(
-        account=option(options, 'account'),
-        queue=queue,
-        walltime=walltime,
-        nodes_per_block=nodes,
-        cpus_per_node=int(option(options, 'cpus_per_node', 64)),
-        init_blocks=0,
-        min_blocks=0,
-        max_blocks=max_blocks,
-        parallelism=1,
-        scheduler_options=scheduler_options(options),
-        select_options=select_options,
-        worker_init=option(options, 'worker_init', ''),
-        launcher=launcher,
-    )
-    return HighThroughputExecutor(
-        label=label,
-        max_workers_per_node=1,
-        cpu_affinity='none',
-        provider=provider,
-    )
-
-
 def local_executor(options):
     """Return an executor that runs tasks on this machine."""
     from parsl.executors import HighThroughputExecutor, ThreadPoolExecutor
@@ -222,6 +157,16 @@ def get_config(options, run_dir):
         `cores` added from the `[server]` section.
     run_dir : str or Path
         Directory for Parsl run logs and the monitoring database.
+
+    Notes
+    -----
+    For `direct` and `multicore` server types, tasks run on the local
+    machine using a `LocalProvider`. For `multinode`, the built-in
+    default uses PBS Pro (via `nxrefine.parsl.pbs`). Sites using Slurm,
+    Grid Engine, or another scheduler should set the `config` option to
+    a module that supplies its own `get_config`, for example::
+
+        config = nxrefine.parsl.polaris
     """
     from parsl.config import Config
 
@@ -232,6 +177,7 @@ def get_config(options, run_dir):
     if local:
         executors = [local_executor(options)]
     else:
+        from .pbs import pbs_executor
         walltime = str(option(options, 'walltime', '3:00:00'))
         executors = [
             pbs_executor(SMALL, options,
@@ -276,7 +222,7 @@ def import_config(config, directory):
 
     The `config` setting may name a Python file, either absolute or
     relative to the server directory, or an importable module. When it
-    is unset, this module's own defaults are used.
+    is unset, this package's own defaults are used.
 
     Parameters
     ----------
