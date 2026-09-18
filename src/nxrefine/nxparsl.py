@@ -64,6 +64,27 @@ def option(options, key, default=None):
     return default if value is None else value
 
 
+def enabled(options, key, default=True):
+    """Return a setting as a boolean.
+
+    Settings read from the server's ini file are strings, so the words
+    conventionally meaning false have to be recognized as such.
+
+    Parameters
+    ----------
+    options : dict
+        Settings from the `[parsl]` section.
+    key : str
+        Name of the setting.
+    default : bool, optional
+        Value to use when the setting is absent, by default True.
+    """
+    value = option(options, key, default)
+    if isinstance(value, str):
+        return value.strip().lower() not in ['', '0', 'false', 'no', 'off']
+    return bool(value)
+
+
 def monitoring_hub(options, local):
     """Return a MonitoringHub, or None if monitoring is disabled.
 
@@ -85,7 +106,7 @@ def monitoring_hub(options, local):
         True if the workers run on this machine, in which case the hub
         only needs to be reachable over the loopback interface.
     """
-    if not option(options, 'monitoring', True):
+    if not enabled(options, 'monitoring'):
         return None
     if option(options, 'server_type') == 'direct':
         return None
