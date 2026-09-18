@@ -225,15 +225,21 @@ class NXTask:
     def label(self):
         """Return a name identifying this task in its log files.
 
-        Parsl names the logs after the app function, which is the same
-        for every command, so the scan and its entries are used instead.
-        That makes both the files and the rows pointing at them in the
-        monitoring database identifiable.
+        The name is ordered from most to least specific:
+        sample, scan label, scan name, command, entries. Putting the
+        sample first makes a list of log names scannable by experiment.
+        Entries are appended so that per-entry commands dispatched for
+        the same scan produce distinct names.
         """
-        parts = [self.name]
+        parts = []
         directory = self.argument(['--directory', '-d'])
         if directory:
-            parts.extend(Path(directory[0]).parts[-2:])
+            dir_parts = Path(directory[0]).parts
+            # Take up to three trailing components: sample (-3), scan
+            # label (-2), and scan name (-1). Fall back gracefully when
+            # the path is shallower than three levels.
+            parts.extend(dir_parts[max(-3, -len(dir_parts)):])
+        parts.append(self.name)
         parts.extend(self.argument(['--entries', '-e']))
         return '_'.join(parts)
 
