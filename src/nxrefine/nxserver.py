@@ -174,21 +174,47 @@ class NXTask:
         return {'command': self.command, 'batch_id': self.batch_id,
                 'batch_size': self.batch_size}
 
+    def argument(self, switches):
+        """Return the values following the first switch that is present.
+
+        Parameters
+        ----------
+        switches : list of str
+            Equivalent spellings of the switch, such as
+            `['--directory', '-d']`.
+
+        Returns
+        -------
+        list of str
+            Words between the switch and the next one, which is empty
+            if the switch does not appear in the command.
+        """
+        words = self.command.split()
+        for switch in switches:
+            if switch in words[:-1]:
+                values = []
+                for word in words[words.index(switch)+1:]:
+                    if word.startswith('-'):
+                        break
+                    values.append(word)
+                return values
+        return []
+
     @property
     def label(self):
         """Return a name identifying this task in its log files.
 
         Parsl names the logs after the app function, which is the same
-        for every command, so the scan is used instead. That makes both
-        the files and the rows pointing at them in the monitoring
-        database identifiable.
+        for every command, so the scan and its entries are used instead.
+        That makes both the files and the rows pointing at them in the
+        monitoring database identifiable.
         """
-        words = self.command.split()
-        for switch in ['--directory', '-d']:
-            if switch in words[:-1]:
-                directory = Path(words[words.index(switch) + 1])
-                return '_'.join([self.name, *directory.parts[-2:]])
-        return self.name
+        parts = [self.name]
+        directory = self.argument(['--directory', '-d'])
+        if directory:
+            parts.extend(Path(directory[0]).parts[-2:])
+        parts.extend(self.argument(['--entries', '-e']))
+        return '_'.join(parts)
 
 
 class NXServer(NXDaemon):
@@ -201,6 +227,7 @@ class NXServer(NXDaemon):
         self._module = None
         self._apps = None
         self.tasks = {}
+        self.prefixes = set()
         if self.server_type != 'direct':
             super(NXServer, self).__init__(self.pid_name, self.pid_file)
 
@@ -360,11 +387,29 @@ class NXServer(NXDaemon):
             self.log(f"No executor '{label}'; using '{list(self._apps)[0]}'")
             label = list(self._apps)[0]
         self.log(f"Submitting '{task.command}' to {label}")
-        prefix = self.log_directory / (
-            task.label + datetime.now().strftime('_%Y%m%d_%H%M%S'))
+        prefix = self.log_prefix(task)
         self.tasks[self._apps[label](task.command,
                                      stdout=str(prefix) + '.out',
                                      stderr=str(prefix) + '.err')] = task
+
+    def log_prefix(self, task):
+        """Return a path stem no other task's log files are using.
+
+        The whole queue is normally dispatched within a single tick, so
+        the timestamp alone does not separate one task's logs from the
+        next one's. A task's output file also identifies it in the
+        monitoring database, where a shared name would hide every row
+        but the last.
+        """
+        stem = task.label + datetime.now().strftime('_%Y%m%d_%H%M%S')
+        prefix = self.log_directory / stem
+        count = 0
+        while (prefix in self.prefixes
+               or Path(str(prefix) + '.out').exists()):
+            count += 1
+            prefix = self.log_directory / f'{stem}_{count}'
+        self.prefixes.add(prefix)
+        return prefix
 
     def reap(self):
         """Log the outcome of any tasks that have finished."""
