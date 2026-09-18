@@ -45,6 +45,8 @@ from .nxparsl import import_config
 from .nxsettings import NXSettings
 
 POLL_INTERVAL = 5
+LOCK_TIMEOUT = 10
+LOCK_EXPIRY = 60
 
 
 def get_servers():
@@ -83,7 +85,8 @@ class NXFileQueue(FileQueue):
         self.directory.mkdir(mode=0o777, exist_ok=True)
         tempdir = self.directory / 'tempdir'
         tempdir.mkdir(mode=0o777, exist_ok=True)
-        self.lock = NXLock(self.directory / 'filequeue')
+        self.lock = NXLock(self.directory / 'filequeue', timeout=LOCK_TIMEOUT,
+                           expiry=LOCK_EXPIRY)
         with self.lock:
             super().__init__(directory, serializer=json, autosave=autosave,
                              tempdir=tempdir)
@@ -95,10 +98,28 @@ class NXFileQueue(FileQueue):
     def __enter__(self):
         self.lock.acquire()
         self.info = self._loadinfo()
+        self.reopen()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.fix_access()
         self.lock.release()
+
+    def reopen(self):
+        """Reopen the chunk files described by the queue information.
+
+        The base class opens the head and tail files once and reads from
+        the handles it kept, so a queue that another process has cleared
+        or replaced leaves this one reading a file that is no longer the
+        queue. Reading the information back from disk is not enough on
+        its own; the handles have to be moved to match it.
+        """
+        head = self.info['head'][0]
+        tail, _, offset = self.info['tail']
+        self.headf.close()
+        self.tailf.close()
+        self.headf = self._openchunk(head, 'ab+')
+        self.tailf = self._openchunk(tail)
+        self.tailf.seek(offset)
 
     def put(self, item, block=True, timeout=None):
         """Add an NXTask, or a bare command, to the queue."""
@@ -597,13 +618,20 @@ class NXServer(NXDaemon):
         return batch_id
 
     def read_task(self):
-        """Read the next task from the server queue"""
+        """Read the next task from the server queue.
+
+        The queue is discarded after an unexpected error so that the
+        next poll builds it again from disk. Without that, one unreadable
+        entry would be met on every poll from then on, and the server
+        could no longer read anything, including its own stop command.
+        """
         try:
             return self.task_queue.get(block=False)
         except (FileEmpty, Empty):
             return None
         except Exception as error:
             self.log(str(error))
+            self._task_queue = None
             return None
 
     def remove_task(self, task):
@@ -667,14 +695,19 @@ class NXServer(NXDaemon):
         self._config = None
 
     def clear(self):
-        """Clear the server queue."""
+        """Clear the server queue.
+
+        The queue is discarded rather than replaced here, so that it is
+        built again by `task_queue` and cannot end up with different
+        settings from the one it replaces.
+        """
         if self.server_type == 'direct':
             self._task_queue = Queue()
         else:
             with self.task_queue.lock:
                 if self.queue_directory.exists():
                     shutil.rmtree(self.queue_directory, ignore_errors=True)
-            self._task_queue = NXFileQueue(self.queue_directory)
+            self._task_queue = None
 
     def kill(self):
         """Kill the server process.
