@@ -63,8 +63,7 @@ class ServerDialog(NXDialog):
                 self.pushbutton[button].setCheckable(True)
         self.text_box = NXPlainTextEdit(wrap=False)
         self.text_box.setReadOnly(True)
-        self.log_combo = self.select_box(['nxserver'] + self.server.cpus,
-                                         slot=self.show_log)
+        self.log_combo = self.select_box(['nxserver'], slot=self.show_log)
         update_actions = self.action_buttons(
                              ('Clear Queue', self.clear_queue),
                              ('Clear Locks', self.clear_locks),
@@ -140,17 +139,30 @@ class ServerDialog(NXDialog):
         self.pushbutton['Update Nodes'].setEnabled(False)
         self.text_box.setReadOnly(True)
 
+    def update_logs(self):
+        """Refresh the list of task logs, preserving the selection."""
+        names = ['nxserver'] + self.server.task_names()
+        if names != self.log_combo.items():
+            selected = self.log_combo.selected
+            self.log_combo.clear()
+            self.log_combo.add(*names)
+            self.log_combo.select(
+                selected if selected in names else 'nxserver')
+
     def show_log(self):
         self.reset_buttons()
         self.pushbutton['Server Log'].setChecked(True)
         self.log_combo.setEnabled(True)
-        log_file = self.server.directory.joinpath(
-            f'{self.log_combo.selected}.log')
-        if log_file.exists():
-            with open(log_file) as f:
-                text = f.read()
+        self.update_logs()
+        if self.log_combo.selected == 'nxserver':
+            log_file = self.server.server_log
+            if log_file.exists():
+                with open(log_file) as f:
+                    text = f.read()
+            else:
+                text = f"'{log_file}' does not exist"
         else:
-            text = f"'{log_file}' does not exist"
+            text = self.server.task_output(self.log_combo.selected)
         if text != self.current_text:
             self.text_box.setPlainText(text)
             self.text_box.verticalScrollBar().setValue(
@@ -172,22 +184,27 @@ class ServerDialog(NXDialog):
         patterns = ['nxcombine', 'nxfind', 'nxlink', 'nxmax',
                     'nxpdf', 'nxprepare', 'nxreduce', 'nxrefine', 'nxsum',
                     'nxtransform']
-        if self.server.run_command:
-            if self.server.run_command.startswith('pdsh'):
-                command = (f"pdsh -w {','.join(self.server.cpus)} 'ps -f' | "
-                           f"grep -e {' -e '.join(patterns)}")
-        elif self.server_type == 'multicore' or self.server_type is None :
+        qstat = self.server.directory / 'nxqstat.sh'
+        if self.server_type == 'multinode':
+            if not qstat.exists():
+                self.text_box.setPlainText(
+                    f"Create {qstat} to list jobs on this server")
+                return
+            command = f'bash {qstat}'
+        else:
             command = f"ps auxww | grep -e {' -e '.join(patterns)}"
         process = subprocess.run(command, shell=True, stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE)
-        if process.returncode == 0:
+        if process.returncode != 0:
+            text = process.stderr.decode()
+        elif self.server_type == 'multinode':
+            text = process.stdout.decode()
+        else:
             lines = [line for line in sorted(
                 process.stdout.decode().split('\n')) if line]
             lines = [line[line.index('nx'):]
                      for line in lines if 'grep' not in line]
             text = '\n'.join(set(lines))
-        else:
-            text = process.stderr.decode()
         if text != self.current_text:
             self.text_box.setPlainText(text)
         self.current_text = text

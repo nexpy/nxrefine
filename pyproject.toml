@@ -37,6 +37,7 @@ dependencies = [
     "pyfai",
     "juliacall",
     "certifi",
+    "parsl",
     "persist-queue",
     "sqlalchemy",
     "matplotlib",
