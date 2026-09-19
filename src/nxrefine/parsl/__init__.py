@@ -27,11 +27,14 @@ what the `[parsl]` settings express, should supply their own module and
 name it in the `config` setting:
 
     config = nxrefine.parsl.polaris   ; ALCF Polaris
+    config = nxrefine.parsl.classe    ; CLASSE Compute Farm at Cornell (SGE)
     config = /path/to/my_config.py    ; arbitrary site file
 
 Scheduler-specific helpers live in sub-modules:
 
     nxrefine.parsl.pbs      PBS Pro (including Polaris at ALCF)
+    nxrefine.parsl.sge      Generic SGE / Grid Engine clusters
+    nxrefine.parsl.classe   CLASSE Compute Farm at Cornell (SGE)
 
 Executors are declared with no initial blocks, so an unused executor
 costs nothing. Task memoisation is deliberately left off — the `nxXXX`
