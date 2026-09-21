@@ -91,6 +91,7 @@ version_file = "src/nxrefine/_version.py"
 [tool.setuptools.package-data]
 "nxrefine" = ["juliapkg.json"]
 "nxrefine.julia" = ["*.jl"]
+"nxrefine.parsl" = ["*.sh"]
 
 [tool.ruff]
 line-length = 88

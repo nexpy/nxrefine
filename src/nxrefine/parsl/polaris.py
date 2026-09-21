@@ -18,13 +18,9 @@ against::
 
 `worker_init` names a shell script in the server directory, sourced in
 the batch job to recreate the environment that the compute nodes do not
-inherit from the login node::
-
-    module use /soft/modulefiles
-    module load conda
-    conda activate /path/to/nxrefine-env
-    export NX_SERVER=/path/to/analysis/nxserver
-    export NX_LOCKDIRECTORY=/path/to/analysis/nxserver/locks
+inherit from the login node: the module loads, the conda environment,
+and `NX_SERVER` and `NX_LOCKDIRECTORY`. `polaris_setup.sh`, beside this
+module, is an annotated example to copy there and edit.
 
 The script must be on a filesystem named in the `filesystems` setting,
 which defaults to `home:eagle`.
