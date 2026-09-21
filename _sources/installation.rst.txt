@@ -5,11 +5,10 @@ Currently, *NXRefine* must be installed from source by cloning the
 
     $ git clone https://github.com/nexpy/nxrefine.git
 
-Then use standard Python tools to build and/or install a distribution
-from within the source directory::
+Then use the standard Python tool to install the package from within
+the source directory::
 
-    $ python -m build  # build a distribution
-    $ python -m pip install .  # install the package
+    $ python -m pip install .
 
 In the near future, *NXRefine* will be uploaded to the PyPI server so
 that it can be installed without downloading the source code.
