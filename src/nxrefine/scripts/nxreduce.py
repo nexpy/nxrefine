@@ -1,15 +1,18 @@
 #!/usr/bin/env python
 # -----------------------------------------------------------------------------
-# Copyright (c) 2018-2021, NeXpy Development Team.
+# Copyright (c) 2014-2024, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
 import argparse
+import os
 
-from nxrefine.nxreduce import NXMultiReduce, NXReduce
+os.environ.setdefault('HDF5_USE_FILE_LOCKING', 'FALSE')
+
+from nxrefine.nxreduce import NXMultiReduce, NXReduce  # noqa: E402
 
 
 def main():
@@ -20,6 +23,8 @@ def main():
                         help='scan directory')
     parser.add_argument('-e', '--entries', nargs='+',
                         help='names of entries to be processed')
+    parser.add_argument('-s', '--subentry', default='',
+                        help='subentry to be processed')
     parser.add_argument('-L', '--load', action='store_true',
                         help='load raw data')
     parser.add_argument('-l', '--link', action='store_true',
@@ -28,8 +33,6 @@ def main():
                         help='find maximum counts')
     parser.add_argument('-f', '--find', action='store_true',
                         help='find peaks')
-    parser.add_argument('-c', '--copy', action='store_true',
-                        help='copy parameters')
     parser.add_argument('-r', '--refine', action='store_true',
                         help='refine lattice parameters')
     parser.add_argument('-p', '--prepare', action='store_true',
@@ -54,23 +57,31 @@ def main():
     if args.entries:
         entries = args.entries
     else:
-        entries = NXMultiReduce(args.directory).entries
+        entries = NXMultiReduce(directory=args.directory).entries
 
+    reduce = None
+    tasks = []
     for entry in entries:
-        reduce = NXReduce(entry=entry, directory=args.directory,
+        reduce = NXReduce(entry=entry, subentry=args.subentry,
+                          directory=args.directory,
                           load=args.load, link=args.link, maxcount=args.max,
-                          find=args.find, copy=args.copy, refine=args.refine,
+                          find=args.find, refine=args.refine,
                           prepare=args.prepare, transform=args.transform,
                           combine=args.combine, pdf=args.pdf,
                           regular=args.regular, mask=args.mask,
                           overwrite=args.overwrite)
         if args.queue:
-            reduce.queue('nxreduce', args)
+            tasks = reduce.queue_db_rows()
         else:
             reduce.combine = reduce.pdf = False
             reduce.nxreduce()
-    if (args.combine or args.pdf) and not args.queue:
-        reduce = NXMultiReduce(args.directory, combine=args.combine,
+    if args.queue:
+        if tasks:
+            reduce.server.submit_batch(
+                [reduce.build_command('nxreduce', tasks, entries=entries)])
+    elif args.combine or args.pdf:
+        reduce = NXMultiReduce(directory=args.directory,
+                               subentry=args.subentry, combine=args.combine,
                                pdf=args.pdf, regular=args.regular,
                                mask=args.mask, overwrite=args.overwrite)
         reduce.nxreduce()

@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 # -----------------------------------------------------------------------------
-# Copyright (c) 2013-2022, AXMAS Development Team.
+# Copyright (c) 2014-2024, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
 import argparse
-import sys
 
 from nxrefine.nxreduce import NXMultiReduce, NXReduce
 
@@ -29,10 +28,10 @@ def main():
                         help='threshold for larger convolution')
     parser.add_argument('--h2', type=int, default=51,
                         help='size of larger convolution')
+    parser.add_argument('-s', '--subentry', default='',
+                        help='subentry to be processed')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing mask')
-    parser.add_argument('-m', '--monitor', action='store_true',
-                        help='monitor progress in the command line')
     parser.add_argument('-q', '--queue', action='store_true',
                         help='add to server task queue')
 
@@ -41,16 +40,16 @@ def main():
     if args.entries:
         entries = args.entries
     else:
-        entries = NXMultiReduce(args.directory).entries
+        entries = NXMultiReduce(directory=args.directory).entries
 
+    mask_parameters = {
+        'mask_t1': args.t1, 'mask_h1': args.h1,
+        'mask_t2': args.t2, 'mask_h2': args.h2,
+    }
     for entry in entries:
-        reduce = NXReduce(entry, args.directory, prepare=True,
+        reduce = NXReduce(entry, args.subentry, args.directory, prepare=True,
                           overwrite=args.overwrite,
-                          monitor_progress=args.monitor)
-        reduce.mask_parameters['threshold_1'] = args.t1
-        reduce.mask_parameters['horizontal_size_1'] = args.h1
-        reduce.mask_parameters['threshold_2'] = args.t2
-        reduce.mask_parameters['horizontal_size_2'] = args.h2
+                          mask_parameters=mask_parameters)
         if args.queue:
             reduce.queue('nxprepare', args)
         else:

@@ -1,20 +1,21 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2015-2022, AXMAS Development Team.
+# Copyright (c) 2022, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
+import datetime
 import logging
-import logging.handlers
 import operator
 import os
 import platform
 import shutil
 import subprocess
+import sys
 import timeit
-from datetime import datetime
+from pathlib import Path
 
 import h5py as h5
 import numpy as np
@@ -22,18 +23,68 @@ import scipy.fft
 from h5py import is_hdf5
 from nexusformat.nexus import (NeXusError, NXcollection, NXdata, NXentry,
                                NXfield, NXlink, NXLock, NXnote, NXparameters,
-                               NXprocess, NXreflections, NXroot, nxgetconfig,
-                               nxopen, nxsetconfig)
+                               NXprocess, NXreflections, NXroot, NXsubentry,
+                               nxgetconfig, nxopen, nxsetconfig)
 from qtpy import QtCore
 
 from . import __version__
 from .nxbeamline import get_beamline
 from .nxdatabase import NXDatabase
+from .nxparent import NXParent
 from .nxrefine import NXRefine
 from .nxserver import NXServer
 from .nxsettings import NXSettings
 from .nxsymmetry import NXSymmetry
-from .nxutils import init_julia, load_julia, mask_volume, peak_search
+from .nxutils import (find_maximum_chunk, init_julia, load_julia,
+                       mask_volume, peak_search)
+
+QMIN_PIXEL_FRACTION = 0.3
+QMAX_PIXEL_FRACTION = 0.95
+
+
+def auto_transmission_q(refine, shape):
+    """Derive (qmin, qmax) in Å⁻¹ from detector geometry.
+
+    Inverts the q→pixel formula used by
+    :meth:`NXReduce.transmission_coordinates`, taking the inner and
+    outer radii as :data:`QMIN_PIXEL_FRACTION` and
+    :data:`QMAX_PIXEL_FRACTION` of the beam-to-far-edge distance in
+    the y-direction.
+
+    Parameters
+    ----------
+    refine : NXRefine
+        Refinement object exposing beam center (``yc``), wavelength,
+        sample-detector distance, and pixel size, plus its active
+        ``scan_entry`` and ``entry`` so the beam-center fields can be
+        checked for explicit values.
+    shape : tuple or None
+        Detector shape ``(nframes, ny, nx)``.
+
+    Returns
+    -------
+    tuple of (float, float) or (None, None)
+        ``(qmin, qmax)``, or ``(None, None)`` if the geometry needed
+        for the computation is not available — notably, the entry
+        must have explicit ``instrument/detector/beam_center_x`` and
+        ``beam_center_y``; NXRefine silently falls back to defaults
+        of 256/256 if they are absent, which would otherwise produce
+        a wrong-position mask.
+    """
+    entries = [e for e in (refine.scan_entry, refine.entry)
+               if e is not None]
+    for path in ('instrument/detector/beam_center_x',
+                 'instrument/detector/beam_center_y'):
+        if not any(path in e for e in entries):
+            return None, None
+    if not (refine.yc and refine.wavelength and refine.distance
+            and refine.pixel_size and shape):
+        return None, None
+    max_dist_y = max(refine.yc, shape[1] - 1 - refine.yc)
+    pix_to_q = (2 * np.pi * refine.pixel_size
+                / (refine.wavelength * refine.distance))
+    return (QMIN_PIXEL_FRACTION * max_dist_y * pix_to_q,
+            QMAX_PIXEL_FRACTION * max_dist_y * pix_to_q)
 
 
 class NXReduce(QtCore.QObject):
@@ -73,6 +124,10 @@ class NXReduce(QtCore.QObject):
             Name of monitor used in normalizations, by default None
         norm : float, optional
             Value used to normalize monitor counts, by default None
+        sample_transmission : bool, optional
+            Whether to include the sample transmission factor when
+            computing ``monitor_weight``, by default None (read from
+            ``nxscans/settings``).
         polarization : float, optional
             Value of beam polarization, by default None
         qmin : float, optional
@@ -84,12 +139,18 @@ class NXReduce(QtCore.QObject):
         mask_parameters : dict, optional
             Thresholds and convolution sizes used to prepare 3D masks, by
             default None.
-        Qh : tuple of floats, optional
-            Minimum, step size, and maximum value of Qh array, by default None
-        Qk : tuple of floats, optional
-            Minimum, step size, and maximum value of Qk array, by default None
-        Ql : tuple of floats, optional
-            Minimum, step size, and maximum value of Ql array, by default None
+        Qh : ndarray, optional
+            Values of Qh along the H axis of the transform grid, by default
+            None. If None, the array is read from the parent file's
+            ``nxscans/transform`` group.
+        Qk : ndarray, optional
+            Values of Qk along the K axis of the transform grid, by default
+            None. If None, the array is read from the parent file's
+            ``nxscans/transform`` group.
+        Ql : ndarray, optional
+            Values of Ql along the L axis of the transform grid, by default
+            None. If None, the array is read from the parent file's
+            ``nxscans/transform`` group.
         load : bool, optional
             Load raw data files, by default False
         link : bool, optional
@@ -120,63 +181,52 @@ class NXReduce(QtCore.QObject):
             Monitor progress at the command line, by default False
         gui : bool, optional
             Use PyQt signals to monitor progress, by default False
+        server : NXServer
+            NXServer instance if available, by default None
         """
 
     def __init__(
-            self, entry=None, directory=None, parent=None, entries=None,
+            self, entry=None, subentry='', directory=None,
+            parent=None, entries=None,
             threshold=None, min_pixels=None, first=None, last=None,
             polar_max=None, hkl_tolerance=None, monitor=None, norm=None,
+            sample_transmission=None,
             polarization=None, qmin=None, qmax=None,
             radius=None, mask_parameters=None,
             Qh=None, Qk=None, Ql=None,
-            load=False, link=False, copy=False,
+            load=False, link=False,
             maxcount=False, find=False, refine=False, prepare=False,
             transform=False, combine=False, pdf=False,
             lattice=False, regular=False, mask=False, overwrite=False,
-            monitor_progress=False, gui=False):
+            monitor_progress=True, gui=False, server=None):
 
         super(NXReduce, self).__init__()
 
         if isinstance(entry, NXentry):
             self.entry_name = entry.nxname
-            self.wrapper_file = entry.nxfilename
-            self.sample = os.path.basename(
-                os.path.dirname(
-                    os.path.dirname(self.wrapper_file)))
-            self.label = os.path.basename(os.path.dirname(self.wrapper_file))
-            base_name = os.path.basename(
-                os.path.splitext(self.wrapper_file)[0])
-            self.scan = base_name.replace(self.sample+'_', '')
-            self.directory = os.path.realpath(
-                os.path.join(
-                    os.path.dirname(self.wrapper_file), self.scan))
-            self.root_directory = os.path.realpath(
-                os.path.dirname(
-                    os.path.dirname(
-                        os.path.dirname(self.directory))))
+            self.wrapper_file = Path(entry.nxfilename).resolve()
+            self.sample = self.wrapper_file.parent.parent.name
+            self.label = self.wrapper_file.parent.name
+            self.scan = self.wrapper_file.stem.replace(self.sample+'_', '')
+            self.directory = self.wrapper_file.parent.joinpath(self.scan)
+            self.experiment_directory = self.wrapper_file.parent.parent.parent
             self._root = entry.nxroot
-        elif directory is None:
-            raise NeXusError('Directory not specified')
-        else:
-            self.directory = os.path.realpath(directory.rstrip('/'))
-            self.root_directory = os.path.dirname(
-                os.path.dirname(
-                    os.path.dirname(self.directory)))
-            self.sample = os.path.basename(
-                os.path.dirname(
-                    os.path.dirname(self.directory)))
-            self.label = os.path.basename(os.path.dirname(self.directory))
-            self.scan = os.path.basename(self.directory)
-            self.wrapper_file = os.path.join(self.root_directory,
-                                             self.sample, self.label,
-                                             f"{self.sample}_{self.scan}.nxs")
+        elif directory is not None:
+            self.directory = Path(directory).resolve()
+            self.experiment_directory = self.directory.parent.parent.parent
+            self.sample = self.directory.parent.parent.name
+            self.label = self.directory.parent.name
+            self.scan = self.directory.name
+            self.wrapper_file = self.directory.parent.joinpath(
+                f"{self.sample}_{self.scan}.nxs")
             if entry is None:
                 self.entry_name = 'entry'
             else:
                 self.entry_name = entry
             self._root = None
-        self.name = f"{self.sample}_{self.scan}/{self.entry_name}"
-        self.base_directory = os.path.dirname(self.wrapper_file)
+        else:
+            raise NeXusError('Directory not specified')
+        self.base_directory = self.wrapper_file.parent
 
         self._settings = None
         self._beamline = None
@@ -184,9 +234,11 @@ class NXReduce(QtCore.QObject):
         self._shape = None
         self._pixel_mask = None
         self._parent = parent
-        self._parent_root = None
         self._parent_entry = None
+        self._registered_with_parent = False
         self._entries = entries
+        self._subentry = subentry
+        self._refine = None
         self._mode = 'r'
 
         self._threshold = threshold
@@ -196,17 +248,14 @@ class NXReduce(QtCore.QObject):
         self._polar_max = polar_max
         self._hkl_tolerance = hkl_tolerance
         self._monitor = monitor
+        self._monitor_signal = None
         self._norm = norm
+        self._sample_transmission = sample_transmission
         self._polarization = polarization
         self._qmin = qmin
         self._qmax = qmax
         self._radius = radius
-        if mask_parameters is None:
-            self.mask_parameters = {
-                'threshold_1': 2, 'horizontal_size_1': 11,
-                'threshold_2': 0.8, 'horizontal_size_2': 51}
-        else:
-            self.mask_parameters = mask_parameters
+        self._mask_parameters = mask_parameters
 
         self._maximum = None
         self.summed_data = None
@@ -216,10 +265,9 @@ class NXReduce(QtCore.QObject):
 
         self.load = load
         self.link = link
-        self.copy = copy
         self.maxcount = maxcount
         self.find = find
-        self.refine = refine
+        self.refine_lattice = refine
         self.lattice = lattice
         self.prepare = prepare
         self.transform = transform
@@ -232,7 +280,13 @@ class NXReduce(QtCore.QObject):
         self.overwrite = overwrite
         self.monitor_progress = monitor_progress
         self.gui = gui
+        self._server = server
+        self.server_settings = NXSettings().settings['server']
+        self.log_file = self.task_directory / 'nxlogger.log'
+
         self.timer = {}
+        self.start_time = {}
+        self.queue_time = {}
 
         self.summed_frames = None
         self.partial_frames = None
@@ -242,12 +296,12 @@ class NXReduce(QtCore.QObject):
         self._process_count = None
 
         self._default = None
-        self._server = None
         self._db = None
         self._logger = None
+        self._concurrent = None
         self._cctw = None
 
-        nxsetconfig(lock=600, lockexpiry=28800)
+        nxsetconfig(lock=3600, lockexpiry=28800)
 
     start = QtCore.Signal(object)
     update = QtCore.Signal(object)
@@ -259,20 +313,25 @@ class NXReduce(QtCore.QObject):
 
     def __enter__(self):
         self._mode = self.root.nxfilemode
+        self.root.reload()
         self.root.unlock()
         return self.root.__enter__()
 
     def __exit__(self, *args):
-        self.root.__exit__()
-        if self._mode == 'r':
-            self.root.lock()
+        try:
+            self.root.__exit__()
+        finally:
+            if self._mode == 'r':
+                try:
+                    self.root.lock()
+                except Exception:
+                    pass
 
     @property
     def task_directory(self):
         """Directory containing log files and the reduction database."""
-        _directory = os.path.join(self.root_directory, 'tasks')
-        if not os.path.exists(_directory):
-            os.mkdir(_directory)
+        _directory = self.experiment_directory.joinpath('tasks')
+        _directory.mkdir(exist_ok=True)
         return _directory
 
     @property
@@ -287,24 +346,28 @@ class NXReduce(QtCore.QObject):
                 datefmt='%Y-%m-%d %H:%M:%S')
             for handler in self._logger.handlers:
                 self._logger.removeHandler(handler)
-            if os.path.exists(
-                    os.path.join(self.task_directory, 'nxlogger.pid')):
-                socketHandler = logging.handlers.SocketHandler(
-                    'localhost', logging.handlers.DEFAULT_TCP_LOGGING_PORT)
-                self._logger.addHandler(socketHandler)
-            else:
-                fileHandler = logging.FileHandler(os.path.join(
-                    self.task_directory,
-                    'nxlogger.log'))
-                fileHandler.setFormatter(formatter)
-                self._logger.addHandler(fileHandler)
+            fileHandler = logging.FileHandler(self.log_file)
+            fileHandler.setFormatter(formatter)
+            self._logger.addHandler(fileHandler)
             if not self.gui:
                 streamHandler = logging.StreamHandler()
                 self._logger.addHandler(streamHandler)
         return self._logger
 
+    def log(self, message):
+        """Write a message to the task log file."""
+        with NXLock(self.log_file, timeout=60, expiry=60):
+            self.logger.info(message)
+
     @property
     def settings(self):
+        """NXSettings object containing the reduction parameters.
+
+        Returns
+        -------
+        settings : NXSettings
+            The reduction parameters.
+        """
         if self._settings is None:
             self._settings = NXSettings(self.task_directory).settings
         return self._settings
@@ -316,7 +379,7 @@ class NXReduce(QtCore.QObject):
             try:
                 self._default = self.settings['nxreduce']
             except Exception as error:
-                self.logger.info(str(error))
+                self.log(str(error))
         return self._default
 
     @property
@@ -326,7 +389,7 @@ class NXReduce(QtCore.QObject):
             try:
                 self._server = NXServer()
             except Exception as error:
-                self.logger.info(str(error))
+                self.log(str(error))
         return self._server
 
     @property
@@ -334,10 +397,10 @@ class NXReduce(QtCore.QObject):
         """Database for recording the data reduction status."""
         if self._db is None:
             try:
-                self._db = NXDatabase(os.path.join(self.task_directory,
-                                                   'nxdatabase.db'))
+                self._db = NXDatabase(
+                    self.task_directory.joinpath('nxdatabase.db'))
             except Exception as error:
-                self.logger.info(str(error))
+                self.log(str(error))
         return self._db
 
     @property
@@ -345,7 +408,7 @@ class NXReduce(QtCore.QObject):
         """NXBeamLine class for importing data and logs."""
         if self._beamline is None:
             instrument = self.settings['instrument']['instrument']
-            self._beamline = get_beamline(instrument=instrument)(self)
+            self._beamline = get_beamline(instrument=instrument)(reduce=self)
         return self._beamline
 
     @property
@@ -362,6 +425,17 @@ class NXReduce(QtCore.QObject):
             return self.root[self.entry_name]
         else:
             return None
+
+    @property
+    def refine(self):
+        """NXRefine object initialized from the current entry and subentry."""
+        if self._refine is not None:
+            return self._refine
+        return NXRefine(self.entry, subentry=self._subentry)
+
+    @refine.setter
+    def refine(self, value):
+        self._refine = value
 
     @property
     def entries(self):
@@ -393,6 +467,121 @@ class NXReduce(QtCore.QObject):
         return self.entry_name == self.entries[0]
 
     @property
+    def name(self):
+        base = f"{self.sample}_{self.scan}/{self.entry_name}"
+        return f"{base}/{self._subentry}" if self._subentry else base
+
+    @property
+    def subentry(self):
+        """NXsubentry group for the current workflow, or None."""
+        if (self._subentry and self.entry is not None
+                and self._subentry in self.entry):
+            return self.entry[self._subentry]
+        return None
+
+    @subentry.setter
+    def subentry(self, value):
+        self._subentry = value or ''
+
+    @property
+    def subentry_name(self):
+        """String name of the current subentry, or ''."""
+        return self._subentry
+
+    @property
+    def scan_entry(self):
+        """NXentry or NXsubentry for storing workflow results (read-only).
+
+        Returns None if subentry is set but the group has not been created
+        yet. Use _get_reduce_target() within a `with self:` context to
+        create it on first use.
+        """
+        if self._subentry:
+            if self._subentry in self.entry:
+                return self.entry[self._subentry]
+            return None
+        return self.entry
+
+    @property
+    def scan_directory(self):
+        """Directory for storing external HDF5 files for this subentry.
+
+        When subentry is set, returns self.directory / subentry, creating
+        it if necessary. Otherwise returns self.directory unchanged.
+        """
+        if self._subentry:
+            d = self.directory / self._subentry
+            d.mkdir(exist_ok=True)
+            return d
+        return self.directory
+
+    def _get_reduce_target(self):
+        """Return (or create) the target group for storing results.
+
+        Must be called within a `with self:` context (file open for
+        writing). Creates the NXsubentry and its mirrored data group on
+        first call when subentry is set.
+        """
+        if self._subentry:
+            if self._subentry not in self.entry:
+                self.entry[self._subentry] = NXsubentry()
+                self._init_subentry_data(self.entry[self._subentry])
+            return self.entry[self._subentry]
+        return self.entry
+
+    def _init_subentry_data(self, target):
+        """Populate target NXsubentry with data group self.entry['data'].
+
+        Copies all field links from self.entry['data'] so the subentry
+        has access to the same raw data. data_mask can later be
+        overridden independently by nxprepare within the subentry.
+        """
+        if 'data' not in target and 'data' in self.entry:
+            target['data'] = NXdata()
+            for name, item in self.entry['data'].entries.items():
+                if (hasattr(item, 'nxfilename')
+                        and item.nxfilename != str(self.wrapper_file)):
+                    target['data'][name] = NXlink(item.nxtarget,
+                                                  item.nxfilename)
+                else:
+                    target['data'][name] = NXlink(item.nxpath)
+            if self.entry['data'].nxsignal is not None:
+                target['data'].nxsignal = (
+                    target['data'][self.entry['data'].nxsignal.nxname])
+            if self.entry['data'].nxaxes:
+                target['data'].nxaxes = [
+                    target['data'][ax.nxname]
+                    for ax in self.entry['data'].nxaxes]
+
+    def _get_entry_target(self, entry_name):
+        """Return the result group for a named entry.
+
+        If subentry is set and the subentry group exists within the named
+        entry, returns that group; otherwise returns the entry itself.
+        """
+        entry = self.root[entry_name]
+        if self._subentry and self._subentry in entry:
+            return entry[self._subentry]
+        return entry
+
+    def find_group(self, path):
+        """Return the group at *path* relative to the active entry.
+
+        When a subentry is set, look in ``self.scan_entry`` first; if
+        the path is not found there, fall back to ``self.entry``. This
+        mirrors the field-level fallback in
+        :meth:`NXRefine.read_parameter` so a subentry can transparently
+        reuse artifacts (typically the combined ``transform`` or
+        ``masked_transform`` NXdata group) created at the root entry
+        level.
+        """
+        if self.scan_entry is not None and path in self.scan_entry:
+            return self.scan_entry[path]
+        if self.entry is not None and path in self.entry:
+            return self.entry[path]
+        return None
+
+    @property
     def data(self):
         """NXdata group containing the raw data for the current entry."""
         if 'data' in self.entry:
@@ -419,7 +608,7 @@ class NXReduce(QtCore.QObject):
             else:
                 try:
                     self._shape = tuple(
-                        [axis.shape[0] for axis in self.entry['data'].nxaxes])
+                        [axis.shape[0] for axis in self.data.nxaxes])
                 except NeXusError:
                     self._shape = None
         return self._shape
@@ -435,7 +624,7 @@ class NXReduce(QtCore.QObject):
     @property
     def raw_file(self):
         """Absolute file path to the externally linked raw data file."""
-        return self.entry['data/data'].nxfilename
+        return Path(self.entry['data/data'].nxfilename)
 
     @property
     def raw_path(self):
@@ -444,7 +633,10 @@ class NXReduce(QtCore.QObject):
 
     def raw_data_exists(self):
         """True if the externally linked raw data file exists."""
-        return is_hdf5(self.raw_file)
+        try:
+            return is_hdf5(self.raw_file)
+        except Exception:
+            return False
 
     @property
     def pixel_mask(self):
@@ -471,64 +663,70 @@ class NXReduce(QtCore.QObject):
         NXReduce instance.
         """
         if self._parent is None:
-            if os.path.exists(self.parent_file) and not self.is_parent():
-                self._parent = self.parent_file
+            parent_file = self.parent_file
+            if parent_file is not None and parent_file.is_file():
+                self._parent = NXParent(parent_file,
+                                        subentry=self.subentry_name or None)
             else:
                 self._parent = None
         return self._parent
 
-    @property
-    def parent_root(self):
-        """NXroot group of the parent file."""
-        if self._parent_root is None and self.parent:
-            self._parent_root = nxopen(self.parent, 'r')
-        return self._parent_root
+    def register_with_parent(self):
+        """Ensure this scan is listed in its parent's nxscans registry.
+
+        Handles parents copied to another disk before this scan existed:
+        the scan names its parent at /entry/nxscans/parent, so if the
+        parent does not yet list this scan, add it. Runs at most once per
+        instance and is a no-op for scans with no recorded parent or for
+        the parent file itself.
+        """
+        if self._registered_with_parent:
+            return
+        self._registered_with_parent = True
+        if 'entry/nxscans/parent' not in self.root:
+            return
+        parent = self.parent
+        if parent is None or parent.filename == self.wrapper_file:
+            return
+        try:
+            if self.wrapper_file.stem not in parent.scans:
+                parent.add_scan(self.wrapper_file, selected=True)
+                parent.reload_parent()
+        except Exception as error:
+            self.log(str(error))
 
     @property
     def parent_entry(self):
         """NXentry group of the parent file."""
         if self._parent_entry is None and self.parent:
-            self._parent_entry = self.parent_root[self.entry_name]
+            self._parent_entry = self.parent.root[self.entry_name]
         return self._parent_entry
 
     @property
     def parent_file(self):
-        """Absolute file path to the parent file."""
-        return os.path.join(self.base_directory, self.sample+'_parent.nxs')
+        """Absolute file path to the parent file, or None if parentless.
 
-    def is_parent(self):
-        """True if the current entry is in the selected parent."""
-        if (os.path.exists(self.parent_file)
-                and os.path.realpath(self.parent_file) == self.wrapper_file):
-            return True
+        A scan names its parent at /entry/nxscans/parent. A scan that has
+        an nxscans group but no such field is deliberately parentless, so
+        no parent is inferred. Only a scan with no nxscans group at all
+        falls back to guessing the sample's registry file, since that
+        predates the back-pointer convention.
+        """
+        if 'entry/nxscans/parent' in self.root:
+            parent = self.root['entry/nxscans/parent'].nxvalue
+            return self.base_directory.joinpath(parent)
+        elif 'entry/nxscans' in self.root:
+            return None
         else:
-            return False
-
-    def make_parent(self):
-        """Set the current wrapper file as the parent."""
-        if self.is_parent():
-            self.logger.info(f"'{self.wrapper_file}' already set as parent")
-            return
-        elif os.path.exists(self.parent_file):
-            if self.overwrite:
-                os.remove(self.parent_file)
-            else:
-                raise NeXusError(f"'{os.path.realpath(self.parent_file)}' "
-                                 "already set as parent")
-        self.record_start('nxcopy')
-        os.symlink(os.path.basename(self.wrapper_file), self.parent_file)
-        self.record('nxcopy', parent=self.wrapper_file)
-        self.record_end('nxcopy')
-        self._parent = None
-        self.logger.info(
-            f"'{os.path.realpath(self.parent_file)}' set as parent")
+            return self.base_directory.joinpath(self.sample+'_scans.nxs')
 
     def get_parameter(self, name, field_name=None):
         """Return the requested data reduction parameter.
 
         If a parent has been selected, the parameter is read from the
-        '/entry/nxreduce' group stored in the parent. Otherwise, the
-        parameter is read from the current wrapper file.
+        '/entry/nxscans/settings' group stored in the parent. Otherwise
+        it is read from the wrapper file's own '/entry/nxscans/settings',
+        falling back to the legacy '/entry/nxreduce' group.
 
         Parameters
         ----------
@@ -544,74 +742,128 @@ class NXReduce(QtCore.QObject):
         int, float, or str
             Value of the requested parameter.
         """
-        parameter = self.default[name]
+        parameter = self.default.get(name)
         if field_name is None:
             field_name = name
-        if (self.parent and 'nxreduce' in self.parent_root['entry']
-                and field_name in self.parent_root['entry/nxreduce']):
-            parameter = self.parent_root['entry/nxreduce'][field_name]
-        elif ('nxreduce' in self.root['entry']
-              and field_name in self.root['entry/nxreduce']):
-            parameter = self.root['entry/nxreduce'][field_name].nxvalue
+        if self.parent:
+            # Parent is canonical when present; do not fall back to the
+            # wrapper's /entry/nxreduce (stale legacy state from before
+            # the parent existed would otherwise shadow cleared parent
+            # settings).
+            if (self.parent.settings is not None
+                    and field_name in self.parent.settings):
+                parameter = self.parent.settings[field_name].nxvalue
+            elif f'nxscans/settings/{field_name}' in self.parent.entry:
+                field = self.parent.entry[f'nxscans/settings/{field_name}']
+                parameter = field.nxvalue
+        elif f'entry/nxscans/settings/{field_name}' in self.root:
+            field = self.root[f'entry/nxscans/settings/{field_name}']
+            parameter = field.nxvalue
+        elif f'entry/nxreduce/{field_name}' in self.root:
+            # Legacy location, predating the nxscans convention.
+            parameter = self.root[f'entry/nxreduce/{field_name}'].nxvalue
         return parameter
 
     def write_parameters(self, threshold=None, first=None, last=None,
                          polar_max=None, hkl_tolerance=None,
-                         monitor=None, norm=None,
-                         qmin=None, qmax=None, radius=None):
+                         monitor=None, norm=None, sample_transmission=None,
+                         qmin=None, qmax=None, radius=None,
+                         mask_t1=None, mask_h1=None,
+                         mask_t2=None, mask_h2=None):
         """Store the specified data reduction parameters.
 
-        If the parameter was read from the parent, this updates the
-        local copy in the current wrapper file's '/entry/nxreduce'
-        group.
+        Parameters are written to the parent file's '/entry/nxscans/settings'
+        group. If no parent exists, they are written to the wrapper file's
+        own '/entry/nxscans/settings' group.
         """
-        with self:
-            if 'nxreduce' not in self.root['entry']:
-                self.root['entry/nxreduce'] = NXparameters()
-            if threshold is not None:
-                self.threshold = threshold
-                self.root['entry/nxreduce/threshold'] = self.threshold
-            if first is not None:
-                self.first = first
-                self.root['entry/nxreduce/first_frame'] = self.first
-            if last is not None:
-                self.last = last
-                self.root['entry/nxreduce/last_frame'] = self.last
-            if polar_max is not None:
-                self.polar_max = polar_max
-                self.root['entry/nxreduce/polar_max'] = self.polar_max
-            if hkl_tolerance is not None:
-                self.hkl_tolerance = hkl_tolerance
-                self.root['entry/nxreduce/hkl_tolerance'] = self.hkl_tolerance
-            if monitor is not None:
-                self.monitor = monitor
-                self.root['entry/nxreduce/monitor'] = self.monitor
-            if norm is not None:
-                self.norm = norm
-                self.root['entry/nxreduce/norm'] = self.norm
-            if qmin is not None:
-                self.qmin = qmin
-                self.root['entry/nxreduce/qmin'] = self.qmin
-            if qmax is not None:
-                self.qmax = qmax
-                self.root['entry/nxreduce/qmax'] = self.qmax
-            if radius is not None:
-                self.radius = radius
-                self.root['entry/nxreduce/radius'] = self.radius
+        params = {}
+        if threshold is not None:
+            self.threshold = threshold
+            params['threshold'] = self.threshold
+        if first is not None:
+            self.first = first
+            params['first_frame'] = self.first
+        if last is not None:
+            self.last = last
+            params['last_frame'] = self.last
+        if polar_max is not None:
+            self.polar_max = polar_max
+            params['polar_max'] = self.polar_max
+        if hkl_tolerance is not None:
+            self.hkl_tolerance = hkl_tolerance
+            params['hkl_tolerance'] = self.hkl_tolerance
+        if monitor is not None:
+            self.monitor = monitor
+            params['monitor'] = self.monitor
+        if norm is not None:
+            self.norm = norm
+            params['norm'] = self.norm
+        if sample_transmission is not None:
+            self.sample_transmission = sample_transmission
+            params['sample_transmission'] = self.sample_transmission
+        if qmin is not None:
+            self.qmin = qmin
+            params['qmin'] = self.qmin
+        if qmax is not None:
+            self.qmax = qmax
+            params['qmax'] = self.qmax
+        if radius is not None:
+            self.radius = radius
+            params['radius'] = self.radius
+        if mask_t1 is not None:
+            self.mask_parameters['mask_t1'] = float(mask_t1)
+            params['mask_t1'] = self.mask_parameters['mask_t1']
+        if mask_h1 is not None:
+            self.mask_parameters['mask_h1'] = int(mask_h1)
+            params['mask_h1'] = self.mask_parameters['mask_h1']
+        if mask_t2 is not None:
+            self.mask_parameters['mask_t2'] = float(mask_t2)
+            params['mask_t2'] = self.mask_parameters['mask_t2']
+        if mask_h2 is not None:
+            self.mask_parameters['mask_h2'] = int(mask_h2)
+            params['mask_h2'] = self.mask_parameters['mask_h2']
+        if self.parent:
+            self.parent.write_settings(**params)
+        elif params:
+            with self:
+                entry = self.root['entry']
+                if 'nxscans' not in entry:
+                    entry['nxscans'] = NXprocess()
+                if 'settings' not in entry['nxscans']:
+                    entry['nxscans/settings'] = NXparameters()
+                for key, value in params.items():
+                    entry['nxscans/settings'][key] = value
 
     def clear_parameters(self, parameters):
         """Remove legacy records of parameters in the 'peaks' group."""
         with self:
+            target = self._get_reduce_target()
             parameters.append('width')
             for p in parameters:
-                if 'peaks' in self.entry and p in self.entry['peaks'].attrs:
-                    del self.entry['peaks'].attrs[p]
+                if 'peaks' in target and p in target['peaks'].attrs:
+                    del target['peaks'].attrs[p]
+
+    def consolidate(self, groups):
+        """Build virtual datasets in the parent for NXdata groups.
+
+        For each group, the parent's `create_scan_data` is invoked with
+        the group's NeXus path. Silent no-op when no parent is attached.
+        """
+        if not self.parent:
+            return
+        if not isinstance(groups, (list, tuple)):
+            groups = [groups]
+        for group in groups:
+            try:
+                self.parent.create_scan_data(group.nxpath)
+            except NeXusError as error:
+                self.log(f"Could not consolidate {group.nxpath}: {error}")
 
     @property
     def first(self):
         """First frame of the raw data to be used in the reduction."""
         if self._first is None:
-            self._first = int(self.get_parameter('first', 'first_frame'))
+            self._first = int(self.get_parameter('first_frame'))
         if self._first is None or self._first < 0:
             self._first = 10
         return self._first
@@ -628,10 +880,10 @@ class NXReduce(QtCore.QObject):
         """Last frame of the raw data to be used in the reduction."""
         if self._last is None:
             try:
-                self.default['last'] = self.nframes - 10
+                self.default['last_frame'] = self.nframes - 10
             except Exception:
                 pass
-            self._last = int(self.get_parameter('last', 'last_frame'))
+            self._last = int(self.get_parameter('last_frame'))
         if self._last is None or self._last > self.nframes:
             self._last = self.nframes - 10
         return self._last
@@ -695,7 +947,7 @@ class NXReduce(QtCore.QObject):
 
     @property
     def monitor(self):
-        """Name of the field to be used to correct for the incident flux."""
+        """Field to be used to correct for the incident flux."""
         if self._monitor is None:
             self._monitor = str(self.get_parameter('monitor'))
         return self._monitor
@@ -703,6 +955,7 @@ class NXReduce(QtCore.QObject):
     @monitor.setter
     def monitor(self, value):
         self._monitor = value
+        self._monitor_signal = None
 
     @property
     def norm(self):
@@ -714,6 +967,23 @@ class NXReduce(QtCore.QObject):
     @norm.setter
     def norm(self, value):
         self._norm = value
+        self._monitor_signal = None
+
+    @property
+    def sample_transmission(self):
+        """Whether to include the sample transmission in monitor_weight."""
+        if self._sample_transmission is None:
+            val = self.get_parameter('sample_transmission')
+            if isinstance(val, str):
+                self._sample_transmission = val.strip().lower() in (
+                    'true', '1', 'yes', 'on')
+            else:
+                self._sample_transmission = bool(val)
+        return self._sample_transmission
+
+    @sample_transmission.setter
+    def sample_transmission(self, value):
+        self._sample_transmission = bool(value)
 
     @property
     def polarization(self):
@@ -728,9 +998,20 @@ class NXReduce(QtCore.QObject):
 
     @property
     def qmin(self):
-        """Minimum Q used in estimating the sample transmission."""
+        """Minimum Q used in estimating the sample transmission.
+
+        Returns the value stored in the parent's ``nxscans/settings``
+        group if present; otherwise falls back to the geometry-derived
+        value from :meth:`_auto_transmission_q`. ``settings.ini`` is
+        not consulted for this parameter.
+        """
         if self._qmin is None:
-            self._qmin = float(self.get_parameter('qmin'))
+            param = self.get_parameter('qmin')
+            if param not in (None, ''):
+                self._qmin = float(param)
+            else:
+                q_min, _ = self._auto_transmission_q()
+                self._qmin = q_min
         return self._qmin
 
     @qmin.setter
@@ -741,11 +1022,20 @@ class NXReduce(QtCore.QObject):
     def qmax(self):
         """Maximum Q used in the PDF taper function.
 
-        This parameter is also used define the maximum Q used in
-        estimating the sample transmission.
+        Also used to bound the annulus when estimating the sample
+        transmission. Returns the value stored in the parent's
+        ``nxscans/settings`` group if present; otherwise falls back
+        to the geometry-derived value from
+        :meth:`_auto_transmission_q`. ``settings.ini`` is not
+        consulted for this parameter.
         """
         if self._qmax is None:
-            self._qmax = float(self.get_parameter('qmax'))
+            param = self.get_parameter('qmax')
+            if param not in (None, ''):
+                self._qmax = float(param)
+            else:
+                _, q_max = self._auto_transmission_q()
+                self._qmax = q_max
         return self._qmax
 
     @qmax.setter
@@ -764,10 +1054,32 @@ class NXReduce(QtCore.QObject):
         self._radius = value
 
     @property
+    def mask_parameters(self):
+        """Thresholds and convolution sizes used to prepare 3D masks."""
+        if self._mask_parameters is None:
+            self._mask_parameters = {
+                'mask_t1': float(self.get_parameter('mask_t1')),
+                'mask_h1': int(self.get_parameter('mask_h1')),
+                'mask_t2': float(self.get_parameter('mask_t2')),
+                'mask_h2': int(self.get_parameter('mask_h2')),
+            }
+        return self._mask_parameters
+
+    @mask_parameters.setter
+    def mask_parameters(self, value):
+        self._mask_parameters = dict(value) if value is not None else None
+
+    @property
     def maximum(self):
+        """The maximum of the data array.
+
+        This value is used to scale the data if normalization is not
+        specified.  It is also used to calculate the sample
+        transmission.
+        """
         if self._maximum is None:
-            if 'data' in self.entry and 'maximum' in self.entry['data'].attrs:
-                self._maximum = self.entry['data'].attrs['maximum']
+            if self.data is not None and 'maximum' in self.data.attrs:
+                self._maximum = self.data.attrs['maximum']
         return self._maximum
 
     @maximum.setter
@@ -775,34 +1087,80 @@ class NXReduce(QtCore.QObject):
         self._maximum = value
 
     @property
+    def concurrent(self):
+        """True if the data are to be reduced in parallel.
+
+        The default is `False` unless the 'concurrent' parameter is set
+        in the server settings.  If `True`, then the data are reduced in
+        parallel using multiple processes spawned using the
+        `multiprocessing` module.  If `the parameter is set to `False`,
+        then the data are reduced sequentially.  If the parameter is set
+        to any other value, then it is interpreted as the type of
+        multiprocessing context to use.  Possible values are 'fork',
+        'spawn', and 'forkserver'.
+        """
+        if self._concurrent is None:
+            if ('concurrent' in self.server_settings and
+                    self.server_settings['concurrent']):
+                value = self.server_settings['concurrent']
+                if value in ['True', 'true', 'Yes', 'yes', 'Y', 'y']:
+                    self._concurrent = 'spawn'
+                elif value in ['False', 'false', 'No', 'no', 'N', 'n']:
+                    self._concurrent = False
+                else:
+                    self._concurrent = value
+            else:
+                self._concurrent = False
+        return self._concurrent
+
+    @property
     def cctw(self):
+        """Return the command for the CCTW transform.
+
+        The command is retrieved from the server settings if specified;
+        otherwise, a default value of 'cctw' is used.
+        """
+
         if self._cctw is None:
-            server_settings = NXSettings().settings
-            if ('cctw' in server_settings['server'] and
-                    server_settings['server']['cctw']):
-                self._cctw = server_settings['server']['cctw']
+            if ('cctw' in self.server_settings and
+                    self.server_settings['cctw']):
+                self._cctw = self.server_settings['cctw']
             else:
                 self._cctw = 'cctw'
         return self._cctw
 
     def complete(self, task):
-        """True if the task for this entry in the wrapper file is done """
-        return task in self.entry
+        """True if the task for this entry in the wrapper file is done."""
+        target = self.scan_entry
+        if target is None:
+            return False
+        if 'nxworkflow' in target:
+            return task in target['nxworkflow']
+        return task in target
 
     def all_complete(self, task):
         """True if the task for all entries in this wrapper file are done."""
         for entry in self.entries:
-            if task not in self.root[entry]:
+            entry_target = self._get_entry_target(entry)
+            if 'nxworkflow' in entry_target:
+                if task not in entry_target['nxworkflow']:
+                    return False
+            elif task not in entry_target:
                 return False
         return True
 
     def not_processed(self, task):
         """True if the NXprocess group for this task has not been created.
 
-        This is used to prevent existing analyses from being overwritten,
-        unless `overwrite` is set to True.
+        This is used to prevent existing analyses from being
+        overwritten, unless `overwrite` is set to True.
         """
-        return task not in self.entry or self.overwrite
+        target = self.scan_entry
+        if target is None or self.overwrite:
+            return True
+        if 'nxworkflow' in target:
+            return task not in target['nxworkflow']
+        return task not in target
 
     @property
     def oriented(self):
@@ -827,12 +1185,12 @@ class NXReduce(QtCore.QObject):
             Timer value for calculating the completion time.
         """
         self._start = start
+        self._prog_stop = stop
+        self._prog_high = start
         if self.gui:
             self._step = (stop - start) / 100
             self._value = int(start)
             self.start.emit((0, 100))
-        elif self.monitor_progress:
-            print('Frame', end='')
         self.stopped = False
         return timeit.default_timer()
 
@@ -843,12 +1201,22 @@ class NXReduce(QtCore.QObject):
             if _value > self._value:
                 self.update.emit(_value)
                 self._value = _value
-        elif self.monitor_progress:
-            print(f"\rFrame {i}", end="")
+        elif self.monitor_progress and sys.stdout.isatty():
+            if i <= self._prog_high:
+                return
+            self._prog_high = i
+            total = self._prog_stop - self._start
+            n = len(str(self._prog_stop))
+            bar_width = min(
+                40, max(10, shutil.get_terminal_size().columns - 2*n - 8))
+            filled = int(bar_width * (i - self._start) / max(total, 1))
+            bar = '#' * filled + '.' * (bar_width - filled)
+            print(f"\r[{bar}] {i:{n}d} / {self._prog_stop}", end='',
+                  flush=True)
 
     def stop_progress(self):
         """Stop the progress counter and return the timer value."""
-        if self.monitor_progress:
+        if self.monitor_progress and sys.stdout.isatty():
             print('')
         self.stopped = True
         return timeit.default_timer()
@@ -894,96 +1262,141 @@ class NXReduce(QtCore.QObject):
                                 f"Current directory: {self.directory}\n" +
                                 parameters))
         with self:
-            if process in self.entry:
-                del self.entry[process]
-            self.entry[process] = NXprocess(
+            target = self._get_reduce_target()
+            if 'nxworkflow' not in target:
+                target['nxworkflow'] = NXcollection()
+                workflow = target['nxworkflow']
+                existing = [name for name, item in target.entries.items()
+                            if isinstance(item, NXprocess)
+                            and 'program' in item]
+                for name in existing:
+                    target.move(name, workflow)
+            else:
+                workflow = target['nxworkflow']
+            if process in workflow:
+                del workflow[process]
+            workflow[process] = NXprocess(
                 program=f'{process}',
-                sequence_index=len(self.entry.NXprocess) + 1,
+                sequence_index=len(workflow.NXprocess) + 1,
                 version='nxrefine v' + __version__, note=note)
+            if task in self.queue_time:
+                workflow[process]['queue_time'] = (
+                    self.queue_time[task].isoformat())
+            if task in self.start_time:
+                workflow[process]['start_time'] = (
+                    self.start_time[task].isoformat())
+            workflow[process]['end_time'] = datetime.datetime.now().isoformat()
+            workflow[process]['pid'] = os.getpid()
+            workflow[process]['parameters'] = NXparameters()
             for key in [k for k in kwargs if k in self.default]:
-                self.entry[process][key] = kwargs[key]
+                workflow[process]['parameters'][key] = kwargs[key]
 
     def record_start(self, task):
-        """ Record that a task has started in the database """
+        """Record that a task has started in the database """
+        self.register_with_parent()
         try:
-            self.db.start_task(self.wrapper_file, task, self.entry_name)
+            self.db.start_task(self.wrapper_file, task, self.entry_name,
+                               subentry=self.subentry_name)
+            self.start_time[task] = datetime.datetime.now()
             self.timer[task] = timeit.default_timer()
-            self.logger.info(f"{self.name}: '{task}' started")
+            self.log(f"{self.name}: '{task}' started")
         except Exception as error:
-            self.logger.info(str(error))
+            self.log(str(error))
 
     def record_end(self, task):
-        """ Record that a task has ended in the database """
+        """Record that a task has ended in the database """
         try:
-            self.db.end_task(self.wrapper_file, task, self.entry_name)
+            self.db.end_task(self.wrapper_file, task, self.entry_name,
+                             subentry=self.subentry_name)
             elapsed_time = timeit.default_timer() - self.timer[task]
-            self.logger.info(
+            self.log(
                 f"{self.name}: '{task}' complete ({elapsed_time:g} seconds)")
         except Exception as error:
-            self.logger.info(str(error))
+            self.log(str(error))
 
     def record_fail(self, task):
-        """ Record that a task has failed in the database """
+        """Record that a task has failed in the database """
         try:
-            self.db.fail_task(self.wrapper_file, task, self.entry_name)
+            self.db.fail_task(self.wrapper_file, task, self.entry_name,
+                              subentry=self.subentry_name)
             elapsed_time = timeit.default_timer() - self.timer[task]
-            self.logger.info(f"'{task}' failed ({elapsed_time:g} seconds)")
+            self.log(f"'{task}' failed ({elapsed_time:g} seconds)")
         except Exception as error:
-            self.logger.info(str(error))
+            self.log(str(error))
 
     def nxload(self):
         """Perform nxload operation in the workflow.
 
-        This checks for the presence of raw data files and, on some beamlines,
-        loads them if necessary.
+        This checks for the presence of raw data files and, on some
+        beamlines, loads them if necessary.
         """
         if not self.raw_data_exists() or self.overwrite:
             self.record_start('nxload')
             try:
                 status = self.beamline.load_data(overwrite=self.overwrite)
                 if status:
-                    self.logger.info("Raw data file loaded")
+                    self.log("Raw data file loaded")
                     self.record('nxload', logs='Loaded')
                     self.record_end('nxload')
                 else:
-                    self.logger.info("Raw data file not loaded")
+                    self.log("Raw data file not loaded")
                     self.record_fail('nxload')
             except Exception as error:
-                self.logger.info(str(error))
+                self.log(str(error))
                 self.record_fail('nxload')
                 raise
         else:
-            self.logger.info("Raw data file already exists")
+            self.log("Raw data file already exists")
 
     def nxlink(self):
         """Perform nxlink operation in the workflow.
 
-        This reads external metadata from the beamline into the current entry.
+        This reads external metadata from the beamline into the current
+        entry.
         """
         if self.not_processed('nxlink') and self.link:
             if not self.raw_data_exists():
-                self.logger.info("Data file not available")
+                self.log("Data file not available")
                 return
             self.record_start('nxlink')
             try:
                 self.link_data()
-                self.logger.info("Entry linked to raw data")
+                self.log("Entry linked to raw data")
                 try:
                     self.beamline.read_logs()
-                    self.logger.info("Scan logs imported")
+                    self.log("Scan logs imported")
+                    if 'monitor' in self.entry:
+                        self.consolidate(self.entry['monitor'])
                     self.record('nxlink', logs='Transferred')
                     self.record_end('nxlink')
-                except NeXusError:
-                    self.logger.info("Scan logs not imported")
+                except NeXusError as error:
+                    self.log(str(error))
                     self.record_fail('nxlink')
             except Exception as error:
-                self.logger.info(str(error))
+                self.log(str(error))
                 self.record_fail('nxlink')
                 raise
         elif self.link:
-            self.logger.info("Data already linked")
+            self.log("Data already linked")
 
     def link_data(self):
+        """
+        Link raw data to the NeXus data group.
+
+        The data is linked in the 'data' group of the entry and the
+        frame number axis is created. If the frame number axis already
+        exists but has the wrong length, it is replaced.
+
+        If the frame time axis does not exist, it is created with a
+        default value of 0.1 seconds per frame.
+
+        The frame time axis is always linked to the frame number axis.
+
+        The data group is given the axes of frame number, y pixel, and x
+        pixel.
+
+        If no raw data is available, a message is logged.
+        """
         if self.field:
             with self:
                 frames = np.arange(self.shape[0], dtype=np.int32)
@@ -1000,78 +1413,37 @@ class NXReduce(QtCore.QObject):
                     self.entry['data/frame_number'] = frames
                     self.entry['data/frame_time'] = frame_time * frames
                     self.entry['data/frame_time'].attrs['units'] = 's'
-                    raw_file = os.path.relpath(
-                        self.raw_file, os.path.dirname(self.wrapper_file))
+                    raw_file = self.raw_file.relative_to(
+                        self.wrapper_file.parent)
                     self.entry['data/data'] = NXlink(self.raw_path, raw_file)
-                    self.entry['data'].nxsignal = self.entry['data/data']
-                    self.logger.info(
+                    self.data.nxsignal = self.entry['data/data']
+                    self.log(
                         'Data group created and linked to external data')
                 else:
                     if self.entry['data/frame_number'].shape != self.shape[0]:
                         del self.entry['data/frame_number']
                         self.entry['data/frame_number'] = frames
-                        if 'frame_time' in self.entry['data']:
+                        if 'frame_time' in self.data:
                             del self.entry['data/frame_time']
-                        self.logger.info("Fixed frame number axis")
+                        self.log("Fixed frame number axis")
                     if 'data/frame_time' not in self.entry:
                         self.entry['data/frame_time'] = frame_time * frames
                         self.entry['data/frame_time'].attrs['units'] = 's'
-                self.entry['data'].nxaxes = [self.entry['data/frame_number'],
+                self.data.nxaxes = [self.entry['data/frame_number'],
                                              self.entry['data/y_pixel'],
                                              self.entry['data/x_pixel']]
         else:
-            self.logger.info("No raw data loaded")
-
-    def nxcopy(self):
-        if not self.copy:
-            return
-        elif self.is_parent():
-            self.logger.info("Set as parent; no parameters copied")
-        elif self.not_processed('nxcopy'):
-            self.record_start('nxcopy')
-            try:
-                if self.parent:
-                    self.copy_parameters()
-                    self.record('nxcopy', parent=self.parent)
-                    self.logger.info("Entry parameters copied from parent")
-                    self.record_end('nxcopy')
-                else:
-                    self.logger.info("No parent defined or accessible")
-                    self.record_fail('nxcopy')
-            except Exception as error:
-                self.logger.info(str(error))
-                self.record_fail('nxcopy')
-                raise
-        else:
-            self.logger.info("Parameters already copied")
-
-    def copy_parameters(self):
-        parent = self.parent_root
-        parent_refine = NXRefine(parent[self.entry_name])
-        parent_reduce = NXReduce(parent[self.entry_name])
-        refine = NXRefine(self.entry)
-        parent_refine.copy_parameters(refine, sample=True, instrument=True)
-        self.write_parameters(threshold=parent_reduce.threshold,
-                              first=parent_reduce.first,
-                              last=parent_reduce.last,
-                              polar_max=parent_reduce.polar_max,
-                              hkl_tolerance=parent_reduce.hkl_tolerance,
-                              monitor=parent_reduce.monitor,
-                              norm=parent_reduce.norm,
-                              qmin=parent_reduce.qmin,
-                              qmax=parent_reduce.qmax,
-                              radius=parent_reduce.radius)
-        self.logger.info(
-            f"Parameters for {self.name} copied from "
-            f"'{os.path.basename(os.path.realpath(self.parent))}'")
+            self.log("No raw data loaded")
 
     def nxmax(self):
+        """Find the maximum counts in the data."""
         if self.not_processed('nxmax') and self.maxcount:
             if not self.raw_data_exists():
-                self.logger.info("Data file not available")
+                self.log("Data file not available")
                 return
             self.record_start('nxmax')
             try:
+                self.ensure_transmission_q()
                 result = self.find_maximum()
                 if self.gui:
                     if result:
@@ -1085,24 +1457,36 @@ class NXReduce(QtCore.QObject):
                                 qmin=self.qmin)
                     self.record_end('nxmax')
             except Exception as error:
-                self.logger.info(str(error))
+                self.log(str(error))
                 self.record_fail('nxmax')
                 raise
         elif self.maxcount:
-            self.logger.info("Maximum counts already found")
+            self.log("Maximum counts already found")
 
     def find_maximum(self):
-        self.logger.info("Finding maximum counts")
+        """
+        Find the maximum counts in the data.
+
+        This method reads the data file in chunks of a specified size
+        (default is 50 frames) and finds the maximum counts in each
+        chunk. The chunk with the maximum counts is kept and the process
+        is repeated until the maximum counts are found or the end of the
+        file is reached. The maximum counts are then written to the
+        'maximum' field of the 'data' group in the entry.
+
+        If the gui flag is set, the result is emitted as a signal.
+
+        A message is logged to indicate that the maximum counts have been
+        found.
+        """
+        self.log("Finding maximum counts")
+
+        chunk_size = self.field.chunks[0]
+        if chunk_size < 20:
+            chunk_size = 50
+        pixel_mask = self.pixel_mask
         with self.field.nxfile:
-            maximum = 0.0
-            chunk_size = self.field.chunks[0]
-            if chunk_size < 20:
-                chunk_size = 50
             data = self.field.nxfile[self.raw_path]
-            fsum = np.zeros(self.nframes, dtype=np.float64)
-            psum = np.zeros(self.nframes, dtype=np.float64)
-            pixel_mask = self.pixel_mask
-            # Add constantly firing pixels to the mask
             pixel_max = np.zeros((self.shape[1], self.shape[2]))
             v = data[0:10, :, :]
             for i in range(10):
@@ -1112,64 +1496,156 @@ class NXReduce(QtCore.QObject):
             mask[np.where(pixel_max == pixel_mean)] = 1
             mask[np.where(pixel_mean < 100)] = 0
             pixel_mask = pixel_mask | mask
-            transmission_mask = self.transmission_coordinates()
-            # Start looping over the data
-            tic = self.start_progress(self.first, self.last)
-            for i in range(self.first, self.last, chunk_size):
-                if self.stopped:
-                    return None
-                self.update_progress(i)
-                try:
-                    v = data[i:i+chunk_size, :, :]
-                except IndexError:
-                    pass
-                if i == self.first:
-                    vsum = v.sum(0)
-                else:
-                    vsum += v.sum(0)
-                v = np.ma.masked_array(v)
-                v.mask = pixel_mask
-                fsum[i:i+chunk_size] = v.sum((1, 2))
-                v.mask = pixel_mask | transmission_mask
-                psum[i:i+chunk_size] = v.sum((1, 2))
-                if maximum < v.max():
-                    maximum = v.max()
-                del v
+
+        transmission_mask = self.transmission_coordinates()
+        # Subsampled flat indices of the annulus pixels used to
+        # estimate the per-frame transmission baseline as a
+        # trimmed sum -- np.partition drops the brightest
+        # PEAK_FRACTION of pixels (the Bragg peaks) and sums the
+        # rest, rescaling to the full annulus magnitude. A
+        # trimmed sum is used instead of a median because
+        # background pixels often carry only 0-2 Poisson counts;
+        # the median is then a discrete integer that jumps
+        # between adjacent values as the background drifts, but
+        # a sum over ~50k pixels averages those counts into a
+        # smooth real-valued curve.
+        annulus_flat = np.flatnonzero(
+            ~(pixel_mask | transmission_mask).ravel())
+        n_annulus = annulus_flat.size
+        stride = max(1, n_annulus // 50000)
+        sub_idx = annulus_flat[::stride]
+        n_sub = sub_idx.size
+        peak_fraction = 0.1
+        n_keep = max(1, int((1.0 - peak_fraction) * n_sub))
+        scale = n_annulus / n_keep
+
+        fsum = np.zeros(self.nframes, dtype=np.float64)
+        psum = np.zeros(self.nframes, dtype=np.float64)
+        maximum = 0.0
+        vsum = None
+        tic = self.start_progress(self.first, self.last)
+
+        if self.concurrent:
+            # --- Concurrent branch ---
+            from nxrefine.nxutils import NXExecutor, as_completed
+            # Use a larger chunk for workers to amortise IPC overhead,
+            # especially when the stored HDF5 chunk size is 1 frame.
+            worker_chunk_size = max(chunk_size, 100)
+            with NXExecutor(max_workers=self.process_count,
+                            mp_context=self.concurrent) as executor:
+                futures = []
+                for i in range(self.first, self.last, worker_chunk_size):
+                    k = min(i + worker_chunk_size, self.last)
+                    futures.append(executor.submit(
+                        find_maximum_chunk,
+                        self.field.nxfilename, self.field.nxfilepath,
+                        i, i, k,
+                        pixel_mask, transmission_mask,
+                        sub_idx, n_keep, scale))
+                for future in as_completed(futures):
+                    chunk_i, lv, lf, lp, lmax = future.result()
+                    vsum = lv if vsum is None else vsum + lv
+                    n = lf.shape[0]
+                    fsum[chunk_i:chunk_i + n] = lf
+                    psum[chunk_i:chunk_i + n] = lp
+                    if lmax > maximum:
+                        maximum = lmax
+                    self.update_progress(chunk_i)
+                    futures.remove(future)
+        else:
+            # --- Sequential branch ---
+            with self.field.nxfile:
+                data = self.field.nxfile[self.raw_path]
+                for i in range(self.first, self.last, chunk_size):
+                    if self.stopped:
+                        return None
+                    self.update_progress(i)
+                    try:
+                        v_raw = data[i:i+chunk_size, :, :]
+                    except IndexError:
+                        pass
+                    vsum = (v_raw.sum(0, dtype=np.float64) if vsum is None
+                            else vsum + v_raw.sum(0))
+                    vflat = v_raw.reshape(v_raw.shape[0], -1)
+                    sub_vals = vflat[:, sub_idx]
+                    trimmed = np.partition(sub_vals, n_keep, axis=1)[:,:n_keep]
+                    psum[i:i+chunk_size] = trimmed.sum(axis=1) * scale
+                    v = np.ma.masked_array(v_raw)
+                    v.mask = pixel_mask
+                    fsum[i:i+chunk_size] = v.sum((1, 2))
+                    v.mask = pixel_mask | transmission_mask
+                    if maximum < v.max():
+                        maximum = v.max()
+                    del v, v_raw, vflat, sub_vals, trimmed
+
         self.pixel_mask = pixel_mask
-        vsum = np.ma.masked_array(vsum)
-        vsum.mask = pixel_mask
+        vsum = np.ma.masked_array(vsum, mask=pixel_mask)
         self.maximum = maximum
         self.summed_data = NXfield(vsum, name='summed_data')
         self.summed_frames = NXfield(fsum, name='summed_frames')
         self.partial_frames = NXfield(psum, name='partial_frames')
         toc = self.stop_progress()
-        self.logger.info(f"Maximum counts: {maximum} ({(toc-tic):g} seconds)")
-        result = NXcollection(NXfield(maximum, name='maximum'),
-                              self.summed_data, self.summed_frames,
-                              self.partial_frames)
-        return result
+        self.log(f"Maximum counts: {maximum} ({(toc-tic):g} seconds)")
+        return NXcollection(NXfield(maximum, name='maximum'),
+                            self.summed_data, self.summed_frames,
+                            self.partial_frames)
 
     def write_maximum(self):
+        """
+        Write the maximum counts and the summed data to the file.
+
+        Outputs are grouped under a `frame_sums` NXcollection on the
+        target group: `summed_data`, `summed_frames` (with the
+        `partial_frames` child field), `radial_sum`, and `transmission`.
+        Any legacy siblings at the target level are removed so re-running
+        `nxmax` on a pre-refactor file leaves a clean structure.
+
+        After writing the data, the parameters that were used to select
+        the frames are cleared from the 'peaks' group.
+        """
+        transmission = self.calculate_transmission()
         with self:
-            self.entry['data'].attrs['maximum'] = self.maximum
-            self.entry['data'].attrs['first'] = self.first
-            self.entry['data'].attrs['last'] = self.last
+            self.data.attrs['maximum'] = self.maximum
+            self.data.attrs['first'] = self.first
+            self.data.attrs['last'] = self.last
             self.entry['instrument/detector/pixel_mask'] = self.pixel_mask
-            if 'summed_data' in self.entry:
-                del self.entry['summed_data']
-            self.entry['summed_data'] = NXdata(self.summed_data,
-                                               self.entry['data'].nxaxes[-2:])
-            if 'summed_frames' in self.entry:
-                del self.entry['summed_frames']
-            self.entry['summed_frames'] = NXdata(self.summed_frames,
-                                                 self.entry['data'].nxaxes[0])
-            self.entry['summed_frames/partial_frames'] = self.partial_frames
+            target = self._get_reduce_target()
+            if 'frame_sums' in target:
+                del target['frame_sums']
+            target['frame_sums'] = NXcollection()
+            frame_sums = target['frame_sums']
+            frame_sums['summed_data'] = NXdata(self.summed_data,
+                                               self.data.nxaxes[-2:])
+            frame_sums['summed_frames'] = NXdata(self.summed_frames,
+                                                 self.data.nxaxes[0])
+            frame_sums['summed_frames/partial_frames'] = self.partial_frames
             self.calculate_radial_sums()
+            frame_sums['transmission'] = transmission
+            for legacy in ('summed_data', 'summed_frames', 'radial_sum'):
+                if legacy in target:
+                    del target[legacy]
+        self.consolidate([frame_sums[name] for name in
+                          ('summed_data', 'summed_frames',
+                           'radial_sum', 'transmission')
+                          if name in frame_sums])
         self.clear_parameters(['first', 'last'])
 
     def calculate_radial_sums(self):
+        """
+        Calculate the radial sum of the data using pyFAI.
+
+        This takes the two-dimensional data, masks the pixels that are
+        outside the detector, and integrates the remaining data over
+        the azimuthal angle. The resulting one-dimensional data is
+        stored in a new 'radial_sum' group, which includes the
+        intensity, polar angle, and scattering vector.
+
+        The detector mask is used to remove pixels that are not part
+        of the detector. The pyFAI radial sum includes the solid angle
+        correction, and the polarization factor is also applied.
+        """
         try:
-            from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
+            from pyFAI.integrator.azimuthal import AzimuthalIntegrator
             parameters = (
                 self.entry['instrument/calibration/refinement/parameters'])
             ai = AzimuthalIntegrator(
@@ -1192,9 +1668,13 @@ class NXReduce(QtCore.QObject):
             Q = (4 * np.pi * np.sin(np.radians(polar_angle) / 2.0)
                  / (ai.wavelength * 1e10))
             with self:
-                if 'radial_sum' in self.entry:
-                    del self.entry['radial_sum']
-                self.entry['radial_sum'] = NXdata(
+                target = self._get_reduce_target()
+                if 'frame_sums' not in target:
+                    target['frame_sums'] = NXcollection()
+                frame_sums = target['frame_sums']
+                if 'radial_sum' in frame_sums:
+                    del frame_sums['radial_sum']
+                frame_sums['radial_sum'] = NXdata(
                     NXfield(intensity, name='radial_sum'),
                     NXfield(polar_angle, name='polar_angle', units='degrees'),
                     Q=NXfield(Q, name='Q', units='Ang-1'))
@@ -1202,74 +1682,161 @@ class NXReduce(QtCore.QObject):
                     del self.entry['instrument/detector/polarization']
                 self.entry['instrument/detector/polarization'] = polarization
         except Exception as error:
-            self.logger.info("Unable to create radial sum")
-            self.logger.info(str(error))
+            self.log("Unable to create radial sum")
+            self.log(str(error))
             return None
 
-    def sample_transmission(self):
+    def get_sample_transmission(self):
         """Field containing the estimated sample transmission."""
-        path = 'instrument/sample/transmission'
-        if (self.parent and path in self.parent_entry):
-            transmission = self.parent_entry[path].nxsignal
-        elif path in self.entry:
-            transmission = self.entry[path].nxsignal
-        else:
+        def _read(group):
+            for path in ('frame_sums/transmission',
+                         'instrument/sample/transmission'):
+                if path in group:
+                    return group[path].nxsignal
+            return None
+        transmission = None
+        if self.parent:
+            transmission = _read(self.parent_entry)
+        if transmission is None:
+            transmission = _read(self.entry)
+        if transmission is None:
             return np.ones(shape=(self.nframes,), dtype=np.float32)
         if self.is_first_entry():
             return transmission
         else:
             first_reduce = NXReduce(self.first_entry)
-            first_transmission = first_reduce.sample_transmission()
-            if ('maximum' in transmission.attrs and
-                    'maximum' in first_transmission.attrs):
-                correction = (transmission.attrs['maximum'] /
-                              first_transmission.attrs['maximum'])
+            first_transmission = first_reduce.get_sample_transmission()
+            if ('median' in transmission.attrs and
+                    'median' in first_transmission.attrs):
+                correction = (transmission.attrs['median'] /
+                              first_transmission.attrs['median'])
                 transmission *= correction
             return transmission
 
-    def calculate_transmission(self, frame_window=5, filter_size=20):
+    def calculate_transmission(self):
+        """Calculate sample transmission from per-frame baseline.
+
+        ``partial_frames`` is the robust per-frame transmission
+        baseline (trimmed sum of the annulus pixels, computed by
+        :meth:`find_maximum` after dropping the brightest fraction
+        as Bragg-peak contamination and rescaling to the full
+        annulus magnitude). This function normalises by the monitor
+        signal, holds the values outside ``[first, last)`` at the
+        edge values, applies a 31-frame median filter to suppress
+        outlier bursts up to ~15 frames wide that survived the spatial
+        trim, and rescales to a median of 1.0.
+
+        Returns
+        -------
+        NXdata
+            Calculated transmission values with frame number as the
+            x-axis. The pre-normalisation median is preserved in the
+            ``median`` attribute of the transmission signal.
+        """
+        from scipy.ndimage import median_filter
         if self.partial_frames is None:
-            if ('summed_frames' in self.entry
-                    and 'partial_frames' in self.entry['summed_frames']):
-                y = self.entry['summed_frames/partial_frames'].nxvalue
+            target = self.scan_entry or self.entry
+            if ('frame_sums/summed_frames/partial_frames' in target):
+                y = target[
+                    'frame_sums/summed_frames/partial_frames'].nxvalue
+            elif ('summed_frames' in target
+                    and 'partial_frames' in target['summed_frames']):
+                y = target['summed_frames/partial_frames'].nxvalue
             else:
                 raise NeXusError('Partial frames not available')
         else:
             y = self.partial_frames.nxvalue
-
-        from scipy.interpolate import interp1d
-        from scipy.ndimage.filters import median_filter
-
-        y = y / self.read_monitor()
-        x = np.arange(self.nframes)
-        dx = frame_window
-        ms = filter_size
-        xmin = x[self.first+dx:self.last-dx:2*dx]
-        ymin = median_filter(np.array([min(y[i-dx:i+dx]) for i in xmin]),
-                             size=ms)
-        yabs = np.ones(shape=x.shape, dtype=np.float32)
-        yabs[xmin[0]:xmin[-1]] = interp1d(
-            xmin, ymin, kind='cubic')(x[xmin[0]:xmin[-1]])
-        yabs[0:xmin[0]] = yabs[xmin[0]]
-        yabs[xmin[-1]:] = yabs[xmin[-1]-1]
-        xout = list(x[::100])
-        yout = list(yabs[::100])
-        if max(xout) < x.max():
-            xout = xout + [x[-1]]
-            yout = yout + [yabs[-1]]
-        yabs = interp1d(xout, yout, kind='cubic')(x)
-        transmission = NXfield(yabs / yabs.max(), name='transmission',
+        y = (y / self.read_monitor()).astype(np.float64)
+        if self.first > 0:
+            y[:self.first] = y[self.first]
+        if self.last < self.nframes:
+            y[self.last:] = y[self.last - 1]
+        y = median_filter(y, size=31)
+        ymedian = float(np.median(y))
+        transmission = NXfield(y / ymedian, name='transmission',
                                long_name='Sample Transmission')
-        transmission.attrs['maximum'] = yabs.max()
+        transmission.attrs['median'] = ymedian
         frames = NXfield(np.arange(self.nframes), name='nframes',
                          long_title='Frame No.')
-        group = NXdata(transmission, frames, title='Sample Transmission')
-        group.attrs['frame_window'] = frame_window
-        group.attrs['filter_size'] = filter_size
-        return group
+        return NXdata(transmission, frames, title='Sample Transmission')
+
+    def _auto_transmission_q(self):
+        """Derive qmin and qmax from this instance's detector geometry.
+
+        Thin wrapper over :func:`auto_transmission_q`; see that
+        function for the calculation and the geometry it requires.
+        """
+        return auto_transmission_q(self.refine, self.shape)
+
+    def ensure_transmission_q(self):
+        """Populate and persist qmin/qmax.
+
+        Any value missing or blank in the parent's ``nxscans/settings``
+        group is derived from detector geometry via
+        :meth:`_auto_transmission_q`. The current values are then
+        written to the parent file's ``nxscans/settings`` (or the local
+        wrapper's ``/entry/nxreduce`` if no parent exists) so the
+        run-time qmin/qmax are visible to other tools (Edit Parameters
+        dialog, PDF taper, CLI). A no-op only when both values are
+        ``None`` and the geometry needed to derive them is unavailable.
+        The ``settings.ini`` layer is not consulted for these
+        parameters.
+        """
+        qmin_set = self.get_parameter('qmin')
+        qmax_set = self.get_parameter('qmax')
+        if qmin_set in (None, '') or qmax_set in (None, ''):
+            q_min, q_max = self._auto_transmission_q()
+            if q_min is None:
+                return
+            if qmin_set in (None, ''):
+                self.qmin = q_min
+            if qmax_set in (None, ''):
+                self.qmax = q_max
+        self.write_parameters(qmin=self.qmin, qmax=self.qmax)
+        self._mark_wrapper_nxreduce_deprecated()
+
+    def _mark_wrapper_nxreduce_deprecated(self):
+        """Tag the wrapper's legacy /entry/nxreduce group as deprecated.
+
+        When a parent file is configured, reduction parameters are read
+        from the parent's ``/entry/nxscans/settings`` and writes go to
+        the parent (see :meth:`get_parameter` and
+        :meth:`write_parameters`); the wrapper's ``/entry/nxreduce``
+        group is retained for backward compatibility but is no longer
+        consulted. Set a ``deprecated`` attribute on the group so
+        tooling (e.g. NeXpy) can surface it. Idempotent — only writes
+        the attribute the first time.
+        """
+        if not self.parent:
+            return
+        if 'entry/nxreduce' not in self.root:
+            return
+        if 'deprecated' in self.root['entry/nxreduce'].attrs:
+            return
+        with self:
+            self.root['entry/nxreduce'].attrs['deprecated'] = (
+                "Reduction settings are now read from and written to "
+                "the parent file's /entry/nxscans/settings; this group "
+                "is retained for backward compatibility but is no "
+                "longer consulted.")
 
     def transmission_coordinates(self):
-        refine = NXRefine(self.entry)
+        """
+        Generate a mask array for excluding pixels outside of the
+        specified transmission coordinate range.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        array-like
+            A 2D boolean mask array with the same shape as the data. The
+            mask is True for pixels with transmission coordinates
+            outside of the specified range and False otherwise.
+        """
+        refine = self.refine
         min_radius = (self.qmin * refine.wavelength * refine.distance
                       / (2 * np.pi * refine.pixel_size))
         max_radius = (self.qmax * refine.wavelength * refine.distance
@@ -1283,22 +1850,36 @@ class NXReduce(QtCore.QObject):
         return min_mask | max_mask
 
     def read_monitor(self):
-        from scipy.signal import savgol_filter
-        monitor_signal = self.entry[self.monitor].nxsignal / self.norm
-        monitor_signal[0] = monitor_signal[1]
-        monitor_signal[-1] = monitor_signal[-2]
-        if monitor_signal.size > 1000:
-            filter_size = 501
-        elif monitor_signal.size > 200:
-            filter_size = 101
-        else:
-            filter_size = monitor_signal.size
-        return savgol_filter(monitor_signal, filter_size, 2)
+        """
+        Reads the monitor signal from the beamline.
+
+        This function attempts to read the monitor signal using the
+        beamline's read_monitor method. If an exception occurs, it
+        returns an array of ones with a shape corresponding to the
+        number of frames. The result is cached on the NXReduce instance
+        and reused on subsequent calls; the cache is invalidated when
+        the ``monitor`` or ``norm`` setter is invoked.
+
+        Returns
+        -------
+        ndarray
+            The monitor signal as a numpy array, or an array of ones if
+            reading the monitor fails.
+        """
+
+        if self._monitor_signal is None:
+            try:
+                self._monitor_signal = self.beamline.read_monitor(self.monitor)
+            except Exception:
+                self._monitor_signal = np.ones(
+                    shape=(self.nframes,), dtype=float)
+        return self._monitor_signal
 
     def nxfind(self):
+        """Find the peaks in the data and write them to the output file."""
         if self.not_processed('nxfind') and self.find:
             if not self.raw_data_exists():
-                self.logger.info("Data file not available")
+                self.log("Data file not available")
                 return
             self.record_start('nxfind')
             try:
@@ -1318,27 +1899,43 @@ class NXReduce(QtCore.QObject):
                 else:
                     self.record_fail('nxfind')
             except Exception as error:
-                self.logger.info(str(error))
+                self.log(str(error))
                 self.record_fail('nxfind')
                 raise
         elif self.find:
-            self.logger.info("Peaks already found")
+            self.log("Peaks already found")
 
     def find_peaks(self):
-        self.logger.info("Finding peaks")
+        """
+        Find peaks in the data.
+
+        This function reads the data file in chunks of 50 frames at a
+        time and finds peaks in each chunk. The peaks are stored in a
+        list, sorted by frame number.
+
+        If the gui flag is set, the function emits a result signal with
+        the list of peaks.
+
+        Returns
+        -------
+        list
+            A list of peaks, sorted by frame number.
+        """
+        self.log("Finding peaks")
         tic = self.start_progress(self.first, self.last)
         self.blobs = []
-        if self.server.concurrent:
-            from concurrent.futures import ProcessPoolExecutor, as_completed
-            with ProcessPoolExecutor(
-                    max_workers=self.process_count) as executor:
+        if self.concurrent:
+            from nxrefine.nxutils import NXExecutor, as_completed
+            with NXExecutor(max_workers=self.process_count,
+                            mp_context=self.concurrent) as executor:
                 futures = []
                 for i in range(self.first, self.last+1, 50):
                     j, k = i - min(5, i), min(i+55, self.last+5, self.nframes)
                     futures.append(executor.submit(
                         peak_search,
                         self.field.nxfilename, self.field.nxfilepath,
-                        i, j, k, self.threshold, min_pixels=self.min_pixels))
+                        i, j, k, self.threshold, mask=self.pixel_mask,
+                        min_pixels=self.min_pixels))
                 for future in as_completed(futures):
                     z, blobs = future.result()
                     self.blobs += [b for b in blobs if b.z >= z
@@ -1350,7 +1947,8 @@ class NXReduce(QtCore.QObject):
                 j, k = i - min(5, i), min(i+55, self.last+5, self.nframes)
                 z, blobs = peak_search(
                     self.field.nxfilename, self.field.nxfilepath,
-                    i, j, k, self.threshold, min_pixels=self.min_pixels)
+                    i, j, k, self.threshold, mask=self.pixel_mask,
+                    min_pixels=self.min_pixels)
                 self.blobs += [b for b in blobs if b.z >= z
                                and b.z < min(z+50, self.last)]
                 self.update_progress(z)
@@ -1358,10 +1956,32 @@ class NXReduce(QtCore.QObject):
         peaks = sorted([b for b in self.blobs], key=operator.attrgetter('z'))
 
         toc = self.stop_progress()
-        self.logger.info(f"{len(peaks)} peaks found ({toc - tic:g} seconds)")
+        self.log(f"{len(peaks)} peaks found ({toc - tic:g} seconds)")
         return peaks
 
     def write_peaks(self, peaks):
+        """
+        Writes peak data to the NXreflections group.
+
+        Parameters
+        ----------
+        peaks : list
+            A list of peak objects, each containing intensity, x, y, z,
+            sigx, sigy, and sigz attributes.
+
+        Notes
+        -----
+        - The method creates a new NXreflections group and populates it
+          with the peak data.
+        - The 'first', 'last', and 'threshold' attributes are set from
+          the instance attributes.
+        - If a 'peaks' group already exists in the entry, it is deleted
+          before adding the new group.
+        - The method also calculates polar and azimuthal angles using
+          the NXRefine class and writes them.
+        - Finally, it clears the 'threshold', 'first', and 'last'
+          parameters from the instance.
+        """
         group = NXreflections()
         group['intensity'] = NXfield([peak.intensity for peak in peaks],
                                      dtype=float)
@@ -1375,24 +1995,136 @@ class NXReduce(QtCore.QObject):
         group.attrs['last'] = self.last
         group.attrs['threshold'] = self.threshold
         with self:
-            if 'peaks' in self.entry:
-                del self.entry['peaks']
-            self.entry['peaks'] = group
-        refine = NXRefine(self.entry)
+            target = self._get_reduce_target()
+            if 'peaks' in target:
+                del target['peaks']
+            target['peaks'] = group
+        refine = self.refine
         polar_angles, azimuthal_angles = refine.calculate_angles(refine.xp,
                                                                  refine.yp)
-        refine.write_angles(polar_angles, azimuthal_angles)
+        refine.write_angles(polar_angles, azimuthal_angles,
+                            entry=self.scan_entry or self.entry)
         self.clear_parameters(['threshold', 'first', 'last'])
 
+    def warn_missing_normalization(self):
+        """Log a warning if nxtransform would normalise with all-ones.
+
+        Monitor data is written by ``nxlink`` (via the beamline
+        ``read_logs`` step) and the sample transmission is written by
+        ``nxmax``. If a workflow rerun skipped those tasks, the silent
+        all-ones fallback in ``get_normalization`` /
+        ``get_sample_transmission`` would degrade the transform without
+        any user-visible signal.  Surface that here, but continue the
+        run so unattended scripts still complete.
+        """
+        targets = [self.entry]
+        if self.parent_entry is not None:
+            targets.append(self.parent_entry)
+        monitor_missing = not any('monitor' in t for t in targets)
+        transmission_missing = not any(
+            'frame_sums/transmission' in t
+            or 'instrument/sample/transmission' in t
+            for t in targets)
+        if monitor_missing or transmission_missing:
+            self.log(
+                "Monitor and/or transmission not found; rerun nxlink and "
+                "nxmax before nxtransform for accurate normalization")
+
+    def pull_parent_orientation(self):
+        """Copy the parent's orientation matrix into the wrapper file.
+
+        The manual Refine Lattice dialog is the only path that writes
+        an orientation matrix back to the parent file, so a matrix at
+        ``parent/{entry_name}/instrument/detector/orientation_matrix``
+        is always the result of a manual refinement and should win over
+        any stale matrix in the wrapper before the automatic refinement
+        runs. Silent no-op if no parent is attached or the parent has
+        no matrix for this entry.
+        """
+        if not self.parent or self.entry_name == 'entry':
+            return
+        try:
+            parent_entry = self.parent.root[self.entry_name]
+            parent_path = 'instrument/detector/orientation_matrix'
+            if parent_path not in parent_entry:
+                return
+            parent_matrix = parent_entry[parent_path].nxvalue
+        except (NeXusError, KeyError):
+            return
+        with self:
+            target = self.entry['instrument/detector']
+            if 'orientation_matrix' in target:
+                del target['orientation_matrix']
+            target['orientation_matrix'] = parent_matrix
+            self.log("Orientation matrix copied from parent")
+
+    def pull_parent_sample(self):
+        """Copy the parent's crystallographic sample parameters into the file.
+
+        The lattice parameters and space-group information are authored on
+        the parent (via the Define Lattice or Refine Lattice dialogs), so
+        the parent is canonical. They seed the automatic refinement,
+        mirroring ``pull_parent_orientation``. Scan-specific sample metadata
+        (name, label, temperature) is left untouched. Silent no-op if no
+        parent is attached or it has no sample group.
+        """
+        if not self.parent:
+            return
+        fields = ['chemical_formula', 'space_group', 'laue_group',
+                  'unit_cell_group', 'lattice_centring',
+                  'unitcell_a', 'unitcell_b', 'unitcell_c',
+                  'unitcell_alpha', 'unitcell_beta', 'unitcell_gamma']
+        # When a subentry is active, prefer the parent's subentry sample
+        # group so that subentry-specific lattice parameters are used.
+        # Fall back to the parent's root entry sample if the subentry
+        # does not contain a sample group.
+        try:
+            if (self.subentry_name
+                    and self.parent.subentry is not None
+                    and 'sample' in self.parent.subentry):
+                parent_sample = self.parent.subentry['sample']
+            else:
+                parent_sample = self.parent.root['entry']['sample']
+        except (NeXusError, KeyError):
+            return
+        values = {f: parent_sample[f] for f in fields if f in parent_sample}
+        if not values:
+            return
+        with self:
+            if 'sample' not in self.root['entry']:
+                return
+            sample = self.root['entry']['sample']
+            for name, field in values.items():
+                if name in sample:
+                    del sample[name]
+                sample[name] = field
+            self.log("Sample parameters copied from parent")
+
     def nxrefine(self):
-        if self.not_processed('nxrefine') and self.refine:
+        """
+        Refines the sample orientation based on the peak search results.
+
+        This method performs the refinement process if the sample has
+        not been processed for refinement and the refinement flag is
+        set. It ensures that the peak search is completed before
+        starting the refinement. The method logs the start and end of
+        the refinement process, and records the refinement parameters
+        and results.
+
+        If the refinement is successful, it writes the parameters to a
+        file and records the refinement details. If the refinement
+        fails, it logs the error and records the failure.
+        """
+        if self.not_processed('nxrefine') and self.refine_lattice:
             if not self.complete('nxfind'):
-                self.logger.info(
+                self.log(
                     'Cannot refine until peak search is completed')
                 return
             self.record_start('nxrefine')
             try:
-                self.logger.info("Refining orientation")
+                self.pull_parent_orientation()
+                self.pull_parent_sample()
+                self.log("Refining orientation")
                 if self.lattice or self.is_first_entry():
                     lattice = True
                 else:
@@ -1401,8 +2133,9 @@ class NXReduce(QtCore.QObject):
                 if refine:
                     if not self.gui:
                         refine.write_parameters()
-                    self.write_parameters(polar_max=self.polar_max,
-                                          hkl_tolerance=self.hkl_tolerance)
+                    if not self.parent:
+                        self.write_parameters(polar_max=self.polar_max,
+                                              hkl_tolerance=self.hkl_tolerance)
                     self.record('nxrefine', polar_max=self.polar_max,
                                 hkl_tolerance=self.hkl_tolerance,
                                 fit_report=refine.fit_report)
@@ -1410,14 +2143,34 @@ class NXReduce(QtCore.QObject):
                 else:
                     self.record_fail('nxrefine')
             except Exception as error:
-                self.logger.info(str(error))
+                self.log(str(error))
                 self.record_fail('nxrefine')
                 raise
-        elif self.refine:
-            self.logger.info("HKL values already refined")
+        elif self.refine_lattice:
+            self.log("HKL values already refined")
 
     def refine_parameters(self, lattice=False):
-        refine = NXRefine(self.entry)
+        """
+        Refines the parameters of the sample orientation.
+
+        This method performs multiple refinement steps on the HKL values
+        and the orientation matrix of the NXRefine object. The
+        refinement process includes adjusting the chi, omega, and theta
+        angles. The fit reports from each refinement step are
+        concatenated and stored in the NXRefine object.
+
+        Parameters
+        ----------
+        lattice : bool, optional
+            If True, the lattice parameters will also be refined.
+
+        Returns
+        -------
+        NXRefine or None
+            The refined NXRefine object if the refinement is successful,
+            otherwise None.
+        """
+        refine = self.refine
         refine.polar_max = self.polar_max
         refine.hkl_tolerance = self.hkl_tolerance
         refine.refine_hkls(lattice=lattice, chi=True, omega=True, theta=True)
@@ -1428,19 +2181,19 @@ class NXReduce(QtCore.QObject):
         fit_report = fit_report + '\n' + refine.fit_report
         if refine.result.success:
             refine.fit_report = fit_report
-            self.logger.info("Refined HKL values")
+            self.log("Refined HKL values")
             return refine
         else:
-            self.logger.info("HKL refinement not successful")
+            self.log("HKL refinement not successful")
             return None
 
     def nxprepare(self):
         if self.not_processed('nxprepare_mask') and self.prepare:
             try:
                 self.record_start('nxprepare')
-                self.logger.info("Preparing 3D mask")
-                self.mask_file = os.path.join(self.directory,
-                                              self.entry_name+'_mask.nxs')
+                self.log("Preparing 3D mask")
+                self.mask_file = self.scan_directory.joinpath(
+                    self.entry_name+'_mask.nxs')
                 mask = self.prepare_mask()
                 if self.gui:
                     if mask:
@@ -1448,42 +2201,49 @@ class NXReduce(QtCore.QObject):
                     self.stop.emit()
                 elif mask:
                     self.write_mask(mask)
-                    self.write_parameters(first=self.first, last=self.last)
+                    self.write_parameters(
+                        first=self.first, last=self.last,
+                        mask_t1=self.mask_parameters['mask_t1'],
+                        mask_h1=self.mask_parameters['mask_h1'],
+                        mask_t2=self.mask_parameters['mask_t2'],
+                        mask_h2=self.mask_parameters['mask_h2'])
                     self.record(
                         'nxprepare', masked_file=self.mask_file,
                         first=self.first, last=self.last,
-                        threshold1=self.mask_parameters['threshold_1'],
-                        horizontal1=self.mask_parameters['horizontal_size_1'],
-                        threshold2=self.mask_parameters['threshold_2'],
-                        horizontal2=self.mask_parameters['horizontal_size_2'],
+                        mask_t1=self.mask_parameters['mask_t1'],
+                        mask_h1=self.mask_parameters['mask_h1'],
+                        mask_t2=self.mask_parameters['mask_t2'],
+                        mask_h2=self.mask_parameters['mask_h2'],
                         process='nxprepare_mask')
                     self.record_end('nxprepare')
                 else:
                     self.record_fail('nxprepare')
             except Exception as error:
-                self.logger.info(str(error))
+                self.log(str(error))
                 self.record_fail('nxprepare')
                 raise
         elif self.prepare:
-            self.logger.info("3D Mask already prepared")
+            self.log("3D Mask already prepared")
 
     def prepare_mask(self):
         """Prepare 3D mask"""
         tic = self.start_progress(self.first, self.last)
-        t1 = self.mask_parameters['threshold_1']
-        h1 = self.mask_parameters['horizontal_size_1']
-        t2 = self.mask_parameters['threshold_2']
-        h2 = self.mask_parameters['horizontal_size_2']
+        t1 = self.mask_parameters['mask_t1']
+        h1 = self.mask_parameters['mask_h1']
+        t2 = self.mask_parameters['mask_t2']
+        h2 = self.mask_parameters['mask_h2']
 
-        mask_root = nxopen(self.mask_file+'.h5', 'w')
+        mask_root = nxopen(self.mask_file.with_suffix('.h5'), 'w')
         mask_root['entry'] = NXentry()
-        mask_root['entry/mask'] = (
-            NXfield(shape=self.shape, dtype=np.int8, fillvalue=0))
+        mask_root['entry/mask'] = NXfield(shape=self.shape,
+                                          dtype=np.int8,
+                                          chunks=self.field.chunks,
+                                          fillvalue=0)
 
-        if self.server.concurrent:
-            from concurrent.futures import ProcessPoolExecutor, as_completed
-            with ProcessPoolExecutor(
-                    max_workers=self.process_count) as executor:
+        if self.concurrent:
+            from nxrefine.nxutils import NXExecutor, as_completed
+            with NXExecutor(max_workers=self.process_count,
+                            mp_context=self.concurrent) as executor:
                 futures = []
                 for i in range(self.first, self.last+1, 10):
                     j, k = i - min(1, i), min(i+11, self.last+1, self.nframes)
@@ -1511,58 +2271,75 @@ class NXReduce(QtCore.QObject):
 
         toc = self.stop_progress()
 
-        self.logger.info(f"3D Mask prepared in {toc-tic:g} seconds")
+        self.log(f"3D Mask prepared in {toc-tic:g} seconds")
 
         return mask_root['entry/mask']
 
     def write_mask(self, mask):
         """Write mask to file."""
-        if os.path.exists(self.mask_file):
-            os.remove(self.mask_file)
-        shutil.move(mask.nxfilename, self.mask_file)
+        if self.mask_file.exists():
+            self.mask_file.unlink()
+        shutil.move(mask.nxfilename, str(self.mask_file))
         with self:
-            if ('data_mask' in self.data
-                    and self.data['data_mask'].nxfilename != self.mask_file):
-                del self.data['data_mask']
-            if 'data_mask' not in self.data:
-                self.data['data_mask'] = NXlink('entry/mask', self.mask_file)
-        self.logger.info(f"3D Mask written to '{self.mask_file}'")
+            target_data = self._get_reduce_target()['data']
+            if ('data_mask' in target_data
+                    and target_data['data_mask'].nxfilename
+                    != str(self.mask_file)):
+                del target_data['data_mask']
+            if 'data_mask' not in target_data:
+                target_data['data_mask'] = NXlink('entry/mask', self.mask_file)
+        self.log(f"3D Mask written to '{self.mask_file}'")
 
     def nxtransform(self, mask=False):
         if mask:
             task = 'nxmasked_transform'
             task_name = 'Masked transform'
-            self.transform_file = os.path.join(
-                self.directory, self.entry_name+'_masked_transform.nxs')
+            self.transform_file = self.scan_directory.joinpath(
+                self.entry_name+'_masked_transform.nxs')
         else:
             task = 'nxtransform'
             task_name = 'Transform'
-            self.transform_file = os.path.join(
-                self.directory, self.entry_name+'_transform.nxs')
+            self.transform_file = self.scan_directory.joinpath(
+                self.entry_name+'_transform.nxs')
         if self.not_processed(task) and self.transform:
             if not self.oriented:
-                self.logger.info(
+                self.log(
                     'Cannot transform until the orientation is complete')
                 return
+            self.warn_missing_normalization()
             self.record_start(task)
             try:
-                cctw_command = self.prepare_transform(mask=mask)
+                cctw_command, settings_file = self.prepare_transform(mask=mask)
                 if cctw_command:
-                    self.logger.info(f"{task_name} process launched")
+                    cctw_settings = {}
+                    if settings_file and settings_file.exists():
+                        with open(settings_file) as f:
+                            for line in f:
+                                line = line.strip().rstrip(';')
+                                if '=' in line:
+                                    key, _, value = line.partition('=')
+                                    cctw_key = key.strip().replace('.', '_')
+                                    cctw_settings[cctw_key] = value.strip()
+                    self.log(f"{task_name} process launched")
                     tic = timeit.default_timer()
-                    with self.field.nxfile:
-                        with NXLock(self.transform_file):
-                            process = subprocess.run(cctw_command, shell=True,
-                                                     stdout=subprocess.PIPE,
-                                                     stderr=subprocess.PIPE)
+                    try:
+                        with self.field.nxfile:
+                            with NXLock(self.transform_file):
+                                process = subprocess.run(
+                                    cctw_command, shell=True,
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE)
+                    finally:
+                        if settings_file and settings_file.exists():
+                            settings_file.unlink()
                     cctw_output = process.stdout.decode()
                     cctw_errors = process.stderr.decode()
-                    self.logger.info('CCTW Output\n' + cctw_output)
+                    self.log('CCTW Output\n' + cctw_output)
                     if cctw_errors:
-                        self.logger.info('CCTW Errors\n' + cctw_errors)
+                        self.log('CCTW Errors\n' + cctw_errors)
                     toc = timeit.default_timer()
                     if process.returncode == 0:
-                        self.logger.info(
+                        self.log(
                             f"{task_name} completed ({toc - tic:g} seconds)")
                         self.write_parameters(monitor=self.monitor,
                                               norm=self.norm)
@@ -1571,55 +2348,59 @@ class NXReduce(QtCore.QObject):
                                     output=cctw_output,
                                     errors=cctw_errors)
                         self.record_end(task)
+                        if cctw_settings:
+                            with self:
+                                target = self._get_reduce_target()
+                                workflow = target['nxworkflow']
+                                nx_settings = NXparameters()
+                                for key, value in cctw_settings.items():
+                                    nx_settings[key] = value
+                                workflow[task]['cctw_settings'] = nx_settings
                         self.clear_parameters(['monitor', 'norm'])
                     else:
-                        self.logger.info(
+                        self.log(
                             f"{task_name} completed - errors reported "
                             f"({(toc-tic):g} seconds)")
                         self.record_fail(task)
                 else:
-                    self.logger.info("CCTW command invalid")
+                    self.log("CCTW command invalid")
                     self.record_fail(task)
             except Exception as error:
-                self.logger.info(str(error))
+                self.log(str(error))
                 self.record_fail(task)
                 raise
         elif self.transform:
-            self.logger.info(f"{task_name} already created")
+            self.log(f"{task_name} already created")
 
     def get_transform_grid(self, mask=False):
-        if self.Qh and self.Qk and self.Ql:
-            try:
-                self.Qh = [np.float32(v) for v in self.Qh]
-                self.Qk = [np.float32(v) for v in self.Qk]
-                self.Ql = [np.float32(v) for v in self.Ql]
-            except Exception:
-                self.Qh = self.Qk = self.Ql = None
-        else:
-            if self.parent:
-                root = self.parent_root
-                if mask and 'masked_transform' in root[self.entry_name]:
-                    transform = root[self.entry_name]['masked_transform']
-                elif 'transform' in root[self.entry_name]:
-                    transform = root[self.entry_name]['transform']
-            elif mask and 'masked_transform' in self.entry:
-                transform = self.entry['masked_transform']
-            elif 'transform' in self.entry:
-                transform = self.entry['transform']
-            try:
-                Qh, Qk, Ql = (transform['Qh'].nxvalue,
-                              transform['Qk'].nxvalue,
-                              transform['Ql'].nxvalue)
-                self.Qh = Qh[0], Qh[1]-Qh[0], Qh[-1]
-                self.Qk = Qk[0], Qk[1]-Qk[0], Qk[-1]
-                self.Ql = Ql[0], Ql[1]-Ql[0], Ql[-1]
-            except Exception:
-                self.Qh = self.Qk = self.Ql = None
+        """Set Qh/Qk/Ql from the transform grid defined for this scan.
+
+        The grid comes from the parent's nxscans/transform when this scan
+        has a parent, and otherwise from the scan's own nxscans/transform,
+        which `find_group` resolves against the active subentry first.
+        Values supplied explicitly on the command line take precedence
+        over both.
+        """
+        if self.Qh is not None and self.Qk is not None and self.Ql is not None:
+            return
+        transform = None
+        if self.parent is not None:
+            transform = self.parent.transform
+        if transform is None:
+            transform = self.find_group('nxscans/transform')
+        if transform is None:
+            return
+        try:
+            self.Qh = transform['Qh'].nxvalue
+            self.Qk = transform['Qk'].nxvalue
+            self.Ql = transform['Ql'].nxvalue
+        except Exception:
+            self.Qh = self.Qk = self.Ql = None
 
     def get_normalization(self):
         with self:
-            if self.norm and self.monitor in self.entry:
-                self.data['monitor_weight'] = self.read_monitor()
+            try:
+                monitor_weight = self.read_monitor()
                 inst = self.entry['instrument']
                 transmission = np.ones(self.nframes, dtype=np.float32)
                 try:
@@ -1630,81 +2411,91 @@ class NXReduce(QtCore.QObject):
                     transmission *= inst['filter/transmission'].nxsignal
                 except Exception:
                     pass
-                try:
-                    transmission *= self.sample_transmission()
-                except Exception:
-                    pass
-                self.data['monitor_weight'] *= transmission
-            else:
-                self.data['monitor_weight'] = np.ones(self.nframes,
-                                                      dtype=np.float32)
-            self.data['monitor_weight'][:self.first] = 0.0
-            self.data['monitor_weight'][self.last+1:] = 0.0
+                if self.sample_transmission:
+                    try:
+                        transmission *= self.get_sample_transmission()
+                    except Exception:
+                        pass
+                monitor_weight *= transmission
+            except Exception:
+                self.log('Unable to determine monitor weights')
+                monitor_weight = np.ones(self.nframes, dtype=np.float32)
+            monitor_weight[:self.first] = 0.0
+            monitor_weight[self.last+1:] = 0.0
+            if 'monitor_weight' in self.data:
+                del self.data['monitor_weight']
+            self.data['monitor_weight'] = monitor_weight
             self.data['monitor_weight'].attrs['axes'] = 'frame_number'
 
     def prepare_transform(self, mask=False):
-        settings_file = os.path.join(self.directory,
-                                     self.entry_name+'_transform.pars')
+        settings_file = self.scan_directory.joinpath(
+            self.entry_name+'_transform.pars')
         self.get_transform_grid(mask=mask)
         if self.norm:
             self.get_normalization()
-        if self.Qh and self.Qk and self.Ql:
-            refine = NXRefine(self.entry)
+        if self.Qh is not None and self.Qk is not None and self.Ql is not None:
+            with self:
+                reduce_target = self._get_reduce_target()
+            data_entry = (reduce_target if 'data' in reduce_target
+                          else self.entry)
+            refine = self.refine
             refine.read_parameters()
-            refine.h_start, refine.h_step, refine.h_stop = self.Qh
-            refine.k_start, refine.k_step, refine.k_stop = self.Qk
-            refine.l_start, refine.l_step, refine.l_stop = self.Ql
+            refine.Qh, refine.Qk, refine.Ql = self.Qh, self.Qk, self.Ql
             refine.define_grid()
-            refine.prepare_transform(self.transform_file, mask=mask)
+            refine.prepare_transform(self.transform_file, mask=mask,
+                                     output_entry=reduce_target,
+                                     data_entry=data_entry)
             refine.write_settings(settings_file)
-            command = refine.cctw_command(mask)
-            if command and os.path.exists(self.transform_file):
+            command = refine.cctw_command(mask,
+                                          output_link=self.transform_file,
+                                          data_entry=data_entry)
+            if command and self.transform_file.exists():
                 with NXLock(self.transform_file):
-                    os.remove(self.transform_file)
+                    self.transform_file.unlink()
             command = command.replace('cctw', self.cctw)
-            return command
+            return command, settings_file
         else:
-            self.logger.info("Invalid HKL grid")
-            return None
+            self.log("Invalid HKL grid")
+            return None, None
 
     def nxsum(self, scan_list, update=False):
-        if os.path.exists(self.raw_file) and not (self.overwrite or update):
-            self.logger.info("Data already summed")
-        elif not os.path.exists(self.directory):
-            self.logger.info("Sum directory not created")
+        if self.raw_file.exists() and not (self.overwrite or update):
+            self.log("Data already summed")
+        elif not self.directory.exists():
+            self.log("Sum directory not created")
         else:
             self.record_start('nxsum')
             try:
-                self.logger.info("Sum files launched")
+                self.log("Sum files launched")
                 tic = timeit.default_timer()
                 if not self.check_files(scan_list):
                     self.record_fail('nxsum')
                 else:
-                    self.logger.info(
+                    self.log(
                         "All files and metadata have been checked")
                     if not update:
                         self.sum_files(scan_list)
                     self.sum_monitors(scan_list)
                     toc = timeit.default_timer()
-                    self.logger.info(f"Sum completed ({toc - tic:g} seconds)")
+                    self.log(f"Sum completed ({toc - tic:g} seconds)")
                     self.record('nxsum', scans=','.join(scan_list))
                     self.record_end('nxsum')
             except Exception as error:
-                self.logger.info(str(error))
+                self.log(str(error))
                 self.record_fail('nxsum')
                 raise
 
     def check_sum_files(self, scan_list):
         status = True
-        for i, scan in enumerate(scan_list):
+        for scan in scan_list:
             reduce = NXReduce(self.entry_name,
-                              os.path.join(self.base_directory, scan))
-            if not os.path.exists(reduce.raw_file):
-                self.logger.info(f"'{reduce.raw_file}' does not exist")
+                              self.base_directory.joinpath(scan))
+            if not reduce.raw_file.exists():
+                self.log(f"'{reduce.raw_file}' does not exist")
                 status = False
-            elif 'monitor1' not in reduce.entry:
-                self.logger.info(
-                    f"Monitor1 not present in {reduce.wrapper_file}")
+            elif 'monitor' not in reduce.entry:
+                self.log(
+                    f"Monitor not present in {reduce.wrapper_file}")
                 status = False
         return status
 
@@ -1714,8 +2505,8 @@ class NXReduce(QtCore.QObject):
         chunk_size = 500
         for i, scan in enumerate(scan_list):
             reduce = NXReduce(self.entry_name,
-                              os.path.join(self.base_directory, scan))
-            self.logger.info(
+                              self.base_directory.joinpath(scan))
+            self.log(
                 f"Summing {self.entry_name} in '{reduce.raw_file}'")
             if i == 0:
                 shutil.copyfile(reduce.raw_file, self.raw_file)
@@ -1728,33 +2519,34 @@ class NXReduce(QtCore.QObject):
                     new_slab = new_field[i:i+chunk_size, :, :]
                     scan_slab = scan_field[i:i+chunk_size, :, :]
                     new_field[i:i+chunk_size, :, :] = new_slab + scan_slab
-        self.logger.info("Raw data files summed")
+        self.log("Raw data files summed")
 
-    def sum_monitors(self, scan_list, update=False):
+    def sum_monitors(self, scan_list):
 
         for i, scan in enumerate(scan_list):
             reduce = NXReduce(self.entry_name,
-                              os.path.join(self.base_directory, scan))
-            self.logger.info(
+                              self.base_directory.joinpath(scan))
+            self.log(
                 f"Adding {self.entry_name} monitors in "
                 f"'{reduce.wrapper_file}'")
+            monitors = []
             if i == 0:
-                monitor1 = reduce.entry['monitor1/MCS1'].nxvalue
-                monitor2 = reduce.entry['monitor2/MCS2'].nxvalue
+                for monitor in reduce.entry.NXmonitor:
+                    monitors.append(monitor.nxsignal.nxvalue)
                 if 'monitor_weight' not in reduce.entry['data']:
                     reduce.get_normalization()
                 monitor_weight = reduce.entry['data/monitor_weight'].nxvalue
-                if os.path.exists(reduce.mask_file):
-                    shutil.copyfile(reduce.mask_file, self.mask_file)
+                if reduce.mask_file.exists():
+                    shutil.copyfile(str(reduce.mask_file), str(self.mask_file))
             else:
-                monitor1 += reduce.entry['monitor1/MCS1'].nxvalue
-                monitor2 += reduce.entry['monitor2/MCS2'].nxvalue
+                for i, monitor in enumerate(reduce.entry.NXmonitor):
+                    monitors[i] += monitor.nxsignal.nxvalue
                 if 'monitor_weight' not in reduce.entry['data']:
                     reduce.get_normalization()
                 monitor_weight += reduce.entry['data/monitor_weight'].nxvalue
         with self:
-            self.entry['monitor1/MCS1'] = monitor1
-            self.entry['monitor2/MCS2'] = monitor2
+            for i, monitor in enumerate(self.entry.NXmonitor):
+                self.entry[monitor.nxname].nxsignal = monitors[i]
             self.entry['data/monitor_weight'] = monitor_weight
 
     def nxreduce(self):
@@ -1762,17 +2554,15 @@ class NXReduce(QtCore.QObject):
             self.nxload()
         if self.link:
             self.nxlink()
-        if self.copy:
-            self.nxcopy()
         if self.maxcount:
             self.nxmax()
         if self.find:
             self.nxfind()
-        if self.refine:
-            if self.complete('nxcopy') and self.complete('nxfind'):
+        if self.refine_lattice:
+            if self.complete('nxfind'):
                 self.nxrefine()
             else:
-                self.logger.info("Cannot refine orientation matrix")
+                self.log("Cannot refine orientation matrix")
                 self.record_fail('nxrefine')
         if self.prepare:
             self.nxprepare()
@@ -1783,13 +2573,15 @@ class NXReduce(QtCore.QObject):
                 if self.mask:
                     self.nxtransform(mask=True)
             else:
-                self.logger.info("Cannot transform without orientation matrix")
+                self.log("Cannot transform without orientation matrix")
                 if self.regular:
                     self.record_fail('nxtransform')
                 if self.mask:
                     self.record_fail('nxmasked_transform')
         if self.combine or self.pdf:
-            reduce = NXMultiReduce(self.directory, entries=self.entries,
+            reduce = NXMultiReduce(directory=self.directory,
+                                   entries=self.entries,
+                                   subentry=self.subentry_name,
                                    combine=self.combine, pdf=self.pdf,
                                    regular=self.regular, mask=self.mask,
                                    overwrite=self.overwrite)
@@ -1804,12 +2596,17 @@ class NXReduce(QtCore.QObject):
                 if self.mask and self.complete('nxmasked_combine'):
                     reduce.nxpdf(mask=True)
 
-    def queue(self, command, args=None):
-        """ Add tasks to the server's fifo, and log this in the database """
-
+    def queue(self, command, args=None, entries=None):
+        """Insert DB rows for this entry's tasks and submit a command."""
         if self.server is None:
             raise NeXusError("NXServer not configured")
+        tasks = self.queue_db_rows()
+        if not tasks:
+            return
+        self.submit_command(command, tasks, args=args, entries=entries)
 
+    def queue_db_rows(self):
+        """Insert DB rows for enabled tasks; return the task-flag list."""
         tasks = []
         if self.load:
             tasks.append('load')
@@ -1817,16 +2614,13 @@ class NXReduce(QtCore.QObject):
         if self.link:
             tasks.append('link')
             self.queue_task('nxlink')
-        if self.copy:
-            tasks.append('copy')
-            self.queue_task('nxcopy')
         if self.maxcount:
             tasks.append('max')
             self.queue_task('nxmax')
         if self.find:
             tasks.append('find')
             self.queue_task('nxfind')
-        if self.refine:
+        if self.refine_lattice:
             tasks.append('refine')
             self.queue_task('nxrefine')
         if self.prepare:
@@ -1850,10 +2644,19 @@ class NXReduce(QtCore.QObject):
                 self.queue_task('nxpdf', entry='entry')
             if self.mask:
                 self.queue_task('nxmasked_pdf', entry='entry')
+        return tasks
 
-        if not tasks:
-            return
+    def submit_command(self, command, tasks, args=None, entries=None):
+        """Build and send a single multi-task command via the server."""
+        self.server.add_task(
+            self.build_command(command, tasks, args=args, entries=entries))
 
+    def build_command(self, command, tasks, args=None, entries=None):
+        """Return a single multi-task command for this scan.
+
+        ``entries``, when supplied, becomes the value of ``--entries``;
+        otherwise ``self.entry_name`` is used.
+        """
         if set(tasks).intersection(['transform', 'combine', 'pdf']):
             if self.regular:
                 tasks.append('regular')
@@ -1862,41 +2665,56 @@ class NXReduce(QtCore.QObject):
         if self.overwrite:
             tasks.append('overwrite')
 
+        entries_arg = ' '.join(entries) if entries else self.entry_name
+
         def switches(args):
             d = vars(args)
             s = [f"--{k} {d[k]}" if d[k] is not True else f"--{k}"
                  for k in d if d[k] and k != 'entries' and k != 'queue']
-            s.insert(1, f"--entries {self.entry_name}")
+            s.insert(1, f"--entries {entries_arg}")
             return ' '.join(s)
 
         if args:
             if 'directory' in args:
-                args.directory = os.path.realpath(args.directory)
-            self.server.add_task(f"{command} {switches(args)}")
-        else:
-            self.server.add_task(
-                f"{command} --directory {self.directory} "
-                f"--entries {self.entry_name} --{' --'.join(tasks)}")
+                args.directory = str(Path(args.directory).resolve())
+            return f"{command} {switches(args)}"
+        subentry_arg = (f" --subentry {self.subentry_name}"
+                        if self.subentry_name else "")
+        return (f"{command} --directory {self.directory} "
+                f"--entries {entries_arg}{subentry_arg} "
+                f"--{' --'.join(tasks)}")
 
     def queue_task(self, task, entry=None):
         if entry is None:
             entry = self.entry_name
         if self.not_processed(task):
-            self.db.queue_task(self.wrapper_file, task, entry)
+            self.queue_time[task] = datetime.datetime.now()
+            self.db.queue_task(self.wrapper_file, task, entry,
+                               queue_time=self.queue_time[task],
+                               subentry=self.subentry_name)
 
 
 class NXMultiReduce(NXReduce):
 
-    def __init__(self, directory, entries=None,
-                 combine=False, pdf=False, regular=False, mask=False,
-                 laue=None, radius=None, qmax=None, overwrite=False):
-        if isinstance(directory, NXroot):
-            entry = directory['entry']
-        else:
-            entry = 'entry'
+    def __init__(self, entry=None, subentry='', directory=None,
+                 entries=None, combine=False, pdf=False, regular=False,
+                 mask=False, laue=None, radius=None, qmax=None,
+                 overwrite=False):
+        if isinstance(entry, NXroot):
+            root = entry
+            if subentry and 'entry' in root and subentry in root['entry']:
+                entry = root['entry'][subentry]
+            else:
+                entry = root['entry']
+        if isinstance(entry, NXsubentry):
+            if not subentry:
+                subentry = entry.nxname
+            entry = entry.nxgroup
+        elif not isinstance(entry, NXentry):
+            entry = None
         super().__init__(entry=entry, directory=directory, entries=entries,
-                         overwrite=overwrite)
-        self.refine = NXRefine(self.root)
+                         subentry=subentry, overwrite=overwrite)
+        self.refine = NXRefine(self.root, subentry=subentry)
 
         if laue:
             if laue in self.refine.laue_groups:
@@ -1919,7 +2737,12 @@ class NXMultiReduce(NXReduce):
 
     def complete(self, task):
         if task in ['nxcombine', 'nxmasked_combine', 'nxpdf', 'nxmasked_pdf']:
-            return task in self.entry
+            target = self.scan_entry
+            if target is None:
+                return False
+            if 'nxworkflow' in target:
+                return task in target['nxworkflow']
+            return task in target
         return self.all_complete(task)
 
     def nxcombine(self, mask=False):
@@ -1928,17 +2751,18 @@ class NXMultiReduce(NXReduce):
             transform_task = 'nxmasked_transform'
             self.title = 'Masked Combine'
             self.transform_path = 'masked_transform'
-            self.transform_file = os.path.join(self.directory,
-                                               'masked_transform.nxs')
+            self.transform_file = self.scan_directory.joinpath(
+                'masked_transform.nxs')
         else:
             task = 'nxcombine'
             transform_task = 'nxtransform'
             self.title = 'Combine'
             self.transform_path = 'transform'
-            self.transform_file = os.path.join(self.directory, 'transform.nxs')
+            self.transform_file = self.scan_directory.joinpath(
+                'transform.nxs')
         if self.not_processed(task) and self.combine:
             if not self.complete(transform_task):
-                self.logger.info(
+                self.log(
                     f"{self.title}: Cannot combine until transforms complete")
                 return
             self.record_start(task)
@@ -1946,21 +2770,22 @@ class NXMultiReduce(NXReduce):
                 cctw_command = self.prepare_combine()
                 if cctw_command:
                     if mask:
-                        self.logger.info("Combining masked transforms "
+                        self.log("Combining masked transforms "
                                          f"({', '.join(self.entries)})")
                         transform_data = 'masked_transform/data'
                     else:
-                        self.logger.info("Combining transforms "
+                        self.log("Combining transforms "
                                          f"({', '.join(self.entries)})")
                         transform_data = 'transform/data'
                     tic = timeit.default_timer()
                     with NXLock(self.transform_file):
-                        if os.path.exists(self.transform_file):
-                            os.remove(self.transform_file)
+                        if self.transform_file.exists():
+                            self.transform_file.unlink()
                         data_lock = {}
                         for entry in self.entries:
                             data_lock[entry] = NXLock(
-                                self.root[entry][transform_data].nxfilename)
+                                self._get_entry_target(entry)[
+                                    transform_data].nxfilename)
                             data_lock[entry].acquire()
                         process = subprocess.run(cctw_command, shell=True,
                                                  stdout=subprocess.PIPE,
@@ -1969,40 +2794,43 @@ class NXMultiReduce(NXReduce):
                             data_lock[entry].release()
                     cctw_output = process.stdout.decode()
                     cctw_errors = process.stderr.decode()
-                    self.logger.info('CCTW Output\n' + cctw_output)
+                    self.log('CCTW Output\n' + cctw_output)
                     if cctw_errors:
-                        self.logger.info('CCTW Errors\n' + cctw_errors)
+                        self.log('CCTW Errors\n' + cctw_errors)
                     toc = timeit.default_timer()
                     if process.returncode == 0:
-                        self.logger.info(
+                        self.log(
                             f"{self.title} ({', '.join(self.entries)}) "
                             f"completed ({toc-tic:g} seconds)")
+                        self.consolidate(
+                            self.scan_entry[self.transform_path])
                         self.record(task, command=cctw_command,
                                     output=cctw_output,
                                     errors=cctw_errors)
                         self.record_end(task)
                     else:
-                        self.logger.info(
+                        self.log(
                             f"{self.title} "
                             f"({', '.join(self.entries)}) completed "
                             f"- errors reported ({(toc-tic):g} seconds)")
                         self.record_fail('nxcombine')
                 else:
-                    self.logger.info("CCTW command invalid")
+                    self.log("CCTW command invalid")
             except Exception as error:
-                self.logger.info(str(error))
+                self.log(str(error))
                 self.record_fail(transform_task)
                 raise
         else:
-            self.logger.info(f"{self.title}: Data already combined")
+            self.log(f"{self.title}: Data already combined")
 
     def prepare_combine(self):
         try:
             with self:
-                entry = self.entries[0]
-                Qh, Qk, Ql = (self.root[entry][self.transform_path]['Qh'],
-                              self.root[entry][self.transform_path]['Qk'],
-                              self.root[entry][self.transform_path]['Ql'])
+                self.refine.read_parameters()
+                first_entry = self._get_entry_target(self.entries[0])
+                Qh, Qk, Ql = (first_entry[self.transform_path]['Qh'],
+                              first_entry[self.transform_path]['Qk'],
+                              first_entry[self.transform_path]['Ql'])
                 if 'scaling_factor' not in Qh.attrs:
                     Qh.attrs['scaling_factor'] = self.refine.astar
                 if 'scaling_factor' not in Qk.attrs:
@@ -2011,25 +2839,25 @@ class NXMultiReduce(NXReduce):
                     Ql.attrs['scaling_factor'] = self.refine.cstar
                 data = NXlink('/entry/data/v', self.transform_file,
                               name='data')
-                if self.transform_path in self.entry:
-                    del self.entry[self.transform_path]
-                self.entry[self.transform_path] = NXdata(data, [Ql, Qk, Qh])
-                self.entry[self.transform_path].attrs['angles'] = (
+                target = self._get_reduce_target()
+                if self.transform_path in target:
+                    del target[self.transform_path]
+                target[self.transform_path] = NXdata(data, [Ql, Qk, Qh])
+                target[self.transform_path].attrs['angles'] = (
                     self.refine.gamma_star,
                     self.refine.beta_star,
                     self.refine.alpha_star)
-                self.add_title(self.entry[self.transform_path])
-                self.entry[self.transform_path].set_default(over=True)
+                self.add_title(target[self.transform_path])
+                target[self.transform_path].set_default(over=True)
         except Exception as error:
-            self.logger.info("Unable to initialize transform group")
-            self.logger.info(str(error))
+            self.log("Unable to initialize transform group")
+            self.log(str(error))
             return None
-        input = ' '.join([os.path.join(
-            self.directory,
-            fr'{entry}_{self.transform_path}.nxs\#/entry/data')
+        input = ' '.join([str(self.scan_directory.joinpath(
+            fr'{entry}_{self.transform_path}.nxs\#/entry/data'))
             for entry in self.entries])
-        output = os.path.join(self.directory,
-                              fr'{self.transform_path}.nxs\#/entry/data/v')
+        output = str(self.scan_directory.joinpath(
+            fr'{self.transform_path}.nxs\#/entry/data/v'))
         return f"{self.cctw} merge {input} --normalization 1 -o {output}"
 
     def add_title(self, data):
@@ -2053,31 +2881,32 @@ class NXMultiReduce(NXReduce):
     def nxpdf(self, mask=False):
         if mask:
             task = 'nxmasked_pdf'
+            transform_path = 'masked_transform'
         else:
             task = 'nxpdf'
+            transform_path = 'transform'
         if self.not_processed(task) and self.pdf:
-            if mask:
-                if not self.complete('nxmasked_combine'):
-                    self.logger.info("Cannot calculate PDF until the "
-                                     "masked transforms are combined")
-                    return
-            elif not self.complete('nxcombine'):
-                self.logger.info(
-                    "Cannot calculate PDF until the transforms are combined")
+            if self.find_group(transform_path) is None:
+                location = self.entry_name + (
+                    f"/{self._subentry}" if self._subentry else "")
+                self.log(
+                    f"Cannot calculate {task}: no '{transform_path}' "
+                    f"group found in {location} or its root entry")
                 return
-            elif self.refine.laue_group not in self.refine.laue_groups:
-                self.logger.info(
+            if self.refine.laue_group not in self.refine.laue_groups:
+                self.log(
                     "Need to define a valid Laue group before PDF calculation")
                 return
             if self.julia is None:
                 try:
                     self.julia = init_julia()
                 except Exception as error:
-                    self.logger.info(f"Cannot initialize Julia: {error}")
+                    self.log(f"Cannot initialize Julia: {error}")
                     self.julia = None
                     return
             load_julia(['LaplaceInterpolation.jl'])
             self.record_start(task)
+            self.ensure_transmission_q()
             self.init_pdf(mask)
             try:
                 self.symmetrize_transform()
@@ -2089,11 +2918,11 @@ class NXMultiReduce(NXReduce):
                             radius=self.radius, qmax=self.qmax)
                 self.record_end(task)
             except Exception as error:
-                self.logger.info(str(error))
+                self.log(str(error))
                 self.record_fail(task)
                 raise
         else:
-            self.logger.info(f"{self.title} already calculated")
+            self.log(f"{'Masked PDF' if mask else 'PDF'} already calculated")
 
     def init_pdf(self, mask=False):
         if mask:
@@ -2102,56 +2931,60 @@ class NXMultiReduce(NXReduce):
             self.symm_data = 'symm_masked_transform'
             self.total_pdf_data = 'total_masked_pdf'
             self.pdf_data = 'masked_pdf'
-            self.symm_file = os.path.join(self.directory,
-                                          'masked_symm_transform.nxs')
-            self.total_pdf_file = os.path.join(self.directory,
-                                               'masked_total_pdf.nxs')
-            self.pdf_file = os.path.join(self.directory, 'masked_pdf.nxs')
-            self.Qh, self.Qk, self.Ql = (self.entry['masked_transform/Qh'],
-                                         self.entry['masked_transform/Qk'],
-                                         self.entry['masked_transform/Ql'])
+            self.symm_file = self.scan_directory.joinpath(
+                'masked_symm_transform.nxs')
+            self.total_pdf_file = self.scan_directory.joinpath(
+                'masked_total_pdf.nxs')
+            self.pdf_file = self.scan_directory.joinpath('masked_pdf.nxs')
         else:
             self.title = 'PDF'
             self.transform_path = 'transform'
             self.symm_data = 'symm_transform'
             self.total_pdf_data = 'total_pdf'
             self.pdf_data = 'pdf'
-            self.symm_file = os.path.join(self.directory, 'symm_transform.nxs')
-            self.total_pdf_file = os.path.join(self.directory, 'total_pdf.nxs')
-            self.pdf_file = os.path.join(self.directory, 'pdf.nxs')
-            self.Qh, self.Qk, self.Ql = (self.entry['transform/Qh'],
-                                         self.entry['transform/Qk'],
-                                         self.entry['transform/Ql'])
-        total_size = self.entry[self.transform_path].nxsignal.nbytes / 1e6
+            self.symm_file = self.scan_directory.joinpath(
+                'symm_transform.nxs')
+            self.total_pdf_file = self.scan_directory.joinpath(
+                'total_pdf.nxs')
+            self.pdf_file = self.scan_directory.joinpath('pdf.nxs')
+        transform = self.find_group(self.transform_path)
+        self.Qh = transform['Qh']
+        self.Qk = transform['Qk']
+        self.Ql = transform['Ql']
+        total_size = transform.nxsignal.nbytes / 1e6
         if total_size > nxgetconfig('memory'):
             nxsetconfig(memory=total_size+1000)
         self.taper = self.fft_taper()
 
     def symmetrize_transform(self):
-        self.logger.info(f"{self.title}: Transform being symmetrized")
+        self.log(f"{self.title}: Transform being symmetrized")
         tic = timeit.default_timer()
         symm_root = nxopen(self.symm_file, 'w')
         symm_root['entry'] = NXentry()
         symm_root['entry/data'] = NXdata()
-        symmetry = NXSymmetry(self.entry[self.transform_path],
+        transform = self.find_group(self.transform_path)
+        symmetry = NXSymmetry(transform,
                               laue_group=self.refine.laue_group)
         symm_root['entry/data/data'] = symmetry.symmetrize(entries=True)
         symm_root['entry/data'].nxsignal = symm_root['entry/data/data']
         symm_root['entry/data'].nxweights = 1.0 / self.taper
-        symm_root['entry/data'].nxaxes = self.entry[self.transform_path].nxaxes
-        if self.symm_data in self.entry:
-            del self.entry[self.symm_data]
-        symm_data = NXlink('/entry/data/data', file=self.symm_file,
-                           name='data')
+        symm_root['entry/data'].nxaxes = transform.nxaxes
         with self:
-            self.entry[self.symm_data] = NXdata(
-                symm_data, self.entry[self.transform_path].nxaxes)
-            self.entry[self.symm_data].nxweights = NXlink(
+            write_target = self._get_reduce_target()
+            if self.symm_data in write_target:
+                del write_target[self.symm_data]
+            symm_data = NXlink('/entry/data/data', file=self.symm_file,
+                               name='data')
+            write_target[self.symm_data] = NXdata(
+                symm_data, transform.nxaxes)
+            write_target[self.symm_data].nxweights = NXlink(
                 '/entry/data/data_weights', file=self.symm_file)
-            self.add_title(self.entry[self.symm_data])
-        self.logger.info(f"'{self.symm_data}' added to entry")
+            write_target[self.symm_data].nxauxiliary_signals = ['data_weights']
+            self.add_title(write_target[self.symm_data])
+            self.consolidate(write_target[self.symm_data])
+        self.log(f"'{self.symm_data}' added to entry")
         toc = timeit.default_timer()
-        self.logger.info(f"{self.title}: Symmetrization completed "
+        self.log(f"{self.title}: Symmetrization completed "
                          f"({toc-tic:g} seconds)")
 
     def fft_taper(self, qmax=None):
@@ -2171,14 +3004,23 @@ class NXMultiReduce(NXReduce):
             An array containing the 3D taper function values.
         """
         if self.parent:
-            entry = self.parent_root['entry']
+            entry = self.parent.root['entry']
+            weights = None
             if ('symm_transform' in entry
                     and entry['symm_transform'].nxweights):
-                return 1.0 / entry['symm_transform'].nxweights.nxvalue
+                weights = entry['symm_transform'].nxweights
             elif ('symm_masked_transform' in entry
                     and entry['symm_masked_transform'].nxweights):
-                return 1.0 / entry['symm_masked_transform'].nxweights.nxvalue
-        self.logger.info(f"{self.title}: Calculating taper function")
+                weights = entry['symm_masked_transform'].nxweights
+            if weights is not None:
+                weights_mb = weights.nbytes / 1e6
+                if weights_mb > nxgetconfig('memory'):
+                    nxsetconfig(memory=weights_mb + 1000)
+                data = weights.nxvalue
+                if data.ndim > 3:
+                    data = data[0]
+                return 1.0 / data
+        self.log(f"{self.title}: Calculating taper function")
         tic = timeit.default_timer()
         if qmax is None:
             qmax = self.qmax
@@ -2192,21 +3034,22 @@ class NXMultiReduce(NXReduce):
         taper[idx] = 0.5 * (1 - np.cos(R[idx] * np.pi))
         taper[R >= 2.0] = taper.min()
         toc = timeit.default_timer()
-        self.logger.info(f"{self.title}: Taper function calculated "
+        self.log(f"{self.title}: Taper function calculated "
                          f"({toc-tic:g} seconds)")
         return taper
 
     def total_pdf(self):
-        if os.path.exists(self.total_pdf_file):
+        if self.total_pdf_file.exists():
             if self.overwrite:
-                os.remove(self.total_pdf_file)
+                self.total_pdf_file.unlink()
             else:
-                self.logger.info(
+                self.log(
                     f"{self.title}: Total PDF file already exists")
                 return
-        self.logger.info(f"{self.title}: Calculating total PDF")
+        self.log(f"{self.title}: Calculating total PDF")
         tic = timeit.default_timer()
-        symm_data = self.entry[self.symm_data].nxsignal.nxvalue
+        target = self.scan_entry or self.entry
+        symm_data = target[self.symm_data].nxsignal.nxvalue
         symm_data *= self.taper
         fft = np.real(scipy.fft.fftshift(
             scipy.fft.fftn(scipy.fft.fftshift(symm_data[:-1, :-1, :-1]),
@@ -2218,30 +3061,33 @@ class NXMultiReduce(NXReduce):
             root['entry/pdf'] = NXdata(NXfield(fft, name='pdf'))
 
         with self:
-            if self.total_pdf_data in self.entry:
-                del self.entry[self.total_pdf_data]
+            write_target = self._get_reduce_target()
+            if self.total_pdf_data in write_target:
+                del write_target[self.total_pdf_data]
             pdf = NXlink('/entry/pdf/pdf', file=self.total_pdf_file,
                          name='pdf')
 
             dl, dk, dh = [(ax[1]-ax[0]).nxvalue
-                          for ax in self.entry[self.symm_data].nxaxes]
+                          for ax in write_target[self.symm_data].nxaxes]
             x = NXfield(scipy.fft.fftshift(scipy.fft.fftfreq(
                 fft.shape[2], dh)), name='x', scaling_factor=self.refine.a)
             y = NXfield(scipy.fft.fftshift(scipy.fft.fftfreq(
                 fft.shape[1], dk)), name='y', scaling_factor=self.refine.b)
             z = NXfield(scipy.fft.fftshift(scipy.fft.fftfreq(
                 fft.shape[0], dl)), name='z', scaling_factor=self.refine.c)
-            self.entry[self.total_pdf_data] = NXdata(pdf, (z, y, x))
-            self.entry[self.total_pdf_data].attrs['angles'] = (
+            write_target[self.total_pdf_data] = NXdata(pdf, (z, y, x))
+            write_target[self.total_pdf_data].attrs['angles'] = (
                 self.refine.lattice_parameters[3:])
-            self.add_title(self.entry[self.total_pdf_data])
-        self.logger.info(f"'{self.total_pdf_data}' added to entry")
+            self.add_title(write_target[self.total_pdf_data])
+            self.consolidate(write_target[self.total_pdf_data])
+
+        self.log(f"'{self.total_pdf_data}' added to entry")
         toc = timeit.default_timer()
-        self.logger.info(f"{self.title}: Total PDF calculated "
+        self.log(f"{self.title}: Total PDF calculated "
                          f"({toc - tic:g} seconds)")
 
     def hole_mask(self):
-        symm_group = self.entry[self.symm_data]
+        symm_group = (self.scan_entry or self.entry)[self.symm_data]
         dl, dk, dh = [(ax[1]-ax[0]).nxvalue for ax in symm_group.nxaxes]
         dhp = np.rint(self.radius / (dh * self.refine.astar))
         dkp = np.rint(self.radius / (dk * self.refine.bstar))
@@ -2255,7 +3101,9 @@ class NXMultiReduce(NXReduce):
 
     @property
     def indices(self):
-        self.refine.polar_max = self.refine.two_theta_max()
+        self.refine.polar_max = max([NXRefine(
+            self.root[e], subentry=self._subentry).two_theta_max()
+            for e in self.entries])
         if self.refine.laue_group in ['-3', '-3m', '6/m', '6/mmm']:
             _indices = []
             for idx in self.refine.indices:
@@ -2272,19 +3120,20 @@ class NXMultiReduce(NXReduce):
                 symmetry = NXSymmetry(root['data'],
                                       laue_group=self.refine.laue_group)
             result = symmetry.symmetrize()
-            os.remove(root.nxfilename)
+            Path(root.nxfilename).unlink()
             return result
         else:
             return data
 
     def punch_and_fill(self):
-        self.logger.info(f"{self.title}: Performing punch-and-fill")
+        self.log(f"{self.title}: Performing punch-and-fill")
 
-        from julia import Main
+        from juliacall import Main
         LaplaceInterpolation = Main.LaplaceInterpolation
 
         tic = timeit.default_timer()
-        symm_group = self.entry[self.symm_data]
+        target = self.scan_entry or self.entry
+        symm_group = target[self.symm_data]
         Qh, Qk, Ql = (symm_group['Qh'], symm_group['Qk'], symm_group['Ql'])
 
         symm_root = nxopen(self.symm_file, 'rw')
@@ -2297,23 +3146,68 @@ class NXMultiReduce(NXReduce):
         mk = int((mask.shape[1]-1)/2)
         mh = int((mask.shape[2]-1)/2)
         fill_data = np.zeros(shape=symm_data.shape, dtype=symm_data.dtype)
-        self.refine.polar_max = self.refine.two_theta_max()
-        for h, k, l in self.indices:
-            try:
-                ih = np.argwhere(np.isclose(Qh, h))[0][0]
-                ik = np.argwhere(np.isclose(Qk, k))[0][0]
-                il = np.argwhere(np.isclose(Ql, l))[0][0]
-                lslice = slice(il-ml, il+ml+1)
-                kslice = slice(ik-mk, ik+mk+1)
-                hslice = slice(ih-mh, ih+mh+1)
-                v = symm_data[(lslice, kslice, hslice)].nxvalue
-                if v.max() > 0.0:
-                    w = LaplaceInterpolation.matern_3d_grid(v, idx)
-                    fill_data[(lslice, kslice, hslice)] += np.where(mask, w, 0)
-            except Exception:
-                pass
+        self.refine.polar_max = max([NXRefine(
+            self.root[e], subentry=self._subentry).two_theta_max()
+            for e in self.entries])
+        indices = self.indices
+        self.log(f"{self.title}: Punching {len(indices)} reflections; "
+                 f"mask shape {mask.shape}, {len(mask_indices)} interior "
+                 f"voxels; cube half-widths (ml,mk,mh)=({ml},{mk},{mh})")
+        counts = {'punched': 0, 'off_grid': 0, 'no_signal': 0,
+                  'edge': 0, 'matern_failed': 0, 'other': 0}
+        examples = {k: [] for k in counts if k != 'punched'}
 
-        self.logger.info(f"{self.title}: Symmetrizing punch-and-fill")
+        def _record(bucket, hkl, msg=None):
+            counts[bucket] += 1
+            if bucket in examples and len(examples[bucket]) < 3:
+                tag = f"({hkl[0]},{hkl[1]},{hkl[2]})"
+                if msg:
+                    tag += f": {msg}"
+                examples[bucket].append(tag)
+
+        for H, K, L in indices:
+            ih_hits = np.argwhere(np.isclose(Qh, H))
+            ik_hits = np.argwhere(np.isclose(Qk, K))
+            il_hits = np.argwhere(np.isclose(Ql, L))
+            if not (len(ih_hits) and len(ik_hits) and len(il_hits)):
+                _record('off_grid', (H, K, L))
+                continue
+            ih, ik, il = ih_hits[0][0], ik_hits[0][0], il_hits[0][0]
+            lslice = slice(il-ml, il+ml+1)
+            kslice = slice(ik-mk, ik+mk+1)
+            hslice = slice(ih-mh, ih+mh+1)
+            try:
+                v = symm_data[(lslice, kslice, hslice)].nxvalue
+            except Exception as error:
+                _record('other', (H, K, L), f"read failed: {error}")
+                continue
+            if v.shape != mask.shape:
+                _record('edge', (H, K, L), f"cube {v.shape} vs mask "
+                                            f"{mask.shape}")
+                continue
+            if not np.any(v > 0.0):
+                _record('no_signal', (H, K, L),
+                        f"max={float(np.nanmax(v)):.3g}")
+                continue
+            try:
+                w = LaplaceInterpolation.matern_3d_grid(v, idx)
+            except Exception as error:
+                _record('matern_failed', (H, K, L), str(error))
+                continue
+            try:
+                fill_data[(lslice, kslice, hslice)] += np.where(mask, w, 0)
+            except Exception as error:
+                _record('other', (H, K, L), f"assign failed: {error}")
+                continue
+            counts['punched'] += 1
+        self.log(f"{self.title}: Punch outcomes: " +
+                 ", ".join(f"{k}={v}" for k, v in counts.items()))
+        for bucket, exs in examples.items():
+            if exs:
+                self.log(f"{self.title}: First {bucket}: "
+                         + "; ".join(exs))
+
+        self.log(f"{self.title}: Symmetrizing punch-and-fill")
 
         fill_data = self.symmetrize(fill_data)
         changed_idx = np.where(fill_data > 0)
@@ -2323,9 +3217,10 @@ class NXMultiReduce(NXReduce):
             del symm_root['entry/data/fill']
         symm_root['entry/data/fill'] = buffer
         with self:
-            if 'filled_data' in self.entry[self.symm_data]:
-                del self.entry[self.symm_data]['filled_data']
-            self.entry[self.symm_data]['filled_data'] = NXlink(
+            write_target = self._get_reduce_target()
+            if 'filled_data' in write_target[self.symm_data]:
+                del write_target[self.symm_data]['filled_data']
+            write_target[self.symm_data]['filled_data'] = NXlink(
                 '/entry/data/fill', file=self.symm_file)
 
         buffer[changed_idx] *= 0
@@ -2333,26 +3228,31 @@ class NXMultiReduce(NXReduce):
             del symm_root['entry/data/punch']
         symm_root['entry/data/punch'] = buffer
         with self:
-            if 'punched_data' in self.entry[self.symm_data]:
-                del self.entry[self.symm_data]['punched_data']
-            self.entry[self.symm_data]['punched_data'] = NXlink(
+            write_target = self._get_reduce_target()
+            if 'punched_data' in write_target[self.symm_data]:
+                del write_target[self.symm_data]['punched_data']
+            write_target[self.symm_data]['punched_data'] = NXlink(
                 '/entry/data/punch', file=self.symm_file)
+            write_target[self.symm_data].nxauxiliary_signals = [
+                'data_weights', 'filled_data', 'punched_data']
+            self.consolidate(write_target[self.symm_data])
 
         toc = timeit.default_timer()
-        self.logger.info(f"{self.title}: Punch-and-fill completed "
+        self.log(f"{self.title}: Punch-and-fill completed "
                          f"({toc - tic:g} seconds)")
 
     def delta_pdf(self):
-        self.logger.info(f"{self.title}: Calculating Delta-PDF")
-        if os.path.exists(self.pdf_file):
+        self.log(f"{self.title}: Calculating Delta-PDF")
+        if self.pdf_file.exists():
             if self.overwrite:
-                os.remove(self.pdf_file)
+                self.pdf_file.unlink()
             else:
-                self.logger.info(
+                self.log(
                     f"{self.title}: Delta-PDF file already exists")
                 return
         tic = timeit.default_timer()
-        symm_data = self.entry[self.symm_data]['filled_data'].nxvalue
+        target = self.scan_entry or self.entry
+        symm_data = target[self.symm_data]['filled_data'].nxvalue
         symm_data *= self.taper
         fft = np.real(scipy.fft.fftshift(
             scipy.fft.fftn(scipy.fft.fftshift(symm_data[:-1, :-1, :-1]),
@@ -2363,48 +3263,48 @@ class NXMultiReduce(NXReduce):
         root['entry'] = NXentry()
         root['entry/pdf'] = NXdata(NXfield(fft, name='pdf'))
 
-        if self.pdf_data in self.entry:
-            with self:
-                del self.entry[self.pdf_data]
-        pdf = NXlink('/entry/pdf/pdf', file=self.pdf_file, name='pdf')
-
-        dl, dk, dh = [(ax[1]-ax[0]).nxvalue
-                      for ax in self.entry[self.symm_data].nxaxes]
-        x = NXfield(scipy.fft.fftshift(scipy.fft.fftfreq(
-            fft.shape[2], dh)), name='x', scaling_factor=self.refine.a)
-        y = NXfield(scipy.fft.fftshift(scipy.fft.fftfreq(
-            fft.shape[1], dk)), name='y', scaling_factor=self.refine.b)
-        z = NXfield(scipy.fft.fftshift(scipy.fft.fftfreq(
-            fft.shape[0], dl)), name='z', scaling_factor=self.refine.c)
         with self:
-            self.entry[self.pdf_data] = NXdata(pdf, (z, y, x))
-            self.entry[self.pdf_data].attrs['angles'] = (
+            write_target = self._get_reduce_target()
+            if self.pdf_data in write_target:
+                del write_target[self.pdf_data]
+            pdf = NXlink('/entry/pdf/pdf', file=self.pdf_file, name='pdf')
+
+            dl, dk, dh = [(ax[1]-ax[0]).nxvalue
+                          for ax in write_target[self.symm_data].nxaxes]
+            x = NXfield(scipy.fft.fftshift(scipy.fft.fftfreq(
+                fft.shape[2], dh)), name='x', scaling_factor=self.refine.a)
+            y = NXfield(scipy.fft.fftshift(scipy.fft.fftfreq(
+                fft.shape[1], dk)), name='y', scaling_factor=self.refine.b)
+            z = NXfield(scipy.fft.fftshift(scipy.fft.fftfreq(
+                fft.shape[0], dl)), name='z', scaling_factor=self.refine.c)
+            write_target[self.pdf_data] = NXdata(pdf, (z, y, x))
+            write_target[self.pdf_data].attrs['angles'] = (
                 self.refine.lattice_parameters[3:])
-            self.add_title(self.entry[self.pdf_data])
-        self.logger.info(f"'{self.pdf_data}' added to entry")
+            self.add_title(write_target[self.pdf_data])
+        self.consolidate((self.scan_entry or self.entry)[self.pdf_data])
+
+        self.log(f"'{self.pdf_data}' added to entry")
         toc = timeit.default_timer()
-        self.logger.info(f"{self.title}: Delta-PDF calculated "
+        self.log(f"{self.title}: Delta-PDF calculated "
                          f"({toc - tic:g} seconds)")
 
     def nxsum(self, scan_list):
-        if not os.path.exists(self.wrapper_file) or self.overwrite:
+        if not self.wrapper_file.exists() or self.overwrite:
             for e in self.entries:
                 reduce = NXReduce(self.root[e])
                 status = reduce.check_sum_files(scan_list)
                 if not status:
                     return status
-            if not os.path.exists(self.directory):
-                os.mkdir(self.directory)
-            self.logger.info("Creating sum file")
+            self.directory.mkdir(exist_ok=True)
+            self.log("Creating sum file")
             self.configure_sum_file(scan_list)
-            self.logger.info("Sum file created")
+            self.log("Sum file created")
         else:
-            self.logger.info("Sum file already exists")
+            self.log("Sum file already exists")
 
     def configure_sum_file(self, scan_list):
-        shutil.copyfile(os.path.join(self.base_directory,
-                                     self.sample+'_'+scan_list[0]+'.nxs'),
-                        self.wrapper_file)
+        shutil.copyfile(str(self.base_directory.joinpath(
+            self.sample+'_'+scan_list[0]+'.nxs'), self.wrapper_file))
         with self:
             if 'nxcombine' in self.root['entry']:
                 del self.root['entry/nxcombine']
@@ -2417,10 +3317,10 @@ class NXMultiReduce(NXReduce):
                         del entry['data/data']
                     entry['data/data'] = NXlink(
                         '/entry/data/data',
-                        os.path.join(self.directory, entry.nxname+'.h5'))
+                        self.directory / (entry.nxname + '.h5'))
                     if 'data_mask' in entry['data']:
-                        mask_file = os.path.join(self.directory,
-                                                 entry.nxname+'_mask.nxs')
+                        mask_file = self.directory.joinpath(
+                            f'{entry.nxname}_mask.h5')
                         del entry['data/data_mask']
                         entry['data/data_mask'] = NXlink('/entry/mask',
                                                          mask_file)
@@ -2438,13 +3338,26 @@ class NXMultiReduce(NXReduce):
                 self.nxcombine(mask=True)
         if self.pdf:
             if self.regular:
-                self.nxpdf()
+                if self.complete('nxcombine'):
+                    self.nxpdf()
+                else:
+                    self.log("Skipping nxpdf: nxcombine has not completed")
             if self.mask:
-                self.nxpdf(mask=True)
+                if self.complete('nxmasked_combine'):
+                    self.nxpdf(mask=True)
+                else:
+                    self.log(
+                        "Skipping nxmasked_pdf: nxmasked_combine has not "
+                        "completed")
 
     def queue(self, command, args=None):
         """ Add tasks to the server's fifo, and log this in the database """
+        task = self.build_command(command, args=args)
+        if task:
+            self.server.add_task(task)
 
+    def queue_db_rows(self):
+        """Insert DB rows for the combined tasks; return the task list."""
         tasks = []
         if self.combine:
             tasks.append('combine')
@@ -2458,9 +3371,19 @@ class NXMultiReduce(NXReduce):
                 self.queue_task('nxpdf')
             if self.mask:
                 self.queue_task('nxmasked_pdf')
+        return tasks
 
+    def build_command(self, command, tasks=None, args=None, entries=None):
+        """Return the command for this scan's combine and PDF tasks.
+
+        Unlike the per-entry command, this takes no ``--entries``, since
+        the tasks operate on the scan as a whole. Returns None if no
+        tasks are selected.
+        """
+        if tasks is None:
+            tasks = self.queue_db_rows()
         if not tasks:
-            return
+            return None
 
         if self.regular:
             tasks.append('regular')
@@ -2477,9 +3400,9 @@ class NXMultiReduce(NXReduce):
 
         if args:
             if 'directory' in args:
-                args.directory = os.path.realpath(args.directory)
-            self.server.add_task(f"{command} {switches(args)}")
-        else:
-            self.server.add_task(
-                f"{command} --directory {self.directory} "
+                args.directory = str(Path(args.directory).resolve())
+            return f"{command} {switches(args)}"
+        subentry_arg = (f" --subentry {self.subentry_name}"
+                        if self.subentry_name else "")
+        return (f"{command} --directory {self.directory}{subentry_arg} "
                 f"--{' --'.join(tasks)}")

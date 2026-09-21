@@ -1,21 +1,23 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2015-2022, AXMAS Development Team.
+# Copyright (c) 2014-2025, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
 import numpy as np
-from nexpy.gui.datadialogs import GridParameters, NXDialog
+from nexpy.gui.dialogs import GridParameters, NXDialog
 from nexpy.gui.plotview import NXPlotView
 from nexpy.gui.pyqt import QtCore
-from nexpy.gui.utils import (confirm_action, display_message, is_file_locked,
-                             report_error)
+from nexpy.gui.utils import display_message, is_file_locked, report_error
 from nexpy.gui.widgets import NXCheckBox, NXLabel
-from nexusformat.nexus import (NeXusError, NXdata, NXfield, NXinstrument,
-                               NXsample)
+from nexusformat.nexus import NeXusError, NXdata, NXfield
+
 from nxrefine.nxreduce import NXReduce
+from nxrefine.nxutils import detector_flipped
+
+from ._dialog_helpers import add_parent_subentries, hide_combined_entry
 
 
 def show_dialog():
@@ -32,72 +34,74 @@ class MaximumDialog(NXDialog):
         super().__init__(parent)
 
         self.select_entry(self.choose_entry)
-
+        self.output = NXLabel('Maximum Value:')
+        self.parameters = GridParameters()
+        self.parameters.add('first', '', 'First Frame')
+        self.parameters.add('last', '', 'Last Frame')
+        self.parameters.add('qmin', '', 'Minimum Scattering Q (Ang-1)')
+        self.parameters.add('qmax', '', 'Maximum Scattering Q (Ang-1)')
+        self.checkbox['over'] = NXCheckBox('Over?')
+        self.maximum_layout = self.make_layout(
+            self.action_buttons(('Find Maximum', self.find_maximum)),
+            self.output)
+        self.plot_layout = self.make_layout(
+            self.action_buttons(
+                ('Plot Summed Frames', self.plot_summed_frames),
+                ('Plot Partial Frames', self.plot_partial_frames),
+                ('Plot Transmission', self.plot_transmission)),
+            self.checkbox['over'])
+        self.transmission_layout = self.make_layout(
+            self.action_buttons(
+                ('Plot Summed Data', self.plot_summed_data),
+                ('Plot Transmission Mask', self.plot_transmission_mask),
+                ))
         self.set_layout(self.entry_layout, self.progress_layout(save=True))
         self.progress_bar.setVisible(False)
         self.progress_bar.setValue(0)
         self.set_title('Find Maximum Value')
         self.reduce = None
+        self.label = ''
         self.summed_data = None
         self.summed_frames = None
         self.partial_frames = None
-        self._plotview = None
+
+    def switch_root(self):
+        super().switch_root()
+        add_parent_subentries(self)
+        hide_combined_entry(self)
 
     def choose_entry(self):
-        self.reduce = NXReduce(self.entry)
-        if self.layout.count() == 2:
-            self.output = NXLabel('Maximum Value:')
-            self.parameters = GridParameters()
-            self.parameters.add('first', '', 'First Frame')
-            self.parameters.add('last', '', 'Last Frame')
-            self.parameters.add('qmin', '', 'Minimum Scattering Q (Ang-1)')
-            self.parameters.add('qmax', '', 'Maximum Scattering Q (Ang-1)')
-            self.parameters.add('fw', '5', 'Frame Window')
-            self.parameters.add('fs', '20', 'Filter Size')
-            self.insert_layout(1, self.parameters.grid())
-            self.insert_layout(
-                2, self.make_layout(self.action_buttons(('Find Maximum',
-                                                         self.find_maximum)),
-                                    self.output))
-            self.checkbox['over'] = NXCheckBox('Over?')
-            self.insert_layout(
-                3, self.make_layout(self.action_buttons(
-                    ('Plot Summed Data', self.plot_summed_data),
-                    ('Plot Summed Frames', self.plot_summed_frames),
-                    ('Plot Partial Frames', self.plot_partial_frames)),
-                                    self.checkbox['over']))
-            self.checkbox['transmission'] = NXCheckBox('Save Transmission')
-            self.insert_layout(
-                4, self.make_layout(self.action_buttons(
-                    ('Plot Transmission Mask', self.plot_transmission_mask),
-                    ('Plot Transmission', self.plot_transmission))))
-            self.checkbox['copy'] = NXCheckBox('Copy to other entries?')
-            self.insert_layout(
-                5, self.make_layout(self.action_buttons(
-                    ('Save Transmission', self.save_transmission)),
-                                    self.checkbox['copy'])
-            )
+        self.reduce = NXReduce(self.entry, subentry=self.subentry or None)
+        self.label = self.reduce.name
         self.maximum = self.reduce.maximum
+        if self.layout.count() == 2:
+            self.insert_layout(1, self.parameters.grid())
+            self.insert_layout(2, self.maximum_layout)
+            self.insert_layout(3, self.plot_layout)
+            self.insert_layout(4, self.transmission_layout)
         if self.reduce.first:
             self.parameters['first'].value = self.reduce.first
         if self.reduce.last:
             self.parameters['last'].value = self.reduce.last
-        if self.reduce.qmin:
-            self.parameters['qmin'].value = self.reduce.qmin
-        if self.reduce.qmax:
-            self.parameters['qmax'].value = self.reduce.qmax
-        if 'summed_frames' in self.entry:
-            self.summed_frames = self.entry['summed_frames'].nxsignal
-            if 'partial_frames' in self.entry['summed_frames']:
-                self.partial_frames = (
-                    self.entry['summed_frames/partial_frames'])
+        qmin_val = self.reduce.qmin
+        qmax_val = self.reduce.qmax
+        if qmin_val is not None:
+            self.parameters['qmin'].value = f"{float(qmin_val):.1f}"
+        if qmax_val is not None:
+            self.parameters['qmax'].value = f"{float(qmax_val):.1f}"
+        target = self.reduce.scan_entry or self.entry
+        sums = target['frame_sums'] if 'frame_sums' in target else target
+        if 'summed_frames' in sums:
+            self.summed_frames = sums['summed_frames'].nxsignal
+            if 'partial_frames' in sums['summed_frames']:
+                self.partial_frames = sums['summed_frames/partial_frames']
             else:
                 self.partial_frames = None
         else:
             self.summed_frames = None
             self.partial_frames = None
-        if 'summed_data' in self.entry:
-            self.summed_data = self.entry['summed_data'].nxsignal
+        if 'summed_data' in sums:
+            self.summed_data = sums['summed_data'].nxsignal
         else:
             self.summed_data = None
         self.monitor = self.reduce.read_monitor()
@@ -139,20 +143,6 @@ class MaximumDialog(NXDialog):
             return None
 
     @property
-    def frame_window(self):
-        try:
-            return int(self.parameters['fw'].value)
-        except Exception:
-            return None
-
-    @property
-    def filter_size(self):
-        try:
-            return int(self.parameters['fs'].value)
-        except Exception:
-            return None
-
-    @property
     def maximum(self):
         return float(self.output.text().split()[-1])
 
@@ -170,6 +160,7 @@ class MaximumDialog(NXDialog):
         self.start_thread()
         self.reduce = NXReduce(self.entry, first=self.first, last=self.last,
                                qmin=self.qmin, qmax=self.qmax,
+                               subentry=self.subentry or None,
                                maxcount=True, overwrite=True, gui=True)
         self.reduce.moveToThread(self.thread)
         self.reduce.start.connect(self.start_progress)
@@ -194,17 +185,14 @@ class MaximumDialog(NXDialog):
 
     @property
     def pv(self):
-        if self._plotview is None:
-            self._plotview = NXPlotView('Maximum')
-        return self._plotview
+        if 'Maximum' in self.plotviews:
+            return self.plotviews['Maximum']
+        else:
+            return NXPlotView('Maximum')
 
     @property
     def over(self):
         return self.checkbox['over'].isChecked()
-
-    @property
-    def copy(self):
-        return self.checkbox['copy'].isChecked()
 
     def plot_summed_data(self):
         if self.summed_data:
@@ -213,94 +201,82 @@ class MaximumDialog(NXDialog):
                                          name='y'),
                                  NXfield(np.arange(self.reduce.shape[2]),
                                          name='x')),
-                                title='Summed Data'), log=True)
+                                title=f'Summed Data: {self.label}'),
+                         log=True)
             self.pv.aspect = 'equal'
-            self.pv.ytab.flipped = True
+            self.pv.ytab.flipped = detector_flipped(self.entry)
         else:
             display_message('Summed_data not available')
 
     def plot_summed_frames(self):
         if self.summed_frames:
-            if self.over:
-                NXdata(self.summed_frames / self.monitor).oplot(markersize=2)
-            else:
-                self.pv.plot(NXdata(self.summed_frames / self.monitor,
-                                    NXfield(np.arange(self.reduce.nframes),
-                                            name='nframes',
-                                            long_title='Frame No.'),
-                                    title='Summed Frames'),
-                             markersize=2)
+            self.pv.plot(NXdata(self.summed_frames / self.monitor,
+                                NXfield(np.arange(self.reduce.nframes),
+                                        name='nframes',
+                                        long_title='Frame No.'),
+                                title=f'Summed Frames: {self.label}'),
+                                markersize=2, over=self.over)
         else:
             display_message('Summed Frames not available')
 
     def plot_partial_frames(self):
         if self.partial_frames:
-            if self.over:
-                NXdata(self.partial_frames / self.monitor).oplot(markersize=2)
-            else:
-                self.pv.plot(NXdata(self.partial_frames / self.monitor,
-                                    NXfield(np.arange(self.reduce.nframes),
-                                            name='nframes',
-                                            long_title='Frame No.'),
-                                    title='Partial Frames'),
-                             markersize=2)
+            self.pv.plot(NXdata(self.partial_frames / self.monitor,
+                                NXfield(np.arange(self.reduce.nframes),
+                                        name='nframes',
+                                        long_title='Frame No.'),
+                                title=f'Partial Frames: {self.label}'),
+                                markersize=2, over=self.over)
         else:
             display_message('Partial Frames not available')
 
     def plot_transmission_mask(self):
-        self.reduce.qmin = self.qmin
-        self.reduce.qmax = self.qmax
+        refine = self.reduce.refine
+        entries = [e for e in (refine.scan_entry, refine.entry)
+                   if e is not None]
+        for path in ('instrument/detector/beam_center_x',
+                     'instrument/detector/beam_center_y'):
+            if not any(path in e for e in entries):
+                display_message(
+                    'Beam center not available for this entry; '
+                    'select an entry with detector geometry.')
+                return
+        try:
+            qmin_val = (float(self.qmin)
+                        if self.qmin not in (None, '') else None)
+            qmax_val = (float(self.qmax)
+                        if self.qmax not in (None, '') else None)
+        except (TypeError, ValueError):
+            qmin_val = qmax_val = None
+        if qmin_val is None or qmax_val is None:
+            display_message(
+                'qmin and qmax must be set to plot the transmission mask.')
+            return
+        self.reduce.qmin = qmin_val
+        self.reduce.qmax = qmax_val
         self.pv.plot(NXdata(self.reduce.transmission_coordinates(),
                             (NXfield(np.arange(self.reduce.shape[1]),
                                      name='y'),
                              NXfield(np.arange(self.reduce.shape[2]),
                                      name='x')),
-                            title='Transmission Mask'))
+                            title=f'Transmission Mask: {self.label}'))
         self.pv.aspect = 'equal'
-        self.pv.ytab.flipped = True
+        self.pv.ytab.flipped = detector_flipped(self.entry)
 
     def calculate_transmission(self):
         self.reduce.partial_frames = self.partial_frames
-        return self.reduce.calculate_transmission(
-            frame_window=self.frame_window, filter_size=self.filter_size)
+        return self.reduce.calculate_transmission()
 
     def plot_transmission(self):
         if self.partial_frames:
             self.reduce.qmin = self.qmin
             self.reduce.qmax = self.qmax
             transmission = self.calculate_transmission()
-            if 'maximum' in transmission.nxsignal.attrs:
-                transmission *= transmission.nxsignal.attrs['maximum']
-            if self.over:
-                transmission.oplot(markersize=2)
-            else:
-                self.pv.plot(transmission, markersize=2)
+            if 'median' in transmission.nxsignal.attrs:
+                transmission *= transmission.nxsignal.attrs['median']
+            self.pv.plot(transmission, markersize=2, over=self.over)
         else:
             display_message('Partial frames not available')
-
-    def save_transmission(self):
-        if self.partial_frames:
-            transmission = self.calculate_transmission()
-            if 'instrument' not in self.entry:
-                self.entry['instrument'] = NXinstrument()
-            if 'sample' not in self.entry['instrument']:
-                self.entry['instrument/sample'] = NXsample()
-            if 'transmission' in self.entry['instrument/sample']:
-                if confirm_action(f"Overwrite transmission?"):
-                    del self.entry['instrument/sample/transmission']
-                else:
-                    return
-            self.entry['instrument/sample/transmission'] = transmission
-            if self.copy:
-                for entry in [self.root[e] for e in self.root if
-                              e != self.entry.nxname and e[-1].isdigit()]:
-                    if 'instrument' not in entry:
-                        entry['instrument'] = NXinstrument()
-                    if 'sample' not in entry['instrument']:
-                        entry['instrument/sample'] = NXsample()
-                    if 'transmission' in entry['instrument/sample']:
-                        del entry['instrument/sample/transmission']
-                    entry['instrument/sample/transmission'] = transmission
 
     def accept(self):
         try:

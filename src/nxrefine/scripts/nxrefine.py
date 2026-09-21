@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -----------------------------------------------------------------------------
-# Copyright (c) 2013-2021, NeXpy Development Team.
+# Copyright (c) 2018-2024, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
 import argparse
@@ -26,6 +26,8 @@ def main():
                         help='maximum polar angle in degrees')
     parser.add_argument('-T', '--hkl_tolerance', type=float,
                         help='tolerance for including peak in Å-1')
+    parser.add_argument('-s', '--subentry', default='',
+                        help='subentry to be processed')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing maximum')
     parser.add_argument('-q', '--queue', action='store_true',
@@ -36,14 +38,14 @@ def main():
     if args.entries:
         entries = args.entries
     else:
-        entries = NXMultiReduce(args.directory).entries
+        entries = NXMultiReduce(directory=args.directory).entries
 
     for i, entry in enumerate(entries):
         if i == 0:
             lattice = args.lattice
         else:
             lattice = False
-        reduce = NXReduce(entry, args.directory, refine=True,
+        reduce = NXReduce(entry, args.subentry, args.directory, refine=True,
                           lattice=lattice, overwrite=args.overwrite)
         if args.polar_max:
             reduce.polar_max = args.polar_max

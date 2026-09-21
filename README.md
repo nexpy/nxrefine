@@ -55,7 +55,7 @@ Python Packages
 The following packages are listed as dependencies.
 
 * [nexpy](https://github.com/nexpy/nexpy/)
-* [cctbx-base](https://cci.lbl.gov/cctbx_docs/)
+* [gemmi](https://project-gemmi.github.io/)
 * [pyfai](https://pyfai.readthedocs.io/)
 * [sqlalchemy](https://docs.sqlalchemy.org/)
 * [psutil](https://psutil.readthedocs.io/)
