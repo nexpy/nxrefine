@@ -21,14 +21,10 @@ def main():
                         help='Start the server in this directory')
     parser.add_argument('-t', '--type',
                         help='Server type: multicore|multinode|direct')
-    parser.add_argument('-n', '--nodes', default=[], nargs='+',
-                        help='Add nodes')
     parser.add_argument('-c', '--cores', help='Number of cores')
-    parser.add_argument('-r', '--remove', default=[], nargs='+',
-                        help='Remove nodes')
     parser.add_argument(
         'command', action='store', nargs='?',
-        help='valid commands are: status|start|stop|list|clear|kill')
+        help='valid commands are: status|start|stop|clear|kill')
 
     args = parser.parse_args()
 
@@ -41,18 +37,13 @@ def main():
     else:
         server = NXServer()
 
-    if server.server_type == 'multinode':
-        server.write_nodes(args.nodes)
-        server.remove_nodes(args.remove)
-    elif args.cores:
+    if args.cores:
         server.set_cores(args.cores)
 
     if args.command == 'status' or args.command is None:
         print(server.status())
     elif args.command == 'start':
         server.start()
-    elif args.command == 'list':
-        print(','.join(server.read_nodes()))
     elif args.command == 'stop':
         server.stop()
     elif args.command == 'restart':

@@ -45,10 +45,9 @@ class ServerDialog(NXDialog):
                                ('Server Log', self.show_log),
                                ('Server Queue', self.show_queue),
                                ('Server Processes', self.show_processes),
-                               ('Server Locks', self.show_locks),
-                               ('Server Nodes', self.show_nodes))
+                               ('Server Locks', self.show_locks))
             for button in ['Server Log', 'Server Queue', 'Server Processes',
-                           'Server Locks', 'Server Nodes']:
+                           'Server Locks']:
                 self.pushbutton[button].setCheckable(True)
             if self.server.is_running():
                 self.pushbutton['server'].setText('Stop Server')
@@ -66,8 +65,7 @@ class ServerDialog(NXDialog):
         self.log_combo = self.select_box(['nxserver'], slot=self.show_log)
         update_actions = self.action_buttons(
                              ('Clear Queue', self.clear_queue),
-                             ('Clear Locks', self.clear_locks),
-                             ('Update Nodes', self.update_nodes))
+                             ('Clear Locks', self.clear_locks))
         close_layout = self.make_layout(self.log_combo, 'stretch',
                                         update_actions, 'stretch',
                                         self.close_buttons(close=True),
@@ -77,9 +75,6 @@ class ServerDialog(NXDialog):
                             close_layout)
         else:
             self.set_layout(text_actions, self.text_box, close_layout)
-        if self.server_type == 'multicore':
-            self.pushbutton['Server Nodes'].setVisible(False)
-            self.pushbutton['Update Nodes'].setVisible(False)
         self.lockdirectory = nxgetconfig('lockdirectory')
         if self.lockdirectory and Path(self.lockdirectory).exists():
             self.lockdirectory = Path(self.lockdirectory).resolve()
@@ -122,13 +117,11 @@ class ServerDialog(NXDialog):
             self.show_processes()
         elif self.pushbutton['Server Locks'].isChecked():
             self.show_locks()
-        elif self.server_type and self.pushbutton['Server Nodes'].isChecked():
-            self.show_nodes()
 
     def reset_buttons(self):
         if self.server_type:
             for button in ['Server Log', 'Server Queue', 'Server Processes',
-                           'Server Nodes', 'Server Locks']:
+                           'Server Locks']:
                 self.pushbutton[button].setChecked(False)
         else:
             for button in ['Server Log', 'Server Processes', 'Server Locks']:
@@ -136,7 +129,6 @@ class ServerDialog(NXDialog):
         self.log_combo.setEnabled(False)
         self.pushbutton['Clear Queue'].setEnabled(False)
         self.pushbutton['Clear Locks'].setEnabled(False)
-        self.pushbutton['Update Nodes'].setEnabled(False)
         self.text_box.setReadOnly(True)
 
     def update_logs(self):
@@ -254,23 +246,6 @@ class ServerDialog(NXDialog):
                 del self.checkbox[f]
         self.locks_dialog.close()
         self.show_locks()
-
-    def show_nodes(self):
-        self.reset_buttons()
-        self.text_box.setReadOnly(False)
-        self.pushbutton['Server Nodes'].setChecked(True)
-        self.pushbutton['Update Nodes'].setEnabled(True)
-        text = '\n'.join(self.server.read_nodes())
-        if text != self.current_text:
-            self.text_box.setPlainText(text)
-            self.current_text = text
-
-    def update_nodes(self):
-        if self.pushbutton['Server Nodes'].isChecked():
-            nodes = self.text_box.document().toPlainText().split('\n')
-            self.server.write_nodes(nodes)
-            self.server.remove_nodes([node for node in self.server.read_nodes()
-                                      if node not in nodes])
 
     def clear_queue(self):
         if confirm_action('Clear server queue?'):

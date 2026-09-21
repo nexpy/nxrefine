@@ -133,7 +133,7 @@ class NXSettings(ConfigParser):
             update_section('server')
             update_section('parsl')
         else:
-            for section in ['server', 'parsl', 'nodes', 'setup']:
+            for section in ['server', 'parsl', 'setup']:
                 if section in self.sections():
                     self.remove_section(section)
         update_section('instrument')
