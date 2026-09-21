@@ -336,7 +336,7 @@ with values copied from the equivalent file in the server directory,
 excluding the "Server" section. This allows the refinement parameters to
 be customized for each experiment.
 
-New configuration
+New Configuration
 -----------------
 This dialog creates NeXus files that are used as templates for the
 experimental files that are used to store all the data and metadata
@@ -539,12 +539,52 @@ The NeXus file is left open in the NeXpy tree. Multiple files can be
 created within the dialog, with different scan labels and, typically,
 different temperatures, before the dialog is closed.
 
+By default, the "Create Parent" checkbox is selected. This also creates
+a **parent scans file**, named ``<prefix>_scans.nxs`` (the "Prefix"
+field defaults to the sample name), in the same directory. The parent
+scans file is the registry used by the rest of the workflow: it stores
+the reduction parameters and transform grid shared by every scan of the
+sample, and lists the scans that belong to it, including the one just
+created. See :doc:`parent_scans` for the underlying data model. Once a
+parent scans file exists, further scans of the same sample should be
+added to it using :ref:`Add Scan`. De-select "Create Parent" instead
+when a scan does not need a parent — for example, a one-off measurement
+that will not share its reduction parameters and orientation with any
+other scan.
+
 External links to the raw data file are created in the NeXus file, even
 if the data does not yet exist. In the example above, the external link
 for the first detector position will be to ``f1.h5``, in the ``<scan>``
 subdirectory. Similarly, the external link for the second detector
 position would be to ``<scan>/f2.h5``, *etc*. This experimental layout
 is described in more detail in the `Experiment Layout`_ section above.
+
+Add Scan
+--------
+Once a sample has a parent scans file, this dialog adds another scan to
+it without repeating the configuration and parameter setup performed by
+:ref:`New Scan`. Selecting the ``<prefix>_scans.nxs`` parent file
+exposes a single value field, labelled with the scan variable recorded
+in the parent (*e.g.*, "Temperature"), and a proposed scan directory
+derived from that value. Clicking "Make Scan File" clones the parent's
+geometry and settings into a new ``<sample>_<scan>.nxs`` file for that
+value and registers it with the parent, exactly as the initial scan is
+registered by :ref:`New Scan`.
+
+.. figure:: /images/add-scan.png
+   :align: center
+   :width: 80%
+
+New Macro
+---------
+This dialog generates a beamline scan macro that steps through a
+sequence of already-created scans, for beamlines whose control software
+supports it. After choosing a parent scans file and the sample
+directory, all the scan files found there are listed with checkboxes;
+"Select All", "Reverse All", and "Clear All" adjust the run order, and
+"Make Scan Macro" writes the corresponding scan commands, in that order,
+to a macro file (*e.g.*, a SPEC ``.mac`` file) that can be run at the
+beamline.
 
 Import Scans
 ------------
