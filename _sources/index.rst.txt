@@ -44,7 +44,7 @@ temperature, are complete.
    introduction
    installation
    experiment
-   sample
+   refine
    reduction
    parent_scans
    server

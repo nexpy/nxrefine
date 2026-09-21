@@ -52,32 +52,37 @@ locally using multiple cores or distributed to other nodes. The
 queue manager if one is available.</p>
 <div class="section" id="server-directory">
 <h2>Server Directory<a class="headerlink" href="#server-directory" title="Permalink to this headline">¶</a></h2>
-<p>Here is the structure of the <code class="docutils literal notranslate"><span class="pre">nxserver</span></code> directory:</p>
+<p>Every task in the <em>NXRefine</em> workflow is dispatched by <a class="reference external" href="https://parsl-project.org/">Parsl</a>, a Python library for running commands
+locally or submitting them to an HPC batch scheduler, so that the same
+queue manager code works whether jobs run on the local machine or are
+distributed across a cluster. How Parsl is configured for a particular
+server, and how to adapt it to different job schedulers, is described in
+<a class="reference internal" href="#parsl-configuration"><span class="std std-ref">Parsl Configuration</span></a> below. Here is the structure of the
+<code class="docutils literal notranslate"><span class="pre">nxserver</span></code> directory:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>nxserver
 ├── nxserver.log
-├── cpu1.log
-├── cpu2.log
-├── cpu3.log
+├── nxserver.pid
 ├── settings.ini
-├── nxsetup.sh
-├── nxcommand.sh
 └── task_list
     ├── info
     └── q00000
 └── locks
     ├── ...
     └── ...
+└── parsl
+    ├── task_logs
+    │   └── ...
+    └── monitoring.db
 </pre></div>
 </div>
 <p><strong>nxserver.log</strong></p>
 <blockquote>
 <div><p>This is a log file that records jobs submitted to the server queue.</p>
 </div></blockquote>
-<p><strong>cpu1.log</strong>, <strong>cpu2.log</strong>, …</p>
+<p><strong>nxserver.pid</strong></p>
 <blockquote>
-<div><p>These are log files that contain the output of jobs running on the
-server. The number depends on the number of simultaneous jobs that
-are allowed on the server, which is defined by the settings file.</p>
+<div><p>A file containing the process ID of the running server daemon, used
+to detect whether the server is already running and to stop it.</p>
 </div></blockquote>
 <p><strong>settings.ini</strong></p>
 <blockquote>
@@ -86,34 +91,8 @@ including server parameters, instrumental parameters, and parameters
 used in the data reduction workflow. When a new experiment is set up,
 a copy of these parameters is stored in the experiment directory (to
 be described later), so that they can be customized if necessary.
-These settings are described below.</p>
-</div></blockquote>
-<p><strong>nxsetup.sh</strong></p>
-<blockquote>
-<div><p>A shell script that could be used to initialize paths to the server
-directory or environment variables used by <em>NeXpy</em>. This could be run
-within a user’s <code class="docutils literal notranslate"><span class="pre">~/.bashrc</span></code> file, or by other shell scripts used to
-launch <em>NXRefine</em> workflow jobs (see below). Here is an example of
-what this file could contain.:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">export</span> <span class="n">NX_LOCKDIRECTORY</span><span class="o">=/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">parent</span><span class="o">/</span><span class="n">nxserver</span><span class="o">/</span><span class="n">locks</span>
-<span class="n">export</span> <span class="n">NX_LOCK</span><span class="o">=</span><span class="mi">10</span>
-<span class="n">export</span> <span class="n">NX_SERVER</span><span class="o">=/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">parent</span><span class="o">/</span><span class="n">nxserver</span>
-</pre></div>
-</div>
-<p>Other commands, <em>e.g.</em>, to initialize a particular conda environment,
-could be also be added to this file.</p>
-</div></blockquote>
-<p><strong>nxcommand.sh</strong></p>
-<blockquote>
-<div><p>A shell script that is used if jobs need to be wrapped before
-submission to the job queue, <em>e.g.</em>, using <code class="docutils literal notranslate"><span class="pre">qsub</span></code>. Here is an
-example, in which <code class="docutils literal notranslate"><span class="pre">nxsetup.sh</span></code> is run in order to initialize
-<em>NXRefine</em>.:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>echo `date` &quot;USER ${USER} JOB_ID ${JOB_ID}&quot;
-source /path/to/parent/nxserver/nxsetup.sh
-&lt;NXSERVER&gt;
-</pre></div>
-</div>
+These settings are described below, including the <code class="docutils literal notranslate"><span class="pre">[parsl]</span></code> section
+that configures how jobs are dispatched.</p>
 </div></blockquote>
 <p><strong>task_list</strong></p>
 <blockquote>
@@ -127,6 +106,37 @@ queuing system for server jobs.</p>
 Locked files can be viewed, and removed if they are stale, using the
 “Show File Locks” dialog in the <em>NeXpy</em> “File” menu.</p>
 </div></blockquote>
+<p><strong>parsl</strong></p>
+<blockquote>
+<div><p>A directory used by Parsl itself, containing one output file pair per
+dispatched task rather than the fixed set of per-core log files used
+in earlier versions of <em>NXRefine</em>:</p>
+<dl class="simple">
+<dt><strong>parsl/task_logs</strong></dt><dd><p>The standard output and error of every dispatched task, as a
+<code class="docutils literal notranslate"><span class="pre">.out</span></code>/<code class="docutils literal notranslate"><span class="pre">.err</span></code> pair named after the scan and command it ran, so
+that each task’s log files can be identified whatever server type
+is in use.</p>
+</dd>
+<dt><strong>parsl/monitoring.db</strong></dt><dd><p>A SQLite database maintained by Parsl’s monitoring system, recording
+which executor ran each task and when. It is used to annotate the
+task listing in the “Manage Server” dialog, and is absent when
+monitoring is disabled, as it always is for the <code class="docutils literal notranslate"><span class="pre">direct</span></code> server
+type.</p>
+</dd>
+</dl>
+<p>Parsl’s own run-time bookkeeping (its <code class="docutils literal notranslate"><span class="pre">run_dir</span></code>) is also kept in
+this directory alongside <code class="docutils literal notranslate"><span class="pre">task_logs</span></code> and <code class="docutils literal notranslate"><span class="pre">monitoring.db</span></code>.</p>
+</div></blockquote>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>On a <code class="docutils literal notranslate"><span class="pre">multinode</span></code> server, an optional shell script,
+<code class="docutils literal notranslate"><span class="pre">nxqstat.sh</span></code>, may be placed in the server directory to list
+jobs on the underlying scheduler, <em>e.g.</em>, <code class="docutils literal notranslate"><span class="pre">qstat</span> <span class="pre">-u</span>
+<span class="pre">$USER</span></code>. If present, it is run by the “Server Processes”
+button in the “Manage Server” and “Manage Workflows” dialogs;
+if absent, those dialogs report that the script needs to be
+created.</p>
+</div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>The log files can be viewed using the “Manage Server” dialog
@@ -156,23 +166,31 @@ be described later.</p>
 <h2>Server Settings<a class="headerlink" href="#server-settings" title="Permalink to this headline">¶</a></h2>
 <p>The server settings are used by the workflow server, which is described
 in a later section. They define the server configuration, such as the
-number of simultaneous jobs that may be run, the command required to
-add them to the system’s standard job queues, and whether they need to
-be wrapped in a shell script.</p>
+number of simultaneous jobs that may be run and whether parallelized
+processes are used within the workflow. How jobs are actually dispatched
+to a scheduler, if one is used, is configured separately, in the
+<code class="docutils literal notranslate"><span class="pre">[parsl]</span></code> section described in <a class="reference internal" href="#parsl-configuration"><span class="std std-ref">Parsl Configuration</span></a>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">type</dt>
-<dd class="field-odd"><p>The server type can either be <code class="docutils literal notranslate"><span class="pre">multicore</span></code> or <code class="docutils literal notranslate"><span class="pre">multinode</span></code>. The
-only difference is that multinode servers have a list of defined
-nodes, to which jobs may be submitted, so their names will also
-be stored in the settings file. If jobs are submitted to a job
-server, without needing to specify the node, or if all the jobs
-are performed on the local machine, then the server type should
-be <code class="docutils literal notranslate"><span class="pre">multicore</span></code>.</p>
+<dd class="field-odd"><p>The server type can be <code class="docutils literal notranslate"><span class="pre">direct</span></code>, <code class="docutils literal notranslate"><span class="pre">multicore</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">multinode</span></code>. In <code class="docutils literal notranslate"><span class="pre">direct</span></code> mode, a task runs immediately in
+whatever process submits it, normally one of the command-line
+scripts (<code class="docutils literal notranslate"><span class="pre">nxfind</span></code>, <code class="docutils literal notranslate"><span class="pre">nxtransform</span></code>, <code class="docutils literal notranslate"><span class="pre">nxreduce</span></code>, etc.). This
+is useful for testing or for a single interactive job, but means
+that process blocks until the task finishes. In <code class="docutils literal notranslate"><span class="pre">multicore</span></code> and
+<code class="docutils literal notranslate"><span class="pre">multinode</span></code> modes, tasks are written to a file queue and
+dispatched by a server daemon, which allows a task to be queued
+even while the server is not running. The only difference between
+the two is that <code class="docutils literal notranslate"><span class="pre">multinode</span></code> jobs are submitted to a batch
+scheduler by Parsl, rather than run on the local machine; the
+scheduler itself allocates whichever nodes a job runs on.</p>
 </dd>
 <dt class="field-even">cores</dt>
 <dd class="field-even"><p>This sets the number of jobs that can be run simultaneously by
 the server. Once reaching the limit, new jobs will only start as
-old ones are finished.</p>
+old ones are finished. It is not used when the server type is
+<code class="docutils literal notranslate"><span class="pre">multinode</span></code>, where the number of concurrent jobs is instead
+governed by the <code class="docutils literal notranslate"><span class="pre">[parsl]</span></code> settings described below.</p>
 </dd>
 <dt class="field-odd">concurrent</dt>
 <dd class="field-odd"><p>This determines whether parallelized processes should be
@@ -183,23 +201,209 @@ simultaneously, <em>e.g.</em>, in peaks searches, not whether
 multiple jobs can be submitted to the server. Valid values
 are <code class="docutils literal notranslate"><span class="pre">True</span></code> or <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
 </dd>
-<dt class="field-even">run_command</dt>
-<dd class="field-even"><p>This is a string that is prepended to any jobs that are
-submitted to the server. It can contain a set of switches
-in addition to the job submission command itself.</p>
-</dd>
-<dt class="field-odd">template</dt>
-<dd class="field-odd"><p>In some systems, it is necessary to wrap the command that is
-submitted to the server in a shell script. This is the name
-of the script, which should be stored in the <code class="docutils literal notranslate"><span class="pre">nxserver</span></code>
-directory. It should contain the string <code class="docutils literal notranslate"><span class="pre">&lt;NXSERVER&gt;</span></code>,
-which is replaced by the job command.</p>
-</dd>
 <dt class="field-even">cctw</dt>
 <dd class="field-even"><p>This is the path to the CCTW executable used to transform data
 from instrumental coordinates to reciprocal space.</p>
 </dd>
 </dl>
+</div>
+<div class="section" id="parsl-configuration">
+<h2>Parsl Configuration<a class="headerlink" href="#parsl-configuration" title="Permalink to this headline">¶</a></h2>
+<p><em>NXRefine</em> dispatches every workflow task — normally a single
+<code class="docutils literal notranslate"><span class="pre">nxreduce</span></code> invocation covering all the entries in a scan — through
+Parsl. Parsl is responsible for deciding where and how each task
+actually runs: in the current process, as a local subprocess, or as a
+job submitted to an HPC batch scheduler. This section describes how that
+configuration is built, the <code class="docutils literal notranslate"><span class="pre">[parsl]</span></code> settings common to every site,
+and how sites with different schedulers, including ones not yet
+supported, can be added.</p>
+<div class="section" id="how-tasks-are-dispatched">
+<h3>How Tasks Are Dispatched<a class="headerlink" href="#how-tasks-are-dispatched" title="Permalink to this headline">¶</a></h3>
+<p>For the <code class="docutils literal notranslate"><span class="pre">direct</span></code> and <code class="docutils literal notranslate"><span class="pre">multicore</span></code> server types, tasks are simply run
+on the local machine, using as many worker threads or processes as the
+<code class="docutils literal notranslate"><span class="pre">cores</span></code> setting allows. For the <code class="docutils literal notranslate"><span class="pre">multinode</span></code> server type, Parsl
+declares two labelled allocations, a small one and a large one, and each
+batch of tasks is routed to whichever is appropriate for its size: small
+batches, up to the <code class="docutils literal notranslate"><span class="pre">batch_threshold</span></code> setting, go to the small
+allocation, and larger ones go to the large allocation. This split
+exists because HPC schedulers often size their queues very differently
+— a handful of nodes with a short wait, versus a large allocation with a
+longer wait — and a single workflow may need to submit anywhere from one
+scan’s worth of tasks up to a batch covering an entire experiment.</p>
+<p>The built-in default configuration submits <code class="docutils literal notranslate"><span class="pre">multinode</span></code> jobs to a
+generic PBS Pro cluster. Sites running a different scheduler, or a PBS
+Pro cluster with its own queue policies, select their own configuration
+with the <code class="docutils literal notranslate"><span class="pre">config</span></code> setting, described next.</p>
+</div>
+<div class="section" id="parsl-settings">
+<h3>Parsl Settings<a class="headerlink" href="#parsl-settings" title="Permalink to this headline">¶</a></h3>
+<p>These settings are read from the <code class="docutils literal notranslate"><span class="pre">[parsl]</span></code> section of <code class="docutils literal notranslate"><span class="pre">settings.ini</span></code>.
+Only <code class="docutils literal notranslate"><span class="pre">config</span></code> and <code class="docutils literal notranslate"><span class="pre">account</span></code> are commonly needed for a <code class="docutils literal notranslate"><span class="pre">multinode</span></code>
+site; the rest have defaults suitable for a generic PBS Pro cluster and
+only need to be overridden to match local queue policies.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">[parsl]</span></code> section is not yet included in the “Edit
+Settings” dialog. For now, it should be edited directly in
+<code class="docutils literal notranslate"><span class="pre">settings.ini</span></code>, or interactively using <code class="docutils literal notranslate"><span class="pre">nxsettings</span> <span class="pre">-i</span></code> at
+the command line, which prompts for every setting in turn.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">config</dt>
+<dd class="field-odd"><p>Names the Python module, or file, that supplies the Parsl
+configuration. If unset, the built-in generic PBS Pro
+configuration is used. See <a class="reference internal" href="#generic-scheduler-support">Generic Scheduler Support</a> and
+<a class="reference internal" href="#site-customizations">Site Customizations</a> below.</p>
+</dd>
+<dt class="field-even">account</dt>
+<dd class="field-even"><p>The project or allocation that submitted jobs should be
+charged against, if the scheduler requires one.</p>
+</dd>
+<dt class="field-odd">walltime</dt>
+<dd class="field-odd"><p>The wall-clock time limit requested for a batch job, as
+<code class="docutils literal notranslate"><span class="pre">HH:MM:SS</span></code>.</p>
+</dd>
+<dt class="field-even">small_nodes, large_nodes</dt>
+<dd class="field-even"><p>The number of nodes requested for the small
+and large allocations, on schedulers that
+allocate whole nodes.</p>
+</dd>
+<dt class="field-odd">max_blocks</dt>
+<dd class="field-odd"><p>The maximum number of concurrent job submissions
+(<code class="docutils literal notranslate"><span class="pre">qsub</span></code> calls) allowed for the large allocation. This
+should be at least the largest batch size divided by
+<code class="docutils literal notranslate"><span class="pre">large_nodes</span></code>, or excess tasks will wait for a free
+allocation.</p>
+</dd>
+<dt class="field-even">batch_threshold</dt>
+<dd class="field-even"><p>The number of tasks in a batch at or below which it is
+routed to the small allocation, rather than the large
+one.</p>
+</dd>
+<dt class="field-odd">cpus_per_node</dt>
+<dd class="field-odd"><p>The number of CPU threads, or SGE slots, requested per
+node. A single <code class="docutils literal notranslate"><span class="pre">nxreduce</span></code> process already fills a
+node, so this should match the hardware, not the size
+of the workflow.</p>
+</dd>
+<dt class="field-even">filesystems</dt>
+<dd class="field-even"><p>A comma-separated list of filesystem names a PBS Pro job
+must declare it uses, on systems that require this.</p>
+</dd>
+<dt class="field-odd">pe</dt>
+<dd class="field-odd"><p>The name of the SGE parallel environment used to request multiple
+slots on a single node, for sites running SGE/Grid Engine.</p>
+</dd>
+<dt class="field-even">mem_free</dt>
+<dd class="field-even"><p>An optional memory request, <em>e.g.</em>, <code class="docutils literal notranslate"><span class="pre">8G</span></code>, for sites running
+SGE/Grid Engine.</p>
+</dd>
+<dt class="field-odd">worker_init</dt>
+<dd class="field-odd"><p>The name of a shell script, described below, that
+re-creates the environment on each compute node before
+tasks run.</p>
+</dd>
+<dt class="field-even">monitoring</dt>
+<dd class="field-even"><p>Whether Parsl’s monitoring hub, which records task
+timestamps and status in <code class="docutils literal notranslate"><span class="pre">monitoring.db</span></code>, is enabled.
+Valid values are <code class="docutils literal notranslate"><span class="pre">True</span></code> or <code class="docutils literal notranslate"><span class="pre">False</span></code>; it is always
+disabled for the <code class="docutils literal notranslate"><span class="pre">direct</span></code> server type.</p>
+</dd>
+<dt class="field-odd">hub_address</dt>
+<dd class="field-odd"><p>The network address workers should use to reach the
+monitoring hub, if it cannot be determined automatically
+from the server’s host name.</p>
+</dd>
+<dt class="field-even">retries</dt>
+<dd class="field-even"><p>The number of times Parsl should retry a task that fails
+before giving up on it.</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="restoring-the-environment-on-compute-nodes">
+<h3>Restoring the Environment on Compute Nodes<a class="headerlink" href="#restoring-the-environment-on-compute-nodes" title="Permalink to this headline">¶</a></h3>
+<p>Compute nodes do not inherit the environment the server was started in,
+so anything a task needs — module loads, the conda environment, and the
+<code class="docutils literal notranslate"><span class="pre">NX_SERVER</span></code> and <code class="docutils literal notranslate"><span class="pre">NX_LOCKDIRECTORY</span></code> variables — has to be set up again
+within the batch job. The <code class="docutils literal notranslate"><span class="pre">worker_init</span></code> setting names a shell script,
+resolved relative to the server directory unless it is given as an
+absolute path, that is <em>sourced</em>, not executed, before the workers start,
+so that everything it sets is inherited by every task they run:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">worker_init</span> <span class="o">=</span> <span class="n">my_setup</span><span class="o">.</span><span class="n">sh</span>
+</pre></div>
+</div>
+<p>The script does not need a shebang line or execute permission, since it
+is sourced rather than run directly. On systems that require jobs to
+declare the filesystems they use, the filesystem holding this script
+must also be named in the <code class="docutils literal notranslate"><span class="pre">filesystems</span></code> setting. An annotated example,
+<code class="docutils literal notranslate"><span class="pre">polaris_setup.sh</span></code>, is included with the package to be copied into the
+server directory and edited; it loads the modules needed to activate a
+conda environment and re-exports <code class="docutils literal notranslate"><span class="pre">NX_SERVER</span></code> and <code class="docutils literal notranslate"><span class="pre">NX_LOCKDIRECTORY</span></code>.</p>
+</div>
+<div class="section" id="generic-scheduler-support">
+<h3>Generic Scheduler Support<a class="headerlink" href="#generic-scheduler-support" title="Permalink to this headline">¶</a></h3>
+<p>Two scheduler families are supported out of the box, independently of
+any particular site’s queue policies:</p>
+<dl class="simple">
+<dt><strong>PBS Pro</strong></dt><dd><p>The built-in default configuration, used whenever <code class="docutils literal notranslate"><span class="pre">config</span></code> is
+unset, submits jobs to a generic PBS Pro cluster using the <code class="docutils literal notranslate"><span class="pre">[parsl]</span></code>
+settings above. A site running PBS Pro with no further requirements
+can therefore use <em>NXRefine</em> out of the box.</p>
+</dd>
+<dt><strong>SGE / Grid Engine</strong></dt><dd><p>Sites running SGE do need a small configuration module of their own,
+since SGE’s scheduling model differs enough from PBS Pro’s that there
+is no single set of defaults that fits both — SGE allocates <em>slots</em> on
+a node via a parallel environment (the <code class="docutils literal notranslate"><span class="pre">pe</span></code> setting) rather than
+whole nodes. A module supplying <code class="docutils literal notranslate"><span class="pre">get_config</span></code> and <code class="docutils literal notranslate"><span class="pre">select_executor</span></code>
+functions, built on the bundled SGE helper, is enough to support a new
+SGE site; see the CLASSE configuration below for a worked example.</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="site-customizations">
+<h3>Site Customizations<a class="headerlink" href="#site-customizations" title="Permalink to this headline">¶</a></h3>
+<p>Two site-specific configurations are included with <em>NXRefine</em>, each
+illustrating how a site’s queue policies and cluster quirks are layered
+on top of the generic scheduler support above:</p>
+<p><strong>Polaris</strong>, at the Argonne Leadership Computing Facility, runs PBS Pro.
+Selecting it with <code class="docutils literal notranslate"><span class="pre">config</span> <span class="pre">=</span> <span class="pre">nxrefine.parsl.polaris</span></code> adds the launcher
+and GPU declaration Polaris requires to start workers within a
+multi-node allocation, works around a Polaris-specific limit on the
+length of temporary file paths, and defines a small and a large
+allocation sized to match Polaris’s queue policies, so that only
+<code class="docutils literal notranslate"><span class="pre">account</span></code> and a <code class="docutils literal notranslate"><span class="pre">worker_init</span></code> script need to be supplied.</p>
+<p><strong>CLASSE</strong>, the Cornell Laboratory for Accelerator-based Sciences and
+Education Compute Farm, runs SGE. Selecting it with <code class="docutils literal notranslate"><span class="pre">config</span> <span class="pre">=</span>
+<span class="pre">nxrefine.parsl.classe</span></code> requests the farm’s parallel environment for
+multi-threaded jobs, pins the thread count environment variables so that
+a task does not oversubscribe the slots it was granted, and defaults to
+the farm’s maximum walltime. The <code class="docutils literal notranslate"><span class="pre">cpus_per_node</span></code> setting should be set
+to match the number of SGE slots needed per <code class="docutils literal notranslate"><span class="pre">nxreduce</span></code> process on
+CLASSE hardware, since the package-wide default reflects Polaris, not
+CLASSE.</p>
+<p>Both configurations are meant to be starting points as much as they are
+site-specific defaults: to adapt either one for another cluster running
+the same scheduler, copy the corresponding file into the server
+directory, adjust the defaults it hard-codes, such as the queue and
+parallel-environment names, and point the <code class="docutils literal notranslate"><span class="pre">config</span></code> setting at the
+copy.</p>
+</div>
+<div class="section" id="adding-new-schedulers-or-sites">
+<h3>Adding New Schedulers or Sites<a class="headerlink" href="#adding-new-schedulers-or-sites" title="Permalink to this headline">¶</a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">config</span></code> setting can also name an arbitrary file, <em>e.g.</em>, <code class="docutils literal notranslate"><span class="pre">config</span>
+<span class="pre">=</span> <span class="pre">/path/to/my_config.py</span></code>, so a site can supply a fully custom
+configuration without needing to modify <em>NXRefine</em> itself. Such a file
+only needs to define the same two functions used internally: one that
+builds the Parsl configuration from the <code class="docutils literal notranslate"><span class="pre">[parsl]</span></code> settings, and one
+that chooses which allocation a batch of tasks should run on.</p>
+<p>Only PBS Pro and SGE are supported today, but the same layered approach
+— generic scheduler support beneath site-specific customization — is
+meant to extend to other schedulers as the need arises, <em>e.g.</em>, Slurm or
+LSF, each added as its own module built around the matching Parsl
+provider. Sites are welcome to contribute new scheduler or site modules
+back to <em>NXRefine</em>, rather than maintaining them as private
+configuration files.</p>
+</div>
 </div>
 <div class="section" id="server-menu">
 <h2>Server Menu<a class="headerlink" href="#server-menu" title="Permalink to this headline">¶</a></h2>
@@ -217,7 +421,12 @@ directory.</p>
 </div>
 <div class="section" id="manage-server">
 <h3>Manage Server<a class="headerlink" href="#manage-server" title="Permalink to this headline">¶</a></h3>
-<p>This dialog allows the status of the server to be monitored.</p>
+<p>This dialog allows the status of the server to be monitored. “Server
+Log” lists the server’s own log, and every recently dispatched task, so
+that individual tasks’ output can be inspected without leaving <em>NeXpy</em>.
+“Server Processes” lists currently running jobs, using <code class="docutils literal notranslate"><span class="pre">nxqstat.sh</span></code>
+(see <a class="reference internal" href="#server-directory"><span class="std std-ref">Server Directory</span></a>) on a <code class="docutils literal notranslate"><span class="pre">multinode</span></code> server, or a filtered
+process list on <code class="docutils literal notranslate"><span class="pre">direct</span></code> and <code class="docutils literal notranslate"><span class="pre">multicore</span></code> servers.</p>
 </div>
 </div>
 </div>
@@ -236,6 +445,15 @@ directory.</p>
 <li><a class="reference internal" href="#server-directory">Server Directory</a></li>
 <li><a class="reference internal" href="#default-settings">Default Settings</a></li>
 <li><a class="reference internal" href="#server-settings">Server Settings</a></li>
+<li><a class="reference internal" href="#parsl-configuration">Parsl Configuration</a><ul>
+<li><a class="reference internal" href="#how-tasks-are-dispatched">How Tasks Are Dispatched</a></li>
+<li><a class="reference internal" href="#parsl-settings">Parsl Settings</a></li>
+<li><a class="reference internal" href="#restoring-the-environment-on-compute-nodes">Restoring the Environment on Compute Nodes</a></li>
+<li><a class="reference internal" href="#generic-scheduler-support">Generic Scheduler Support</a></li>
+<li><a class="reference internal" href="#site-customizations">Site Customizations</a></li>
+<li><a class="reference internal" href="#adding-new-schedulers-or-sites">Adding New Schedulers or Sites</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#server-menu">Server Menu</a><ul>
 <li><a class="reference internal" href="#manage-workflows">Manage Workflows</a></li>
 <li><a class="reference internal" href="#manage-server">Manage Server</a></li>
