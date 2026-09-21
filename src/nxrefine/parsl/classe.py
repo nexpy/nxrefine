@@ -49,7 +49,8 @@ current nodes).  The global default of 64 reflects Polaris, not CLASSE.
 """
 
 from . import (LARGE, SMALL, get_config as _default_config,  # noqa: F401
-               monitoring_hub, option, select_executor)  # noqa: F401
+               init_commands, monitoring_hub, option,  # noqa: F401
+               select_executor)  # noqa: F401
 from .sge import sge_executor  # noqa: F401
 
 # CLASSE parallel-environment name for single-node multi-threaded jobs.
@@ -67,15 +68,12 @@ def worker_init(options):
 
     MKL and OpenMP thread counts are pinned to ``$NSLOTS`` (the number of
     SGE slots granted) so that ``nxreduce`` does not accidentally spawn more
-    threads than requested.  The ``worker_init`` setting is appended after
-    these exports, allowing it to activate a conda environment and re-export
-    variables such as ``NX_SERVER`` and ``NX_LOCKDIRECTORY``.
+    threads than requested.  The script named by the ``worker_init`` setting
+    is sourced after these exports, allowing it to activate a conda
+    environment and re-export variables such as ``NX_SERVER`` and
+    ``NX_LOCKDIRECTORY``.
     """
-    commands = [_THREAD_EXPORTS]
-    setting = option(options, 'worker_init')
-    if setting:
-        commands.append(str(setting))
-    return '; '.join(commands)
+    return '; '.join([_THREAD_EXPORTS] + init_commands(options))
 
 
 def classe_executor(label, options, max_blocks, queue, walltime):
@@ -115,8 +113,8 @@ def get_config(options, run_dir):
     Parameters
     ----------
     options : dict
-        Settings from the ``[parsl]`` section, with ``server_type`` and
-        ``cores`` added from the ``[server]`` section.
+        Settings from the ``[parsl]`` section, with ``server_type``,
+        ``cores`` and the server ``directory`` added by the server.
     run_dir : str or pathlib.Path
         Directory for Parsl run logs and the monitoring database.
     """

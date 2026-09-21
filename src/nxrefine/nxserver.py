@@ -342,6 +342,7 @@ class NXServer(NXDaemon):
                        for option in self.settings.options('parsl')}
         options['server_type'] = self.server_type
         options['cores'] = len(self.cpus) or 1
+        options['directory'] = str(self.directory)
         return options
 
     def read_nodes(self):

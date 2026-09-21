@@ -52,7 +52,7 @@ so only the PE declaration and any optional resource flags need to be added via
 the ``scheduler_options`` parameter.
 """
 
-from . import option
+from . import init_commands, option
 
 
 def scheduler_options(options):
@@ -126,7 +126,7 @@ def sge_executor(label, options, max_blocks, queue, walltime):
         walltime=walltime,
         queue=queue,
         scheduler_options=scheduler_options(options),
-        worker_init=option(options, 'worker_init', ''),
+        worker_init='; '.join(init_commands(options)),
     )
     return HighThroughputExecutor(
         label=label,

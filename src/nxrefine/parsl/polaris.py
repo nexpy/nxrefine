@@ -14,6 +14,20 @@ against::
 
     config = nxrefine.parsl.polaris
     account = YourProject
+    worker_init = polaris_setup.sh
+
+`worker_init` names a shell script in the server directory, sourced in
+the batch job to recreate the environment that the compute nodes do not
+inherit from the login node::
+
+    module use /soft/modulefiles
+    module load conda
+    conda activate /path/to/nxrefine-env
+    export NX_SERVER=/path/to/analysis/nxserver
+    export NX_LOCKDIRECTORY=/path/to/analysis/nxserver/locks
+
+The script must be on a filesystem named in the `filesystems` setting,
+which defaults to `home:eagle`.
 
 To adapt it for another PBS Pro cluster, copy this file into the server
 directory and set `config` to its name there. See `nxrefine.parsl.pbs`
@@ -52,7 +66,8 @@ pointed at a short path to avoid `AF_UNIX path too long`.
 """
 
 from . import (LARGE, SMALL, get_config as _default_config,  # noqa: F401
-               monitoring_hub, option, select_executor)  # noqa: F401
+               init_commands, monitoring_hub, option,  # noqa: F401
+               select_executor)  # noqa: F401
 from .pbs import MPIEXEC_OVERRIDES, pbs_executor  # noqa: F401
 
 TMPDIR = 'export TMPDIR=/tmp'
@@ -61,15 +76,12 @@ TMPDIR = 'export TMPDIR=/tmp'
 def worker_init(options):
     """Return the shell commands run on each node before the workers.
 
-    The `worker_init` setting is appended, so it can activate the
-    environment and re-export anything the login node had set, notably
-    `NX_SERVER` and `NX_LOCKDIRECTORY`.
+    The script named by the `worker_init` setting is sourced after
+    `TMPDIR` is set, so it can activate the environment and re-export
+    anything the login node had set, notably `NX_SERVER` and
+    `NX_LOCKDIRECTORY`.
     """
-    commands = [TMPDIR]
-    setting = option(options, 'worker_init')
-    if setting:
-        commands.append(str(setting))
-    return '; '.join(commands)
+    return '; '.join([TMPDIR] + init_commands(options))
 
 
 def polaris_executor(label, options, nodes, max_blocks, queue, walltime):
@@ -100,8 +112,8 @@ def get_config(options, run_dir):
     Parameters
     ----------
     options : dict
-        Settings from the `[parsl]` section, with `server_type` and
-        `cores` added from the `[server]` section.
+        Settings from the `[parsl]` section, with `server_type`, `cores`
+        and the server `directory` added by the server.
     run_dir : str or Path
         Directory for Parsl run logs and the monitoring database.
     """
