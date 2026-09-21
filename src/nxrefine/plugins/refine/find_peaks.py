@@ -13,8 +13,7 @@ from nexpy.gui.dialogs import GridParameters, NXDialog
 from nexpy.gui.plotview import NXPlotView
 from nexpy.gui.pyqt import QtCore, QtWidgets
 from nexpy.gui.utils import is_file_locked, report_error
-from nexpy.gui.widgets import NXLabel, NXPushButton
-from nexusformat.nexus import NeXusError, NXLock
+from nexusformat.nexus import NeXusError
 from nxrefine.nxreduce import NXReduce
 from nxrefine.nxrefine import NXRefine
 from nxrefine.nxsettings import NXSettings

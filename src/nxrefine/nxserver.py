@@ -345,25 +345,6 @@ class NXServer(NXDaemon):
         options['directory'] = str(self.directory)
         return options
 
-    def read_nodes(self):
-        """Return the list of nodes.
-
-        Nodes are allocated by the batch scheduler, so this is always
-        empty. It is retained because the server CLI and the Manage
-        Server dialog still call it.
-        """
-        return []
-
-    def write_nodes(self, nodes):
-        """Log that nodes are no longer configured by the server."""
-        if nodes:
-            self.log("Nodes are allocated by the scheduler and cannot be set")
-
-    def remove_nodes(self, nodes):
-        """Log that nodes are no longer configured by the server."""
-        if nodes:
-            self.log("Nodes are allocated by the scheduler and cannot be set")
-
     def set_cores(self, cpu_count):
         """Select number of cores"""
         try:
