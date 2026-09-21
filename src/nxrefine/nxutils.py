@@ -1,17 +1,30 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2015-2022, AXMAS Development Team.
+# Copyright (c) 2021-2025, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
+
+import os
+import sys
+from concurrent.futures import ProcessPoolExecutor, as_completed  # noqa: F401
+from multiprocessing import get_context, resource_tracker
+
 import numpy as np
-from nexusformat.nexus import (NXdata, NXentry, NXfield, NXlog, NXroot, nxopen,
-                               nxsetlock)
+
+if sys.version_info < (3, 10):
+    from importlib_resources import files as package_files
+else:
+    from importlib.resources import files as package_files
+
+from nexusformat.nexus import (NeXusError, NXdata, NXentry, NXfield, NXlog,
+                               NXroot, nxopen, nxsetconfig)
 from skimage.feature import peak_local_max
 
 
-def peak_search(data_file, data_path, i, j, k, threshold, min_pixels=10):
+def peak_search(data_file, data_path, i, j, k, threshold, mask=None,
+                min_pixels=10):
     """Identify peaks in the slab of raw data
 
     Parameters
@@ -28,16 +41,23 @@ def peak_search(data_file, data_path, i, j, k, threshold, min_pixels=10):
         Index of last z-value of processed slab
     threshold : float
         Peak threshold
+    mask : array-like
+        Pixel mask for detector
+    min_pixels : int
+        Minimum pixel separation of peaks, default=10
 
     Returns
     -------
     list of NXBlobs
         Peak locations and intensities stored in NXBlob instances
     """
-    nxsetlock(600)
+    nxsetconfig(lock=3600, lockexpiry=28800)
 
     with nxopen(data_file, "r") as data_root:
         data = data_root[data_path][j:k].nxvalue.clip(0)
+
+    if mask is not None:
+        data = np.where(mask, 0, data)
 
     nframes = data.shape[0]
     saved_blobs = []
@@ -255,7 +275,7 @@ def mask_volume(data_file, data_path, mask_file, mask_path, i, j, k,
         Queue used in multiprocessing, by default None
     """
 
-    nxsetlock(600)
+    nxsetconfig(lock=3600, lockexpiry=28800)
     with nxopen(data_file, 'r') as data_root:
         volume = data_root[data_path][j:k].nxvalue
 
@@ -296,31 +316,217 @@ def mask_volume(data_file, data_path, mask_file, mask_path, i, j, k,
     vol_smoothed /= sum2
     vol_smoothed[vol_smoothed < threshold_2] = 0
     vol_smoothed[vol_smoothed > threshold_2] = 1
+    nxsetconfig(lock=3600, lockexpiry=28800)
     with nxopen(mask_file, 'rw') as mask_root:
         mask_root[mask_path][j+1:k-1] = (
             np.maximum(vol_smoothed[0:-1], vol_smoothed[1:]))
     return i
 
 
+def find_maximum_chunk(data_file, data_path, i, j, k,
+                       pixel_mask, transmission_mask,
+                       sub_idx, n_keep, scale):
+    """Process a single chunk of frames for find_maximum.
+
+    Parameters
+    ----------
+    data_file : str
+        Path to the raw HDF5 data file.
+    data_path : str
+        Internal HDF5 path to the data array.
+    i : int
+        Starting frame index of this chunk within the full frame range;
+        returned as-is for progress tracking and result placement.
+    j : int
+        First frame to read from the file (equals i; no overlap needed).
+    k : int
+        Exclusive upper frame index to read.
+    pixel_mask : ndarray, shape (ny, nx)
+        Detector pixel mask including constantly-firing pixels.
+    transmission_mask : ndarray, shape (ny, nx)
+        Annulus mask derived from qmin/qmax.
+    sub_idx : ndarray
+        Subsampled flat indices into the annulus for the trimmed sum.
+    n_keep : int
+        Number of annulus pixels to retain after trimming.
+    scale : float
+        Rescaling factor for the trimmed sum.
+
+    Returns
+    -------
+    tuple of (i, local_vsum, local_fsum, local_psum, local_maximum)
+    """
+    nxsetconfig(lock=3600, lockexpiry=28800)
+    with nxopen(data_file, 'r') as data_root:
+        v_raw = data_root[data_path][j:k].nxvalue.clip(0)
+    local_vsum = v_raw.sum(0, dtype=np.float64)
+    vflat = v_raw.reshape(v_raw.shape[0], -1)
+    sub_vals = vflat[:, sub_idx]
+    trimmed = np.partition(sub_vals, n_keep, axis=1)[:, :n_keep]
+    local_psum = trimmed.sum(axis=1) * scale
+    v = np.ma.masked_array(v_raw)
+    v.mask = pixel_mask
+    local_fsum = v.sum((1, 2))
+    v.mask = pixel_mask | transmission_mask
+    local_maximum = float(v.max()) if v.count() > 0 else 0.0
+    del v, v_raw, vflat, sub_vals, trimmed
+    return i, local_vsum, local_fsum, local_psum, local_maximum
+
+
+def prime_julia_environment():
+    """Set env vars so juliapkg uses a shared, in-env Julia depot.
+
+    Must be called before ``juliacall`` or ``juliapkg`` are imported. In
+    a virtual environment or conda environment, points
+    ``JULIA_DEPOT_PATH`` and ``JULIAUP_DEPOT_PATH`` at
+    ``{prefix}/julia_depot`` so the Julia binary and packages are shared
+    across all users of the environment (rather than landing in each
+    user's ``~/.julia``). Outside a venv, no depot override is set and
+    juliapkg's ``~/.julia`` default applies.
+
+    Also sets ``JULIA_SSL_CA_ROOTS_PATH`` to certifi's CA bundle as a
+    macOS ``Downloads.jl`` HTTPS workaround. Existing values of any of
+    these three variables are respected.
+    """
+    import os
+    import sys
+    if not os.environ.get('JULIA_SSL_CA_ROOTS_PATH'):
+        try:
+            import certifi
+            os.environ['JULIA_SSL_CA_ROOTS_PATH'] = certifi.where()
+        except ImportError:
+            pass
+    if sys.prefix != sys.base_prefix:
+        prefix = sys.prefix
+    else:
+        prefix = os.environ.get('CONDA_PREFIX')
+    if prefix:
+        depot = os.path.join(prefix, 'julia_depot')
+        os.environ.setdefault('JULIA_DEPOT_PATH', depot)
+        os.environ.setdefault('JULIAUP_DEPOT_PATH', depot)
+
+
 def init_julia():
-    from julia.api import Julia
-    from julia.core import JuliaError
+    """Start the Julia runtime via juliacall and return the Main module.
+
+    The first import of ``juliacall`` triggers juliapkg, which installs
+    the Julia binary (in a managed location) and pulls in the Julia
+    packages declared in ``nxrefine/juliapkg.json`` if they are not
+    already present. Subsequent calls reuse the cached session.
+
+    ``prime_julia_environment`` runs first to redirect the Julia depot
+    into the active venv/conda env (so all users of a shared install
+    see the same cache) and to apply the macOS SSL workaround.
+    """
+    import subprocess
+    prime_julia_environment()
     try:
-        jl = Julia(compiled_modules=False)
-    except JuliaError:
-        import julia
-        julia.install()
-        jl = Julia(compile_modules=False)
-    return jl
+        from juliacall import Main
+    except subprocess.CalledProcessError as error:
+        details = []
+        for stream in (error.stderr, error.stdout):
+            if stream:
+                if isinstance(stream, bytes):
+                    stream = stream.decode(errors='replace')
+                details.append(stream.strip())
+        message = (f"juliacall failed to start Julia "
+                   f"(exit {error.returncode})")
+        if details:
+            message += ":\n" + "\n".join(details)
+        raise RuntimeError(message) from error
+    return Main
 
 
 def load_julia(resources):
-    import importlib.resources
-
-    from julia import Main
+    """Load .jl resources shipped in ``nxrefine.julia`` into Main."""
+    from juliacall import Main
     for resource in resources:
-        Main.include(
-            str(importlib.resources.files('nxrefine.julia') / resource))
+        Main.include(str(package_files('nxrefine.julia') / resource))
+
+
+def parse_orientation(orientation):
+    """Return the detector orientation matrix based on the input.
+
+    The detector orientation is used to convert from detector to
+    laboratory coordinates. It may be defined by a string defining which
+    laboratory axes are parallel to the detector axes. For example, if
+    the detector y axis is parallel to the laboratory z axis, and the
+    detector x and z axes are anti-parallel to the laboratory y and x
+    axes, the string would be  "-y +z -x". If the orientation is passed
+    to the function as a 3x3 array, it is returned unchanged as a
+    NumPy matrix.
+
+    Parameters
+    ----------
+    orientation : NXfield, str or array_like
+        The description of the orientation as a string or a 3x3 array.
+
+    Returns
+    -------
+    np.matrix
+        Matrix containing the detector orientation
+
+    Raises
+    ------
+    NeXusError
+        Invalid input value describing the orientation.
+    """
+    try:
+        if isinstance(orientation, NXfield):
+            orientation = orientation.nxvalue
+        if isinstance(orientation, str):
+            _omat = np.zeros((3, 3), dtype=int)
+            i = 0
+            d = 1
+            for c in orientation.replace(' ', ''):
+                if c == '+':
+                    d = 1
+                elif c == '-':
+                    d = -1
+                else:
+                    j = 'xyz'.index(c)
+                    _omat[i][j] = d
+                    d = 1
+                    i += 1
+            return np.matrix(_omat)
+        else:
+            return np.matrix(orientation)
+    except Exception:
+        raise NeXusError('Invalid detector orientation')
+
+
+def detector_flipped(entry):
+    """Return True if the y-axis is flipped.
+
+    If images from the detector have their origin in the top-left
+    corner, their y-axis needs to be flipped in order to view the
+    physical geometry of the detector.
+
+    Note
+    ----
+    The detector orientation has only recently been specified in the
+    NXRefine module. Before this, all the images were assumed to be
+    flipped.
+
+    Parameters
+    ----------
+    entry : NXentry
+        The NeXus entry group containing the detector information
+
+    Returns
+    -------
+    bool
+        True if the detector is flipped along the y-axis.
+    """
+    if 'detector_orientation' in entry['instrument/detector']:
+        omat = np.array(parse_orientation(
+            entry['instrument/detector/detector_orientation']))
+        if omat[1][2] == -1:
+            return True
+        else:
+            return False
+    else:
+        return True
 
 
 class SpecParser:
@@ -582,9 +788,30 @@ class SpecParser:
 
     def metadata_NXlog(self, spec_metadata, description):
         """Return the specific metadata in an NXlog object."""
-        from spec2nexus import utils
         nxlog = NXlog()
         nxlog.attrs['description'] = description
         for subkey, value in spec_metadata.items():
             nxlog[subkey] = NXfield(value)
         return nxlog
+
+
+class NXExecutor(ProcessPoolExecutor):
+    """ProcessPoolExecutor class using 'spawn' for new processes."""
+
+    def __init__(self, max_workers=None, mp_context='spawn'):
+        os.environ.setdefault('PYTHONWARNINGS',
+                              'ignore:resource_tracker:UserWarning')
+        if mp_context:
+            mp_context = get_context(mp_context)
+        else:
+            mp_context = None
+        super().__init__(max_workers=max_workers, mp_context=mp_context)
+
+    def __repr__(self):
+        return f"NXExecutor(max_workers={self._max_workers})"
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.shutdown(wait=True)
+        if self._mp_context.get_start_method(allow_none=False) != 'fork':
+            resource_tracker._resource_tracker._stop()
+        return False

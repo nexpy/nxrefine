@@ -1,19 +1,18 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2015-2023, NeXpy Development Team.
+# Copyright (c) 2022-2025, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
-import os
-from pathlib import Path
-
-from nexpy.gui.datadialogs import GridParameters, NXDialog
-from nexpy.gui.utils import report_error
+from nexpy.gui.dialogs import GridParameters, NXDialog
+from nexpy.gui.utils import display_message, report_error
 from nexpy.gui.widgets import NXScrollArea
 from nexusformat.nexus import NeXusError
 
+from nxrefine.nxbeamline import get_beamlines
+from nxrefine.nxserver import get_servers
 from nxrefine.nxsettings import NXSettings
 
 
@@ -34,10 +33,14 @@ class ServerSettingsDialog(NXDialog):
         defaults = self.settings.settings['server']
         for p in defaults:
             self.server_parameters.add(p, defaults[p], p)
+        self.server_parameters['type'].box.editingFinished.connect(
+            self.check_server)
         self.instrument_parameters = GridParameters()
         defaults = self.settings.settings['instrument']
         for p in defaults:
             self.instrument_parameters.add(p, defaults[p], p)
+        self.instrument_parameters['instrument'].box.editingFinished.connect(
+            self.check_beamline)
         self.refine_parameters = GridParameters()
         defaults = self.settings.settings['nxrefine']
         for p in defaults:
@@ -55,8 +58,26 @@ class ServerSettingsDialog(NXDialog):
             vertical=True)
         self.set_layout(NXScrollArea(scroll_layout),
                         self.close_layout(save=True))
-        self.setMinimumWidth(300)
+        self.setMinimumWidth(350)
         self.set_title('Edit Settings')
+
+    def check_server(self):
+        server_types = get_servers()
+        if self.server_parameters['type'].value not in server_types:
+            display_message("Server Type Not Supported",
+                            "Supported servers are: "
+                            f"{', '.join(str(i) for i in server_types)}")
+            self.server_parameters['type'].value = (
+                self.settings['server']['type'])
+
+    def check_beamline(self):
+        beamlines = get_beamlines()
+        if self.instrument_parameters['instrument'].value not in beamlines:
+            display_message("Beamline Not Supported",
+                            "Supported beamlines are: "
+                            f"{', '.join(str(i) for i in beamlines)}")
+            self.instrument_parameters['instrument'].value = (
+                self.settings['instrument']['instrument'])
 
     def accept(self):
         try:

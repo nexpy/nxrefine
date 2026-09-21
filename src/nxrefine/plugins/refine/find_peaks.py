@@ -1,22 +1,24 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2015-2021, NeXpy Development Team.
+# Copyright (c) 2014-2025, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
+
 import operator
 
 import numpy as np
-from nexpy.gui.datadialogs import GridParameters, NXDialog
+from nexpy.gui.dialogs import GridParameters, NXDialog
 from nexpy.gui.plotview import NXPlotView
 from nexpy.gui.pyqt import QtCore, QtWidgets
 from nexpy.gui.utils import is_file_locked, report_error
-from nexpy.gui.widgets import NXPushButton
-from nexusformat.nexus import NeXusError, NXLock
+from nexusformat.nexus import NeXusError
 from nxrefine.nxreduce import NXReduce
 from nxrefine.nxrefine import NXRefine
 from nxrefine.nxsettings import NXSettings
+
+from ._dialog_helpers import add_parent_subentries, hide_combined_entry
 
 
 def show_dialog():
@@ -33,16 +35,13 @@ class FindDialog(NXDialog):
         super().__init__(parent)
 
         self.select_entry(self.choose_entry)
-
         default = NXSettings().settings['nxreduce']
         self.parameters = GridParameters()
         self.parameters.add('threshold', default['threshold'], 'Threshold')
-        self.parameters.add('first', default['first'], 'First Frame')
-        self.parameters.add('last', default['last'], 'Last Frame')
+        self.parameters.add('first', default['first_frame'], 'First Frame')
+        self.parameters.add('last', default['last_frame'], 'Last Frame')
         self.parameters.add('min_pixels', default['min_pixels'],
                             'Minimum Pixels Between Peaks')
-        self.parameters.grid()
-        self.find_button = NXPushButton('Find Peaks', self.find_peaks)
         self.find_layout = self.make_layout(
             self.action_buttons(('Find Peaks', self.find_peaks),
                                 ('List Peaks', self.list_peaks)),
@@ -54,11 +53,13 @@ class FindDialog(NXDialog):
         self.refine = None
         self.peaks_box = None
 
+    def switch_root(self):
+        super().switch_root()
+        add_parent_subentries(self)
+        hide_combined_entry(self)
+
     def choose_entry(self):
-        if self.layout.count() == 2:
-            self.insert_layout(1, self.parameters.grid_layout)
-            self.insert_layout(2, self.find_layout)
-        self.reduce = NXReduce(self.entry)
+        self.reduce = NXReduce(self.entry, subentry=self.subentry or None)
         self.refine = NXRefine(self.entry)
         self.refine.polar_max = self.refine.two_theta_max()
         if self.reduce.first is not None:
@@ -71,6 +72,9 @@ class FindDialog(NXDialog):
             except Exception:
                 pass
         self.parameters['threshold'].value = self.reduce.threshold
+        if self.layout.count() == 2:
+            self.insert_layout(1, self.parameters.grid())
+            self.insert_layout(2, self.find_layout)
 
     @property
     def threshold(self):
@@ -107,6 +111,7 @@ class FindDialog(NXDialog):
         self.reduce = NXReduce(self.entry, threshold=self.threshold,
                                first=self.first, last=self.last,
                                min_pixels=self.min_pixels,
+                               subentry=self.subentry or None,
                                find=True, overwrite=True, gui=True)
         self.reduce.moveToThread(self.thread)
         self.reduce.start.connect(self.start_progress)

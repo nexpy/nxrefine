@@ -1,36 +1,32 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2015-2021, NeXpy Development Team.
+# Copyright (c) 2022-2026, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
-import os
-
 import numpy as np
-from nexpy.gui.datadialogs import NXDialog
-from nexpy.gui.pyqt import QtGui, QtWidgets
+from nexpy.gui.dialogs import NXDialog
+from nexpy.gui.pyqt import QtWidgets
 from nexpy.gui.utils import report_error
 from nexpy.gui.widgets import NXLabel, NXLineEdit
-from nexusformat.nexus import NeXusError
+from nexusformat.nexus import NeXusError, NXdata, NXfield
+
+from nxrefine.nxparent import NXParent
+from nxrefine.nxreduce import NXMultiReduce
 from nxrefine.nxrefine import NXRefine
-
-
-def show_dialog():
-    try:
-        dialog = TransformDialog()
-        dialog.show()
-    except NeXusError as error:
-        report_error("Preparing Data Transform", error)
 
 
 class TransformDialog(NXDialog):
 
-    def __init__(self, parent=None):
-        super().__init__(parent)
-
-        self.select_entry(self.choose_entry)
+    def __init__(self, scans_file, subentry=None):
+        super().__init__()
+        self.parent = NXParent(scans_file, subentry=subentry)
+        self.reduce = NXMultiReduce(entry=self.parent.root,
+                                    subentry=self.parent.subentry_name)
+        self.refine = NXRefine(self.parent.root,
+                               subentry=self.parent.subentry_name)
 
         self.Qgrid = QtWidgets.QGridLayout()
         self.Qgrid.setSpacing(10)
@@ -58,41 +54,39 @@ class TransformDialog(NXDialog):
             self.Qgrid.addWidget(self.Nbox[label], i+1, 3)
             self.maxbox[label] = NXLabel(align='center')
             self.Qgrid.addWidget(self.maxbox[label], i+1, 4)
-        self.set_layout(self.entry_layout, self.close_buttons(save=True))
+        self.set_layout(self.Qgrid, self.close_buttons(save=True))
         self.setWindowTitle('Transforming Data')
-        try:
-            self.initialize_grid()
-        except Exception:
-            pass
-
-    def choose_entry(self):
-        try:
-            refine = NXRefine(self.entry)
-            if refine.xp is None:
-                raise NeXusError("No peaks in entry")
-        except NeXusError as error:
-            report_error("Refining Lattice", error)
-            return
-        self.refine = refine
-        if self.layout.count() == 2:
-            self.insert_layout(1, self.Qgrid)
-            self.insert_layout(2, self.checkboxes(
-                ('copy', 'Copy to all entries', True),
-                ('mask', 'Create masked transforms', True),
-                ('overwrite', 'Overwrite transforms', False)))
         self.refine.initialize_grid()
         self.update_grid()
 
     def update_grid(self):
-        self.Qbox['H'].setText(f"{self.refine.h_stop:g}")
-        self.Qbox['K'].setText(f"{self.refine.k_stop:g}")
-        self.Qbox['L'].setText(f"{self.refine.l_stop:g}")
-        self.dQbox['H'].setText(f"{self.refine.h_step:g}")
-        self.dQbox['K'].setText(f"{self.refine.k_step:g}")
-        self.dQbox['L'].setText(f"{self.refine.l_step:g}")
-        self.Nbox['H'].setText(f"{self.refine.h_shape:g}")
-        self.Nbox['K'].setText(f"{self.refine.k_shape:g}")
-        self.Nbox['L'].setText(f"{self.refine.l_shape:g}")
+        if self.parent.transform:
+            transform = self.parent.transform
+            h_stop = transform['Qh'][-1]
+            k_stop = transform['Qk'][-1]
+            l_stop = transform['Ql'][-1]
+            h_step = transform['Qh'][1] - transform['Qh'][0]
+            k_step = transform['Qk'][1] - transform['Qk'][0]
+            l_step = transform['Ql'][1] - transform['Ql'][0]
+            h_shape = len(transform['Qh'])
+            k_shape = len(transform['Qk'])
+            l_shape = len(transform['Ql'])
+        else:
+            Qh, Qk, Ql = self.refine.Qh, self.refine.Qk, self.refine.Ql
+            h_stop, k_stop, l_stop = Qh[-1], Qk[-1], Ql[-1]
+            h_step = Qh[1] - Qh[0]
+            k_step = Qk[1] - Qk[0]
+            l_step = Ql[1] - Ql[0]
+            h_shape, k_shape, l_shape = len(Qh), len(Qk), len(Ql)
+        self.Qbox['H'].setText(f"{h_stop:g}")
+        self.Qbox['K'].setText(f"{k_stop:g}")
+        self.Qbox['L'].setText(f"{l_stop:g}")
+        self.dQbox['H'].setText(f"{h_step:g}")
+        self.dQbox['K'].setText(f"{k_step:g}")
+        self.dQbox['L'].setText(f"{l_step:g}")
+        self.Nbox['H'].setText(f"{h_shape:g}")
+        self.Nbox['K'].setText(f"{k_shape:g}")
+        self.Nbox['L'].setText(f"{l_shape:g}")
         self.maxbox['H'].setText(f"{self.refine.Qmax / self.refine.astar:g}")
         self.maxbox['K'].setText(f"{self.refine.Qmax / self.refine.bstar:g}")
         self.maxbox['L'].setText(f"{self.refine.Qmax / self.refine.cstar:g}")
@@ -106,98 +100,35 @@ class TransformDialog(NXDialog):
                              float(self.dQbox[label].text()), 2)) + 1)
             self.maxbox[label].setText(f"{self.refine.Qmax / rlu:g}")
 
-    def get_output_file(self, mask=False, entry=None):
-        if entry is None:
-            entry = self.entry
-        if mask:
-            return os.path.splitext(
-                entry.data.nxsignal.nxfilename)[0] + '_masked_transform.nxs'
-        else:
-            return os.path.splitext(
-                entry.data.nxsignal.nxfilename)[0] + '_transform.nxs'
-
-    def get_settings_file(self, entry=None):
-        if entry is None:
-            entry = self.entry
-        return os.path.splitext(
-            entry.data.nxsignal.nxfilename)[0] + '_transform.pars'
-
     def get_parameters(self, Q):
         stop, step = float(self.Qbox[Q].text()), float(self.dQbox[Q].text())
         return -stop, step, stop
 
-    def write_parameters(self, output_file, settings_file):
-        self.refine.output_file = output_file
-        self.refine.settings_file = settings_file
-        self.refine.h_start, self.refine.h_step, self.refine.h_stop = (
-            self.get_parameters('H'))
-        self.refine.k_start, self.refine.k_step, self.refine.k_stop = (
-            self.get_parameters('K'))
-        self.refine.l_start, self.refine.l_step, self.refine.l_stop = (
-            self.get_parameters('L'))
-        self.refine.define_grid()
-
-    @property
-    def copy(self):
-        return self.checkbox['copy'].isChecked()
-
-    @property
-    def mask(self):
-        return self.checkbox['mask'].isChecked()
-
-    @property
-    def overwrite(self):
-        return self.checkbox['overwrite'].isChecked()
+    def write_parameters(self):
+        h_start, h_step, h_stop = self.get_parameters('H')
+        k_start, k_step, k_stop = self.get_parameters('K')
+        l_start, l_step, l_stop = self.get_parameters('L')
+        h_shape = int(np.round((h_stop - h_start) / h_step, 2)) + 1
+        k_shape = int(np.round((k_stop - k_start) / k_step, 2)) + 1
+        l_shape = int(np.round((l_stop - l_start) / l_step, 2)) + 1
+        H = NXfield(np.linspace(h_start, h_stop, h_shape), name='Qh',
+                    scaling_factor=self.refine.astar, long_name='H (r.l.u.)')
+        K = NXfield(np.linspace(k_start, k_stop, k_shape), name='Qk',
+                    scaling_factor=self.refine.bstar, long_name='K (r.l.u.)')
+        L = NXfield(np.linspace(l_start, l_stop, l_shape), name='Ql',
+                    scaling_factor=self.refine.cstar, long_name='L (r.l.u.)')
+        with self.parent.root:
+            self.parent.transform = NXdata(axes=(L, K, H))
+            self.parent.transform.attrs['angles'] = (self.refine.gamma_star,
+                                                      self.refine.beta_star,
+                                                      self.refine.alpha_star)
+        self.parent.reload()
 
     def accept(self):
         try:
-            if 'transform' in self.entry and not self.overwrite:
-                self.display_message(
-                    "Preparing Transform",
-                    f"Transform group already exists in {self.entry.nxname}")
-                return
-            if (self.mask and 'masked_transform' in self.entry
-                    and not self.overwrite):
-                self.display_message(
-                    "Preparing Transform",
-                    "Masked transform group already exists in "
-                    f"{self.entry.nxname}")
-                return
-            output_file = self.get_output_file()
-            settings_file = self.get_settings_file()
-            self.write_parameters(output_file, settings_file)
-            self.refine.prepare_transform(output_file)
-            if self.mask:
-                masked_output_file = self.get_output_file(mask=True)
-                self.refine.prepare_transform(masked_output_file, mask=True)
-            self.refine.write_settings(settings_file)
-            if self.copy:
-                root = self.entry.nxroot
-                for entry in [e for e in root
-                              if e[-1].isdigit() and e != self.entry.nxname]:
-                    if 'transform' in root[entry] and not self.overwrite:
-                        self.display_message(
-                            "Preparing Transform",
-                            f"Transform group already exists in {entry}")
-                        return
-                    if (self.mask and 'masked_transform' in root[entry]
-                            and not self.overwrite):
-                        self.display_message(
-                            "Preparing Transform",
-                            f"Masked transform group already exists in {entry}"
-                            )
-                        return
-                    self.refine = NXRefine(root[entry])
-                    output_file = self.get_output_file(entry=root[entry])
-                    settings_file = self.get_settings_file(entry=root[entry])
-                    self.write_parameters(output_file, settings_file)
-                    self.refine.prepare_transform(output_file)
-                    if self.mask:
-                        masked_output_file = self.get_output_file(
-                            mask=True, entry=root[entry])
-                        self.refine.prepare_transform(
-                            masked_output_file, mask=True)
-                    self.refine.write_settings(settings_file)
+            self.write_parameters()
             super().accept()
         except NeXusError as error:
+            self.parent.reload()
             report_error("Preparing Data Transform", error)
+            super().reject()

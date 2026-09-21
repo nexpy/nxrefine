@@ -1,21 +1,24 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2013-2021, NeXpy Development Team.
+# Copyright (c) 2014-2026, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
-import os
+from pathlib import Path
 
+import gemmi
 import numpy as np
-from nexusformat.nexus import (NeXusError, NXdata, NXdetector, NXentry,
-                               NXfield, NXgoniometer, NXgroup, NXinstrument,
-                               NXlink, NXmonochromator, NXroot, NXsample)
+import numpy.ma as ma
+from nexusformat.nexus import (NeXusError, NXcollection, NXdata, NXdetector,
+                               NXentry, NXfield, NXgoniometer, NXgroup,
+                               NXinstrument, NXlink, NXmonochromator,
+                               NXprocess, NXroot, NXsample, NXsubentry)
 from numpy.linalg import inv, norm
 from scipy import optimize
 
-from .nxutils import init_julia, load_julia
+from .nxutils import init_julia, load_julia, parse_orientation
 
 degrees = 180.0 / np.pi
 radians = np.pi / 180.0
@@ -67,32 +70,36 @@ def norm_vec(vec):
 
 
 class NXRefine:
-    """Crystallographic parameters and methods for single crystal diffraction.
+    """Crystallographic parameters for single crystal diffraction.
 
-    The parameters are loaded from a NeXus file containing data collected on a
-    fast area detector by rotating a single crystal in a monochromatic x-ray
-    beam. Each entry in the NeXus file corresponds to a complete 360° rotation,
-    and includes a group with the pixel and frame indices of all the Bragg
-    peaks identified by the experimental workflow. These peaks are used to
-    refine an orientation matrix that depends on the goniometer angles and
-    detector orientation defined with respect to the incident beam using a
-    scheme defined by Branton Campbell to transform from the experimental
-    frame of coordinates to the crystal's reciprocal lattice.
+    The parameters are loaded from a NeXus file containing data
+    collected on a fast area detector by rotating a single crystal in a
+    monochromatic x-ray beam. Each entry in the NeXus file corresponds
+    to a complete 360° rotation, and includes a group with the pixel and
+    frame indices of all the Bragg peaks identified by the experimental
+    workflow. These peaks are used to refine an orientation matrix that
+    depends on the goniometer angles and detector orientation defined
+    with respect to the incident beam using a scheme defined by Branton
+    Campbell to transform from the experimental frame of coordinates to
+    the crystal's reciprocal lattice.
 
-    Functions are provided to derive nominal Bragg peak indices and two-theta
-    angles for the defined space group using CCTBX, to define the orientation
-    matrix using the Busing and Levy method, and to refine the matrix and
-    experimental parameters using the measured Bragg peak positions. Parameters
-    are updated in the NeXus file and a settings file is created to be used in
-    coordinate transformations from instrumental coordinates to reciprocal
-    lattice coordinates, using the CCTW software package
-    (https://sourceforge.net/projects/cctw/).
+    Functions are provided to derive nominal Bragg peak indices and
+    two-theta angles for the defined space group using GEMMI, to define
+    the orientation matrix using the Busing and Levy method, and to
+    refine the matrix and experimental parameters using the measured
+    Bragg peak positions. Parameters are updated in the NeXus file and a
+    settings file is created to be used in coordinate transformations
+    from instrumental coordinates to reciprocal lattice coordinates,
+    using the CCTW software
+    package(https://sourceforge.net/projects/cctw/).
 
     Parameters
     ----------
-    node : NXobject
-        NeXus object within the NXentry group containing the experimental
-        data and parameters.
+    entry : NXobject, optional
+        NXroot, NXentry, NXsubentry, or NXgroup containing the
+        experimental data and parameters, by default None.
+    subentry : str, optional
+        Name of the NXsubentry group within the entry, by default ''.
 
     Attributes
     ----------
@@ -106,6 +113,8 @@ class NXRefine:
         Wavelength of the incident x-ray beam in Å.
     distance : float
         Distance from the sample to the detector in mm.
+    detector_orientation : str
+        Detector orientation specifying three vectors in the lab frame.
     yaw, pitch, roll : float
         Yaw, pitch and roll of the area detector in degrees.
     theta, omega, chi : float
@@ -114,8 +123,11 @@ class NXRefine:
         Phi angles of each measured frame.
     phi_step : float
         Step size of phi angle rotations in degrees.
+    xs, ys, zs : float
+        Distance of sample from center of goniometer in mm.
     xc, yc : float
-        Location of the incident beam on the detector in pixel coordinates.
+        Location of the incident beam on the detector in pixel
+        coordinates.
     xd, yd : float
         Translation of the detector along the x and y directions in mm.
     frame_time : float
@@ -142,23 +154,44 @@ class NXRefine:
                     'I': 'I222', 'F': 'F222', 'R': 'R3'}
     """Space groups with minimal systematic absences for each centring."""
 
-    def __init__(self, node=None):
-        if isinstance(node, NXroot) and 'entry' in node:
-            self.entry = node['entry']
-        elif isinstance(node, NXentry):
-            self.entry = node
-        elif isinstance(node, NXgroup):
-            self.entry = node.nxentry
+    def __init__(self, entry=None, subentry=''):
+        self._entry = None
+        self._scan_entry = None
+        self._subentry = subentry
+        if isinstance(entry, NXroot) and 'entry' in entry:
+            self._entry = entry['entry']
+            self._scan_entry = self._entry
+        elif isinstance(entry, NXsubentry):
+            self._entry = entry.nxgroup
+            self._scan_entry = entry
+            if not self._subentry:
+                self._subentry = entry.nxname
+        elif isinstance(entry, NXentry):
+            self._entry = entry
+            self._scan_entry = entry
+        elif isinstance(entry, NXgroup):
+            self._entry = entry.nxentry
+            self._scan_entry = self._entry
         else:
-            self.entry = None
+            self._entry = None
+            self._scan_entry = None
+        if (self._subentry and self._entry is not None
+                and self._subentry in self._entry):
+            self._scan_entry = self._entry[self._subentry]
         self.a = 4.0
         self.b = 4.0
         self.c = 4.0
         self.alpha = 90.0
         self.beta = 90.0
         self.gamma = 90.0
+        self.formula = ''
+        self.space_group = ''
+        self.laue_group = ''
+        self.symmetry = 'triclinic'
+        self.centring = 'P'
         self.wavelength = 1.0
         self.distance = 100.0
+        self.detector_orientation = '-y +z -x' #Old default orientation
         self._yaw = 0.0
         self._pitch = 0.0
         self._roll = 0.0
@@ -167,45 +200,39 @@ class NXRefine:
         self._chi = 0.0
         self.phi = 0.0
         self.phi_step = 0.1
+        self.xs = 0.0
+        self.ys = 0.0
+        self.zs = 0.0
         self.xc = 256.0
         self.yc = 256.0
         self.xd = 0.0
         self.yd = 0.0
         self.frame_time = 0.1
-        self.formula = ''
-        self.space_group = ''
-        self.laue_group = ''
-        self.symmetry = 'triclinic'
-        self.centring = 'P'
         self.peaks = None
-        self.xp = None
-        self.yp = None
-        self.zp = None
-        self.x = None
-        self.y = None
-        self.z = None
+        self.x = self.y = self.z = None
+        self.xp = self.yp = self.zp = None
         self.polar_angle = None
         self.azimuthal_angle = None
         self.rotation_angle = None
         self.intensity = None
         self.pixel_size = 0.1
         self.shape = [1679, 1475]
-        self.polar_max = None
+        self._polar_max = 10.0
         self.Umat = None
         self.primary = None
         self.secondary = None
         self.polar_tolerance = 0.1
         self.peak_tolerance = 5.0
-        self.hkl_tolerance = 0.05
+        self._hkl_tolerance = 0.05
         self.output_chunks = None
         self.grid_origin = None
         self.grid_basis = None
         self.grid_shape = None
         self.grid_step = None
-        self.standard = True
 
         self.name = ""
         self._idx = None
+        self._peaks_error = None
         self._mode = None
         self._Dmat_cache = inv(rotmat(1, self.roll) * rotmat(2, self.pitch) *
                                rotmat(3, self.yaw))
@@ -215,17 +242,37 @@ class NXRefine:
 
         self.parameters = None
 
-        if self.entry is not None:
+        if self.entry is not None and self.entry.nxfile is not None:
             self.read_parameters()
 
     def __repr__(self):
         return "NXRefine('" + self.name + "')"
 
+    @property
+    def entry(self):
+        """NXentry group containing the experimental data."""
+        return self._entry
+
+    @property
+    def subentry(self):
+        """NXsubentry group for the current analysis, or None."""
+        if (self._subentry and self._entry is not None
+                and self._subentry in self._entry):
+            return self._entry[self._subentry]
+        return None
+
+    @property
+    def scan_entry(self):
+        """NXentry or NXsubentry for storing analysis results (read-only)."""
+        return self._scan_entry
+
     def __enter__(self):
         if self.entry is None:
             raise NeXusError('NXRefine entry not defined')
         self._mode = self.root.nxfilemode
-        self.root.unlock()
+        if self._mode is not None:
+            self.root.reload()
+            self.root.unlock()
         return self.root.__enter__()
 
     def __exit__(self, *args):
@@ -237,6 +284,30 @@ class NXRefine:
     def root(self):
         """Root of NXRefine entry"""
         return self.entry.nxroot
+
+    @property
+    def scan_directory(self):
+        """Parent directory of the raw scan data file."""
+        return Path(self.scan_entry['data'].nxsignal.nxfilename).parent
+
+    @property
+    def reduce_directory(self):
+        """Output directory: scan_directory/subentry when subentry is set."""
+        d = self.scan_directory
+        if self._subentry:
+            d = d / self._subentry
+            d.mkdir(exist_ok=True)
+        return d
+
+    def _read_from(self, entry, path, default=None):
+        """Read a value directly from a specific entry group."""
+        try:
+            val = entry[path]
+            if isinstance(val, NXgroup):
+                return val
+            return val.nxvalue
+        except NeXusError:
+            return default
 
     def read_parameter(self, path, default=None, attr=None):
         """Read the experimental parameter stored at the specfied path.
@@ -265,11 +336,8 @@ class NXRefine:
         stored in `root[entry]`, so sample parameters are all read from
         `root[entry/sample]`.
         """
+        entry = self.scan_entry if path in self.scan_entry else self.entry
         try:
-            if path.startswith('sample'):
-                entry = self.entry.nxroot['entry']
-            else:
-                entry = self.entry
             if attr:
                 return entry[path].attrs[attr]
             elif isinstance(entry[path], NXgroup):
@@ -288,33 +356,35 @@ class NXRefine:
             Group to be read, if different from `self.entry`, by default None
         """
         if entry:
-            self.entry = entry
+            self._scan_entry = entry
         with self.entry.nxfile:
-            self.name = self.entry.nxroot.nxname + "/" + self.entry.nxname
-            if 'unit_cell' in self.entry['sample']:
-                lattice_parameters = self.read_parameter('sample/unit_cell')
-                if lattice_parameters is not None:
-                    self.a, self.b, self.c = lattice_parameters[:3]
-                    self.alpha, self.beta, self.gamma = lattice_parameters[3:]
-            elif 'unit_cell_abc' in self.entry['sample']:
+            parent = self.entry
+            self.name = parent.nxroot.nxname + "/" + parent.nxname
+            if self._subentry:
+                self.name += "/" + self._subentry
+            lattice_parameters = self.read_parameter('sample/unit_cell')
+            if lattice_parameters is not None:
+                self.a, self.b, self.c = lattice_parameters[:3]
+                self.alpha, self.beta, self.gamma = lattice_parameters[3:]
+            else:
                 lattice_parameters = self.read_parameter(
                     'sample/unit_cell_abc')
                 if lattice_parameters is not None:
                     self.a, self.b, self.c = lattice_parameters
-                lattice_parameters = self.read_parameter(
-                    'sample/unit_cell_alphabetagamma')
-                if lattice_parameters is not None:
-                    self.alpha, self.beta, self.gamma = lattice_parameters
-            else:
-                self.a = self.read_parameter('sample/unitcell_a', self.a)
-                self.b = self.read_parameter('sample/unitcell_b', self.b)
-                self.c = self.read_parameter('sample/unitcell_c', self.c)
-                self.alpha = self.read_parameter(
-                    'sample/unitcell_alpha', self.alpha)
-                self.beta = self.read_parameter(
-                    'sample/unitcell_beta', self.beta)
-                self.gamma = self.read_parameter(
-                    'sample/unitcell_gamma', self.gamma)
+                    lattice_parameters = self.read_parameter(
+                        'sample/unit_cell_alphabetagamma')
+                    if lattice_parameters is not None:
+                        self.alpha, self.beta, self.gamma = lattice_parameters
+                else:
+                    self.a = self.read_parameter('sample/unitcell_a', self.a)
+                    self.b = self.read_parameter('sample/unitcell_b', self.b)
+                    self.c = self.read_parameter('sample/unitcell_c', self.c)
+                    self.alpha = self.read_parameter(
+                        'sample/unitcell_alpha', self.alpha)
+                    self.beta = self.read_parameter(
+                        'sample/unitcell_beta', self.beta)
+                    self.gamma = self.read_parameter(
+                        'sample/unitcell_gamma', self.gamma)
             self.formula = self.read_parameter('sample/chemical_formula',
                                                self.formula)
             self.space_group = self.read_parameter(
@@ -325,6 +395,9 @@ class NXRefine:
                 'instrument/monochromator/wavelength', self.wavelength)
             self.distance = self.read_parameter('instrument/detector/distance',
                                                 self.distance)
+            self.detector_orientation = self.read_parameter(
+                'instrument/detector/detector_orientation',
+                self.detector_orientation)
             self.yaw = self.read_parameter('instrument/detector/yaw', self.yaw)
             self.pitch = self.read_parameter('instrument/detector/pitch',
                                              self.pitch)
@@ -357,54 +430,103 @@ class NXRefine:
                 'instrument/goniometer/chi', self.chi)
             self.omega = self.read_parameter('instrument/goniometer/omega',
                                              self.omega)
-            if 'instrument/goniometer' in self.entry:
-                if 'theta' in self.entry['instrument/goniometer']:
-                    self.theta = self.read_parameter(
-                        'instrument/goniometer/theta', self.theta)
-                elif 'goniometer_pitch' in self.entry['instrument/goniometer']:
-                    self.theta = self.read_parameter(
-                        'instrument/goniometer/goniometer_pitch', self.theta)
-                elif 'gonpitch' in self.entry['instrument/goniometer']:
-                    self.theta = self.read_parameter(
-                        'instrument/goniometer/gonpitch', self.theta)
+            theta = self.read_parameter('instrument/goniometer/theta')
+            if theta is None:
+                theta = self.read_parameter(
+                    'instrument/goniometer/goniometer_pitch')
+            if theta is None:
+                theta = self.read_parameter('instrument/goniometer/gonpitch')
+            if theta is not None:
+                self.theta = theta
+            self.xs = self.read_parameter('instrument/goniometer/xs', 0.0)
+            self.ys = self.read_parameter('instrument/goniometer/ys', 0.0)
+            self.zs = self.read_parameter('instrument/goniometer/zs', 0.0)
+
             self.symmetry = self.read_parameter('sample/unit_cell_group',
                                                 self.symmetry)
             self.centring = self.read_parameter('sample/lattice_centring',
                                                 self.centring)
-            self.xp = self.read_parameter('peaks/x')
-            self.yp = self.read_parameter('peaks/y')
-            self.zp = self.read_parameter('peaks/z')
-            self.polar_angle = self.read_parameter('peaks/polar_angle')
-            self.azimuthal_angle = self.read_parameter('peaks/azimuthal_angle')
-            self.intensity = self.read_parameter('peaks/intensity')
+            # Peak position arrays must all come from the same source.
+            # Use the subentry's peaks if it has a complete set ('x'
+            # present); otherwise fall back to the parent entry to avoid
+            # size mismatches with a partial peaks group written by
+            # write_angles (which only stores polar/azimuthal angles).
+            if (self.scan_entry is not None
+                    and 'peaks' in self.scan_entry
+                    and 'x' in self.scan_entry['peaks']):
+                _pk = self.scan_entry
+            else:
+                _pk = self.entry
+            self.xp = self._read_from(_pk, 'peaks/x')
+            self.yp = self._read_from(_pk, 'peaks/y')
+            self.zp = self._read_from(_pk, 'peaks/z')
+            self.polar_angle = self._read_from(_pk, 'peaks/polar_angle')
+            self.azimuthal_angle = self._read_from(
+                _pk, 'peaks/azimuthal_angle')
+            self.intensity = self._read_from(_pk, 'peaks/intensity')
             self.pixel_size = self.read_parameter(
                 'instrument/detector/pixel_size', self.pixel_size)
             self.pixel_mask = self.read_parameter(
                 'instrument/detector/pixel_mask')
             self.pixel_mask_applied = self.read_parameter(
                 'instrument/detector/pixel_mask_applied')
-            self.rotation_angle = self.read_parameter('peaks/rotation_angle')
+            self.rotation_angle = self._read_from(
+                _pk, 'peaks/rotation_angle')
             self.primary = self.read_parameter('peaks/primary_reflection')
             self.secondary = self.read_parameter('peaks/secondary_reflection')
             self.Umat = self.read_parameter(
                 'instrument/detector/orientation_matrix')
             if isinstance(self.polar_angle, np.ndarray):
                 try:
-                    self.set_polar_max(np.sort(self.polar_angle)[200] + 0.1)
+                    self._polar_max = np.sort(self.polar_angle)[200] + 0.1
                 except IndexError:
-                    self.set_polar_max(self.polar_angle.max())
+                    self._polar_max = self.polar_angle.max()
             else:
-                self.set_polar_max(10.0)
+                self._polar_max = 10.0
             self.Qh = self.read_parameter('transform/Qh')
             self.Qk = self.read_parameter('transform/Qk')
             self.Ql = self.read_parameter('transform/Ql')
             self.initialize_peaks()
+
+    def initialize_peaks(self):
+        self._peaks_error = None
+        try:
+            peaks = list(zip(self.xp,  self.yp, self.zp, self.intensity))
+            self.peaks = dict(zip(range(len(peaks)),
+                                  [NXPeak(*p, parent=self) for p in peaks]))
+            self.initialize_idx()
+        except Exception as e:
+            self._peaks_error = e
+            self.peaks = None
+            self._idx = None
+
+    @property
+    def sample_entry(self):
+        """Entry containing the shared sample group.
+
+        Per-scan entries (`/f1`, `/f2`, ...) link their `sample` group
+        to `root[entry/sample]`, so sample writes must be routed there
+        rather than through the linked group on `self.entry`. Falls
+        back to `self.entry` when no `entry` group exists at the root.
+        """
+        if self.entry is None:
+            return None
+        root = self.entry.nxroot
+        if root is not None and 'entry' in root:
+            return root['entry']
+        return self.entry
 
     def write_parameter(self, path, value, attr=None):
         """Write a value to the NeXus object defined by its path.
 
         If the `attr` keyword argument is present, the value of the
         specified attribute of the object is returned instead.
+
+        Sample parameters are written to `self.sample_entry` because the
+        sample group is shared across subentries via a link to
+        `root[entry/sample]`. All other parameters are written to
+        `self.scan_entry` so that, when a subentry is active, they are
+        stored there rather than in the top-level entry.
 
         Parameters
         ----------
@@ -416,9 +538,11 @@ class NXRefine:
             Name of attribute, by default None
         """
         if path.startswith('sample'):
-            entry = self.entry.nxroot['entry']
+            entry = self.sample_entry
         else:
-            entry = self.entry
+            entry = self.scan_entry
+        if entry is None:
+            return
         if value is not None:
             if attr and path in entry:
                 entry[path].attrs[attr] = value
@@ -443,10 +567,11 @@ class NXRefine:
             by default False.
         """
         if entry:
-            self.entry = entry
+            self._scan_entry = entry
         with self:
-            if 'sample' not in self.entry:
-                self.entry['sample'] = NXsample()
+            sample_entry = self.sample_entry
+            if sample_entry is not None and 'sample' not in sample_entry:
+                sample_entry['sample'] = NXsample()
             self.write_parameter('sample/chemical_formula', self.formula)
             self.write_parameter('sample/space_group', self.space_group)
             self.write_parameter('sample/laue_group', self.laue_group)
@@ -461,20 +586,25 @@ class NXRefine:
             if sample:
                 return
 
-            if 'instrument' not in self.entry:
-                self.entry['instrument'] = NXinstrument()
-            if 'detector' not in self.entry['instrument']:
-                self.entry['instrument/detector'] = NXdetector()
-            if 'goniometer' not in self.entry['instrument']:
-                self.entry['instrument/goniometer'] = NXgoniometer()
-            if 'monochromator' not in self.entry['instrument']:
-                self.entry['instrument/monochromator'] = NXmonochromator()
-            if 'sample' not in self.entry['instrument']:
-                self.entry['instrument/sample'] = NXsample()
+            if 'instrument' not in self._scan_entry:
+                if (self.entry is not None
+                        and 'instrument' in self.entry):
+                    self._scan_entry['instrument'] = self.entry['instrument']
+                else:
+                    self._scan_entry['instrument'] = NXinstrument()
+            if 'detector' not in self._scan_entry['instrument']:
+                self._scan_entry['instrument/detector'] = NXdetector()
+            if 'goniometer' not in self._scan_entry['instrument']:
+                self._scan_entry['instrument/goniometer'] = NXgoniometer()
+            if 'monochromator' not in self._scan_entry['instrument']:
+                self._scan_entry['instrument/monochromator'] = (
+                    NXmonochromator())
 
             self.write_parameter('instrument/monochromator/wavelength',
                                  self.wavelength)
             self.write_parameter('instrument/detector/distance', self.distance)
+            self.write_parameter('instrument/detector/detector_orientation',
+                                 self.detector_orientation)
             self.write_parameter('instrument/detector/yaw', self.yaw)
             self.write_parameter('instrument/detector/pitch', self.pitch)
             self.write_parameter('instrument/detector/roll', self.roll)
@@ -499,30 +629,51 @@ class NXRefine:
             self.write_parameter('instrument/goniometer/chi', self.chi)
             self.write_parameter('instrument/goniometer/omega', self.omega)
             self.write_parameter('instrument/goniometer/theta', self.theta)
+            self.write_parameter('instrument/goniometer/xs', self.xs)
+            self.write_parameter('instrument/goniometer/ys', self.ys)
+            self.write_parameter('instrument/goniometer/zs', self.zs)
+            if 'peaks' not in self._scan_entry:
+                if (self.entry is not None
+                        and 'peaks' in self.entry):
+                    self._scan_entry['peaks'] = self.entry['peaks']
             self.write_parameter('peaks/primary_reflection', self.primary)
             self.write_parameter('peaks/secondary_reflection', self.secondary)
             if isinstance(self.z, np.ndarray):
                 self.rotation_angle = self.phi + (self.phi_step * self.z)
 
-    def copy_parameters(self, other, sample=False, instrument=False):
-        """Copy the experimental parameters from another entry.
+    def copy_parameters(self, other, sample=False, instrument=False,
+                        settings=False, transform=False):
+        """Copy the experimental parameters to another entry.
+
+        The caller is responsible for routing: sample/settings/transform
+        should be copied through an NXRefine pair rooted at '/entry',
+        while instrument should be copied through a pair rooted at the
+        per-entry group ('/f1', '/f2', '/f3').
+
+        Sample writes go to ``other.entry['sample']``. Instrument writes
+        go to ``other.scan_entry['instrument']``. Settings and transform
+        copy the source's ``scan_entry/nxscans/{settings,transform}`` to
+        the same path on the destination, falling back to ``entry`` on
+        the source side so a subentry can inherit from its parent entry.
 
         Parameters
         ----------
         other : NXRefine
-            NXRefine instance containing the other parameters.
+            NXRefine instance to receive the parameters.
         sample : bool, optional
             True if the sample parameters are to be copied, by default False.
         instrument : bool, optional
             True if the instrument parameters are to be copied,
             by default False.
+        settings : bool, optional
+            True if nxscans/settings is to be copied, by default False.
+        transform : bool, optional
+            True if nxscans/transform is to be copied, by default False.
         """
         with other:
             if sample:
-                if 'sample' not in other.root['entry']:
-                    other.root['entry/sample'] = NXsample()
                 if 'sample' not in other.entry:
-                    other.entry.makelink(other.root['entry/sample'])
+                    other.entry['sample'] = NXsample()
                 other.write_parameter('sample/chemical_formula', self.formula)
                 other.write_parameter('sample/space_group', self.space_group)
                 other.write_parameter('sample/laue_group', self.laue_group)
@@ -535,19 +686,19 @@ class NXRefine:
                 other.write_parameter('sample/unitcell_beta', self.beta)
                 other.write_parameter('sample/unitcell_gamma', self.gamma)
             if instrument:
-                if 'instrument' not in other.entry:
-                    other.entry['instrument'] = NXinstrument()
-                if 'detector' not in other.entry['instrument']:
-                    other.entry['instrument/detector'] = NXdetector()
-                if 'monochromator' not in other.entry['instrument']:
-                    other.entry['instrument/monochromator'] = NXmonochromator()
-                if 'goniometer' not in other.entry['instrument']:
-                    other.entry['instrument/goniometer'] = NXgoniometer()
-                if ('sample' in self.entry['instrument'] and
-                        'sample' not in other.entry['instrument']):
-                    other.entry['instrument/sample'] = NXsample()
+                if 'instrument' not in other.scan_entry:
+                    other.scan_entry['instrument'] = NXinstrument()
+                if 'detector' not in other.scan_entry['instrument']:
+                    other.scan_entry['instrument/detector'] = NXdetector()
+                if 'monochromator' not in other.scan_entry['instrument']:
+                    other.scan_entry['instrument/monochromator'] = (
+                        NXmonochromator())
+                if 'goniometer' not in other.scan_entry['instrument']:
+                    other.scan_entry['instrument/goniometer'] = NXgoniometer()
                 other.write_parameter('instrument/detector/distance',
                                       self.distance)
+                other.write_parameter('instrument/detector/detector_orientation',
+                                      self.detector_orientation)
                 other.write_parameter('instrument/detector/yaw', self.yaw)
                 other.write_parameter('instrument/detector/pitch', self.pitch)
                 other.write_parameter('instrument/detector/roll', self.roll)
@@ -581,12 +732,43 @@ class NXRefine:
                     'instrument/goniometer/omega', self.omega)
                 other.write_parameter('instrument/goniometer/theta',
                                       self.theta)
-                if ('sample' in self.entry['instrument'] and
-                        'transmission' in self.entry['instrument/sample']):
-                    if 'transmission' in other.entry['instrument/sample']:
-                        del other.entry['instrument/sample/transmission']
-                    other.entry['instrument/sample/transmission'] = (
-                        self.entry['instrument/sample/transmission'])
+                transmission_source = None
+                for path in ('frame_sums/transmission',
+                             'instrument/sample/transmission'):
+                    if path in self.scan_entry:
+                        transmission_source = self.scan_entry[path]
+                        break
+                if transmission_source is not None:
+                    if 'frame_sums' not in other.scan_entry:
+                        other.scan_entry['frame_sums'] = NXcollection()
+                    if 'transmission' in other.scan_entry['frame_sums']:
+                        del other.scan_entry['frame_sums/transmission']
+                    other.scan_entry['frame_sums/transmission'] = (
+                        transmission_source)
+            if settings:
+                settings_src = None
+                if 'nxscans/settings' in self.scan_entry:
+                    settings_src = self.scan_entry['nxscans/settings']
+                elif 'nxscans/settings' in self.entry:
+                    settings_src = self.entry['nxscans/settings']
+                if settings_src is not None:
+                    if 'nxscans' not in other.scan_entry:
+                        other.scan_entry['nxscans'] = NXprocess()
+                    if 'settings' in other.scan_entry['nxscans']:
+                        del other.scan_entry['nxscans/settings']
+                    other.scan_entry['nxscans/settings'] = settings_src
+            if transform:
+                transform_src = None
+                if 'nxscans/transform' in self.scan_entry:
+                    transform_src = self.scan_entry['nxscans/transform']
+                elif 'nxscans/transform' in self.entry:
+                    transform_src = self.entry['nxscans/transform']
+                if transform_src is not None:
+                    if 'nxscans' not in other.scan_entry:
+                        other.scan_entry['nxscans'] = NXprocess()
+                    if 'transform' in other.scan_entry['nxscans']:
+                        del other.scan_entry['nxscans/transform']
+                    other.scan_entry['nxscans/transform'] = transform_src
 
     def link_sample(self, other):
         """Link the sample group of this entry to another entry.
@@ -600,7 +782,7 @@ class NXRefine:
             if 'sample' in self.entry:
                 if 'sample' in other.entry:
                     del other.entry['sample']
-                other.entry.makelink(self.entry['sample'])
+                other.entry.makelink(self.scan_entry['sample'])
 
     def read_settings(self, settings_file):
         """Read the experimental parameters stored in a CCTW settings file.
@@ -638,67 +820,83 @@ class NXRefine:
         self.chi = d['parameters.chinom'] * degrees
         self.phi = d['parameters.phinom'] * degrees
         self.phi_step = d['parameters.phistep'] * degrees
-        self.h_start, self.k_start, self.l_start = d['parameters.gridorigin']
-        self.h_stop, self.k_stop, self.l_stop = [-v
-                                                 for v in d
-                                                 ['parameters.gridorigin']]
-        hs, ks, ls = d['parameters.griddim']
-        self.h_step, self.k_step, self.l_step = [1.0/hs, 1.0/ks, 1.0/ls]
-        self.h_shape, self.k_shape, self.l_shape = d['outputdata.dimensions']
+        origin = d['parameters.gridorigin']
+        shape = d['outputdata.dimensions']
+        self.Qh = np.linspace(origin[0], -origin[0], shape[0])
+        self.Qk = np.linspace(origin[1], -origin[1], shape[1])
+        self.Ql = np.linspace(origin[2], -origin[2], shape[2])
 
-    def write_settings(self, settings_file):
+    def write_settings(self, settings_file, cctw_settings=None):
         """Write experimental parameters to a CCTW settings file.
 
         Parameters
         ----------
         settings_file : str
             File name of the settings file.
+        cctw_settings : NXparameters, optional
+            Group of stored CCTW settings (keys use ``_`` in place of
+            ``.``). If provided, parameters are read from this group
+            instead of being computed from the current experimental
+            parameters.
         """
         lines = []
-        lines.append(f'parameters.pixelSize = {self.pixel_size};')
-        lines.append(f'parameters.wavelength = {self.wavelength};')
-        lines.append(f'parameters.distance = {self.distance};')
-        lines.append(f'parameters.unitCell = {list(self.lattice_settings)};')
-        lines.append(f'parameters.ubMat = {str(self.UBmat.tolist())};')
-        lines.append(f'parameters.oMat = {str(self.Omat.tolist())};')
-        lines.append('parameters.oVec = [0,0,0];')
-        lines.append(f'parameters.det0x = {self.xc};')
-        lines.append(f'parameters.det0y = {self.yc};')
-        lines.append('parameters.xTrans = [0,0,0];')
-        lines.append(
-            f'parameters.orientErrorDetPitch = {self.pitch * radians};')
-        lines.append(f'parameters.orientErrorDetRoll = {self.roll * radians};')
-        lines.append(f'parameters.orientErrorDetYaw = {self.yaw * radians};')
-        lines.append(
-            f'parameters.orientErrorGonPitch = {self.theta * radians};')
-        lines.append('parameters.twoThetaCorrection = 0;')
-        lines.append(f'parameters.twoThetaNom = 0;')
-        lines.append(f'parameters.twoThetaStep = 0;')
-        lines.append('parameters.omegaCorrection = 0;')
-        lines.append(f'parameters.omegaNom = {self.omega * radians};')
-        lines.append(f'parameters.omegaStep = 0;')
-        lines.append('parameters.chiCorrection = 0;')
-        lines.append(f'parameters.chiNom = {self.chi * radians};')
-        lines.append(f'parameters.chiStep = 0;')
-        lines.append('parameters.phiCorrection = 0;')
-        lines.append(f'parameters.phiNom = {self.phi * radians};')
-        lines.append(f'parameters.phiStep = {self.phi_step * radians};')
-        lines.append(f'parameters.gridOrigin = {self.grid_origin};')
-        lines.append(f'parameters.gridBasis = {self.grid_basis};')
-        lines.append(f'parameters.gridDim = {self.grid_step};')
-        lines.append('parameters.gridOffset = [0,0,0];')
-        lines.append('parameters.extraFlip = false;')
-        lines.append(f'outputData.dimensions = {list(self.grid_shape)};')
-        lines.append('outputData.chunkSize = [50,50,50];')
-        lines.append('outputData.compression = 0;')
-        lines.append('transformer.transformOptions =  0;')
-        lines.append('transformer.oversampleX = 1;')
-        lines.append('transformer.oversampleY = 1;')
-        lines.append('transformer.oversampleZ = 4;')
+        if cctw_settings is None:
+            lines.append(f'parameters.pixelSize = {self.pixel_size};')
+            lines.append(f'parameters.wavelength = {self.wavelength};')
+            lines.append(f'parameters.distance = {self.distance};')
+            lines.append(
+                f'parameters.unitCell = {list(self.lattice_settings)};')
+            lines.append(f'parameters.ubMat = {str(self.UBmat.tolist())};')
+            lines.append(f'parameters.oMat = {str(self.Omat.tolist())};')
+            lines.append('parameters.oVec = [0,0,0];')
+            lines.append(f'parameters.det0x = {self.xc};')
+            lines.append(f'parameters.det0y = {self.yc};')
+            lines.append('parameters.xTrans = [0,0,0];')
+            lines.append(
+                f'parameters.orientErrorDetPitch = {self.pitch * radians};')
+            lines.append(
+                f'parameters.orientErrorDetRoll = {self.roll * radians};')
+            lines.append(
+                f'parameters.orientErrorDetYaw = {self.yaw * radians};')
+            lines.append(
+                f'parameters.orientErrorGonPitch = {self.theta * radians};')
+            lines.append('parameters.twoThetaCorrection = 0;')
+            lines.append('parameters.twoThetaNom = 0;')
+            lines.append('parameters.twoThetaStep = 0;')
+            lines.append('parameters.omegaCorrection = 0;')
+            lines.append(f'parameters.omegaNom = {self.omega * radians};')
+            lines.append('parameters.omegaStep = 0;')
+            lines.append('parameters.chiCorrection = 0;')
+            lines.append(f'parameters.chiNom = {self.chi * radians};')
+            lines.append('parameters.chiStep = 0;')
+            lines.append('parameters.phiCorrection = 0;')
+            lines.append(f'parameters.phiNom = {self.phi * radians};')
+            lines.append(f'parameters.phiStep = {self.phi_step * radians};')
+            lines.append(
+                f'parameters.gridOrigin = {self.grid_origin.tolist()};')
+            lines.append(f'parameters.gridBasis = {self.grid_basis};')
+            lines.append(f'parameters.gridDim = {self.grid_step};')
+            lines.append('parameters.gridOffset = [0,0,0];')
+            lines.append('parameters.extraFlip = false;')
+            input_chunks = [
+                int(c) for c in self.scan_entry['data/data'].chunks[::-1]]
+            lines.append(f'inputData.chunkSize = {input_chunks};')
+            lines.append(f'outputData.dimensions = {list(self.grid_shape)};')
+            lines.append('outputData.chunkSize = [50,50,50];')
+            lines.append('outputData.compression = 0;')
+            lines.append('transformer.transformOptions =  0;')
+            lines.append('transformer.oversampleX = 1;')
+            lines.append('transformer.oversampleY = 1;')
+            lines.append('transformer.oversampleZ = 1;')
+        else:
+            for key in cctw_settings:
+                original_key = key.replace('_', '.', 1)
+                value = str(cctw_settings[key].nxvalue)
+                lines.append(f'{original_key} = {value};')
         with open(settings_file, 'w') as f:
             f.write('\n'.join(lines))
 
-    def write_angles(self, polar_angles, azimuthal_angles):
+    def write_angles(self, polar_angles, azimuthal_angles, entry=None):
         """Write the polar and azimuthal angles of the Bragg peaks.
 
         Parameters
@@ -707,27 +905,23 @@ class NXRefine:
             Polar angles of the Bragg peaks in degrees.
         azimuthal_angles : array_like
             Azimuthal angles of the Bragg peaks in degrees.
+        entry : NXentry or NXsubentry, optional
+            Entry group to write angles into. Defaults to self.entry.
         """
+        if entry is None:
+            entry = self.entry
         with self:
-            if 'sample' not in self.entry:
-                self.entry['sample'] = NXsample()
-            if 'peaks' not in self.entry:
-                self.entry['peaks'] = NXdata()
+            if 'sample' not in self._scan_entry:
+                self._scan_entry['sample'] = NXsample()
+            if 'peaks' not in entry:
+                entry['peaks'] = NXdata()
             else:
-                if 'polar_angle' in self.entry['peaks']:
-                    del self.entry['peaks/polar_angle']
-                if 'azimuthal_angle' in self.entry['peaks']:
-                    del self.entry['peaks/azimuthal_angle']
-            self.write_parameter('peaks/polar_angle', polar_angles)
-            self.write_parameter('peaks/azimuthal_angle', azimuthal_angles)
-
-    def initialize_peaks(self):
-        try:
-            peaks = list(zip(self.xp,  self.yp, self.zp, self.intensity))
-            self.peaks = dict(zip(range(len(peaks)),
-                                  [NXPeak(*p, parent=self) for p in peaks]))
-        except Exception:
-            self.peaks = None
+                if 'polar_angle' in entry['peaks']:
+                    del entry['peaks/polar_angle']
+                if 'azimuthal_angle' in entry['peaks']:
+                    del entry['peaks/azimuthal_angle']
+            entry['peaks']['polar_angle'] = polar_angles
+            entry['peaks']['azimuthal_angle'] = azimuthal_angles
 
     def stepsize(self, value):
         import math
@@ -737,50 +931,39 @@ class NXRefine:
         return find_nearest(stepsizes, value/multiplier) * multiplier
 
     def initialize_grid(self):
-        """Initialize the parameters that define HKL grid."""
-        if self.Qh is not None and self.Qk is not None and self.Ql is not None:
-            self.h_start, self.h_step, self.h_stop = (
-                self.Qh[0], self.Qh[1]-self.Qh[0], self.Qh[-1])
-            self.k_start, self.k_step, self.k_stop = (
-                self.Qk[0], self.Qk[1]-self.Qk[0], self.Qk[-1])
-            self.l_start, self.l_step, self.l_stop = (
-                self.Ql[0], self.Ql[1]-self.Ql[0], self.Ql[-1])
-        else:
+        """Build Qh/Qk/Ql arrays and the corresponding CCTW grid."""
+        if self.Qh is None or self.Qk is None or self.Ql is None:
 
             def round(value):
                 import math
                 return math.ceil(np.round(value) / 2.) * 2
 
-            self.h_stop = round(0.8 * self.Qmax / self.astar)
-            h_range = np.round(2*self.h_stop)
-            self.h_start = -self.h_stop
-            self.h_step = self.stepsize(h_range/1000)
-            self.k_stop = round(0.8 * self.Qmax / self.bstar)
-            k_range = np.round(2*self.k_stop)
-            self.k_start = -self.k_stop
-            self.k_step = self.stepsize(k_range/1000)
-            self.l_stop = round(0.8 * self.Qmax / self.cstar)
-            l_range = np.round(2*self.l_stop)
-            self.l_start = -self.l_stop
-            self.l_step = self.stepsize(l_range/1000)
+            h_stop = round(0.8 * self.Qmax / self.astar)
+            k_stop = round(0.8 * self.Qmax / self.bstar)
+            l_stop = round(0.8 * self.Qmax / self.cstar)
+            h_step = self.stepsize(np.round(2 * h_stop) / 1000)
+            k_step = self.stepsize(np.round(2 * k_stop) / 1000)
+            l_step = self.stepsize(np.round(2 * l_stop) / 1000)
+            self.Qh = np.linspace(
+                -h_stop, h_stop, int(np.round(2 * h_stop / h_step, 2)) + 1)
+            self.Qk = np.linspace(
+                -k_stop, k_stop, int(np.round(2 * k_stop / k_step, 2)) + 1)
+            self.Ql = np.linspace(
+                -l_stop, l_stop, int(np.round(2 * l_stop / l_step, 2)) + 1)
         self.define_grid()
 
     def define_grid(self):
-        """Define the HKL grid for CCTW."""
-        self.h_shape = int(
-            np.round((self.h_stop - self.h_start) / self.h_step, 2)) + 1
-        self.k_shape = int(
-            np.round((self.k_stop - self.k_start) / self.k_step, 2)) + 1
-        self.l_shape = int(
-            np.round((self.l_stop - self.l_start) / self.l_step, 2)) + 1
-        self.grid_origin = [self.h_start, self.k_start, self.l_start]
-        self.grid_step = [int(np.rint(1.0/self.h_step)),
-                          int(np.rint(1.0/self.k_step)),
-                          int(np.rint(1.0/self.l_step))]
-        self.grid_shape = [self.h_shape, self.k_shape, self.l_shape]
+        """Define the HKL grid parameters required by CCTW."""
+        self.grid_shape = [len(self.Qh), len(self.Qk), len(self.Ql)]
+        self.grid_origin = np.array(
+            [self.Qh[0], self.Qk[0], self.Ql[0]], dtype=float)
+        self.grid_step = [int(np.rint(1.0 / (self.Qh[1] - self.Qh[0]))),
+                          int(np.rint(1.0 / (self.Qk[1] - self.Qk[0]))),
+                          int(np.rint(1.0 / (self.Ql[1] - self.Ql[0])))]
         self.grid_basis = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
 
-    def prepare_transform(self, output_link, mask=False):
+    def prepare_transform(self, output_link, mask=False, output_entry=None,
+                          data_entry=None):
         """Prepare the NXdata group for containing the transformed data.
 
         Parameters
@@ -790,76 +973,98 @@ class NXRefine:
         mask : bool, optional
             True if the NXdata group contains a masked transform,
             by default None.
+        output_entry : NXentry or NXsubentry, optional
+            Entry group to write the transform NXdata into. Defaults to
+            self.entry.
+        data_entry : NXentry or NXsubentry, optional
+            Entry group to read data_mask and monitor_weight from.
+            Defaults to self.entry.
         """
-        command = self.cctw_command(mask)
-        H = NXfield(
-            np.linspace(self.h_start, self.h_stop, self.h_shape),
-            name='Qh', scaling_factor=self.astar, long_name='H (r.l.u.)')
-        K = NXfield(
-            np.linspace(self.k_start, self.k_stop, self.k_shape),
-            name='Qk', scaling_factor=self.bstar, long_name='K (r.l.u.)')
-        L = NXfield(
-            np.linspace(self.l_start, self.l_stop, self.l_shape),
-            name='Ql', scaling_factor=self.cstar, long_name='L (r.l.u.)')
+        if output_entry is None:
+            output_entry = self.entry
+        if data_entry is None:
+            data_entry = self.entry
+        command = self.cctw_command(mask, output_link=output_link,
+                                    data_entry=data_entry)
+        H = NXfield(self.Qh, name='Qh',
+                    scaling_factor=self.astar, long_name='H (r.l.u.)')
+        K = NXfield(self.Qk, name='Qk',
+                    scaling_factor=self.bstar, long_name='K (r.l.u.)')
+        L = NXfield(self.Ql, name='Ql',
+                    scaling_factor=self.cstar, long_name='L (r.l.u.)')
         if mask:
             transform = 'masked_transform'
         else:
             transform = 'transform'
 
         with self:
-            if transform in self.entry:
-                del self.entry[transform]
+            if transform in output_entry:
+                del output_entry[transform]
 
-            self.entry[transform] = NXdata(NXlink(name='data',
-                                           target='/entry/data/v',
-                                           file=output_link), [L, K, H])
-            self.entry[transform].attrs['angles'] = (self.gamma_star,
-                                                     self.beta_star,
-                                                     self.alpha_star)
-            self.entry[transform+'/weights'] = NXlink(target='/entry/data/n',
-                                                      file=output_link)
-            self.entry[transform+'/command'] = command
-            self.entry[transform].set_default()
+            output_entry[transform] = NXdata(NXlink(name='data',
+                                             target='/entry/data/v',
+                                             file=output_link), [L, K, H])
+            output_entry[transform].attrs['angles'] = (self.gamma_star,
+                                                       self.beta_star,
+                                                       self.alpha_star)
+            output_entry[transform+'/weights'] = NXlink(target='/entry/data/n',
+                                                        file=output_link)
+            output_entry[transform+'/command'] = command
+            output_entry[transform].set_default()
 
-    def cctw_command(self, mask=False):
+
+    def cctw_command(self, mask=False, output_link=None, data_entry=None):
         """Generate the shell command to run CCTW transform.
 
         Parameters
         ----------
         mask : bool, optional
             True if the transform contains masked data, by default False.
+        output_link : str or Path, optional
+            Output file for the transform. If not provided, the path is
+            computed from the raw data directory and entry name.
+        data_entry : NXentry or NXsubentry, optional
+            Entry group to read data_mask and monitor_weight from.
+            Defaults to self.entry.
 
         Returns
         -------
         str
             Command string.
         """
-        entry = self.entry.nxname
+        if data_entry is None:
+            data_entry = self.entry
+        parent_entry = (self.entry if self.entry is not None
+                        else self.entry)
+        entry = parent_entry.nxname
         if mask:
             name = entry + '_masked_transform'
         else:
             name = entry + '_transform'
-        dir = os.path.dirname(self.entry['data'].nxsignal.nxfilename)
-        filename = self.entry.nxfilename
-        parfile = os.path.join(dir, entry+'_transform.pars')
-        command = ['cctw transform']
-        command.append(f'--parameters {parfile}')
-        if 'pixel_mask' in self.entry['instrument/detector']:
+        filename = parent_entry.nxfilename
+        parfile = self.reduce_directory.joinpath(entry+'_transform.pars')
+        command = [f'cctw transform --script {parfile}']
+        if 'pixel_mask' in parent_entry['instrument/detector']:
             command.append(
                 fr'--mask {filename}\#/{entry}/instrument/detector/pixel_mask')
-        if mask and 'data_mask' in self.entry['data']:
-            command.append(f'--mask3d {filename}\\#/{entry}/data/data_mask')
-        if 'monitor_weight' in self.entry['data']:
+        if mask and 'data_mask' in data_entry['data']:
+            data_mask_path = data_entry['data/data_mask'].nxpath
+            command.append(f'--mask3d {filename}\\#{data_mask_path}')
+        if 'monitor_weight' in parent_entry['data']:
             command.append(
                 fr'--weights {filename}\#/{entry}/data/monitor_weight')
-        if 'polarization' in self.entry['instrument/detector']:
+        if 'polarization' in parent_entry['instrument/detector']:
             command.append(
                 fr'--weights {filename}\#/{entry}'
                 '/instrument/detector/polarization')
-        raw_filename = self.entry['data/data'].nxfilename
-        raw_filepath = self.entry['data/data'].nxfilepath
+        raw_filename = parent_entry['data/data'].nxfilename
+        raw_filepath = parent_entry['data/data'].nxfilepath
         command.append(fr'{raw_filename}\#/{raw_filepath}')
-        command.append(fr'--output {dir}/{name}.nxs\#/entry/data')
+        if output_link:
+            command.append(fr'--output {output_link}\#/entry/data')
+        else:
+            command.append(
+                fr'--output {self.reduce_directory}/{name}.nxs\#/entry/data')
         command.append('--normalization 0')
         return ' '.join(command)
 
@@ -908,7 +1113,12 @@ class NXRefine:
         else:
             return 'triclinic'
 
-    def set_polar_max(self, polar_max):
+    @property
+    def polar_max(self):
+        return self._polar_max
+
+    @polar_max.setter
+    def polar_max(self, polar_max):
         """Set the maximum polar angle to be used in calculations.
 
         Parameters
@@ -928,8 +1138,24 @@ class NXRefine:
                     self.y.append(self.yp[i])
         except Exception:
             pass
-        self.polar_max = polar_max
-        self._idx = None
+        self._polar_max = polar_max
+        self.initialize_idx()
+
+    @property
+    def hkl_tolerance(self):
+        return self._hkl_tolerance
+
+    @hkl_tolerance.setter
+    def hkl_tolerance(self, hkl_tolerance):
+        """Set the HKL tolerance to be used in refinements.
+
+        Parameters
+        ----------
+        hkl_tolerance : float
+            Tolerance for calculated Q in Ang-1.
+        """
+        self._hkl_tolerance = hkl_tolerance
+        self.initialize_idx()
 
     @property
     def lattice_parameters(self):
@@ -939,7 +1165,7 @@ class NXRefine:
     @property
     def reciprocal_lattice_parameters(self):
         """Reciprocal lattice parameters."""
-        rlp = list(self.unit_cell.reciprocal().parameters())
+        rlp = list(self.unit_cell.reciprocal().parameters)
         rlp[0:3] = [2*np.pi*p for p in rlp[0:3]]
         return rlp
 
@@ -951,14 +1177,8 @@ class NXRefine:
 
     @property
     def unit_cell(self):
-        """CCTBX unit cell."""
-        from cctbx import uctbx
-        return uctbx.unit_cell(self.lattice_parameters)
-
-    @property
-    def reciprocal_cell(self):
-        """CCTBX reciprocal unit cell."""
-        return self.unit_cell.reciprocal()
+        """GEMMI unit cell."""
+        return gemmi.UnitCell(*self.lattice_parameters)
 
     @property
     def astar(self):
@@ -991,43 +1211,37 @@ class NXRefine:
         return self.reciprocal_lattice_parameters[5]
 
     @property
-    def sgi(self):
-        """CCTBX space group information."""
-        from cctbx import sgtbx
-        if self.space_group == '':
-            sg = self.space_groups[self.centring]
-        else:
-            sg = self.space_group
-        return sgtbx.space_group_info(sg)
-
-    @sgi.setter
-    def sgi(self, value):
-        from cctbx import sgtbx
-        _sgi = sgtbx.space_group_info(value)
-        self.space_group = _sgi.type().lookup_symbol()
-        self.symmetry = _sgi.group().crystal_system().lower()
-        self.laue_group = _sgi.group().laue_group_type()
-        self.centring = self.space_group[0]
-
-    @property
-    def sgn(self):
-        """Space group symbol."""
-        return self.sgi.type().lookup_symbol()
-
-    @property
     def sg(self):
-        """CCTBX space group."""
-        return self.sgi.group()
+        """GEMMI space group information."""
+        if self.space_group == '':
+            _sg = self.space_groups[self.centring]
+        else:
+            _sg = self.space_group
+        return gemmi.SpaceGroup(_sg)
+
+    @sg.setter
+    def sg(self, value):
+        if isinstance(value, gemmi.SpaceGroup):
+            _sg = value
+        else:
+            _sg = gemmi.SpaceGroup(value)
+        if not _sg.is_reference_setting():
+            _sg = gemmi.get_spacegroup_reference_setting(_sg.number)
+        self.space_group = _sg.xhm()
+        self.symmetry = _sg.crystal_system_str().lower()
+        self.laue_group = _sg.laue_str()
+        self.centring = _sg.centring_type()
 
     @property
     def miller(self):
         """Set of allowed Miller indices."""
-        from cctbx import crystal, miller
-        d_min = self.wavelength / (2 * np.sin(self.polar_max*radians/2))
-        return miller.build_set(crystal_symmetry=crystal.symmetry(
-            space_group_symbol=self.sgn,
-            unit_cell=self.lattice_parameters),
-            anomalous_flag=False, d_min=d_min).sort()
+        indices = gemmi.make_miller_array(
+            cell=self.unit_cell,
+            spacegroup=self.sg,
+            dmin=self.wavelength / (2 * np.sin(self.polar_max * radians / 2)),
+        )
+        return indices[np.argsort(
+            self.unit_cell.calculate_d_array(indices))[::-1]]
 
     @property
     def indices(self):
@@ -1037,30 +1251,35 @@ class NXRefine:
         symmetry-equivalent indices.
         """
         _indices = []
-        for h in self.miller.indices():
+        for h in self.miller:
             _indices.append(self.indices_hkl(*h)[0])
         return _indices
 
     def indices_hkl(self, H, K, L):
         """Return the symmetry-equivalent HKL indices."""
-        from cctbx import miller
-        _symm_equiv = miller.sym_equiv_indices(self.sg, (H, K, L))
-        _indices = sorted([i.h() for i in _symm_equiv.indices()],
-                          reverse=True)
-        if len(_indices) < _symm_equiv.multiplicity(False):
-            _indices = _indices + [(-hh, -kk, -ll)
-                                   for (hh, kk, ll) in _indices]
+        ops = self.sg.operations()
+        _indices = sorted(
+            list(set([tuple(op.apply_to_hkl((H, K, L)))
+                      for op in ops.sym_ops])),
+            reverse=True,
+        )
+        if (not ops.is_reflection_centric(
+            (H, K, L))) and (not ops.is_centrosymmetric()):
+            _indices += [tuple(-i for i in hkl) for hkl in _indices]
         return _indices
 
     @property
     def two_thetas(self):
         """The two-theta angles for all the HKL indices."""
-        return list(self.unit_cell.two_theta(self.miller.indices(),
-                                             self.wavelength, deg=True))
+        return list(2 * np.degrees(
+            np.arcsin(self.wavelength /
+                      (2 * self.unit_cell.calculate_d_array(self.miller)))))
 
     def two_theta_hkl(self, H, K, L):
         """Return the two-theta angle for the specified HKL values."""
-        return self.unit_cell.two_theta((H, K, L), self.wavelength, deg=True)
+        return 2 * np.degrees(
+            np.arcsin(self.wavelength / (2 * self.unit_cell.calculate_d(
+                (H, K, L)))))
 
     def two_theta_max(self):
         """Return the maximum two-theta measurable on the detector."""
@@ -1073,17 +1292,17 @@ class NXRefine:
             max_radius * self.pixel_size / self.distance) * degrees
 
     def make_rings(self):
-        """Generate the two-thetas and HKLs for each ring of Bragg peaks.
+        """Generate two-thetas and HKLs for each ring of Bragg peaks.
 
-        Each ring contains the average two-theta value in degrees for all
-        Bragg peaks that are within the polar angle tolerance, and all the
-        symmetry-equivalent HKLs.
+        Each ring contains the average two-theta value in degrees for
+        all Bragg peaks that are within the polar angle tolerance, and
+        all the symmetry-equivalent HKLs.
 
         Returns
         -------
         dict of lists
-            Map of ring indices to lists containing their two-theta values
-            and symmetry-equivalent HKLs.
+            Map of ring indices to lists containing their two-theta
+            values and symmetry-equivalent HKLs.
         """
         _rings = {}
         _r = 0
@@ -1139,7 +1358,7 @@ class NXRefine:
     def roll(self, value):
         self._roll = value
         try:
-            self._Dmat_cache = inv(rotmat(1, self.roll) *
+            self._Dmat_cache = inv(rotmat(1, self._roll) *
                                    rotmat(2, self.pitch) *
                                    rotmat(3, self.yaw))
 
@@ -1156,7 +1375,7 @@ class NXRefine:
         self._pitch = value
         try:
             self._Dmat_cache = inv(
-                rotmat(1, self.roll) * rotmat(2, self.pitch) *
+                rotmat(1, self.roll) * rotmat(2, self._pitch) *
                 rotmat(3, self.yaw))
 
         except Exception:
@@ -1173,7 +1392,7 @@ class NXRefine:
         try:
             self._Dmat_cache = inv(
                 rotmat(1, self.roll) * rotmat(2, self.pitch) *
-                rotmat(3, self.yaw))
+                rotmat(3, self._yaw))
 
         except Exception:
             pass
@@ -1189,7 +1408,7 @@ class NXRefine:
         try:
             self._Gmat_cache = (
                 rotmat(2, self.theta) * rotmat(3, self.omega) *
-                rotmat(1, self.chi))
+                rotmat(1, self._chi))
         except Exception:
             pass
 
@@ -1203,7 +1422,7 @@ class NXRefine:
         self._omega = value
         try:
             self._Gmat_cache = (
-                rotmat(2, self.theta) * rotmat(3, self.omega) *
+                rotmat(2, self.theta) * rotmat(3, self._omega) *
                 rotmat(1, self.chi))
         except Exception:
             pass
@@ -1218,7 +1437,7 @@ class NXRefine:
         self._theta = value
         try:
             self._Gmat_cache = (
-                rotmat(2, self.theta) * rotmat(3, self.omega) *
+                rotmat(2, self._theta) * rotmat(3, self.omega) *
                 rotmat(1, self.chi))
         except Exception:
             pass
@@ -1236,7 +1455,8 @@ class NXRefine:
 
     def absent(self, H, K, L):
         """Return True if the HKL indices are systematically absent."""
-        return self.sg.is_sys_absent((int(H), int(K), int(L)))
+        return self.sg.operations().is_systematically_absent(
+            (int(H), int(K), int(L)))
 
     @property
     def npks(self):
@@ -1279,13 +1499,10 @@ class NXRefine:
         When all goniometer angles are zero, the standard
         transformations are as follows:
 
-            +X(det) = -y(lab), +Y(det) = +z(lab), and +Z(det) = -x(lab)
+            +X(det) = -y(lab), +Y(det) = -z(lab), and +Z(det) = x(lab)
 
         """
-        if self.standard:
-            return np.matrix(((0, -1, 0), (0, 0, 1), (-1, 0, 0)))
-        else:
-            return np.matrix(((0, 0, 1), (0, 1, 0), (-1, 0, 0)))
+        return parse_orientation(self.detector_orientation)
 
     @property
     def Dmat(self):
@@ -1308,27 +1525,32 @@ class NXRefine:
         """Return the vector from the sample to detector."""
         return vec(self.xc, self.yc)
 
-    @property
-    def Dvec(self):
+    def Dvec(self, phi=0.0):
         """Return the vector from the detector to the sample position."""
-        return vec(-self.distance)
+        return self.Gmat(phi) * self.Svec - vec(self.distance)
 
     @property
     def Evec(self):
         return vec(1.0 / self.wavelength)
 
+    @property
+    def Svec(self):
+        """Vector from the center of the goniometer to the sample."""
+        return vec(self.xs, self.ys, self.zs)
+
     def Gvec(self, x, y, z):
         phi = self.phi + self.phi_step * z
         v1 = vec(x, y)
         v2 = self.pixel_size * inv(self.Omat) * (v1 - self.Cvec)
-        v3 = inv(self.Dmat) * v2 - self.Dvec
+        v3 = inv(self.Dmat) * v2 - self.Dvec(phi)
         return (inv(self.Gmat(phi)) *
                 ((norm_vec(v3) / self.wavelength) - self.Evec))
 
-    def get_Gvecs(self, idx):
+    def get_Gvecs(self):
+        idx = self.idx
         self.Gvecs = [self.Gvec(x, y, z) for x, y, z
                       in zip(self.xp[idx], self.yp[idx], self.zp[idx])]
-        return self.Gvecs
+        return np.array(self.Gvecs).squeeze()
 
     def calculate_angles(self, x, y):
         """Return the polar and azimuthal angles of the specified pixels."""
@@ -1360,7 +1582,7 @@ class NXRefine:
         """
         g1 = norm_vec(self.Gvec(self.xp[i], self.yp[i], self.zp[i]))
         g2 = norm_vec(self.Gvec(self.xp[j], self.yp[j], self.zp[j]))
-        return np.around(np.arccos(float(g1.T*g2)) * degrees, 3)
+        return np.around(np.arccos((g1.T*g2).item()) * degrees, 3)
 
     def angle_hkls(self, h1, h2):
         """Return the angle in degrees between two HKL vectors.
@@ -1377,7 +1599,7 @@ class NXRefine:
         """
         h1v = norm_vec((vec(*h1).T * self.Bmat)).T
         h2v = norm_vec((vec(*h2).T * self.Bmat)).T
-        return np.around(np.arccos(h1v.T*h2v)[0, 0] * degrees, 3)
+        return np.around(np.arccos((h1v.T*h2v).item()) * degrees, 3)
 
     def unitarity(self):
         """Return the unitarity of the refined orientation matrix."""
@@ -1493,8 +1715,8 @@ class NXRefine:
         def get_ij(phi):
             v4 = self.Gmat(phi) * v5
             p = norm_vec(v4 + self.Evec)
-            v3 = -(self.Dvec[0, 0] / p[0, 0]) * p
-            v2 = self.Dmat * (v3 + self.Dvec)
+            v3 = -(self.Dvec(phi)[0, 0] / p[0, 0]) * p
+            v2 = self.Dmat * (v3 + self.Dvec(phi))
             v1 = (self.Omat * v2 / self.pixel_size) + self.Cvec
             return v1[0, 0], v1[1, 0]
 
@@ -1520,14 +1742,13 @@ class NXRefine:
             except Exception as error:
                 raise NeXusError(str(error))
         load_julia(['julia/get_xyzs.jl'])
-        from julia import Main, Pkg
-        Pkg.add("Roots")
+        from juliacall import Main
         Main.Gmat0 = np.array(self.Gmat(0.0))
         Main.UBmat = np.array(self.UBmat)
         Main.Dmat = np.array(self.Dmat)
         Main.Omat = np.array(self.Omat) / self.pixel_size
         Main.Cvec = list(np.array(self.Cvec.T).reshape((3)))
-        Main.Dvec = list(np.array(self.Dvec.T).reshape((3)))
+        Main.Dvec = list(np.array(self.Dvec().T).reshape((3)))
         Main.Evec = list(np.array(self.Evec.T).reshape((3)))
         Main.shape = self.shape
         if Qh is None:
@@ -1553,12 +1774,11 @@ class NXRefine:
         Mat = self.pixel_size * inv(self.Dmat) * Oimat
         peak = Oimat * (vec(self.xp[i], self.yp[i]) - self.Cvec)
         v = norm(Mat * peak)
-        return np.arctan(v / self.distance)
+        return np.degrees(np.arctan(v / self.distance))
 
     def score(self):
         """Return the goodness of fit of the calculated peak positions."""
-        self.set_idx()
-        if self.idx:
+        if self.idx is not None:
             diffs = self.diffs()
             weights = self.weights
             return np.sum(weights * diffs) / np.sum(weights)
@@ -1568,16 +1788,21 @@ class NXRefine:
     @property
     def idx(self):
         """List of peaks whose polar angles are less than the maximum."""
-        if self._idx is None:
-            self._idx = list(np.where(self.polar_angle < self.polar_max)[0])
-        return self._idx
+        if self._idx is not None:
+            return self._idx.compressed()
+        else:
+            return None
 
-    def set_idx(self, hkl_tolerance=None):
+    def initialize_idx(self, hkl_tolerance=None):
         """Define the peaks whose positions are within the HKL tolerance."""
-        if hkl_tolerance is None:
-            hkl_tolerance = self.hkl_tolerance
-        _idx = list(np.where(self.polar_angle < self.polar_max)[0])
-        self._idx = [i for i in _idx if self.diff(i) < hkl_tolerance]
+        self._idx = ma.arange(self.npks, dtype=int)
+        if self.polar_angle is not None:
+            self._idx[self.polar_angle>self.polar_max] = ma.masked
+            if hkl_tolerance is not None:
+                self._hkl_tolerance = hkl_tolerance
+            mask = [i for i in self._idx.compressed()
+                    if self.diff(i) > self.hkl_tolerance]
+            self._idx[mask] = ma.masked
 
     @property
     def weights(self):
@@ -1627,7 +1852,7 @@ class NXRefine:
             Difference in degrees.
         """
         (h0, k0, l0) = [int(np.rint(x)) for x in self.hkl(i)]
-        polar0 = self.unit_cell.two_theta((h0, k0, l0), self.wavelength)
+        polar0 = self.two_theta_hkl(h0, k0, l0)
         return np.abs(self.polar(i) - polar0)
 
     def xyz(self, i):
@@ -1664,7 +1889,7 @@ class NXRefine:
         from lmfit import Parameters
         self.parameters = Parameters()
         if 'lattice' in opts:
-            self.define_lattice_parameters()
+            self.define_lattice_parameters(lattice=opts['lattice'])
             del opts['lattice']
         for opt in opts:
             self.parameters.add(opt, getattr(self, opt), vary=opts[opt])
@@ -1731,7 +1956,6 @@ class NXRefine:
         method : str, optional
             LMFIT minimizer method, by default 'leastsq'
         """
-        self.set_idx()
         from lmfit import fit_report, minimize
         if self.Umat is None:
             raise NeXusError('No orientation matrix defined')
@@ -1767,7 +1991,6 @@ class NXRefine:
         method : str, optional
             LMFIT minimizer method, by default 'nelder'
         """
-        self.set_idx()
         from lmfit import fit_report, minimize
         p0 = self.define_parameters(**opts)
         self.result = minimize(self.angle_residuals, p0, method=method)
@@ -1835,7 +2058,6 @@ class NXRefine:
         method : str, optional
             LMFIT minimizer method, by default 'leastsq'
         """
-        self.set_idx()
         from lmfit import fit_report, minimize
         p0 = self.define_orientation_matrix()
         self.result = minimize(self.orient_residuals, p0, method=method)
@@ -1876,12 +2098,12 @@ class NXRefine:
         array_like
             A 2D array of the polarization correction for the detector pixels.
         """
-        if 'polarization' in self.entry['instrument/detector']:
-            return self.entry['instrument/detector/polarization'].nxvalue
-        elif 'calibration' in self.entry['instrument']:
-            from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
+        if 'polarization' in self.scan_entry['instrument/detector']:
+            return self.scan_entry['instrument/detector/polarization'].nxvalue
+        elif 'calibration' in self.scan_entry['instrument']:
+            from pyFAI.integrator.azimuthal import AzimuthalIntegrator
             parameters = (
-                self.entry['instrument/calibration/refinement/parameters'])
+                self.scan_entry['instrument/calibration/refinement/parameters'])
             ai = AzimuthalIntegrator(
                 dist=parameters['Distance'].nxvalue,
                 poni1=parameters['Poni1'].nxvalue,

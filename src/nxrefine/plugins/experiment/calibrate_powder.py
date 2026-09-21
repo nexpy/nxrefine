@@ -1,25 +1,29 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2015-2021, NeXpy Development Team.
+# Copyright (c) 2018-2026, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
-import os
+
+import logging
+from pathlib import Path
 
 import numpy as np
 import pyFAI
-from nexpy.gui.datadialogs import GridParameters, NXDialog
+from nexpy.gui.dialogs import GridParameters, NXDialog
 from nexpy.gui.plotview import NXPlotView, plotviews
 from nexpy.gui.pyqt import getOpenFileName, getSaveFileName
 from nexpy.gui.utils import (confirm_action, display_message, load_image,
                              report_error)
-from nexusformat.nexus import (NeXusError, NXcollection, NXdata, NXfield,
+from nexusformat.nexus import (NeXusError, NXdata, NXfield, NXparameters,
                                NXprocess)
-from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 from pyFAI.calibrant import ALL_CALIBRANTS
 from pyFAI.geometryRefinement import GeometryRefinement
+from pyFAI.integrator.azimuthal import AzimuthalIntegrator
 from pyFAI.massif import Massif
+
+from nxrefine.nxutils import NXExecutor, as_completed, detector_flipped
 
 
 def show_dialog():
@@ -41,6 +45,7 @@ class CalibrateDialog(NXDialog):
         self.ai = None
         self.cake_geometry = None
         self.polarization = None
+        self.ring = 0
         self.phi_max = -np.pi
 
         cstr = str(ALL_CALIBRANTS)
@@ -60,6 +65,7 @@ class CalibrateDialog(NXDialog):
         self.set_layout(self.select_entry(self.choose_entry),
                         self.progress_layout(close=True))
         self.set_title('Calibrate Powder')
+        logging.getLogger('pyFAI.massif').setLevel(logging.ERROR)
 
     def choose_entry(self):
         if self.layout.count() == 2:
@@ -95,15 +101,16 @@ class CalibrateDialog(NXDialog):
         self.pixel_size = (
             self.entry['instrument/detector/pixel_size'].nxvalue * 1e-3)
         self.pixel_mask = self.entry['instrument/detector/pixel_mask'].nxvalue
-        self.ring = self.selected_ring
         if 'calibration' in self.entry['instrument']:
             signal = self.entry['instrument/calibration'].nxsignal
             axes = self.entry['instrument/calibration'].nxaxes
             self.counts = signal.nxvalue
-            self.data = NXdata(signal, axes)
-            self.plot_data()
             self.parameters['calibrant'].value = (
                 self.entry['instrument/calibration/calibrant'])
+            self.data = NXdata(signal, axes,
+                title=f'{self.calibrant.name} Powder Calibration')
+            self.shape = self.counts.shape
+            self.plot_data()
             if 'refinement' in self.entry['instrument/calibration']:
                 parameters = (
                     self.entry['instrument/calibration/refinement/parameters'])
@@ -118,19 +125,24 @@ class CalibrateDialog(NXDialog):
                     pixel1=parameters['PixelSize1'].nxvalue,
                     pixel2=parameters['PixelSize2'].nxvalue,
                     wavelength=parameters['Wavelength'].nxvalue)
+            self.activate()
         else:
             self.close_plots()
 
     def import_powder(self):
-        powder_file = getOpenFileName(self, 'Open Powder Data File')
-        if os.path.exists(powder_file):
+        powder_file = getOpenFileName(self, 'Open Powder Data File',
+                                      self.default_directory)
+        if Path(powder_file).is_file():
             self.data = load_image(powder_file)
+            self.data['title'] = f'{self.calibrant.name} Powder Calibration'
             self.counts = self.data.nxsignal.nxvalue
+            self.shape = self.counts.shape
             self.plot_data()
 
     def import_calibration(self):
-        calibration_file = getOpenFileName(self, 'Open Calibration File')
-        if os.path.exists(calibration_file):
+        calibration_file = getOpenFileName(self, 'Open Calibration File',
+                                           self.default_directory)
+        if Path(calibration_file).is_file():
             self.ai = pyFAI.load(calibration_file)
             self.read_parameters()
 
@@ -166,7 +178,7 @@ class CalibrateDialog(NXDialog):
     def plot_data(self):
         self.pv.plot(self.data, log=True)
         self.pv.aspect = 'equal'
-        self.pv.ytab.flipped = True
+        self.pv.ytab.flipped = detector_flipped(self.entry)
         self.clear_points()
 
     def on_button_press(self, event):
@@ -177,22 +189,23 @@ class CalibrateDialog(NXDialog):
             self.xp, self.yp = 0, 0
 
     def on_button_release(self, event):
-        self.ring = self.selected_ring
         if event.inaxes:
             if abs(event.x - self.xp) > 5 or abs(event.y - self.yp) > 5:
                 return
             x, y = self.pv.inverse_transform(event.xdata, event.ydata)
             for i, point in enumerate(self.points):
-                circle = point[0]
+                circle = point[1][0]
                 if circle.shape.contains_point(
                         self.pv.ax.transData.transform((x, y))):
                     circle.remove()
-                    for circle in point[2]:
+                    for circle in point[1][1:]:
                         circle.remove()
                     del self.points[i]
                     return
+            self.ring = self.selected_ring
             try:
-                self.add_points(x, y)
+                points = self.get_points(x, y)
+                self.add_points(points)
             except Exception:
                 return
 
@@ -215,75 +228,61 @@ class CalibrateDialog(NXDialog):
         xc, yc = self.parameters['xc'].value, self.parameters['yc'].value
         wavelength = self.parameters['wavelength'].value
         distance = self.parameters['distance'].value * 1e-3
-        self.start_progress((0, self.selected_ring+1))
-        for ring in range(self.selected_ring+1):
-            self.update_progress(ring)
-            if len([p for p in self.points if p[3] == ring]) > 0:
-                continue
-            self.ring = ring
-            theta = 2 * np.arcsin(wavelength /
-                                  (2*self.calibrant.dSpacing[ring]))
-            r = distance * np.tan(theta) / self.pixel_size
-            phi = self.phi_max = -np.pi
-            while phi < np.pi:
-                x, y = int(xc + r*np.cos(phi)), int(yc + r*np.sin(phi))
-                if ((x > 0 and x < self.data.x.max()) and
-                    (y > 0 and y < self.data.y.max()) and
-                        not self.pixel_mask[y, x]):
-                    self.add_points(x, y, phi)
-                    phi = self.phi_max + 0.2
-                else:
-                    phi = phi + 0.2
+        nrings = self.selected_ring + 1
+
+        self.status_message.setText("Generating rings...")
+        self.start_progress((0, nrings))
+        with NXExecutor() as executor:
+            futures = []
+            for ring in range(self.selected_ring+1):
+                if len([p for p in self.points if p[0] == ring]) > 0:
+                    continue
+                theta = 2 * np.arcsin(wavelength /
+                                      (2*self.calibrant.dSpacing[ring]))
+                radius = distance * np.tan(theta) / self.pixel_size
+                futures.append(executor.submit(
+                    generate_ring, self.counts, ring, radius, xc, yc,
+                    self.pixel_mask, self.search_size))
+            for i, future in enumerate(as_completed(futures)):
+                ring, points = future.result()
+                self.ring = ring
+                self.add_points(points)
+                self.update_progress(i)
+                futures.remove(future)
         self.stop_progress()
+        self.status_message.setText("Rings complete")
 
-    def add_points(self, x, y, phi=0.0):
-        xc, yc = self.parameters['xc'].value, self.parameters['yc'].value
-        idx, idy = self.find_peak(x, y)
-        points = [(idy, idx)]
-        circles = []
+    def get_points(self, x, y):
+        idx, idy = find_peak(x, y, self.counts, self.search_size)
+        points = [(float(idy), float(idx))]
         massif = Massif(self.counts)
-        extra_points = massif.find_peaks((idy, idx))
-        for point in extra_points:
-            points.append(point)
-            circles.append(self.circle(point[1], point[0], alpha=0.3))
-        phis = np.array([np.arctan2(p[0]-yc, p[1]-xc) for p in points])
-        if phi < -0.5*np.pi:
-            phis[np.where(phis > 0.0)] -= 2 * np.pi
-        self.phi_max = max(*phis, self.phi_max)
-        self.points.append([self.circle(idx, idy), points, circles, self.ring])
+        points.extend(massif.find_peaks((idy, idx), stdout=False))
+        return points
 
-    def find_peak(self, x, y):
-        s = self.search_size
-        left = int(np.round(x - s * 0.5))
-        if left < 0:
-            left = 0
-        top = int(np.round(y - s * 0.5))
-        if top < 0:
-            top = 0
-        region = self.counts[top:(top+s), left:(left+s)]
-        idy, idx = np.where(region == region.max())
-        idx = left + idx[0]
-        idy = top + idy[0]
-        return idx, idy
+    def add_points(self, points):
+        y, x = points[0]
+        circles = [self.circle(x, y)]
+        circles.extend(self.circle(x, y, alpha=0.3) for y, x in points[1:])
+        self.points.append([self.ring, circles])
 
     def clear_points(self):
         for i, point in enumerate(self.points):
-            circle = point[0]
-            circle.remove()
-            for circle in point[2]:
+            for circle in point[1]:
                 circle.remove()
         self.points = []
 
     @property
     def calibrant(self):
-        return ALL_CALIBRANTS[self.parameters['calibrant'].value]
+        return ALL_CALIBRANTS(self.parameters['calibrant'].value)
 
     @property
     def point_array(self):
         points = []
         for point in self.points:
+            ring = point[0]
             for p in point[1]:
-                points.append((p[0], p[1], point[3]))
+                x, y = [round(v) for v in p.center]
+                points.append((y, x, ring))
         return np.array(points)
 
     def prepare_parameters(self):
@@ -339,7 +338,7 @@ class CalibrateDialog(NXDialog):
         self.cake_data = NXdata(res[0],
                                 (NXfield(res[2], name='azimumthal_angle'),
                                  NXfield(res[1], name='polar_angle')))
-        self.cake_data['title'] = 'Cake Plot'
+        self.cake_data['title'] = f'{self.calibrant.name} Cake Plot'
         plotview.plot(self.cake_data, log=True)
         wavelength = self.parameters['wavelength'].value
         polar_angles = [2 * np.degrees(np.arcsin(wavelength/(2*d)))
@@ -378,7 +377,7 @@ class CalibrateDialog(NXDialog):
         process = NXprocess()
         process.program = 'pyFAI'
         process.version = pyFAI.version
-        process.parameters = NXcollection()
+        process.parameters = NXparameters()
         process.parameters['Detector'] = instrument['detector/description']
         process.parameters['PixelSize1'] = self.ai.pixel1
         process.parameters['PixelSize2'] = self.ai.pixel2
@@ -447,3 +446,50 @@ class CalibrateDialog(NXDialog):
     def reject(self):
         super().reject()
         self.close_plots()
+
+
+def generate_ring(counts, ring, radius, xc, yc, pixel_mask, search_size):
+    points = []
+    phi = -np.pi
+    while phi < np.pi:
+        x, y = int(xc + radius*np.cos(phi)), int(yc + radius*np.sin(phi))
+        if ((x > 0 and x < counts.shape[1]) and (y > 0 and y < counts.shape[0])
+                and not pixel_mask[y, x]):
+            phi, extra_points = get_points(x, y, counts, xc=xc, yc=yc, phi=phi,
+                                           search_size=search_size)
+            points.extend(extra_points)
+        phi += 0.2
+    return ring, points
+
+
+def get_points(x, y, counts, xc=None, yc=None, phi=None, search_size=10):
+    logging.getLogger('pyFAI.massif').setLevel(logging.ERROR)
+    if phi is None:
+        phi = 0.0
+    idx, idy = find_peak(x, y, counts, search_size)
+    points = [(float(idy), float(idx))]
+    massif = Massif(counts)
+    points.extend(massif.find_peaks((idy, idx), stdout=False))
+    if xc is not None and yc is not None:
+        phis = np.array([np.arctan2(p[0]-yc, p[1]-xc) for p in points])
+        if phi < -0.5*np.pi:
+            phis[np.where(phis > 0.0)] -= 2 * np.pi
+        phi = max(*phis, phi)
+        phis = [np.degrees(p) for p in phis]
+    return phi, points
+
+
+def find_peak(x, y, counts, search_size=10):
+    s = search_size
+    left = int(np.round(x - s * 0.5))
+    if left < 0:
+        left = 0
+    top = int(np.round(y - s * 0.5))
+    if top < 0:
+        top = 0
+    region = counts[top:(top+s), left:(left+s)]
+    idy, idx = np.where(region == region.max())
+    idx = left + idx[0]
+    idy = top + idy[0]
+    return idx, idy
+

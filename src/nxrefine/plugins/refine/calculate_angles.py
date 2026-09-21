@@ -1,16 +1,19 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2015-2021, NeXpy Development Team.
+# Copyright (c) 2014-2025, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
-from nexpy.gui.datadialogs import GridParameters, NXDialog
+from nexpy.gui.dialogs import GridParameters, NXDialog
 from nexpy.gui.plotview import get_plotview
 from nexpy.gui.utils import report_error
 from nexusformat.nexus import NeXusError, NXdata, NXfield
+from nxrefine.nxreduce import NXReduce
 from nxrefine.nxrefine import NXRefine
+
+from ._dialog_helpers import add_parent_subentries
 
 
 def show_dialog():
@@ -26,7 +29,6 @@ class CalculateDialog(NXDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.select_entry(self.choose_entry)
-
         self.refine = NXRefine()
 
         self.parameters = GridParameters()
@@ -40,14 +42,23 @@ class CalculateDialog(NXDialog):
         self.action_buttons = self.action_buttons(
             ('Plot', self.plot_lattice), ('Save', self.write_parameters))
         self.set_layout(self.entry_layout, self.close_buttons())
-        self.set_title('Calculate Angles')
+        self.set_title(f'{self.label} Calculate Angles')
+        self._ui_built = False
+
+    def switch_root(self):
+        super().switch_root()
+        add_parent_subentries(self)
 
     def choose_entry(self):
-        self.refine = NXRefine(self.entry)
-        if 'peaks' in self.entry:
-            if self.layout.count() == 2:
+        target = (self.entry[self.subentry]
+                  if self.subentry and self.subentry in self.entry
+                  else self.entry)
+        self.refine = NXRefine(target)
+        if 'peaks' in target:
+            if not self._ui_built:
                 self.insert_layout(1, self.parameters.grid(header=False))
                 self.insert_layout(2, self.action_buttons)
+                self._ui_built = True
             self.update_parameters()
         else:
             self.display_message("Calculating Angles",
@@ -98,7 +109,7 @@ class CalculateDialog(NXDialog):
             polar_field.long_name = 'Polar Angle'
             plotview = get_plotview()
             plotview.plot(NXdata(azimuthal_field, polar_field,
-                                 title='Peak Angles'))
+                                 title=f'Peak Angles: {self.refine.name}'))
         except NeXusError as error:
             report_error("Plotting Lattice", error)
 

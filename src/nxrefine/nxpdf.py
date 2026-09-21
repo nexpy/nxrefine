@@ -1,3 +1,11 @@
+# -----------------------------------------------------------------------------
+# Copyright (c) 2023-2024, Argonne National Laboratory.
+#
+# Distributed under the terms of an Open Source License.
+#
+# The full license is in the file LICENSE.pdf, distributed with this software.
+# -----------------------------------------------------------------------------
+
 import logging
 import os
 import timeit
@@ -96,7 +104,7 @@ class NXPDF:
             # self.write_parameters(radius=self.radius, qmax=self.qmax)
             # self.record(task, laue=self.refine.laue_group,
             #             radius=self.radius, qmax=self.qmax)
-            # self.record_end(task)
+            self.record_end(task)
         except Exception as error:
             self.logger.info(str(error))
             # self.record_fail(task)
@@ -225,7 +233,7 @@ class NXPDF:
         self.logger.info(f"{self.title}: Total PDF calculated "
                          f"({toc - tic:g} seconds)")
 
-    def hole_mask(self, data_group):
+    def hole_mask(self):
         data_group = self.entry[self.symm_data]
         dl, dk, dh = [(ax[1]-ax[0]).nxvalue for ax in data_group.nxaxes]
         dhp = np.rint(self.radius / (dh * self.refine.astar))
@@ -249,8 +257,8 @@ class NXPDF:
             return _indices
         else:
             ids = []
-            for h, k, l in self.refine.indices:
-                ids += self.refine.indices_hkl(h, k, l)
+            for H, K, L in self.refine.indices:
+                ids += self.refine.indices_hkl(H, K, L)
             return ids
 
     def symmetrize(self, data):
@@ -269,7 +277,7 @@ class NXPDF:
     def punch_and_fill(self):
         self.logger.info(f"{self.title}: Performing punch-and-fill")
 
-        from julia import Main
+        from juliacall import Main
         LaplaceInterpolation = Main.LaplaceInterpolation
 
         tic = timeit.default_timer()
@@ -277,18 +285,18 @@ class NXPDF:
         symm_root = nxopen(self.symm_file, 'rw')
         symm_data = symm_root['entry/data/data']
 
-        mask, mask_indices = self.hole_mask()
+        mask, mask_indices = self.hole_mask(symm_data)
         idx = [Main.CartesianIndex(int(i[0]+1), int(i[1]+1), int(i[2]+1))
                for i in mask_indices]
         ml = int((mask.shape[0]-1)/2)
         mk = int((mask.shape[1]-1)/2)
         mh = int((mask.shape[2]-1)/2)
         fill_data = np.zeros(shape=symm_data.shape, dtype=symm_data.dtype)
-        for h, k, l in self.indices:
+        for H, K, L in self.indices:
             try:
-                ih = np.argwhere(np.isclose(self.Qh, h, atol=0.001))[0][0]
-                ik = np.argwhere(np.isclose(self.Qk, k, atol=0.001))[0][0]
-                il = np.argwhere(np.isclose(self.Ql, l, atol=0.001))[0][0]
+                ih = np.argwhere(np.isclose(self.Qh, H, atol=0.001))[0][0]
+                ik = np.argwhere(np.isclose(self.Qk, K, atol=0.001))[0][0]
+                il = np.argwhere(np.isclose(self.Ql, L, atol=0.001))[0][0]
                 lslice = slice(il-ml, il+ml+1)
                 kslice = slice(ik-mk, ik+mk+1)
                 hslice = slice(ih-mh, ih+mh+1)
@@ -296,7 +304,7 @@ class NXPDF:
                 if v.max() > 0.0:
                     w = LaplaceInterpolation.matern_3d_grid(v, idx)
                     fill_data[(lslice, kslice, hslice)] += np.where(mask, w, 0)
-            except Exception as error:
+            except Exception:
                 raise
 
         self.logger.info(f"{self.title}: Symmetrizing punch-and-fill")

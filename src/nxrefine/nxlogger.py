@@ -1,16 +1,16 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2013-2022, NeXpy Development Team.
+# Copyright (c) 2018-2026, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
 import logging
 import logging.handlers
-import os
 import pickle
 import struct
+from pathlib import Path
 from socketserver import StreamRequestHandler, ThreadingTCPServer
 
 from .nxdaemon import NXDaemon
@@ -50,7 +50,7 @@ class LogRecordStreamHandler(StreamRequestHandler):
             name = record.name
         logger = logging.getLogger(name)
         if not logger.hasHandlers():
-            handler = logging.FileHandler(self.server.log_file)
+            handler = logging.FileHandler(self.server.server_log)
             formatter = logging.Formatter(
                             '%(asctime)s %(name)-12s: %(message)s',
                             datefmt='%Y-%m-%d %H:%M:%S')
@@ -70,12 +70,11 @@ class NXLogger(ThreadingTCPServer, NXDaemon):
                  port=logging.handlers.DEFAULT_TCP_LOGGING_PORT,
                  handler=LogRecordStreamHandler):
         self.pid_name = 'nxlogger'
-        self.directory = directory
-        self.task_directory = os.path.join(directory, 'tasks')
-        if 'tasks' not in os.listdir(directory):
-            os.mkdir(self.task_directory)
-        self.log_file = os.path.join(self.task_directory, 'nxlogger.log')
-        self.pid_file = os.path.join(self.task_directory, 'nxlogger.pid')
+        self.directory = Path(directory)
+        self.task_directory = self.directory.joinpath('tasks')
+        self.task_directory.mkdir(exist_ok=True)
+        self.log_file = self.task_directory.joinpath('nxlogger.log')
+        self.pid_file = self.task_directory.joinpath('nxlogger.pid')
         NXDaemon.__init__(self, self.pid_name, self.pid_file)
 
         self.host = host

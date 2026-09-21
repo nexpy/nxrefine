@@ -1,16 +1,15 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2013-2022, NeXpy Development Team.
+# Copyright (c) 2018-2026, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
-
-"""Generic linux daemon base class for python 3.x."""
 
 import os
 import platform
 import sys
+from pathlib import Path
 
 import psutil
 
@@ -22,7 +21,7 @@ class NXDaemon:
 
     def __init__(self, pid_name, pid_file):
         self.pid_name = pid_name
-        self.pid_file = pid_file
+        self.pid_file = Path(pid_file)
         self.pid_node = platform.node()
 
     def daemonize(self):
@@ -88,6 +87,13 @@ class NXDaemon:
             return False
 
     def status(self):
+        """Report on the status of the daemon.
+
+        If the daemon is running on a different node, the node name is
+        returned. If it is running on the current node, the process id is
+        returned. If the daemon is not running, return a message to that
+        effect.
+        """
         pid, node = self.get_process()
         if pid and node and node != self.pid_node:
             return self.pid_name + " launched on " + node
@@ -98,7 +104,6 @@ class NXDaemon:
 
     def start(self):
         """Start the daemon."""
-
         # Check for a pid_file to see if the daemon already runs
         pid, node = self.get_process()
         if node and node != self.pid_node:
@@ -120,8 +125,8 @@ class NXDaemon:
             print(f"'{self.pid_name}' running on {node}")
             return
 
-        if os.path.exists(self.pid_file):
-            os.remove(self.pid_file)
+        if self.pid_file.exists():
+            self.pid_file.unlink()
 
         if pid is None:
             return

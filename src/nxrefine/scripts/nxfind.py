@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -----------------------------------------------------------------------------
-# Copyright (c) 2013-2022, AXMAS Development Team.
+# Copyright (c) 2014-2024, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
 import argparse
@@ -25,12 +25,12 @@ def main():
     parser.add_argument('-l', '--last', type=int, help='last frame')
     parser.add_argument('-P', '--pixels', type=int,
                         help='minimum pixels between peaks')
+    parser.add_argument('-s', '--subentry', default='',
+                        help='subentry to be processed')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing peaks')
     parser.add_argument('-p', '--parent', default=None,
                         help='The parent .nxs file to use')
-    parser.add_argument('-m', '--monitor', action='store_true',
-                        help='monitor progress in the command line')
     parser.add_argument('-q', '--queue', action='store_true',
                         help='add to server task queue')
 
@@ -39,15 +39,14 @@ def main():
     if args.entries:
         entries = args.entries
     else:
-        entries = NXMultiReduce(args.directory).entries
+        entries = NXMultiReduce(directory=args.directory).entries
 
     for entry in entries:
-        reduce = NXReduce(entry, args.directory, find=True,
+        reduce = NXReduce(entry, args.subentry, args.directory, find=True,
                           threshold=args.threshold,
                           first=args.first, last=args.last,
                           min_pixels=args.pixels,
-                          overwrite=args.overwrite,
-                          monitor_progress=args.monitor)
+                          overwrite=args.overwrite)
         if args.queue:
             reduce.queue('nxfind', args)
         else:

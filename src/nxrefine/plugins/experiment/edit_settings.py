@@ -1,19 +1,19 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2015-2021, NeXpy Development Team.
+# Copyright (c) 2022-2025, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
-import os
 from pathlib import Path
 
-from nexpy.gui.datadialogs import GridParameters, NXDialog
-from nexpy.gui.utils import report_error
+from nexpy.gui.dialogs import GridParameters, NXDialog
+from nexpy.gui.utils import display_message, report_error
 from nexpy.gui.widgets import NXLabel, NXPushButton, NXScrollArea
 from nexusformat.nexus import NeXusError
 
+from nxrefine.nxbeamline import get_beamlines
 from nxrefine.nxsettings import NXSettings
 
 
@@ -33,14 +33,18 @@ class ExperimentSettingsDialog(NXDialog):
                                              self.choose_directory)
         self.directoryname = NXLabel(bold=True)
         settings = NXSettings().settings
-        self.default_directory = settings['instrument']['analysis_home']
+        self.set_default_directory(settings['instrument']['analysis_home'])
         self.analysis_path = settings['instrument']['analysis_path']
+        if self.analysis_path is False or self.analysis_path == 'None':
+            self.analysis_path = None
         self.instrument_parameters = GridParameters()
         defaults = settings['instrument']
         if 'experiment' not in defaults:
             defaults['experiment'] = ''
         for p in defaults:
             self.instrument_parameters.add(p, defaults[p], p)
+        self.instrument_parameters['instrument'].box.editingFinished.connect(
+            self.check_beamline)
         self.refine_parameters = GridParameters()
         defaults = settings['nxrefine']
         for p in defaults:
@@ -60,22 +64,19 @@ class ExperimentSettingsDialog(NXDialog):
         self.set_layout(self.make_layout(self.directory_button),
                         self.close_layout(save=True))
         self.set_title('Edit Experiment Settings')
+        self.setMinimumWidth(350)
 
     def choose_directory(self):
-        if self.default_directory:
-            self.set_default_directory(self.default_directory)
         super().choose_directory()
         directory = self.get_directory()
-        if directory:
-            directory = Path(directory)
-        else:
+        if directory is None:
             self.reject()
             return
         if directory.name == self.analysis_path:
             directory = directory.parent
         elif directory.name == 'tasks':
             directory = directory.parent.parent
-        self.settings = NXSettings(directory / self.analysis_path)
+        self.settings = NXSettings(directory)
         self.directoryname.setText(directory.name)
         defaults = self.settings.settings['instrument']
         if 'experiment' not in defaults:
@@ -97,14 +98,13 @@ class ExperimentSettingsDialog(NXDialog):
         if ahp in directory.parents:
             rhp = rhp / directory.parent.relative_to(ahp)
             ahp = ahp / directory.parent.relative_to(ahp)
+            self.instrument_parameters['analysis_home'].value = str(ahp)
+            self.instrument_parameters['raw_home'].value = str(rhp)
         else:
             self.display_message(
                 'Warning: Invalid Location',
                 'The chosen experiment directory is not in the default '
                 f"location '{ahp}'")
-            return
-        self.instrument_parameters['analysis_home'].value = str(ahp)
-        self.instrument_parameters['raw_home'].value = str(rhp)
         defaults = self.settings.settings['nxrefine']
         for p in defaults:
             self.refine_parameters[p].value = defaults[p]
@@ -120,6 +120,13 @@ class ExperimentSettingsDialog(NXDialog):
         self.raise_()
         self.activateWindow()
         self.setFocus()
+
+    def check_beamline(self):
+        beamlines = get_beamlines()
+        if self.instrument_parameters['instrument'].value not in beamlines:
+            display_message("Beamline Not Supported",
+                            "Supported beamlines are: "
+                            f"{', '.join(str(i) for i in get_beamlines())}")
 
     def accept(self):
         try:

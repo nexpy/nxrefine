@@ -1,14 +1,25 @@
 #!/usr/bin/env python
 # -----------------------------------------------------------------------------
-# Copyright (c) 2013-2022, NeXpy Development Team.
+# Copyright (c) 2015-2024, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
+
 import argparse
 
+import numpy as np
+
 from nxrefine.nxreduce import NXMultiReduce, NXReduce
+
+
+def to_array(triple):
+    if triple is None:
+        return None
+    qmin, qstep, qmax = (np.float32(v) for v in triple)
+    shape = int(np.round((qmax - qmin) / qstep, 2)) + 1
+    return np.linspace(qmin, qmax, shape)
 
 
 def main():
@@ -25,6 +36,8 @@ def main():
                         help='perform regular transform')
     parser.add_argument('-M', '--mask', action='store_true',
                         help='perform transform with 3D mask')
+    parser.add_argument('-s', '--subentry', default='',
+                        help='subentry to be processed')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='overwrite existing transforms')
     parser.add_argument('-q', '--queue', action='store_true',
@@ -35,12 +48,12 @@ def main():
     if args.entries:
         entries = args.entries
     else:
-        entries = NXMultiReduce(args.directory).entries
+        entries = NXMultiReduce(directory=args.directory).entries
 
     for entry in entries:
         reduce = NXReduce(
-            entry, args.directory, transform=True,
-            Qh=args.qh, Qk=args.qk, Ql=args.ql,
+            entry, args.subentry, args.directory, transform=True,
+            Qh=to_array(args.qh), Qk=to_array(args.qk), Ql=to_array(args.ql),
             regular=args.regular, mask=args.mask, overwrite=args.overwrite)
         if args.queue:
             reduce.queue('nxtransform', args)

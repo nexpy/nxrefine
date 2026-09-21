@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -----------------------------------------------------------------------------
-# Copyright (c) 2013-2021, NeXpy Development Team.
+# Copyright (c) 2015-2024, Argonne National Laboratory.
 #
-# Distributed under the terms of the Modified BSD License.
+# Distributed under the terms of an Open Source License.
 #
-# The full license is in the file COPYING, distributed with this software.
+# The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
 import argparse
@@ -30,7 +30,7 @@ def main():
 
     args = parser.parse_args()
 
-    reduce = NXMultiReduce(args.directory, entries=args.entries,
+    reduce = NXMultiReduce(directory=args.directory, entries=args.entries,
                            combine=True, regular=args.regular, mask=args.mask,
                            overwrite=args.overwrite)
     if args.queue:
