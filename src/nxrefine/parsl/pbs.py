@@ -33,7 +33,7 @@ supplying a `config` module that imports it::
         )
 """
 
-from . import option
+from . import init_commands, option
 
 MPIEXEC_OVERRIDES = '--depth=64 --ppn 1'
 
@@ -106,7 +106,7 @@ def pbs_executor(label, options, nodes, max_blocks, queue, walltime,
         parallelism=1,
         scheduler_options=scheduler_options(options),
         select_options=select_options,
-        worker_init=option(options, 'worker_init', ''),
+        worker_init='; '.join(init_commands(options)),
         launcher=launcher,
     )
     return HighThroughputExecutor(

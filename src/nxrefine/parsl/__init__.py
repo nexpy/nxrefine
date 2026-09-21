@@ -15,8 +15,8 @@ supplied by a pair of functions:
     select_executor(options, ntasks)    -> executor label
 
 `options` is a dictionary of the `[parsl]` section of the server
-settings, with `server_type` and `cores` added from the `[server]`
-section. `get_config` declares one labelled executor for each way a
+settings, with `server_type`, `cores` and the server `directory` added
+by the server. `get_config` declares one labelled executor for each way a
 batch might be run, and `select_executor` chooses between them for a
 batch of `ntasks` commands.
 
@@ -26,9 +26,24 @@ whose scheduler is not PBS Pro, or whose cluster has requirements beyond
 what the `[parsl]` settings express, should supply their own module and
 name it in the `config` setting:
 
-    config = nxrefine.parsl.polaris   ; ALCF Polaris
-    config = nxrefine.parsl.classe    ; CLASSE Compute Farm at Cornell (SGE)
-    config = /path/to/my_config.py    ; arbitrary site file
+    ; ALCF Polaris
+    config = nxrefine.parsl.polaris
+    ; CLASSE Compute Farm at Cornell (SGE)
+    config = nxrefine.parsl.classe
+    ; arbitrary site file
+    config = /path/to/my_config.py
+
+Compute nodes do not inherit the environment the server was started in,
+so anything the tasks need — module loads, the conda environment, and
+the `NX_SERVER` and `NX_LOCKDIRECTORY` variables — has to be set up
+again within the batch job. The `worker_init` setting names a shell
+script that is sourced there to do that:
+
+    worker_init = polaris_setup.sh
+
+The name is resolved relative to the server directory, the one holding
+`settings.ini`, so the script normally sits beside it. An absolute path
+is also accepted. See `init_commands` for what the script has to satisfy.
 
 Scheduler-specific helpers live in sub-modules:
 
@@ -90,6 +105,45 @@ def enabled(options, key, default=True):
     if isinstance(value, str):
         return value.strip().lower() not in ['', '0', 'false', 'no', 'off']
     return bool(value)
+
+
+def init_commands(options):
+    """Return the commands that prepare the environment on each node.
+
+    The `worker_init` setting names a shell script, either absolute or
+    relative to the server directory, which is sourced in the batch job
+    before the workers are started. Sourcing it rather than running it
+    means the module loads, the activated environment and any exported
+    variables are inherited by the workers, and by every task they run.
+
+    The path is resolved when the configuration is built, so the submit
+    script names the script by its absolute path and does not depend on
+    `NX_SERVER` being set within the job. The script does have to be
+    readable from the compute nodes: on systems that require jobs to
+    declare the filesystems they use, the one holding it must be named
+    in the `filesystems` setting.
+
+    Parameters
+    ----------
+    options : dict
+        Settings from the `[parsl]` section.
+
+    Returns
+    -------
+    list of str
+        Commands to run before the workers, empty if `worker_init` is
+        unset.
+    """
+    setting = option(options, 'worker_init')
+    if not setting:
+        return []
+    path = Path(str(setting).strip()).expanduser()
+    if not path.is_absolute():
+        path = Path(option(options, 'directory', '.')) / path
+    if not path.exists():
+        raise NeXusError(
+            f"Worker initialization script '{path}' does not exist")
+    return [f'source {path}']
 
 
 def monitoring_hub(options, local):
@@ -156,8 +210,8 @@ def get_config(options, run_dir):
     Parameters
     ----------
     options : dict
-        Settings from the `[parsl]` section, with `server_type` and
-        `cores` added from the `[server]` section.
+        Settings from the `[parsl]` section, with `server_type`, `cores`
+        and the server `directory` added by the server.
     run_dir : str or Path
         Directory for Parsl run logs and the monitoring database.
 
