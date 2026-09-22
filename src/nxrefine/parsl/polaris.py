@@ -32,23 +32,29 @@ for documentation of the `pbs_executor` helper this wraps.
 Polaris runs PBS Pro. Its queue policies determine the shape of the two
 executors declared below.
 
-===============  =======  ============  ==================================
-Queue            Nodes    Walltime      Limits
-===============  =======  ============  ==================================
-debug            1-2      <= 1 h        24 nodes in the queue
-debug-scaling    1-10     <= 1 h        1 job per user
-prod (routing)   10-496   3/6/24 h      by size: 10-24 -> 3 h, 25-99 ->
-                                        6 h, 100-496 -> 24 h
-preemptable      1-10     <= 72 h       20 jobs per project, killable
-capacity         1-4      <= 168 h      1 job running per user
-===============  =======  ============  ==================================
+==============  ======  ========  =============================================
+Queue           Nodes   Walltime  Limits
+==============  ======  ========  =============================================
+debug           1-2     <= 1 h    24 nodes in use by the queue
+debug-scaling   1-10    <= 1 h    1 job per user
+prod (routing)  10-496  3/6/24 h  by size: 10-24 -> 3 h, 25-99 -> 6 h,
+                                  100-496 -> 24 h; 10 running and 100 queued
+                                  per project
+preemptable     1-10    <= 72 h   20 jobs per project, killable
+capacity        1-4     <= 168 h  1 running and 2 queued per user, 32 nodes
+                                  across all jobs
+==============  ======  ========  =============================================
 
 Small batches go to `capacity`, which is capped at 4 nodes and allows
 one running job per user, hence `max_blocks=1`. Larger batches go to
-`prod`, whose 10-node minimum sets the block size; `max_blocks` must be
-at least `ntasks / large_nodes` or the tasks that do not fit will wait
-for a free worker and may exceed the 3 hour walltime of the 10-24 node
-tier.
+`prod`, whose 10-node minimum sets the block size.
+
+One worker runs per node, so a block runs `large_nodes` commands at
+once and `max_blocks * large_nodes` is the number running across the
+whole executor. Size `max_blocks` to the batches actually submitted.
+Too low and the surplus waits for a free worker, which risks the 3 hour
+walltime of the 10-24 node tier; too high and one user's batch takes
+all ten of the running jobs the whole project is allowed.
 
 Each node has 32 cores with 2 hardware threads each and 4 A100 GPUs.
 NXRefine uses no GPU code, and one `nxreduce` process already fills a
