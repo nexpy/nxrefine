@@ -93,7 +93,12 @@ class ServerDialog(NXDialog):
 
     def toggle_server(self):
         if self.pushbutton['server'].text() == 'Start Server':
-            subprocess.run('nxserver start', shell=True)
+            process = subprocess.run('nxserver start', shell=True,
+                                     stdout=subprocess.PIPE,
+                                     stderr=subprocess.PIPE)
+            if process.returncode:
+                report_error('Managing Servers',
+                             NeXusError(process.stderr.decode().strip()))
         else:
             if confirm_action('Stop server?'):
                 subprocess.run('nxserver stop', shell=True)

@@ -8,7 +8,10 @@
 # -----------------------------------------------------------------------------
 
 import argparse
+import sys
 from pathlib import Path
+
+from nexusformat.nexus import NeXusError
 
 from nxrefine.nxserver import NXServer
 
@@ -43,7 +46,11 @@ def main():
     if args.command == 'status' or args.command is None:
         print(server.status())
     elif args.command == 'start':
-        server.start()
+        try:
+            server.start()
+        except NeXusError as error:
+            print(f'nxserver: {error}', file=sys.stderr)
+            sys.exit(1)
     elif args.command == 'stop':
         server.stop()
     elif args.command == 'restart':
