@@ -416,6 +416,7 @@ class NXServer(NXDaemon):
             def run_command(command, stdout=None, stderr=None):
                 return command
             self._apps[label] = run_command
+        self.log(f"Loaded Parsl with executors: {', '.join(self._apps)}")
 
     def dispatch(self, task):
         """Submit a task to the executor chosen for its batch."""

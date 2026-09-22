@@ -7,13 +7,26 @@
 # The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
+"""Command line interface to the NXRefine workflow server.
+
+OpenBLAS is held to one thread before NumPy is imported. The server does
+no numerical work itself, but every process Parsl spawns re-imports this
+module, and on a login node with many cores each of them would otherwise
+start a thread per core and exhaust the limit on tasks before the server
+had started. Setting it here rather than in the environment means the
+server no longer depends on the shell it is launched from.
+"""
+
 import argparse
+import os
 import sys
 from pathlib import Path
 
-from nexusformat.nexus import NeXusError
+os.environ.setdefault('OPENBLAS_NUM_THREADS', '1')
 
-from nxrefine.nxserver import NXServer
+from nexusformat.nexus import NeXusError  # noqa: E402
+
+from nxrefine.nxserver import NXServer  # noqa: E402
 
 
 def main():
