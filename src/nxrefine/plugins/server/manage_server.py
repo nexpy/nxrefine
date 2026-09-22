@@ -193,9 +193,9 @@ class ServerDialog(NXDialog):
     def show_processes(self):
         self.reset_buttons()
         self.pushbutton['Server Processes'].setChecked(True)
-        patterns = ['nxcombine', 'nxfind', 'nxlink', 'nxmax',
-                    'nxpdf', 'nxprepare', 'nxreduce', 'nxrefine', 'nxsum',
-                    'nxtransform']
+        patterns = ['nxcombine', 'nxfind', 'nxlink', 'nxload',
+                    'nxmax', 'nxpdf', 'nxprepare', 'nxreduce', 'nxrefine',
+                    'nxsum', 'nxtransform']
         qstat = self.server.directory / 'nxqstat.sh'
         if self.server_type == 'multinode':
             if not qstat.exists():
