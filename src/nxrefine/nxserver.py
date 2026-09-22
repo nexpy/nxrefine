@@ -483,8 +483,11 @@ class NXServer(NXDaemon):
         """
         if not self.log_directory.exists():
             return []
-        logs = sorted((f for f in self.log_directory.iterdir()
-                       if f.suffix == '.out'),
+        try:
+            entries = list(self.log_directory.iterdir())
+        except Exception:
+            return []
+        logs = sorted([f for f in entries if f.suffix == '.out'],
                       key=lambda f: f.stat().st_mtime, reverse=True)
         status = self.task_status()
         records = []

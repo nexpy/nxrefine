@@ -504,7 +504,11 @@ class WorkflowDialog(NXDialog):
                         reduce.mask = True
                     if self.selected(scan, 'overwrite'):
                         reduce.overwrite = True
-                    tasks = reduce.queue_db_rows()
+                    try:
+                        tasks = reduce.queue_db_rows()
+                    except NeXusError as error:
+                        report_error('Adding Tasks', error)
+                        tasks = []
                 if tasks:
                     commands.append(reduce.build_command('nxreduce', tasks,
                                                          entries=entries))
@@ -689,10 +693,12 @@ class WorkflowDialog(NXDialog):
         elif self.server.server_type == 'multinode':
             self.output_box.setPlainText(process.stdout.decode())
         else:
+            skip = ('grep', 'spawn_main', 'resource_tracker',
+                    'process_worker_pool')
             lines = [line for line in sorted(
-                process.stdout.decode().split('\n')) if line]
-            lines = [line[line.index('nx'):]
-                     for line in lines if 'grep' not in line]
+                process.stdout.decode().split('\n')) if line
+                     and not any(s in line for s in skip)]
+            lines = [line[line.index('nx'):] for line in lines]
             self.output_box.setPlainText('\n'.join(set(lines)))
 
     def update_logs(self):

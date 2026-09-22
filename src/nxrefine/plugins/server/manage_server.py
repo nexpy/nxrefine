@@ -85,6 +85,7 @@ class ServerDialog(NXDialog):
         self.setMinimumWidth(800)
         self.experiment_directory = None
         self.current_text = ''
+        self._updating_logs = False
         self.timer = QtCore.QTimer(self)
         self.timer.timeout.connect(self.update_text)
         self.timer.start(5000)
@@ -133,7 +134,15 @@ class ServerDialog(NXDialog):
 
     def update_logs(self):
         """Refresh the list of task logs, preserving the selection."""
-        names = ['nxserver'] + self.server.task_names()
+        if self._updating_logs:
+            return
+        self._updating_logs = True
+        try:
+            names = ['nxserver'] + self.server.task_names()
+        except Exception:
+            return
+        finally:
+            self._updating_logs = False
         if names != self.log_combo.items():
             selected = self.log_combo.selected
             self.log_combo.clear()
@@ -148,13 +157,19 @@ class ServerDialog(NXDialog):
         self.update_logs()
         if self.log_combo.selected == 'nxserver':
             log_file = self.server.server_log
-            if log_file.exists():
-                with open(log_file) as f:
-                    text = f.read()
-            else:
-                text = f"'{log_file}' does not exist"
+            try:
+                if log_file.exists():
+                    with open(log_file) as f:
+                        text = f.read()
+                else:
+                    text = f"'{log_file}' does not exist"
+            except OSError:
+                return
         else:
-            text = self.server.task_output(self.log_combo.selected)
+            try:
+                text = self.server.task_output(self.log_combo.selected)
+            except OSError:
+                return
         if text != self.current_text:
             self.text_box.setPlainText(text)
             self.text_box.verticalScrollBar().setValue(
@@ -192,10 +207,12 @@ class ServerDialog(NXDialog):
         elif self.server_type == 'multinode':
             text = process.stdout.decode()
         else:
+            skip = ('grep', 'spawn_main', 'resource_tracker',
+                    'process_worker_pool')
             lines = [line for line in sorted(
-                process.stdout.decode().split('\n')) if line]
-            lines = [line[line.index('nx'):]
-                     for line in lines if 'grep' not in line]
+                process.stdout.decode().split('\n')) if line
+                     and not any(s in line for s in skip)]
+            lines = [line[line.index('nx'):] for line in lines]
             text = '\n'.join(set(lines))
         if text != self.current_text:
             self.text_box.setPlainText(text)
