@@ -90,7 +90,8 @@ def scheduler_options(options):
     return '\n'.join(directives)
 
 
-def sge_executor(label, options, max_blocks, queue, walltime):
+def sge_executor(label, options, max_blocks, queue, walltime,
+                 worker_init=None):
     """Return a HighThroughputExecutor backed by an SGE allocation.
 
     One worker is started per submitted job. A single ``nxreduce`` process
@@ -113,10 +114,18 @@ def sge_executor(label, options, max_blocks, queue, walltime):
         and let the scheduler choose.
     walltime : str
         Wall-clock time limit per job, as ``HH:MM:SS``.
+    worker_init : str, optional
+        Commands run in the batch job before the workers. Defaults to
+        sourcing the script named by the ``worker_init`` setting. A site
+        module adding commands of its own passes the whole string here
+        rather than writing it back into ``options``, where it would be
+        read a second time as if it were still a file name.
     """
     from parsl.executors import HighThroughputExecutor
     from parsl.providers import GridEngineProvider
 
+    if worker_init is None:
+        worker_init = '; '.join(init_commands(options))
     provider = GridEngineProvider(
         nodes_per_block=1,
         init_blocks=0,
@@ -126,7 +135,7 @@ def sge_executor(label, options, max_blocks, queue, walltime):
         walltime=walltime,
         queue=queue,
         scheduler_options=scheduler_options(options),
-        worker_init='; '.join(init_commands(options)),
+        worker_init=worker_init,
     )
     return HighThroughputExecutor(
         label=label,

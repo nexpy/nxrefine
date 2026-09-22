@@ -93,7 +93,12 @@ class ServerDialog(NXDialog):
 
     def toggle_server(self):
         if self.pushbutton['server'].text() == 'Start Server':
-            subprocess.run('nxserver start', shell=True)
+            process = subprocess.run('nxserver start', shell=True,
+                                     stdout=subprocess.PIPE,
+                                     stderr=subprocess.PIPE)
+            if process.returncode:
+                report_error('Managing Servers',
+                             NeXusError(process.stderr.decode().strip()))
         else:
             if confirm_action('Stop server?'):
                 subprocess.run('nxserver stop', shell=True)
@@ -188,9 +193,9 @@ class ServerDialog(NXDialog):
     def show_processes(self):
         self.reset_buttons()
         self.pushbutton['Server Processes'].setChecked(True)
-        patterns = ['nxcombine', 'nxfind', 'nxlink', 'nxmax',
-                    'nxpdf', 'nxprepare', 'nxreduce', 'nxrefine', 'nxsum',
-                    'nxtransform']
+        patterns = ['nxcombine', 'nxfind', 'nxlink', 'nxload',
+                    'nxmax', 'nxpdf', 'nxprepare', 'nxreduce', 'nxrefine',
+                    'nxsum', 'nxtransform']
         qstat = self.server.directory / 'nxqstat.sh'
         if self.server_type == 'multinode':
             if not qstat.exists():

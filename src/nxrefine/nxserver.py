@@ -361,6 +361,41 @@ class NXServer(NXDaemon):
                 f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' ' +
                         str(message) + '\n')
 
+    def build_config(self):
+        """Return the Parsl configuration and the module defining it.
+
+        Building the configuration reads every `[parsl]` setting but
+        starts nothing, so it is both what finds an unusable setting and
+        safe to call before the server is daemonized.
+
+        Returns
+        -------
+        tuple of (module, parsl.config.Config)
+        """
+        module = import_config(self.settings.get('parsl', 'config')
+                               if self.settings.has_option('parsl', 'config')
+                               else None, self.directory)
+        return module, module.get_config(self.parsl_options,
+                                         self.parsl_directory)
+
+    def check_config(self):
+        """Check that this server can be run as a daemon.
+
+        Daemonizing replaces stdout and stderr with `/dev/null`, so a
+        configuration error found after that point can only reach the
+        server log, and `run` deletes the pid file on its way out. The
+        result is a `start` that reports nothing and leaves nothing
+        behind. Building the configuration first means the error is
+        raised while there is still a terminal to raise it to.
+        """
+        if self.server_type == 'direct':
+            raise NeXusError("A 'direct' server runs commands as they are "
+                             "submitted and has no daemon to start")
+        try:
+            self.build_config()
+        except Exception as error:
+            raise NeXusError(f"Could not configure Parsl: {error}")
+
     def load_parsl(self):
         """Load Parsl and define one bash app per executor.
 
@@ -373,12 +408,7 @@ class NXServer(NXDaemon):
         import parsl
         from parsl.app.app import bash_app
 
-        module = import_config(self.settings.get('parsl', 'config')
-                               if self.settings.has_option('parsl', 'config')
-                               else None, self.directory)
-        self._module = module
-        self._config = module.get_config(self.parsl_options,
-                                         self.parsl_directory)
+        self._module, self._config = self.build_config()
         parsl.load(self._config)
         self._apps = {}
         for label in [executor.label for executor in self._config.executors]:
@@ -558,6 +588,25 @@ class NXServer(NXDaemon):
         self.log("Stopping server")
         super(NXServer, self).stop()
 
+    def start(self):
+        """Check the Parsl configuration, then start the daemon."""
+        self.check_config()
+        super(NXServer, self).start()
+
+    def run_foreground(self):
+        """Run the server in this terminal instead of as a daemon.
+
+        The pid file is still written, so a server run this way is
+        visible to `status` and can be stopped in the usual way.
+        """
+        self.check_config()
+        with open(self.pid_file, 'w') as f:
+            f.write(f'{os.getpid()}\n{self.pid_node}\n')
+        try:
+            self.run()
+        finally:
+            self.pid_file.unlink(missing_ok=True)
+
     def add_task(self, tasks, batch_id=None, batch_size=1):
         """Add one or more commands to the server queue.
 
@@ -664,12 +713,21 @@ class NXServer(NXDaemon):
             return super(NXServer, self).is_running()
 
     def stop(self):
-        """Stop the server when active tasks are completed."""
-        if self.is_running():
-            if self.server_type == 'direct':
+        """Stop the server when active tasks are completed.
+
+        The stop command is queued whenever a server process is
+        recorded, whichever node it was started on. A cluster normally
+        has several login nodes, and `is_running` is false on all but
+        the one holding the server, so testing it here would make `stop`
+        do nothing unless it happened to be called from that node. The
+        file queue is shared, so the daemon reads the command wherever
+        it is running.
+        """
+        if self.server_type == 'direct':
+            if self.is_running():
                 self.shutdown()
-            else:
-                self.add_task('stop')
+        elif self.get_process()[0]:
+            self.add_task('stop')
 
     def shutdown(self):
         """Wait for tasks running in this process and unload Parsl."""

@@ -63,7 +63,7 @@ _THREAD_EXPORTS = (
 )
 
 
-def worker_init(options):
+def worker_commands(options):
     """Return the shell commands run on each node before the workers start.
 
     MKL and OpenMP thread counts are pinned to ``$NSLOTS`` (the number of
@@ -99,12 +99,12 @@ def classe_executor(label, options, max_blocks, queue, walltime):
     # Apply CLASSE PE default without overriding an explicit user setting.
     if not option(options, 'pe'):
         classe_options['pe'] = _PE
-    classe_options['worker_init'] = worker_init(options)
 
     return sge_executor(label, classe_options,
                         max_blocks=max_blocks,
                         queue=queue,
-                        walltime=walltime)
+                        walltime=walltime,
+                        worker_init=worker_commands(options))
 
 
 def get_config(options, run_dir):
