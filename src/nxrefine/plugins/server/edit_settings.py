@@ -49,12 +49,17 @@ class ServerSettingsDialog(NXDialog):
         defaults = self.settings.settings['nxreduce']
         for p in defaults:
             self.reduce_parameters.add(p, defaults[p], p)
+        self.parsl_parameters = GridParameters()
+        defaults = self.settings.settings['parsl']
+        for p in defaults:
+            self.parsl_parameters.add(p, defaults[p], p)
         scroll_layout = self.make_layout(
             self.server_parameters.grid(header=False, title='Server'),
             self.instrument_parameters.grid(header=False,
                                             title='Instrument'),
             self.refine_parameters.grid(header=False, title='NXRefine'),
             self.reduce_parameters.grid(header=False, title='NXReduce'),
+            self.parsl_parameters.grid(header=False, title='Parsl'),
             vertical=True)
         self.set_layout(NXScrollArea(scroll_layout),
                         self.close_layout(save=True))
@@ -93,6 +98,9 @@ class ServerSettingsDialog(NXDialog):
             for p in self.reduce_parameters:
                 self.settings.set('nxreduce', p,
                                   self.reduce_parameters[p].value)
+            for p in self.parsl_parameters:
+                self.settings.set('parsl', p,
+                                  self.parsl_parameters[p].value)
             self.settings.save()
             super().accept()
         except Exception as error:
