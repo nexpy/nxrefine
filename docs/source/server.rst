@@ -194,15 +194,11 @@ with the ``config`` setting, described next.
 
 Parsl Settings
 --------------
-These settings are read from the ``[parsl]`` section of ``settings.ini``.
-Only ``config`` and ``account`` are commonly needed for a ``multinode``
-site; the rest have defaults suitable for a generic PBS Pro cluster and
-only need to be overridden to match local queue policies.
-
-.. note:: The ``[parsl]`` section is not yet included in the "Edit
-          Settings" dialog. For now, it should be edited directly in
-          ``settings.ini``, or interactively using ``nxsettings -i`` at
-          the command line, which prompts for every setting in turn.
+These settings are read from the ``[parsl]`` section of
+``settings.ini``. Only ``config`` and ``account`` are commonly needed
+for a ``multinode`` site; the rest have defaults suitable for a generic
+PBS Pro cluster and only need to be overridden to match local queue
+policies.
 
 :config: Names the Python module, or file, that supplies the Parsl
          configuration. If unset, the built-in generic PBS Pro
