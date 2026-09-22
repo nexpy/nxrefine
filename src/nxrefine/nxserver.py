@@ -713,12 +713,21 @@ class NXServer(NXDaemon):
             return super(NXServer, self).is_running()
 
     def stop(self):
-        """Stop the server when active tasks are completed."""
-        if self.is_running():
-            if self.server_type == 'direct':
+        """Stop the server when active tasks are completed.
+
+        The stop command is queued whenever a server process is
+        recorded, whichever node it was started on. A cluster normally
+        has several login nodes, and `is_running` is false on all but
+        the one holding the server, so testing it here would make `stop`
+        do nothing unless it happened to be called from that node. The
+        file queue is shared, so the daemon reads the command wherever
+        it is running.
+        """
+        if self.server_type == 'direct':
+            if self.is_running():
                 self.shutdown()
-            else:
-                self.add_task('stop')
+        elif self.get_process()[0]:
+            self.add_task('stop')
 
     def shutdown(self):
         """Wait for tasks running in this process and unload Parsl."""
