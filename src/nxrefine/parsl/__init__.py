@@ -253,7 +253,6 @@ def get_config(options, run_dir):
         executors=executors,
         monitoring=monitoring_hub(options, local),
         run_dir=str(run_dir),
-        app_cache=False,
         retries=int(option(options, 'retries', 0)),
     )
 
