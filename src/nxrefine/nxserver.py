@@ -593,6 +593,20 @@ class NXServer(NXDaemon):
         self.check_config()
         super(NXServer, self).start()
 
+    def run_foreground(self):
+        """Run the server in this terminal instead of as a daemon.
+
+        The pid file is still written, so a server run this way is
+        visible to `status` and can be stopped in the usual way.
+        """
+        self.check_config()
+        with open(self.pid_file, 'w') as f:
+            f.write(f'{os.getpid()}\n{self.pid_node}\n')
+        try:
+            self.run()
+        finally:
+            self.pid_file.unlink(missing_ok=True)
+
     def add_task(self, tasks, batch_id=None, batch_size=1):
         """Add one or more commands to the server queue.
 

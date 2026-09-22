@@ -25,6 +25,9 @@ def main():
     parser.add_argument('-t', '--type',
                         help='Server type: multicore|multinode|direct')
     parser.add_argument('-c', '--cores', help='Number of cores')
+    parser.add_argument('-f', '--foreground', action='store_true',
+                        help='Run the server in this terminal, not as a '
+                             'daemon')
     parser.add_argument(
         'command', action='store', nargs='?',
         help='valid commands are: status|start|stop|clear|kill')
@@ -47,7 +50,10 @@ def main():
         print(server.status())
     elif args.command == 'start':
         try:
-            server.start()
+            if args.foreground:
+                server.run_foreground()
+            else:
+                server.start()
         except NeXusError as error:
             print(f'nxserver: {error}', file=sys.stderr)
             sys.exit(1)
