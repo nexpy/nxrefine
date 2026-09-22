@@ -55,7 +55,7 @@ def scheduler_options(options):
 
 
 def pbs_executor(label, options, nodes, max_blocks, queue, walltime,
-                 launcher=None, select_options=''):
+                 launcher=None, select_options='', worker_init=None):
     """Return a HighThroughputExecutor backed by a PBS Pro allocation.
 
     One worker is started per node. A single `nxreduce` process already
@@ -87,6 +87,12 @@ def pbs_executor(label, options, nodes, max_blocks, queue, walltime,
     select_options : str, optional
         Text appended to the `#PBS -l select` line, for example
         ``'ngpus=4'`` on systems that require GPU declarations.
+    worker_init : str, optional
+        Commands run in the batch job before the workers. Defaults to
+        sourcing the script named by the `worker_init` setting. A site
+        module adding commands of its own passes the whole string here
+        rather than writing it back into `options`, where it would be
+        read a second time as if it were still a file name.
     """
     from parsl.executors import HighThroughputExecutor
     from parsl.launchers import SingleNodeLauncher
@@ -94,6 +100,8 @@ def pbs_executor(label, options, nodes, max_blocks, queue, walltime,
 
     if launcher is None:
         launcher = SingleNodeLauncher()
+    if worker_init is None:
+        worker_init = '; '.join(init_commands(options))
     provider = PBSProProvider(
         account=option(options, 'account'),
         queue=queue,
@@ -106,7 +114,7 @@ def pbs_executor(label, options, nodes, max_blocks, queue, walltime,
         parallelism=1,
         scheduler_options=scheduler_options(options),
         select_options=select_options,
-        worker_init='; '.join(init_commands(options)),
+        worker_init=worker_init,
         launcher=launcher,
     )
     return HighThroughputExecutor(

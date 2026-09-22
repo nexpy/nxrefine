@@ -69,7 +69,7 @@ from .pbs import MPIEXEC_OVERRIDES, pbs_executor  # noqa: F401
 TMPDIR = 'export TMPDIR=/tmp'
 
 
-def worker_init(options):
+def worker_commands(options):
     """Return the shell commands run on each node before the workers.
 
     The script named by the `worker_init` setting is sourced after
@@ -90,7 +90,6 @@ def polaris_executor(label, options, nodes, max_blocks, queue, walltime):
     """
     from parsl.launchers import MpiExecLauncher
     polaris_options = dict(options)
-    polaris_options['worker_init'] = worker_init(options)
     polaris_options['filesystems'] = option(options, 'filesystems',
                                             'home:eagle')
     polaris_options['cpus_per_node'] = 64
@@ -99,7 +98,8 @@ def polaris_executor(label, options, nodes, max_blocks, queue, walltime):
         queue=queue, walltime=walltime,
         launcher=MpiExecLauncher(bind_cmd='--cpu-bind',
                                  overrides=MPIEXEC_OVERRIDES),
-        select_options='ngpus=4')
+        select_options='ngpus=4',
+        worker_init=worker_commands(options))
 
 
 def get_config(options, run_dir):
