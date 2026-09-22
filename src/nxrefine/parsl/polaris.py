@@ -140,6 +140,5 @@ def get_config(options, run_dir):
         ],
         monitoring=monitoring_hub(options, local=False),
         run_dir=str(run_dir),
-        app_cache=False,
         retries=int(option(options, 'retries', 0)),
     )
