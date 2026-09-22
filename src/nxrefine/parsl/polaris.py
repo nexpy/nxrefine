@@ -62,9 +62,11 @@ node, so one worker per node is requested with all 64 threads visible
 to it. This is deliberately not the four-workers-per-GPU arrangement in
 the ALCF sample configuration.
 
-Two Polaris requirements are handled here rather than left to settings:
-jobs must declare the filesystems they use, and Parsl needs `TMPDIR`
-pointed at a short path to avoid `AF_UNIX path too long`.
+Three Polaris requirements are handled here rather than left to
+settings: jobs must declare the filesystems they use, Parsl needs
+`TMPDIR` pointed at a short path to avoid `AF_UNIX path too long`, and
+OpenBLAS has to be held to one thread per process so that the worker
+processes a task starts do not exhaust the limit on tasks between them.
 """
 
 from . import (LARGE, SMALL, get_config as _default_config,  # noqa: F401
@@ -73,17 +75,24 @@ from . import (LARGE, SMALL, get_config as _default_config,  # noqa: F401
 from .pbs import MPIEXEC_OVERRIDES, pbs_executor  # noqa: F401
 
 TMPDIR = 'export TMPDIR=/tmp'
+OPENBLAS = 'export OPENBLAS_NUM_THREADS=1'
 
 
 def worker_commands(options):
     """Return the shell commands run on each node before the workers.
 
-    The script named by the `worker_init` setting is sourced after
-    `TMPDIR` is set, so it can activate the environment and re-export
-    anything the login node had set, notably `NX_SERVER` and
-    `NX_LOCKDIRECTORY`.
+    `TMPDIR` is pointed at a short path and OpenBLAS is held to one
+    thread per process. A task runs `NXExecutor` with a worker process
+    for every two hardware threads, and each of those would otherwise
+    start a thread per core, which exhausts the limit on tasks before
+    any of them can import NumPy.
+
+    The script named by the `worker_init` setting is sourced afterwards,
+    so it can activate the environment and re-export anything the login
+    node had set, notably `NX_SERVER` and `NX_LOCKDIRECTORY`, and can
+    raise either limit again if a task ever needs it.
     """
-    return '; '.join([TMPDIR] + init_commands(options))
+    return '; '.join([TMPDIR, OPENBLAS] + init_commands(options))
 
 
 def polaris_executor(label, options, nodes, max_blocks, queue, walltime):
