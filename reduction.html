@@ -76,18 +76,42 @@ orientation has been determined from one of the measurements, <em>e.g.</em>, at
 room temperature, it can be copied and refined automatically when
 reducing the data from other measurements, provided the space group has
 not changed or is still compatible with the observed Bragg peaks.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The following scripts share four common command-line switches that
+are not described individually under each command:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">-d</span> <span class="pre">/</span> <span class="pre">--directory</span> <span class="pre">DIRECTORY</span></code></dt><dd><p>The scan directory containing the NeXus wrapper file and raw
+data. Required by all per-scan scripts.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">-e</span> <span class="pre">/</span> <span class="pre">--entries</span> <span class="pre">ENTRIES</span> <span class="pre">…</span></code></dt><dd><p>Restrict processing to the named NeXus entries (e.g.,
+<code class="docutils literal notranslate"><span class="pre">f1</span> <span class="pre">f2</span> <span class="pre">f3</span></code>). If omitted, all entries in the wrapper file are
+processed.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">-o</span> <span class="pre">/</span> <span class="pre">--overwrite</span></code></dt><dd><p>Force the step to re-run even if a result from a previous run is
+already stored in the file.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">-q</span> <span class="pre">/</span> <span class="pre">--queue</span></code></dt><dd><p>Instead of running immediately, add the task to the server queue
+(see <a class="reference internal" href="#nxserver"><span class="std std-ref">nxserver</span></a>).</p>
+</dd>
+</dl>
+</div>
 <div class="section" id="nxload">
 <h2>nxload<a class="headerlink" href="#nxload" title="Permalink to this headline">¶</a></h2>
-<p>Load data</p>
+<p>On beamlines that require it, <code class="docutils literal notranslate"><span class="pre">nxload</span></code> actively retrieves or converts
+raw detector data from the beamline storage system. On others it simply
+confirms that the expected raw HDF5 files are present on disk before
+the rest of the workflow proceeds. There are no scan-specific parameters
+beyond the common switches.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxload</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
 
 <span class="n">Load</span> <span class="n">raw</span> <span class="n">data</span>
 
-<span class="n">optional</span> <span class="n">arguments</span><span class="p">:</span>
+<span class="n">options</span><span class="p">:</span>
   <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
-  <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
+  <span class="o">-</span><span class="n">d</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
                         <span class="n">scan</span> <span class="n">directory</span>
-  <span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">],</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
+  <span class="o">-</span><span class="n">e</span><span class="p">,</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
                         <span class="n">names</span> <span class="n">of</span> <span class="n">entries</span> <span class="n">to</span> <span class="n">be</span> <span class="n">loaded</span>
   <span class="o">-</span><span class="n">o</span><span class="p">,</span> <span class="o">--</span><span class="n">overwrite</span>       <span class="n">overwrite</span> <span class="n">existing</span> <span class="n">peaks</span>
   <span class="o">-</span><span class="n">q</span><span class="p">,</span> <span class="o">--</span><span class="n">queue</span>           <span class="n">add</span> <span class="n">to</span> <span class="n">server</span> <span class="n">task</span> <span class="n">queue</span>
@@ -96,37 +120,24 @@ not changed or is still compatible with the observed Bragg peaks.</p>
 </div>
 <div class="section" id="nxlink">
 <h2>nxlink<a class="headerlink" href="#nxlink" title="Permalink to this headline">¶</a></h2>
-<p>Link metadata</p>
+<p><code class="docutils literal notranslate"><span class="pre">nxlink</span></code> populates the NeXus wrapper file with metadata from the
+beamline. It creates the <code class="docutils literal notranslate"><span class="pre">data</span></code> group that links to the raw pixel
+array stored in the HDF5 file and defines the frame-number, x-pixel,
+and y-pixel coordinate axes. It also imports the scan logs recorded
+during the rotation — motor positions, temperatures, and timing
+records — together with the monitor counts that will later be used for
+intensity normalization. There are no scan-specific parameters beyond
+the common switches.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxlink</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
 
 <span class="n">Link</span> <span class="n">data</span> <span class="ow">and</span> <span class="n">metadata</span> <span class="n">to</span> <span class="n">NeXus</span> <span class="n">file</span>
 
-<span class="n">optional</span> <span class="n">arguments</span><span class="p">:</span>
+<span class="n">options</span><span class="p">:</span>
   <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
-  <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
+  <span class="o">-</span><span class="n">d</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
                         <span class="n">scan</span> <span class="n">directory</span>
-<span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">],</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
+  <span class="o">-</span><span class="n">e</span><span class="p">,</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
                         <span class="n">names</span> <span class="n">of</span> <span class="n">entries</span> <span class="n">to</span> <span class="n">be</span> <span class="n">searched</span>
-<span class="o">-</span><span class="n">o</span><span class="p">,</span> <span class="o">--</span><span class="n">overwrite</span>         <span class="n">overwrite</span> <span class="n">existing</span> <span class="n">peaks</span>
-<span class="o">-</span><span class="n">q</span><span class="p">,</span> <span class="o">--</span><span class="n">queue</span>             <span class="n">add</span> <span class="n">to</span> <span class="n">server</span> <span class="n">task</span> <span class="n">queue</span>
-</pre></div>
-</div>
-</div>
-<div class="section" id="nxcopy">
-<h2>nxcopy<a class="headerlink" href="#nxcopy" title="Permalink to this headline">¶</a></h2>
-<p>Copy data</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxcopy</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">p</span> <span class="n">PARENT</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
-
-<span class="n">Copy</span> <span class="n">instrument</span> <span class="n">parameters</span> <span class="kn">from</span> <span class="nn">a</span> <span class="n">parent</span> <span class="n">file</span>
-
-<span class="n">optional</span> <span class="n">arguments</span><span class="p">:</span>
-  <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
-  <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
-                        <span class="n">scan</span> <span class="n">directory</span>
-  <span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">],</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
-                        <span class="n">names</span> <span class="n">of</span> <span class="n">entries</span> <span class="n">to</span> <span class="n">be</span> <span class="n">searched</span>
-  <span class="o">-</span><span class="n">p</span> <span class="n">PARENT</span><span class="p">,</span> <span class="o">--</span><span class="n">parent</span> <span class="n">PARENT</span>
-                        <span class="n">file</span> <span class="n">name</span> <span class="n">of</span> <span class="n">file</span> <span class="n">to</span> <span class="n">copy</span> <span class="kn">from</span>
   <span class="o">-</span><span class="n">o</span><span class="p">,</span> <span class="o">--</span><span class="n">overwrite</span>       <span class="n">overwrite</span> <span class="n">existing</span> <span class="n">peaks</span>
   <span class="o">-</span><span class="n">q</span><span class="p">,</span> <span class="o">--</span><span class="n">queue</span>           <span class="n">add</span> <span class="n">to</span> <span class="n">server</span> <span class="n">task</span> <span class="n">queue</span>
 </pre></div>
@@ -134,69 +145,138 @@ not changed or is still compatible with the observed Bragg peaks.</p>
 </div>
 <div class="section" id="nxmax">
 <h2>nxmax<a class="headerlink" href="#nxmax" title="Permalink to this headline">¶</a></h2>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxmax</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">f</span> <span class="n">FIRST</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">l</span> <span class="n">LAST</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
+<p><code class="docutils literal notranslate"><span class="pre">nxmax</span></code> scans every frame in the detector stack to compute several
+frame-level quantities needed for normalization and sample-transmission
+corrections:</p>
+<ul class="simple">
+<li><p>The maximum pixel count over the entire dataset, which sets the scale
+for subsequent thresholds.</p></li>
+<li><p>An integrated detector image summed over all frames
+(<code class="docutils literal notranslate"><span class="pre">frame_sums/summed_data</span></code>), useful for identifying hot pixels and
+for absorption-correction diagnostics.</p></li>
+<li><p>A per-frame intensity baseline (<code class="docutils literal notranslate"><span class="pre">frame_sums/summed_frames</span></code>) derived
+from a trimmed sum over an annular ring of pixels on the detector.
+The ring is chosen to lie away from Bragg reflections; the brightest
+10 % of pixels within it are discarded before summing so that
+residual Bragg contamination does not bias the result.</p></li>
+<li><p>A sample-transmission curve as a function of frame number
+(<code class="docutils literal notranslate"><span class="pre">frame_sums/transmission</span></code>), obtained by normalizing the per-frame
+baseline by the monitor counts and then applying a 31-frame median
+filter to remove transient spikes.</p></li>
+<li><p>A radial sum (<code class="docutils literal notranslate"><span class="pre">frame_sums/radial_sum</span></code>) as a function of 2θ,
+computed by pyFAI if calibration data are available in the wrapper
+file.</p></li>
+</ul>
+<p>The <code class="docutils literal notranslate"><span class="pre">-f</span> <span class="pre">/</span> <span class="pre">--first</span></code> and <code class="docutils literal notranslate"><span class="pre">-l</span> <span class="pre">/</span> <span class="pre">--last</span></code> options restrict the range of
+frames that are processed (frames outside this range are excluded from
+all sums and from the peak search in <code class="docutils literal notranslate"><span class="pre">nxfind</span></code>).</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">--qmin</span></code> and <code class="docutils literal notranslate"><span class="pre">--qmax</span></code> options set the inner and outer
+boundaries (in Å⁻¹) of the annular transmission window. If omitted,
+values are derived automatically from the detector geometry.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>usage: nxmax [-h] -d DIRECTORY [-e ENTRIES [ENTRIES ...]]
+             [-s SUBENTRY] [-f FIRST] [-l LAST] [--qmin QMIN] [--qmax QMAX]
+             [-o] [-q]
 
-<span class="n">Find</span> <span class="n">maximum</span> <span class="n">counts</span> <span class="n">of</span> <span class="n">the</span> <span class="n">signal</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">specified</span> <span class="n">path</span>
+Find maximum counts of the signal in the specified path
 
-<span class="n">optional</span> <span class="n">arguments</span><span class="p">:</span>
-  <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
-  <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
-                        <span class="n">scan</span> <span class="n">directory</span>
-  <span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">],</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
-                        <span class="n">names</span> <span class="n">of</span> <span class="n">entries</span> <span class="n">to</span> <span class="n">be</span> <span class="n">processed</span>
-  <span class="o">-</span><span class="n">f</span> <span class="n">FIRST</span><span class="p">,</span> <span class="o">--</span><span class="n">first</span> <span class="n">FIRST</span>
-                        <span class="n">first</span> <span class="n">frame</span>
-  <span class="o">-</span><span class="n">l</span> <span class="n">LAST</span><span class="p">,</span> <span class="o">--</span><span class="n">last</span> <span class="n">LAST</span>  <span class="n">last</span> <span class="n">frame</span>
-  <span class="o">-</span><span class="n">o</span><span class="p">,</span> <span class="o">--</span><span class="n">overwrite</span>       <span class="n">overwrite</span> <span class="n">existing</span> <span class="n">maximum</span>
-  <span class="o">-</span><span class="n">m</span><span class="p">,</span> <span class="o">--</span><span class="n">monitor</span>         <span class="n">monitor</span> <span class="n">progress</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">command</span> <span class="n">line</span>
-  <span class="o">-</span><span class="n">q</span><span class="p">,</span> <span class="o">--</span><span class="n">queue</span>           <span class="n">add</span> <span class="n">to</span> <span class="n">server</span> <span class="n">task</span> <span class="n">queue</span>
+options:
+  -h, --help            show this help message and exit
+  -d, --directory DIRECTORY
+                        scan directory
+  -e, --entries ENTRIES [ENTRIES ...]
+                        names of entries to be processed
+  -s, --subentry SUBENTRY
+                        subentry to be processed
+  -f, --first FIRST     first frame
+  -l, --last LAST       last frame
+  --qmin QMIN           minimum scattering Q (Å⁻¹); auto if omitted
+  --qmax QMAX           maximum scattering Q (Å⁻¹); auto if omitted
+  -o, --overwrite       overwrite existing maximum
+  -q, --queue           add to server task queue
 </pre></div>
 </div>
 </div>
 <div class="section" id="nxfind">
 <h2>nxfind<a class="headerlink" href="#nxfind" title="Permalink to this headline">¶</a></h2>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxfind</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">THRESHOLD</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">f</span> <span class="n">FIRST</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">l</span> <span class="n">LAST</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">P</span> <span class="n">PIXELS</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">p</span> <span class="n">PARENT</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
+<p><code class="docutils literal notranslate"><span class="pre">nxfind</span></code> searches the three-dimensional detector/frame data array for
+Bragg peaks. The data is read in overlapping 50-frame chunks and a
+blob-detection algorithm locates connected groups of pixels whose
+intensity exceeds the threshold and which are separated from other
+peaks by more than a minimum pixel distance. The resulting peak list
+records, for each reflection, the centroid position in detector
+coordinates (x, y) and frame number (z), the integrated intensity, the
+widths in each dimension (σ_x, σ_y, σ_z), and the polar and azimuthal
+angles computed from the refined detector geometry.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">-t</span> <span class="pre">/</span> <span class="pre">--threshold</span></code> option sets the minimum intensity (in counts)
+a pixel must reach to be considered part of a peak. The
+<code class="docutils literal notranslate"><span class="pre">-f</span> <span class="pre">/</span> <span class="pre">--first</span></code> and <code class="docutils literal notranslate"><span class="pre">-l</span> <span class="pre">/</span> <span class="pre">--last</span></code> options restrict the frame range
+searched. The <code class="docutils literal notranslate"><span class="pre">-P</span> <span class="pre">/</span> <span class="pre">--pixels</span></code> option sets the minimum number of
+pixels by which two peaks must be separated; peaks that are closer than
+this distance are merged.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxfind</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span>
+              <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">THRESHOLD</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">f</span> <span class="n">FIRST</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">l</span> <span class="n">LAST</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">P</span> <span class="n">PIXELS</span><span class="p">]</span>
+              <span class="p">[</span><span class="o">-</span><span class="n">s</span> <span class="n">SUBENTRY</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">p</span> <span class="n">PARENT</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
 
 <span class="n">Find</span> <span class="n">peaks</span> <span class="n">within</span> <span class="n">the</span> <span class="n">NeXus</span> <span class="n">data</span>
 
-<span class="n">optional</span> <span class="n">arguments</span><span class="p">:</span>
+<span class="n">options</span><span class="p">:</span>
   <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
-  <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
+  <span class="o">-</span><span class="n">d</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
                         <span class="n">scan</span> <span class="n">directory</span>
-  <span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">],</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
+  <span class="o">-</span><span class="n">e</span><span class="p">,</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
                         <span class="n">names</span> <span class="n">of</span> <span class="n">entries</span> <span class="n">to</span> <span class="n">be</span> <span class="n">searched</span>
-  <span class="o">-</span><span class="n">t</span> <span class="n">THRESHOLD</span><span class="p">,</span> <span class="o">--</span><span class="n">threshold</span> <span class="n">THRESHOLD</span>
+  <span class="o">-</span><span class="n">t</span><span class="p">,</span> <span class="o">--</span><span class="n">threshold</span> <span class="n">THRESHOLD</span>
                         <span class="n">peak</span> <span class="n">threshold</span>
-  <span class="o">-</span><span class="n">f</span> <span class="n">FIRST</span><span class="p">,</span> <span class="o">--</span><span class="n">first</span> <span class="n">FIRST</span>
-                        <span class="n">first</span> <span class="n">frame</span>
-  <span class="o">-</span><span class="n">l</span> <span class="n">LAST</span><span class="p">,</span> <span class="o">--</span><span class="n">last</span> <span class="n">LAST</span>  <span class="n">last</span> <span class="n">frame</span>
-  <span class="o">-</span><span class="n">P</span> <span class="n">PIXELS</span><span class="p">,</span> <span class="o">--</span><span class="n">pixels</span> <span class="n">PIXELS</span>
-                        <span class="n">minimum</span> <span class="n">pixels</span> <span class="n">between</span> <span class="n">peaks</span>
+  <span class="o">-</span><span class="n">f</span><span class="p">,</span> <span class="o">--</span><span class="n">first</span> <span class="n">FIRST</span>     <span class="n">first</span> <span class="n">frame</span>
+  <span class="o">-</span><span class="n">l</span><span class="p">,</span> <span class="o">--</span><span class="n">last</span> <span class="n">LAST</span>       <span class="n">last</span> <span class="n">frame</span>
+  <span class="o">-</span><span class="n">P</span><span class="p">,</span> <span class="o">--</span><span class="n">pixels</span> <span class="n">PIXELS</span>   <span class="n">minimum</span> <span class="n">pixels</span> <span class="n">between</span> <span class="n">peaks</span>
+  <span class="o">-</span><span class="n">s</span><span class="p">,</span> <span class="o">--</span><span class="n">subentry</span> <span class="n">SUBENTRY</span>
+                        <span class="n">subentry</span> <span class="n">to</span> <span class="n">be</span> <span class="n">processed</span>
   <span class="o">-</span><span class="n">o</span><span class="p">,</span> <span class="o">--</span><span class="n">overwrite</span>       <span class="n">overwrite</span> <span class="n">existing</span> <span class="n">peaks</span>
-  <span class="o">-</span><span class="n">p</span> <span class="n">PARENT</span><span class="p">,</span> <span class="o">--</span><span class="n">parent</span> <span class="n">PARENT</span>
-                        <span class="n">The</span> <span class="n">parent</span> <span class="o">.</span><span class="n">nxs</span> <span class="n">file</span> <span class="n">to</span> <span class="n">use</span>
-  <span class="o">-</span><span class="n">m</span><span class="p">,</span> <span class="o">--</span><span class="n">monitor</span>         <span class="n">monitor</span> <span class="n">progress</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">command</span> <span class="n">line</span>
+  <span class="o">-</span><span class="n">p</span><span class="p">,</span> <span class="o">--</span><span class="n">parent</span> <span class="n">PARENT</span>   <span class="n">The</span> <span class="n">parent</span> <span class="o">.</span><span class="n">nxs</span> <span class="n">file</span> <span class="n">to</span> <span class="n">use</span>
   <span class="o">-</span><span class="n">q</span><span class="p">,</span> <span class="o">--</span><span class="n">queue</span>           <span class="n">add</span> <span class="n">to</span> <span class="n">server</span> <span class="n">task</span> <span class="n">queue</span>
 </pre></div>
 </div>
 </div>
 <div class="section" id="nxrefine">
 <h2>nxrefine<a class="headerlink" href="#nxrefine" title="Permalink to this headline">¶</a></h2>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxrefine</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">l</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">p</span> <span class="n">POLAR_MAX</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">T</span> <span class="n">HKL_TOLERANCE</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
+<p><code class="docutils literal notranslate"><span class="pre">nxrefine</span></code> determines the crystal orientation matrix by matching the
+Bragg peaks found by <code class="docutils literal notranslate"><span class="pre">nxfind</span></code> to the HKL positions predicted by the
+known unit cell. If a parent file is configured, the orientation matrix
+it contains is used as the starting point; otherwise the initial matrix
+must have been set manually using the <em>Refine Lattice</em> dialog in NeXpy.
+The refinement proceeds in two stages: first, HKL indices are assigned
+to observed peaks that fall within the Q-tolerance, and the goniometer
+misset angles (chi, omega, theta) are optimized; second, the full 3×3
+orientation matrix is refined. For the first entry in a scan set,
+<code class="docutils literal notranslate"><span class="pre">--lattice</span></code> additionally allows the unit-cell parameters (a, b, c, α,
+β, γ) to be refined simultaneously; for subsequent entries the lattice
+parameters from the first entry are used without modification.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">-l</span> <span class="pre">/</span> <span class="pre">--lattice</span></code> flag enables unit-cell refinement (in addition
+to the orientation matrix). The <code class="docutils literal notranslate"><span class="pre">-p</span> <span class="pre">/</span> <span class="pre">--polar_max</span></code> option limits the
+refinement to reflections within a given polar angle (in degrees),
+which is useful for excluding high-angle peaks that are less
+well-measured. The <code class="docutils literal notranslate"><span class="pre">-T</span> <span class="pre">/</span> <span class="pre">--hkl_tolerance</span></code> option sets the Q-distance
+(in Å⁻¹) within which an observed peak must lie from its predicted HKL
+position in order to be included in the fit.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxrefine</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">l</span><span class="p">]</span>
+                <span class="p">[</span><span class="o">-</span><span class="n">p</span> <span class="n">POLAR_MAX</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">T</span> <span class="n">HKL_TOLERANCE</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">s</span> <span class="n">SUBENTRY</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
 
 <span class="n">Refine</span> <span class="n">lattice</span> <span class="n">parameters</span> <span class="ow">and</span> <span class="n">goniometer</span> <span class="n">angles</span>
 
-<span class="n">optional</span> <span class="n">arguments</span><span class="p">:</span>
+<span class="n">options</span><span class="p">:</span>
   <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
-  <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
+  <span class="o">-</span><span class="n">d</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
                         <span class="n">scan</span> <span class="n">directory</span>
-  <span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">],</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
+  <span class="o">-</span><span class="n">e</span><span class="p">,</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
                         <span class="n">names</span> <span class="n">of</span> <span class="n">entries</span> <span class="n">to</span> <span class="n">be</span> <span class="n">processed</span>
   <span class="o">-</span><span class="n">l</span><span class="p">,</span> <span class="o">--</span><span class="n">lattice</span>         <span class="n">refine</span> <span class="n">lattice</span> <span class="n">parameters</span>
-  <span class="o">-</span><span class="n">p</span> <span class="n">POLAR_MAX</span><span class="p">,</span> <span class="o">--</span><span class="n">polar_max</span> <span class="n">POLAR_MAX</span>
+  <span class="o">-</span><span class="n">p</span><span class="p">,</span> <span class="o">--</span><span class="n">polar_max</span> <span class="n">POLAR_MAX</span>
                         <span class="n">maximum</span> <span class="n">polar</span> <span class="n">angle</span> <span class="ow">in</span> <span class="n">degrees</span>
-  <span class="o">-</span><span class="n">T</span> <span class="n">HKL_TOLERANCE</span><span class="p">,</span> <span class="o">--</span><span class="n">hkl_tolerance</span> <span class="n">HKL_TOLERANCE</span>
+  <span class="o">-</span><span class="n">T</span><span class="p">,</span> <span class="o">--</span><span class="n">hkl_tolerance</span> <span class="n">HKL_TOLERANCE</span>
                         <span class="n">tolerance</span> <span class="k">for</span> <span class="n">including</span> <span class="n">peak</span> <span class="ow">in</span> <span class="n">Å</span><span class="o">-</span><span class="mi">1</span>
+  <span class="o">-</span><span class="n">s</span><span class="p">,</span> <span class="o">--</span><span class="n">subentry</span> <span class="n">SUBENTRY</span>
+                        <span class="n">subentry</span> <span class="n">to</span> <span class="n">be</span> <span class="n">processed</span>
   <span class="o">-</span><span class="n">o</span><span class="p">,</span> <span class="o">--</span><span class="n">overwrite</span>       <span class="n">overwrite</span> <span class="n">existing</span> <span class="n">maximum</span>
   <span class="o">-</span><span class="n">q</span><span class="p">,</span> <span class="o">--</span><span class="n">queue</span>           <span class="n">add</span> <span class="n">to</span> <span class="n">server</span> <span class="n">task</span> <span class="n">queue</span>
 </pre></div>
@@ -204,43 +284,84 @@ not changed or is still compatible with the observed Bragg peaks.</p>
 </div>
 <div class="section" id="nxprepare">
 <h2>nxprepare<a class="headerlink" href="#nxprepare" title="Permalink to this headline">¶</a></h2>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxprepare</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span> <span class="p">[</span><span class="o">--</span><span class="n">t1</span> <span class="n">T1</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">h1</span> <span class="n">H1</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">t2</span> <span class="n">T2</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">h2</span> <span class="n">H2</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
+<p><code class="docutils literal notranslate"><span class="pre">nxprepare</span></code> constructs a three-dimensional boolean mask in
+detector/frame space that identifies every voxel occupied by a Bragg
+reflection. When <code class="docutils literal notranslate"><span class="pre">nxtransform</span></code> is later run with the <code class="docutils literal notranslate"><span class="pre">--mask</span></code> flag,
+the marked voxels are excluded from the reciprocal-space transform,
+suppressing Bragg-peak contributions in the diffuse-scattering signal.</p>
+<p>The mask is produced by two successive convolution passes over the raw
+data:</p>
+<ul class="simple">
+<li><p>A <strong>fine</strong> pass, with threshold <code class="docutils literal notranslate"><span class="pre">--t1</span></code> and convolution half-size
+<code class="docutils literal notranslate"><span class="pre">--h1</span></code> pixels, captures the bright core of each Bragg reflection.</p></li>
+<li><p>A <strong>coarse</strong> pass, with threshold <code class="docutils literal notranslate"><span class="pre">--t2</span></code> and convolution half-size
+<code class="docutils literal notranslate"><span class="pre">--h2</span></code> pixels, captures the weaker tails and diffraction streaks
+that spread out around strong reflections.</p></li>
+</ul>
+<p>The combined mask is stored in a separate file (<code class="docutils literal notranslate"><span class="pre">&lt;entry&gt;_mask.nxs</span></code>)
+and linked into the wrapper. Default values (t1 = 2.0, h1 = 11,
+t2 = 0.8, h2 = 51) work well for many datasets; they can be adjusted
+if peaks are being over- or under-masked.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxprepare</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span>
+                 <span class="p">[</span><span class="o">--</span><span class="n">t1</span> <span class="n">T1</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">h1</span> <span class="n">H1</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">t2</span> <span class="n">T2</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">h2</span> <span class="n">H2</span><span class="p">]</span>
+                 <span class="p">[</span><span class="o">-</span><span class="n">s</span> <span class="n">SUBENTRY</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
 
 <span class="n">Prepare</span> <span class="mi">3</span><span class="n">D</span> <span class="n">mask</span> <span class="n">around</span> <span class="n">Bragg</span> <span class="n">peaks</span>
 
-<span class="n">optional</span> <span class="n">arguments</span><span class="p">:</span>
+<span class="n">options</span><span class="p">:</span>
   <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
-  <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
+  <span class="o">-</span><span class="n">d</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
                         <span class="n">scan</span> <span class="n">directory</span>
-  <span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">],</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
+  <span class="o">-</span><span class="n">e</span><span class="p">,</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
                         <span class="n">names</span> <span class="n">of</span> <span class="n">entries</span> <span class="n">to</span> <span class="n">be</span> <span class="n">processed</span>
   <span class="o">--</span><span class="n">t1</span> <span class="n">T1</span>               <span class="n">threshold</span> <span class="k">for</span> <span class="n">smaller</span> <span class="n">convolution</span>
   <span class="o">--</span><span class="n">h1</span> <span class="n">H1</span>               <span class="n">size</span> <span class="n">of</span> <span class="n">smaller</span> <span class="n">convolution</span>
   <span class="o">--</span><span class="n">t2</span> <span class="n">T2</span>               <span class="n">threshold</span> <span class="k">for</span> <span class="n">larger</span> <span class="n">convolution</span>
   <span class="o">--</span><span class="n">h2</span> <span class="n">H2</span>               <span class="n">size</span> <span class="n">of</span> <span class="n">larger</span> <span class="n">convolution</span>
+  <span class="o">-</span><span class="n">s</span><span class="p">,</span> <span class="o">--</span><span class="n">subentry</span> <span class="n">SUBENTRY</span>
+                        <span class="n">subentry</span> <span class="n">to</span> <span class="n">be</span> <span class="n">processed</span>
   <span class="o">-</span><span class="n">o</span><span class="p">,</span> <span class="o">--</span><span class="n">overwrite</span>       <span class="n">overwrite</span> <span class="n">existing</span> <span class="n">mask</span>
-  <span class="o">-</span><span class="n">m</span><span class="p">,</span> <span class="o">--</span><span class="n">monitor</span>         <span class="n">monitor</span> <span class="n">progress</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">command</span> <span class="n">line</span>
   <span class="o">-</span><span class="n">q</span><span class="p">,</span> <span class="o">--</span><span class="n">queue</span>           <span class="n">add</span> <span class="n">to</span> <span class="n">server</span> <span class="n">task</span> <span class="n">queue</span>
 </pre></div>
 </div>
 </div>
 <div class="section" id="nxtransform">
 <h2>nxtransform<a class="headerlink" href="#nxtransform" title="Permalink to this headline">¶</a></h2>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxtransform</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">qh</span> <span class="n">QH</span> <span class="n">QH</span> <span class="n">QH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">qk</span> <span class="n">QK</span> <span class="n">QK</span> <span class="n">QK</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">ql</span> <span class="n">QL</span> <span class="n">QL</span> <span class="n">QL</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">R</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">M</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
+<p><code class="docutils literal notranslate"><span class="pre">nxtransform</span></code> transforms the raw detector/frame data into a regular
+grid in reciprocal space (H, K, L) using CCTW (Crystallographic
+Coordinate Transformation Workflow). Each detector frame is mapped onto
+the reciprocal-space grid according to the crystal orientation at the
+corresponding rotation angle, as determined by <code class="docutils literal notranslate"><span class="pre">nxrefine</span></code>.
+Intensities are normalized by dividing by the per-frame monitor counts
+and by the sample-transmission correction derived by <code class="docutils literal notranslate"><span class="pre">nxmax</span></code>.</p>
+<p>The reciprocal-space grid is defined with the <code class="docutils literal notranslate"><span class="pre">-qh</span></code>, <code class="docutils literal notranslate"><span class="pre">-qk</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">-ql</span></code> options, each supplied as three numbers: the minimum value, the
+step size, and the maximum value (all in reciprocal lattice units). If
+these options are omitted, the grid stored in the parent file is used.</p>
+<p><code class="docutils literal notranslate"><span class="pre">-R</span> <span class="pre">/</span> <span class="pre">--regular</span></code> produces a transform using all data without masking.
+<code class="docutils literal notranslate"><span class="pre">-M</span> <span class="pre">/</span> <span class="pre">--mask</span></code> produces a second transform in which the voxels
+identified by <code class="docutils literal notranslate"><span class="pre">nxprepare</span></code> are excluded, leaving only the diffuse
+signal between the Bragg peaks. Both flags may be given simultaneously,
+producing two separate output files.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxtransform</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span>
+                   <span class="p">[</span><span class="o">-</span><span class="n">qh</span> <span class="n">QH</span> <span class="n">QH</span> <span class="n">QH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">qk</span> <span class="n">QK</span> <span class="n">QK</span> <span class="n">QK</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">ql</span> <span class="n">QL</span> <span class="n">QL</span> <span class="n">QL</span><span class="p">]</span>
+                   <span class="p">[</span><span class="o">-</span><span class="n">R</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">M</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">s</span> <span class="n">SUBENTRY</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
 
 <span class="n">Perform</span> <span class="n">CCTW</span> <span class="n">transform</span>
 
-<span class="n">optional</span> <span class="n">arguments</span><span class="p">:</span>
+<span class="n">options</span><span class="p">:</span>
   <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
-  <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
+  <span class="o">-</span><span class="n">d</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
                         <span class="n">scan</span> <span class="n">directory</span>
-  <span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">],</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
+  <span class="o">-</span><span class="n">e</span><span class="p">,</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
                         <span class="n">names</span> <span class="n">of</span> <span class="n">entries</span> <span class="n">to</span> <span class="n">be</span> <span class="n">processed</span>
   <span class="o">-</span><span class="n">qh</span> <span class="n">QH</span> <span class="n">QH</span> <span class="n">QH</span>          <span class="n">Qh</span> <span class="o">-</span> <span class="nb">min</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="nb">max</span>
   <span class="o">-</span><span class="n">qk</span> <span class="n">QK</span> <span class="n">QK</span> <span class="n">QK</span>          <span class="n">Qk</span> <span class="o">-</span> <span class="nb">min</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="nb">max</span>
   <span class="o">-</span><span class="n">ql</span> <span class="n">QL</span> <span class="n">QL</span> <span class="n">QL</span>          <span class="n">Ql</span> <span class="o">-</span> <span class="nb">min</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="nb">max</span>
   <span class="o">-</span><span class="n">R</span><span class="p">,</span> <span class="o">--</span><span class="n">regular</span>         <span class="n">perform</span> <span class="n">regular</span> <span class="n">transform</span>
   <span class="o">-</span><span class="n">M</span><span class="p">,</span> <span class="o">--</span><span class="n">mask</span>            <span class="n">perform</span> <span class="n">transform</span> <span class="k">with</span> <span class="mi">3</span><span class="n">D</span> <span class="n">mask</span>
+  <span class="o">-</span><span class="n">s</span><span class="p">,</span> <span class="o">--</span><span class="n">subentry</span> <span class="n">SUBENTRY</span>
+                        <span class="n">subentry</span> <span class="n">to</span> <span class="n">be</span> <span class="n">processed</span>
   <span class="o">-</span><span class="n">o</span><span class="p">,</span> <span class="o">--</span><span class="n">overwrite</span>       <span class="n">overwrite</span> <span class="n">existing</span> <span class="n">transforms</span>
   <span class="o">-</span><span class="n">q</span><span class="p">,</span> <span class="o">--</span><span class="n">queue</span>           <span class="n">add</span> <span class="n">to</span> <span class="n">server</span> <span class="n">task</span> <span class="n">queue</span>
 </pre></div>
@@ -248,15 +369,23 @@ not changed or is still compatible with the observed Bragg peaks.</p>
 </div>
 <div class="section" id="nxcombine">
 <h2>nxcombine<a class="headerlink" href="#nxcombine" title="Permalink to this headline">¶</a></h2>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxcombine</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">R</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">M</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
+<p><code class="docutils literal notranslate"><span class="pre">nxcombine</span></code> merges the individual per-entry transforms — one for each
+rotation scan entry in the wrapper file — into a single
+three-dimensional reciprocal-space map. It invokes CCTW’s <code class="docutils literal notranslate"><span class="pre">merge</span></code>
+operation with unit normalization so that overlapping voxels from
+different entries are averaged. Both the regular (unmasked) and the
+masked transforms can be combined independently by supplying the
+<code class="docutils literal notranslate"><span class="pre">-R</span> <span class="pre">/</span> <span class="pre">--regular</span></code> and <code class="docutils literal notranslate"><span class="pre">-M</span> <span class="pre">/</span> <span class="pre">--mask</span></code> flags respectively.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxcombine</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span>
+                 <span class="p">[</span><span class="o">-</span><span class="n">R</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">M</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
 
 <span class="n">Combine</span> <span class="n">CCTW</span> <span class="n">transforms</span>
 
-<span class="n">optional</span> <span class="n">arguments</span><span class="p">:</span>
+<span class="n">options</span><span class="p">:</span>
   <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
-  <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
+  <span class="o">-</span><span class="n">d</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
                         <span class="n">scan</span> <span class="n">directory</span>
-  <span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">],</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
+  <span class="o">-</span><span class="n">e</span><span class="p">,</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
                         <span class="n">names</span> <span class="n">of</span> <span class="n">entries</span> <span class="n">to</span> <span class="n">be</span> <span class="n">combined</span><span class="o">.</span>
   <span class="o">-</span><span class="n">R</span><span class="p">,</span> <span class="o">--</span><span class="n">regular</span>         <span class="n">combine</span> <span class="n">transforms</span>
   <span class="o">-</span><span class="n">M</span><span class="p">,</span> <span class="o">--</span><span class="n">mask</span>            <span class="n">combine</span> <span class="n">transforms</span> <span class="k">with</span> <span class="mi">3</span><span class="n">D</span> <span class="n">mask</span>
@@ -267,19 +396,47 @@ not changed or is still compatible with the observed Bragg peaks.</p>
 </div>
 <div class="section" id="nxpdf">
 <h2>nxpdf<a class="headerlink" href="#nxpdf" title="Permalink to this headline">¶</a></h2>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxpdf</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">l</span> <span class="p">[</span><span class="n">LAUE</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">r</span> <span class="n">RADIUS</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">Q</span> <span class="n">QMAX</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">R</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">M</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
+<p><code class="docutils literal notranslate"><span class="pre">nxpdf</span></code> computes the 3D-ΔPDF (difference Patterson map) from the
+combined reciprocal-space data produced by <code class="docutils literal notranslate"><span class="pre">nxcombine</span></code>. The
+calculation proceeds in four steps:</p>
+<ol class="arabic simple">
+<li><p><strong>Symmetrize.</strong> All symmetry-equivalent voxels are averaged
+according to the crystal’s Laue group, enforcing the expected
+reciprocal-space symmetry and improving statistics in each unique
+region.</p></li>
+<li><p><strong>Total PDF.</strong> A spherical Tukey taper is applied to the
+symmetrized data to suppress Fourier truncation artefacts, and a
+three-dimensional Fourier transform produces the total PDF in real
+space.</p></li>
+<li><p><strong>Punch-and-fill.</strong> The intensity within an ellipsoidal volume
+around each Bragg reflection is removed (“punched”) and the
+resulting gap is filled by harmonic Laplace interpolation, using
+the Julia <code class="docutils literal notranslate"><span class="pre">LaplaceInterpolation.jl</span></code> library. The result is a
+reciprocal-space dataset containing only diffuse signal.</p></li>
+<li><p><strong>Delta-PDF.</strong> A Fourier transform of the punch-and-filled dataset
+yields the 3D-ΔPDF.</p></li>
+</ol>
+<p>The <code class="docutils literal notranslate"><span class="pre">-l</span> <span class="pre">/</span> <span class="pre">--laue</span></code> option specifies the Laue group symbol to use for
+symmetrization; if omitted, the value stored in the NeXus file is used.
+The <code class="docutils literal notranslate"><span class="pre">-r</span> <span class="pre">/</span> <span class="pre">--radius</span></code> option sets the radius (in Å⁻¹) of the
+ellipsoidal volume removed around each Bragg peak. The <code class="docutils literal notranslate"><span class="pre">-Q</span> <span class="pre">/</span> <span class="pre">--Qmax</span></code>
+option sets the maximum Q (in Å⁻¹) of the spherical Tukey taper applied
+before each Fourier transform.</p>
+<p>As with <code class="docutils literal notranslate"><span class="pre">nxtransform</span></code> and <code class="docutils literal notranslate"><span class="pre">nxcombine</span></code>, <code class="docutils literal notranslate"><span class="pre">-R</span> <span class="pre">/</span> <span class="pre">--regular</span></code> and
+<code class="docutils literal notranslate"><span class="pre">-M</span> <span class="pre">/</span> <span class="pre">--mask</span></code> select whether to compute the PDF from the unmasked or
+the masked transform (or both).</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxpdf</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">l</span> <span class="p">[</span><span class="n">LAUE</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">r</span> <span class="n">RADIUS</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">Q</span> <span class="n">QMAX</span><span class="p">]</span>
+             <span class="p">[</span><span class="o">-</span><span class="n">R</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">M</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
 
 <span class="n">Calculate</span> <span class="n">PDF</span> <span class="n">transforms</span>
 
-<span class="n">optional</span> <span class="n">arguments</span><span class="p">:</span>
+<span class="n">options</span><span class="p">:</span>
   <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
-  <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
+  <span class="o">-</span><span class="n">d</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
                         <span class="n">scan</span> <span class="n">directory</span>
-  <span class="o">-</span><span class="n">l</span> <span class="p">[</span><span class="n">LAUE</span><span class="p">],</span> <span class="o">--</span><span class="n">laue</span> <span class="p">[</span><span class="n">LAUE</span><span class="p">]</span>
-                        <span class="n">Laue</span> <span class="n">group</span> <span class="n">to</span> <span class="n">be</span> <span class="n">used</span> <span class="k">if</span> <span class="n">different</span> <span class="kn">from</span> <span class="nn">file</span>
-  <span class="o">-</span><span class="n">r</span> <span class="n">RADIUS</span><span class="p">,</span> <span class="o">--</span><span class="n">radius</span> <span class="n">RADIUS</span>
-                        <span class="n">radius</span> <span class="n">of</span> <span class="n">punched</span> <span class="n">holes</span> <span class="ow">in</span> <span class="n">Å</span><span class="o">-</span><span class="mi">1</span>
-  <span class="o">-</span><span class="n">Q</span> <span class="n">QMAX</span><span class="p">,</span> <span class="o">--</span><span class="n">Qmax</span> <span class="n">QMAX</span>  <span class="n">Maximum</span> <span class="n">Q</span> <span class="ow">in</span> <span class="n">Å</span><span class="o">-</span><span class="mi">1</span> <span class="n">used</span> <span class="ow">in</span> <span class="n">PDF</span> <span class="n">tapers</span>
+  <span class="o">-</span><span class="n">l</span><span class="p">,</span> <span class="o">--</span><span class="n">laue</span> <span class="p">[</span><span class="n">LAUE</span><span class="p">]</span>     <span class="n">Laue</span> <span class="n">group</span> <span class="n">to</span> <span class="n">be</span> <span class="n">used</span> <span class="k">if</span> <span class="n">different</span> <span class="kn">from</span> <span class="nn">file</span>
+  <span class="o">-</span><span class="n">r</span><span class="p">,</span> <span class="o">--</span><span class="n">radius</span> <span class="n">RADIUS</span>   <span class="n">radius</span> <span class="n">of</span> <span class="n">punched</span> <span class="n">holes</span> <span class="ow">in</span> <span class="n">Å</span><span class="o">-</span><span class="mi">1</span>
+  <span class="o">-</span><span class="n">Q</span><span class="p">,</span> <span class="o">--</span><span class="n">Qmax</span> <span class="n">QMAX</span>       <span class="n">Maximum</span> <span class="n">Q</span> <span class="ow">in</span> <span class="n">Å</span><span class="o">-</span><span class="mi">1</span> <span class="n">used</span> <span class="ow">in</span> <span class="n">PDF</span> <span class="n">tapers</span>
   <span class="o">-</span><span class="n">R</span><span class="p">,</span> <span class="o">--</span><span class="n">regular</span>         <span class="n">Calculate</span> <span class="n">using</span> <span class="n">regular</span> <span class="n">transforms</span>
   <span class="o">-</span><span class="n">M</span><span class="p">,</span> <span class="o">--</span><span class="n">mask</span>            <span class="n">Calculate</span> <span class="n">using</span> <span class="n">masked</span> <span class="n">transforms</span>
   <span class="o">-</span><span class="n">o</span><span class="p">,</span> <span class="o">--</span><span class="n">overwrite</span>       <span class="n">overwrite</span> <span class="n">existing</span> <span class="n">transforms</span>
@@ -287,26 +444,112 @@ not changed or is still compatible with the observed Bragg peaks.</p>
 </pre></div>
 </div>
 </div>
+<div class="section" id="nxsum">
+<h2>nxsum<a class="headerlink" href="#nxsum" title="Permalink to this headline">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">nxsum</span></code> adds raw detector frames from two or more scan directories
+together pixel-by-pixel, accumulating their monitor counts as well.
+This is used when several separate acquisitions that cover the same
+rotation range need to be combined before the main reduction workflow
+— for example, to build up sufficient counting statistics from shorter
+individual scans. The summed data are written to a new scan directory
+that is subsequently processed with the standard workflow
+(<code class="docutils literal notranslate"><span class="pre">nxlink</span></code>, <code class="docutils literal notranslate"><span class="pre">nxmax</span></code>, <em>etc.</em>).</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">-c</span> <span class="pre">/</span> <span class="pre">--create</span></code> flag initializes the new scan directory and
+wrapper file; the <code class="docutils literal notranslate"><span class="pre">-s</span> <span class="pre">/</span> <span class="pre">--scans</span></code> option (required) lists the
+individual source scan directories. The <code class="docutils literal notranslate"><span class="pre">-u</span> <span class="pre">/</span> <span class="pre">--update</span></code> flag
+recalculates the monitor sums without re-copying the raw detector data,
+which is useful when only the metadata needs refreshing.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxsum</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">c</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span>
+             <span class="o">-</span><span class="n">s</span> <span class="n">SCANS</span> <span class="p">[</span><span class="n">SCANS</span> <span class="o">...</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">u</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span>
+
+<span class="n">Sum</span> <span class="n">raw</span> <span class="n">data</span> <span class="n">files</span>
+
+<span class="n">options</span><span class="p">:</span>
+  <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
+  <span class="o">-</span><span class="n">d</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
+                        <span class="n">directory</span> <span class="n">containing</span> <span class="n">summed</span> <span class="n">files</span>
+  <span class="o">-</span><span class="n">c</span><span class="p">,</span> <span class="o">--</span><span class="n">create</span>          <span class="n">create</span> <span class="n">the</span> <span class="nb">sum</span> <span class="n">file</span> <span class="ow">and</span> <span class="n">directory</span>
+  <span class="o">-</span><span class="n">e</span><span class="p">,</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
+                        <span class="n">names</span> <span class="n">of</span> <span class="n">entries</span> <span class="n">to</span> <span class="n">be</span> <span class="n">summed</span>
+  <span class="o">-</span><span class="n">s</span><span class="p">,</span> <span class="o">--</span><span class="n">scans</span> <span class="n">SCANS</span> <span class="p">[</span><span class="n">SCANS</span> <span class="o">...</span><span class="p">]</span>
+                        <span class="nb">list</span> <span class="n">of</span> <span class="n">scan</span> <span class="n">directories</span> <span class="n">to</span> <span class="n">be</span> <span class="n">summed</span>
+  <span class="o">-</span><span class="n">u</span><span class="p">,</span> <span class="o">--</span><span class="n">update</span>          <span class="n">update</span> <span class="n">links</span> <span class="n">to</span> <span class="n">existing</span> <span class="n">summed</span> <span class="n">files</span>
+  <span class="o">-</span><span class="n">o</span><span class="p">,</span> <span class="o">--</span><span class="n">overwrite</span>       <span class="n">overwrite</span> <span class="n">existing</span> <span class="n">summed</span> <span class="n">files</span>
+</pre></div>
+</div>
+</div>
 <div class="section" id="nxserver">
-<h2>nxserver<a class="headerlink" href="#nxserver" title="Permalink to this headline">¶</a></h2>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxserver</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">d</span> <span class="p">[</span><span class="n">DIRECTORY</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TYPE</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">n</span> <span class="n">NODES</span> <span class="p">[</span><span class="n">NODES</span> <span class="o">...</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">c</span> <span class="n">CORES</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">r</span> <span class="n">REMOVE</span> <span class="p">[</span><span class="n">REMOVE</span> <span class="o">...</span><span class="p">]]</span> <span class="p">[</span><span class="n">command</span><span class="p">]</span>
+<span id="id1"></span><h2>nxserver<a class="headerlink" href="#nxserver" title="Permalink to this headline">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">nxserver</span></code> manages the asynchronous task server that executes
+workflow steps submitted with the <code class="docutils literal notranslate"><span class="pre">--queue</span></code> flag. Starting the server
+puts it into the background, where it continuously dequeues and runs
+tasks as they arrive. The positional <code class="docutils literal notranslate"><span class="pre">command</span></code> argument accepts:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">start</span></code></dt><dd><p>Launch the server process.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">stop</span></code></dt><dd><p>Gracefully shut down the server after finishing the current task.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">status</span></code></dt><dd><p>Print whether the server is running and how many tasks are queued.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">clear</span></code></dt><dd><p>Remove all pending tasks from the queue without running them.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">kill</span></code></dt><dd><p>Immediately terminate the server process.</p>
+</dd>
+</dl>
+<p>The <code class="docutils literal notranslate"><span class="pre">-t</span> <span class="pre">/</span> <span class="pre">--type</span></code> option selects the execution backend: <code class="docutils literal notranslate"><span class="pre">multicore</span></code>
+runs all tasks on the local machine using multiple CPU cores, while
+<code class="docutils literal notranslate"><span class="pre">multinode</span></code> distributes tasks across compute nodes using Parsl. The
+<code class="docutils literal notranslate"><span class="pre">-c</span> <span class="pre">/</span> <span class="pre">--cores</span></code> option controls the number of parallel workers.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxserver</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">d</span> <span class="p">[</span><span class="n">DIRECTORY</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TYPE</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">c</span> <span class="n">CORES</span><span class="p">]</span> <span class="p">[</span><span class="n">command</span><span class="p">]</span>
 
 <span class="n">Launch</span> <span class="n">server</span> <span class="k">for</span> <span class="n">data</span> <span class="n">reduction</span> <span class="n">workflow</span>
 
 <span class="n">positional</span> <span class="n">arguments</span><span class="p">:</span>
-  <span class="n">command</span>               <span class="n">status</span><span class="o">|</span><span class="n">start</span><span class="o">|</span><span class="n">stop</span><span class="o">|</span><span class="nb">list</span><span class="o">|</span><span class="n">clear</span><span class="o">|</span><span class="n">kill</span>
+  <span class="n">command</span>               <span class="n">valid</span> <span class="n">commands</span> <span class="n">are</span><span class="p">:</span> <span class="n">status</span><span class="o">|</span><span class="n">start</span><span class="o">|</span><span class="n">stop</span><span class="o">|</span><span class="n">clear</span><span class="o">|</span><span class="n">kill</span>
 
-<span class="n">optional</span> <span class="n">arguments</span><span class="p">:</span>
+<span class="n">options</span><span class="p">:</span>
   <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
-  <span class="o">-</span><span class="n">d</span> <span class="p">[</span><span class="n">DIRECTORY</span><span class="p">],</span> <span class="o">--</span><span class="n">directory</span> <span class="p">[</span><span class="n">DIRECTORY</span><span class="p">]</span>
+  <span class="o">-</span><span class="n">d</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="p">[</span><span class="n">DIRECTORY</span><span class="p">]</span>
                         <span class="n">Start</span> <span class="n">the</span> <span class="n">server</span> <span class="ow">in</span> <span class="n">this</span> <span class="n">directory</span>
-  <span class="o">-</span><span class="n">t</span> <span class="n">TYPE</span><span class="p">,</span> <span class="o">--</span><span class="nb">type</span> <span class="n">TYPE</span>  <span class="n">Server</span> <span class="nb">type</span><span class="p">:</span> <span class="n">multicore</span><span class="o">|</span><span class="n">multinode</span>
-  <span class="o">-</span><span class="n">n</span> <span class="n">NODES</span> <span class="p">[</span><span class="n">NODES</span> <span class="o">...</span><span class="p">],</span> <span class="o">--</span><span class="n">nodes</span> <span class="n">NODES</span> <span class="p">[</span><span class="n">NODES</span> <span class="o">...</span><span class="p">]</span>
-                        <span class="n">Add</span> <span class="n">nodes</span>
-  <span class="o">-</span><span class="n">c</span> <span class="n">CORES</span><span class="p">,</span> <span class="o">--</span><span class="n">cores</span> <span class="n">CORES</span>
-                        <span class="n">Number</span> <span class="n">of</span> <span class="n">cores</span>
-  <span class="o">-</span><span class="n">r</span> <span class="n">REMOVE</span> <span class="p">[</span><span class="n">REMOVE</span> <span class="o">...</span><span class="p">],</span> <span class="o">--</span><span class="n">remove</span> <span class="n">REMOVE</span> <span class="p">[</span><span class="n">REMOVE</span> <span class="o">...</span><span class="p">]</span>
-                        <span class="n">Remove</span> <span class="n">nodes</span>
+  <span class="o">-</span><span class="n">t</span><span class="p">,</span> <span class="o">--</span><span class="nb">type</span> <span class="n">TYPE</span>       <span class="n">Server</span> <span class="nb">type</span><span class="p">:</span> <span class="n">multicore</span><span class="o">|</span><span class="n">multinode</span><span class="o">|</span><span class="n">direct</span>
+  <span class="o">-</span><span class="n">c</span><span class="p">,</span> <span class="o">--</span><span class="n">cores</span> <span class="n">CORES</span>     <span class="n">Number</span> <span class="n">of</span> <span class="n">cores</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="nxreduce">
+<h2>nxreduce<a class="headerlink" href="#nxreduce" title="Permalink to this headline">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">nxreduce</span></code> is a convenience wrapper that chains any combination of
+workflow steps in a single command. Each step is selected with a
+single-letter flag; multiple flags can be combined to run a pipeline
+without invoking individual scripts. If <code class="docutils literal notranslate"><span class="pre">--queue</span></code> is given, all
+selected steps are submitted to the server together.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxreduce</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">s</span> <span class="n">SUBENTRY</span><span class="p">]</span>
+                <span class="p">[</span><span class="o">-</span><span class="n">L</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">l</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">f</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">r</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">p</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">C</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">P</span><span class="p">]</span>
+                <span class="p">[</span><span class="o">-</span><span class="n">R</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">M</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
+
+<span class="n">Perform</span> <span class="n">data</span> <span class="n">reduction</span> <span class="n">on</span> <span class="n">entries</span>
+
+<span class="n">options</span><span class="p">:</span>
+  <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
+  <span class="o">-</span><span class="n">d</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
+                        <span class="n">scan</span> <span class="n">directory</span>
+  <span class="o">-</span><span class="n">e</span><span class="p">,</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
+                        <span class="n">names</span> <span class="n">of</span> <span class="n">entries</span> <span class="n">to</span> <span class="n">be</span> <span class="n">processed</span>
+  <span class="o">-</span><span class="n">s</span><span class="p">,</span> <span class="o">--</span><span class="n">subentry</span> <span class="n">SUBENTRY</span>
+                        <span class="n">subentry</span> <span class="n">to</span> <span class="n">be</span> <span class="n">processed</span>
+  <span class="o">-</span><span class="n">L</span><span class="p">,</span> <span class="o">--</span><span class="n">load</span>            <span class="n">load</span> <span class="n">raw</span> <span class="n">data</span>
+  <span class="o">-</span><span class="n">l</span><span class="p">,</span> <span class="o">--</span><span class="n">link</span>            <span class="n">link</span> <span class="n">wrapper</span> <span class="n">file</span> <span class="n">to</span> <span class="n">raw</span> <span class="n">data</span>
+  <span class="o">-</span><span class="n">m</span><span class="p">,</span> <span class="o">--</span><span class="nb">max</span>             <span class="n">find</span> <span class="n">maximum</span> <span class="n">counts</span>
+  <span class="o">-</span><span class="n">f</span><span class="p">,</span> <span class="o">--</span><span class="n">find</span>            <span class="n">find</span> <span class="n">peaks</span>
+  <span class="o">-</span><span class="n">r</span><span class="p">,</span> <span class="o">--</span><span class="n">refine</span>          <span class="n">refine</span> <span class="n">lattice</span> <span class="n">parameters</span>
+  <span class="o">-</span><span class="n">p</span><span class="p">,</span> <span class="o">--</span><span class="n">prepare</span>         <span class="n">prepare</span> <span class="mi">3</span><span class="n">D</span> <span class="n">masks</span>
+  <span class="o">-</span><span class="n">t</span><span class="p">,</span> <span class="o">--</span><span class="n">transform</span>       <span class="n">perform</span> <span class="n">CCTW</span> <span class="n">transforms</span>
+  <span class="o">-</span><span class="n">C</span><span class="p">,</span> <span class="o">--</span><span class="n">combine</span>         <span class="n">combine</span> <span class="n">CCTW</span> <span class="n">transforms</span>
+  <span class="o">-</span><span class="n">P</span><span class="p">,</span> <span class="o">--</span><span class="n">pdf</span>             <span class="n">perform</span> <span class="n">PDF</span> <span class="n">transforms</span>
+  <span class="o">-</span><span class="n">R</span><span class="p">,</span> <span class="o">--</span><span class="n">regular</span>         <span class="n">perform</span> <span class="n">regular</span> <span class="n">CCTW</span> <span class="n">transforms</span>
+  <span class="o">-</span><span class="n">M</span><span class="p">,</span> <span class="o">--</span><span class="n">mask</span>            <span class="n">perform</span> <span class="n">CCTW</span> <span class="n">transforms</span> <span class="k">with</span> <span class="mi">3</span><span class="n">D</span> <span class="n">mask</span>
+  <span class="o">-</span><span class="n">o</span><span class="p">,</span> <span class="o">--</span><span class="n">overwrite</span>       <span class="n">overwrite</span> <span class="n">existing</span> <span class="n">maximum</span>
+  <span class="o">-</span><span class="n">q</span><span class="p">,</span> <span class="o">--</span><span class="n">queue</span>           <span class="n">add</span> <span class="n">to</span> <span class="n">server</span> <span class="n">task</span> <span class="n">queue</span>
 </pre></div>
 </div>
 </div>
@@ -325,7 +568,6 @@ not changed or is still compatible with the observed Bragg peaks.</p>
 <li><a class="reference internal" href="#">Data Reduction</a><ul>
 <li><a class="reference internal" href="#nxload">nxload</a></li>
 <li><a class="reference internal" href="#nxlink">nxlink</a></li>
-<li><a class="reference internal" href="#nxcopy">nxcopy</a></li>
 <li><a class="reference internal" href="#nxmax">nxmax</a></li>
 <li><a class="reference internal" href="#nxfind">nxfind</a></li>
 <li><a class="reference internal" href="#nxrefine">nxrefine</a></li>
@@ -333,7 +575,9 @@ not changed or is still compatible with the observed Bragg peaks.</p>
 <li><a class="reference internal" href="#nxtransform">nxtransform</a></li>
 <li><a class="reference internal" href="#nxcombine">nxcombine</a></li>
 <li><a class="reference internal" href="#nxpdf">nxpdf</a></li>
+<li><a class="reference internal" href="#nxsum">nxsum</a></li>
 <li><a class="reference internal" href="#nxserver">nxserver</a></li>
+<li><a class="reference internal" href="#nxreduce">nxreduce</a></li>
 </ul>
 </li>
 </ul>

@@ -237,17 +237,11 @@ with the <code class="docutils literal notranslate"><span class="pre">config</sp
 </div>
 <div class="section" id="parsl-settings">
 <h3>Parsl Settings<a class="headerlink" href="#parsl-settings" title="Permalink to this headline">¶</a></h3>
-<p>These settings are read from the <code class="docutils literal notranslate"><span class="pre">[parsl]</span></code> section of <code class="docutils literal notranslate"><span class="pre">settings.ini</span></code>.
-Only <code class="docutils literal notranslate"><span class="pre">config</span></code> and <code class="docutils literal notranslate"><span class="pre">account</span></code> are commonly needed for a <code class="docutils literal notranslate"><span class="pre">multinode</span></code>
-site; the rest have defaults suitable for a generic PBS Pro cluster and
-only need to be overridden to match local queue policies.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">[parsl]</span></code> section is not yet included in the “Edit
-Settings” dialog. For now, it should be edited directly in
-<code class="docutils literal notranslate"><span class="pre">settings.ini</span></code>, or interactively using <code class="docutils literal notranslate"><span class="pre">nxsettings</span> <span class="pre">-i</span></code> at
-the command line, which prompts for every setting in turn.</p>
-</div>
+<p>These settings are read from the <code class="docutils literal notranslate"><span class="pre">[parsl]</span></code> section of
+<code class="docutils literal notranslate"><span class="pre">settings.ini</span></code>. Only <code class="docutils literal notranslate"><span class="pre">config</span></code> and <code class="docutils literal notranslate"><span class="pre">account</span></code> are commonly needed
+for a <code class="docutils literal notranslate"><span class="pre">multinode</span></code> site; the rest have defaults suitable for a generic
+PBS Pro cluster and only need to be overridden to match local queue
+policies.</p>
 <dl class="field-list simple">
 <dt class="field-odd">config</dt>
 <dd class="field-odd"><p>Names the Python module, or file, that supplies the Parsl
