@@ -54,7 +54,8 @@ class NXSettings(ConfigParser):
             directory = Path(directory).resolve()
         self.file = self.get_filepath(directory)
         if self.file is None:
-            raise NeXusError(f'{directory} is not a valid directory')
+            raise NeXusError(
+                f"'{self.searched_directory}' is not a valid directory")
         elif not self.file.exists():
             self.create = True
         self.directory = self.file.parent
@@ -80,6 +81,7 @@ class NXSettings(ConfigParser):
                     raise NeXusError("Default server settings not defined")
             if directory.name != 'nxserver':
                 directory = directory / 'nxserver'
+        self.searched_directory = directory
         if directory.exists():
             if directory.name == 'nxserver':
                 self.server = True
