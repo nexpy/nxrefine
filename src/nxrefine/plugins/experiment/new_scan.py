@@ -135,7 +135,8 @@ class NewScanDialog(NXDialog):
         self.parameters_layout = self.make_layout(self.parameters_grid)
 
         self.checkbox_layout = self.checkboxes(
-            ('create_parent', 'Create Parent', True))
+            ('create_parent', 'Create Parent', True),
+            ('add_scan', 'Add Scan', True))
 
         self.scan_box = NXLineEdit('300', align='right', slot=self.update_scan)
         self.scan_name_label = NXLabel(self.scan_label)
@@ -210,6 +211,10 @@ class NewScanDialog(NXDialog):
     @property
     def create_parent_checked(self):
         return self.checkbox['create_parent'].isChecked()
+
+    @property
+    def add_scan_checked(self):
+        return self.checkbox['add_scan'].isChecked()
 
     @property
     def prefix(self):
@@ -353,7 +358,8 @@ class NewScanDialog(NXDialog):
             if parent.root.nxfile is None:
                 parent.root.save(self.parent_file, 'w')
             self.parent = parent
-            self.build_scan(parent, register=True)
+            if self.add_scan_checked:
+                self.build_scan(parent, register=True)
         else:
             scan_path = self.sample_directory / self.scan_file
             scan = NXParent(scan_path, prefix=self.prefix)
@@ -390,13 +396,16 @@ class NewScanDialog(NXDialog):
                     "Overwrite parent file?",
                     f"'{self.parent_file}' already exists."):
                 return
+        building_scan = not self.create_parent_checked or self.add_scan_checked
         scan_path = self.sample_directory / self.scan_file
-        if scan_path.is_file() and not confirm_action(
-                "Overwrite existing scan file?",
-                f"'{scan_path}' already exists."):
+        if (building_scan and scan_path.is_file() and
+                not confirm_action(
+                    "Overwrite existing scan file?",
+                    f"'{scan_path}' already exists.")):
             return
         self.create_scan_set()
-        load_file(scan_path)
+        if building_scan:
+            load_file(scan_path)
         if self.create_parent_checked:
             load_file(self.parent_file)
         super().accept()
