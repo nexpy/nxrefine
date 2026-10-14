@@ -7,6 +7,7 @@
 # -----------------------------------------------------------------------------
 import datetime
 import logging
+import os
 import shutil
 from pathlib import Path as Path
 
@@ -303,9 +304,16 @@ class NXParent:
 
     @property
     def other_scan_files(self):
+        """Unregistered scan files in the directory that can be modified.
+
+        Files the user lacks read/write permission on (e.g., those owned
+        by another user) are excluded, since they could not be opened or
+        registered.
+        """
         return sorted([f for f in self.filename.parent.glob("*.nxs")
                        if f.stem not in self.scans
-                       and not f.stem.endswith('_scans')],
+                       and not f.stem.endswith('_scans')
+                       and os.access(f, os.R_OK | os.W_OK)],
                        key=natural_sort)
 
     @property
