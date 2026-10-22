@@ -343,6 +343,7 @@ class NXServer(NXDaemon):
         options['server_type'] = self.server_type
         options['cores'] = len(self.cpus) or 1
         options['directory'] = str(self.directory)
+        options['log'] = self.log
         return options
 
     def set_cores(self, cpu_count):
