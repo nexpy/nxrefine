@@ -47,6 +47,8 @@ from .nxsettings import NXSettings
 POLL_INTERVAL = 5
 LOCK_TIMEOUT = 10
 LOCK_EXPIRY = 60
+STATUS_INTERVAL = 600
+CONTROL_COMMANDS = ('stop', 'resume', 'abort')
 
 
 def get_servers():
@@ -561,7 +563,9 @@ class NXServer(NXDaemon):
 
         Any commands left in the queue when the server last stopped are
         resubmitted first, preserving their batch grouping. The loop
-        then dispatches new commands until a 'stop' command is read.
+        then dispatches new commands until a 'stop' or 'abort' command
+        is read. The server then waits for submitted tasks to finish,
+        during which a 'resume' command returns it to normal operation.
         """
         self.log(f'Starting server (pid={os.getpid()})')
         try:
@@ -571,24 +575,106 @@ class NXServer(NXDaemon):
             super(NXServer, self).stop()
             return
         stopped = False
-        while not stopped:
+        abort = False
+        while True:
             time.sleep(POLL_INTERVAL)
             while True:
                 task = self.read_task()
                 if task is None:
                     break
-                elif task.command == 'stop':
+                elif task.command in ('stop', 'abort'):
                     stopped = True
+                    abort = task.command == 'abort'
                     break
-                try:
-                    self.dispatch(task)
-                except Exception as error:
-                    self.log(f"Could not submit '{task.command}': {error}")
+                elif task.command == 'resume':
+                    self.log("Ignoring 'resume': the server is not stopping")
+                    continue
+                self.submit(task)
             self.reap()
-        self.log("Waiting for submitted tasks to finish")
-        self.shutdown()
+            if stopped:
+                if self.drain(abort):
+                    break
+                stopped = abort = False
         self.log("Stopping server")
         super(NXServer, self).stop()
+
+    def submit(self, task):
+        """Dispatch a task, logging rather than raising any failure."""
+        try:
+            self.dispatch(task)
+        except Exception as error:
+            self.log(f"Could not submit '{task.command}': {error}")
+
+    def drain(self, abort=False):
+        """Wait for submitted tasks to finish, then unload Parsl.
+
+        The queue is still read while waiting, because a task that
+        has been submitted to a scheduler can wait indefinitely for
+        its allocation, and the server would otherwise be unable to
+        receive any instruction in the meantime. A 'resume' command
+        ends the wait and leaves Parsl, and any allocation still queued
+        with the scheduler, as it was. An 'abort' command cancels
+        the allocations and returns the unfinished tasks to the queue.
+        Anything else is dispatched as usual.
+
+        Parameters
+        ----------
+        abort : bool, optional
+            Cancel the allocations instead of waiting, by default False.
+
+        Returns
+        -------
+        bool
+            True if Parsl was unloaded, False if the server resumed.
+        """
+        self.log("Waiting for submitted tasks to finish")
+        last_status = time.time()
+        while self.tasks and not abort:
+            time.sleep(POLL_INTERVAL)
+            while True:
+                task = self.read_task()
+                if task is None:
+                    break
+                elif task.command == 'resume':
+                    self.log("Resuming server")
+                    return False
+                elif task.command == 'abort':
+                    abort = True
+                    break
+                elif task.command == 'stop':
+                    continue
+                self.submit(task)
+            self.reap()
+            if time.time() - last_status >= STATUS_INTERVAL:
+                self.log(f"Still waiting for {len(self.tasks)} tasks")
+                last_status = time.time()
+        if abort:
+            self.cancel_blocks()
+        self.shutdown(wait=not abort)
+        return True
+
+    def cancel_blocks(self):
+        """Cancel every allocation and return unfinished tasks to the queue.
+
+        Tasks that were already running are lost with their allocation,
+        so they are queued to run again. This is safe because each step
+        of a workflow skips whatever has already been processed.
+        """
+        self.log("Aborting: cancelling allocations")
+        try:
+            import parsl
+            for executor in parsl.dfk().executors.values():
+                blocks = getattr(executor, 'blocks_to_job_id', None)
+                if blocks:
+                    executor.scale_in_facade(len(blocks))
+        except Exception as error:
+            self.log(f"Could not cancel allocations: {error}")
+        unfinished = list(self.tasks.values())
+        self.tasks.clear()
+        for task in unfinished:
+            self.add_task(task.command, batch_id=task.batch_id,
+                          batch_size=task.batch_size)
+        self.log(f"Returned {len(unfinished)} tasks to the queue")
 
     def start(self):
         """Check the Parsl configuration, then start the daemon."""
@@ -626,10 +712,11 @@ class NXServer(NXDaemon):
             tasks = tasks.split('\n')
         queued = self.queued_tasks()
         for command in [task for task in tasks if task]:
-            if command != 'stop' and command in queued:
+            if command not in CONTROL_COMMANDS and command in queued:
                 continue
             task = NXTask(command, batch_id=batch_id, batch_size=batch_size)
-            if self.server_type == 'direct' and command != 'stop':
+            if (self.server_type == 'direct'
+                    and command not in CONTROL_COMMANDS):
                 self.dispatch(task)
             else:
                 self.task_queue.put(task)
@@ -731,13 +818,42 @@ class NXServer(NXDaemon):
         elif self.get_process()[0]:
             self.add_task('stop')
 
-    def shutdown(self):
-        """Wait for tasks running in this process and unload Parsl."""
+    def abort(self):
+        """Stop the server, cancelling its allocations without waiting.
+
+        Allocations that have been submitted to the scheduler are
+        cancelled, and unfinished tasks are returned to the queue. This
+        is also the way out of a stop that is waiting for an allocation
+        the scheduler has not yet started.
+        """
+        if self.server_type == 'direct':
+            if self.is_running():
+                self.cancel_blocks()
+                self.shutdown(wait=False)
+        elif self.get_process()[0]:
+            self.add_task('abort')
+
+    def resume(self):
+        """Cancel a pending stop, leaving queued allocations in place."""
+        if self.server_type != 'direct' and self.get_process()[0]:
+            self.add_task('resume')
+
+    def shutdown(self, wait=True):
+        """Unload Parsl, first waiting for tasks running in this process.
+
+        Parameters
+        ----------
+        wait : bool, optional
+            Wait for tasks to finish, by default True. It is False after
+            their allocations have been cancelled, when waiting would
+            never end.
+        """
         if self._apps is None:
             return
         try:
             import parsl
-            parsl.dfk().wait_for_current_tasks()
+            if wait:
+                parsl.dfk().wait_for_current_tasks()
             self.reap()
             parsl.dfk().cleanup()
         except Exception as error:
