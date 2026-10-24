@@ -408,19 +408,121 @@ Server Menu
 The *NXRefine* plugin to *NeXpy* installs a top-level menu labelled
 "Server", which is used to launch and monitor data reduction operations performed as part of the workflow.
 
+.. _manage-workflows:
+
 Manage Workflows
 ----------------
 This dialog shows the workflow status for all the scans stored in a
-particular sample directory. When the dialog is launched, click on
-"Choose Sample Directory" to launch the system file browser in order to
-select a directory containing a set of NeXus scan files. This opens the
-"Manage Workflows" dialog, in which the status of every component of the
-*NXRefine* workflow is listed for all the scan files in the sample
-directory.
+particular sample directory, and is the GUI counterpart of the
+command-line scripts described in :doc:`reduction`. When the dialog is
+launched, click on "Choose Scan File" to launch the system file browser
+in order to select one of the NeXus scan files in the sample directory.
+This opens the "Manage Workflows" dialog, in which the status of every
+component of the *NXRefine* workflow is listed for all the scan files in
+the sample directory. If the sample directory contains more than one
+analysis entry, the "Entry" selector chooses which one is displayed, and
+"Create New Subentry" adds another. "Select Scans" restricts the dialog
+to a subset of the scans, when one has been defined.
 
-.. figure:: /images/manage_workflows.png
-   :align: center
-   :width: 90% 
+Each row of the table is a scan, and each column is a step in the
+workflow. Selecting boxes in a row and clicking "Add to Queue" submits
+the corresponding commands to the server (see :ref:`nxserver`), which
+runs them just as if they had been typed at the command line. The tasks
+for all the entries of a scan are submitted together as a single
+``nxreduce`` command. The checkbox in the "All" row at the bottom of
+each column selects or deselects that step for every scan. The other
+buttons are "Update Status", which refreshes the table from the task
+database, "View Logs", which shows the server, workflow and task logs
+for a selected scan, entry and step, and "Sync Database", which is
+described below.
+
+Workflow Columns
+^^^^^^^^^^^^^^^^
+The columns are listed in the order in which the steps are normally
+performed. Most correspond to a script described in :doc:`reduction`.
+
+**load**
+  Retrieves or confirms the raw detector data (``nxload``).
+**link**
+  Links the raw data and scan metadata to the wrapper file
+  (``nxlink``).
+**max**
+  Computes the maximum pixel values and frame-level normalization
+  quantities (``nxmax``).
+**find**
+  Searches for Bragg peaks in each entry (``nxfind``).
+**refine**
+  Determines the orientation matrix from the peaks (``nxrefine``).
+**prepare**
+  Builds the three-dimensional mask of Bragg-peak voxels, which is
+  needed for the masked transforms (``nxprepare``).
+**transform**
+  Transforms each entry into reciprocal space (``nxtransform``). The
+  "regular" column is the unmasked transform, and the "masked" column
+  is the transform that excludes the Bragg-peak voxels defined by
+  ``prepare``.
+**combine**
+  Merges the transforms of the entries into a single reciprocal-space
+  map (``nxcombine``), again in regular and masked columns.
+**pdf**
+  Calculates the 3D-ΔPDF from the combined data (``nxpdf``), again in
+  regular and masked columns.
+
+Steps depend on one another. Until a scan's "load" step has been
+completed, the "link", "max", "find", "prepare" and "transform" boxes are
+disabled. When a subentry is selected, the "load" and "link" columns are
+not shown, since they have been performed for the parent entry. The
+"combine" and "pdf" steps operate on all the entries of a scan at once.
+If only these columns are selected for a scan, a single combined command
+is submitted. Several steps selected for the same scan are run together
+by a single command, in workflow order.
+
+The last two columns do not correspond to workflow steps. "overwrite"
+enables every box in a row, including those for completed steps, so that
+they can be selected and run again, replacing the earlier results. "sync"
+selects the scan to be updated by "Sync Database", which re-reads the
+scan file and resets the task database to match what the file actually
+contains. It is needed if a file has been modified outside the dialog,
+*e.g.*, by running scripts from the command line in an environment that
+does not update the database, or by deleting entries.
+
+Checkbox Colors
+^^^^^^^^^^^^^^^
+Each checkbox shows the state of that step for that scan, as recorded in
+the task database. The state changes as a task moves through the queue,
+and is refreshed by "Update Status", or whenever the dialog is opened.
+
+**Unchecked**
+  The step has not been started. The box can be selected to include it
+  the next time "Add to Queue" is clicked.
+**Checked and greyed out**
+  The step is complete. The box is disabled, unless "overwrite" is
+  selected for the scan, in which case it can be selected to run the step
+  again.
+**Partially checked, greyed out, no color**
+  The step has just been added to the queue from this dialog. The box is
+  disabled to prevent it from being submitted twice, and the selections
+  are cleared. Click "Update Status" to display its current state.
+**Partially checked, blue**
+  The task is in the queue, waiting for the server to run it. Nothing
+  further is needed, but if the server is not running, the task will
+  wait until it is started (see :ref:`Manage Server`).
+**Partially checked, green**
+  The task is in progress, *i.e.*, it has been started by the server
+  or by a command-line script.
+**Partially checked, red**
+  The task failed. The reason can be found with "View Logs", after which
+  the box can be selected again to resubmit it.
+
+A partially checked box with a color remains enabled, so a queued,
+running or failed step can be selected and resubmitted. Clicking it
+changes it to an ordinary checked box, which will be submitted by "Add to
+Queue", and clicking it again restores the earlier color. A blue or green
+box that does not change for a long time usually means that the task was
+interrupted without being recorded as failed, *e.g.*, because the server
+was killed (see :ref:`Stopping, Resuming, and Aborting`). In that case,
+use "Sync Database" to reset the status of the scan, and then
+resubmit the task.
 
 Manage Server
 -------------
