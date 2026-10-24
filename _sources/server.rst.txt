@@ -436,6 +436,10 @@ database, "View Logs", which shows the server, workflow and task logs
 for a selected scan, entry and step, and "Sync Database", which is
 described below.
 
+.. figure:: /images/manage_workflows.png
+   :align: center
+   :width: 95% 
+
 Workflow Columns
 ^^^^^^^^^^^^^^^^
 The columns are listed in the order in which the steps are normally
@@ -541,7 +545,7 @@ locks.
 
 .. figure:: /images/manage_servers.png
    :align: center
-   :width: 90% 
+   :width: 95% 
 
 The top row of the dialog shows the server status and the buttons that
 control it. "Start Server" and "Stop Server" share a single button,
