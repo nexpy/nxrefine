@@ -343,6 +343,66 @@ provider. Sites are welcome to contribute new scheduler or site modules
 back to *NXRefine*, rather than maintaining them as private
 configuration files.
 
+.. _nxserver:
+
+nxserver Command
+================
+The server can be started, stopped, and queried from the command line
+using ``nxserver``. This is useful for scripts, for starting the server
+in an environment where *NeXpy* is not available, or for integrating
+server management into a larger automation workflow.
+
+The positional ``command`` argument accepts:
+
+``start``
+    Launch the server daemon and begin processing queued tasks.
+``stop``
+    Gracefully shut the server down. No new tasks are read from the
+    queue, but the server waits for tasks it has already submitted to
+    finish. With the ``-a / --abort`` option, the server instead cancels
+    its scheduler allocations and returns unfinished tasks to the queue
+    (see :ref:`Stopping, Resuming, and Aborting`).
+``resume``
+    Cancel a ``stop`` that is still waiting for submitted tasks, so the
+    server returns to normal operation.
+``status``
+    Print whether the server is running and how many tasks are queued.
+``clear``
+    Remove all pending tasks from the queue without running them.
+``kill``
+    Immediately terminate the server process. Jobs already submitted to
+    a batch scheduler are not cancelled.
+
+The ``-t / --type`` option selects the execution backend, overriding
+the value in ``settings.ini``: ``direct`` runs tasks in the calling
+process, ``multicore`` uses multiple local CPU cores, and ``multinode``
+distributes tasks across compute nodes via Parsl (see
+:ref:`Parsl Configuration`). The ``-c / --cores`` option sets the
+number of parallel workers, overriding the ``cores`` setting. The
+``-f / --foreground`` option runs the server in the current terminal
+rather than as a daemon, which is useful for debugging; it can be
+stopped in the usual way from another terminal.
+
+.. code-block::
+
+    usage: nxserver [-h] [-d [DIRECTORY]] [-t TYPE] [-c CORES] [-f] [-a]
+                    [command]
+
+    Launch server for data reduction workflow
+
+    positional arguments:
+      command               valid commands are: status|start|stop|resume|clear|kill
+
+    options:
+      -h, --help            show this help message and exit
+      -d, --directory [DIRECTORY]
+                            Start the server in this directory
+      -t, --type TYPE       Server type: multicore|multinode|direct
+      -c, --cores CORES     Number of cores
+      -f, --foreground      Run the server in this terminal, not as a daemon
+      -a, --abort           With stop, cancel queued allocations and requeue
+                            unfinished tasks instead of waiting
+
 Server Menu
 ===========
 The *NXRefine* plugin to *NeXpy* installs a top-level menu labelled
@@ -356,13 +416,85 @@ particular sample directory. When the dialog is launched, click on
 select a directory containing a set of NeXus scan files. This opens the
 "Manage Workflows" dialog, in which the status of every component of the
 *NXRefine* workflow is listed for all the scan files in the sample
-directory. 
+directory.
+
+.. figure:: /images/manage_workflows.png
+   :align: center
+   :width: 90% 
 
 Manage Server
 -------------
-This dialog allows the status of the server to be monitored. "Server
-Log" lists the server's own log, and every recently dispatched task, so
-that individual tasks' output can be inspected without leaving *NeXpy*.
+This dialog, titled "Manage Servers", allows the status of the server to
+be monitored and controlled. "Server Log" lists the server's own log,
+and every recently dispatched task, so that individual tasks' output can
+be inspected without leaving *NeXpy*. "Server Queue" lists the tasks
+waiting to be dispatched, which can be discarded with "Clear Queue".
 "Server Processes" lists currently running jobs, using ``nxqstat.sh``
 (see :ref:`Server Directory`) on a ``multinode`` server, or a filtered
-process list on ``direct`` and ``multicore`` servers.
+process list on ``direct`` and ``multicore`` servers. If ``nxqstat.sh``
+does not exist, a ``multinode`` server lists the user's scheduler jobs
+whose names contain "parsl", which includes any left behind by a server
+that was killed. "Server Locks" and "Clear Locks" show and remove file
+locks.
+
+.. figure:: /images/manage_servers.png
+   :align: center
+   :width: 90% 
+
+The top row of the dialog shows the server status and the buttons that
+control it. "Start Server" and "Stop Server" share a single button,
+which shows whichever action is currently applicable. The other three
+buttons are enabled whenever a server process is recorded, even if it
+was started on a different login node, since all nodes share the same
+queue.
+
+.. _Stopping, Resuming, and Aborting:
+
+Stopping, Resuming, and Aborting
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The four server control buttons correspond to increasingly forceful
+ways of ending a server, and to one way of reversing a stop. Each is
+also available from the command line (see :ref:`nxserver`).
+
+**Stop Server** (``nxserver stop``)
+  This is the normal way to shut a server down. The server reads no
+  further tasks from the queue, waits for the tasks it has already
+  submitted to finish, and then exits. On a ``multinode`` server, a
+  submitted task may be waiting in the scheduler's queue for an
+  allocation, so a stop can take a long time, or never complete if the
+  allocation is never granted. While it is waiting, the server still
+  reads the queue, which is what allows the following three buttons to
+  work.
+
+**Resume Server** (``nxserver resume``)
+  Use this to cancel a stop that is still waiting for submitted tasks,
+  *e.g.*, if the stop was requested by mistake or more work has been
+  queued that should not wait for a restart. The server goes back to
+  dispatching tasks, and any allocations already requested from the
+  scheduler are left in place. It has no effect on a server that is not
+  stopping, and cannot revive one that has already exited; use "Start
+  Server" in that case.
+
+**Abort Jobs** (``nxserver stop --abort``)
+  Use this when a stop is not completing, *e.g.*, because the scheduler
+  has not started an allocation, or when running or queued jobs need to
+  be cancelled immediately. The server cancels its scheduler
+  allocations, returns all unfinished tasks to the queue, and then
+  exits. Because a task that was running when it was cancelled is lost,
+  it will be run again when the server is restarted; this is safe,
+  since each step of the workflow skips whatever has already been
+  processed. The dialog asks for confirmation first.
+
+**Kill Server** (``nxserver kill``)
+  Use this as a last resort, when the server process is unresponsive
+  and does not respond to a stop or abort. It terminates the server
+  process immediately and does not give it the chance to clean up.
+  Jobs that have already been submitted to the scheduler are **not**
+  cancelled, and are orphaned. They can be seen in "Server Processes"
+  and removed with the scheduler's own commands (*e.g.*, ``qdel``), or
+  it is better to use "Abort Jobs" first if the server is still
+  responsive. The dialog asks for confirmation first.
+
+.. note:: A ``direct`` server has no daemon, so these buttons apply
+          only to ``multicore`` and ``multinode`` servers. Closing the
+          dialog stops a ``direct`` server.
