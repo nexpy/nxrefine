@@ -41,9 +41,13 @@ def main():
     parser.add_argument('-f', '--foreground', action='store_true',
                         help='Run the server in this terminal, not as a '
                              'daemon')
+    parser.add_argument('-a', '--abort', action='store_true',
+                        help='With stop, cancel queued allocations and '
+                             'requeue unfinished tasks instead of waiting')
     parser.add_argument(
         'command', action='store', nargs='?',
-        help='valid commands are: status|start|stop|clear|kill')
+        help='valid commands are: '
+             'status|start|stop|resume|clear|kill')
 
     args = parser.parse_args()
 
@@ -71,12 +75,21 @@ def main():
             print(f'nxserver: {error}', file=sys.stderr)
             sys.exit(1)
     elif args.command == 'stop':
-        server.stop()
+        if args.abort:
+            server.abort()
+        else:
+            server.stop()
+    elif args.command == 'resume':
+        server.resume()
     elif args.command == 'restart':
         server.restart()
     elif args.command == 'clear':
         server.clear()
     elif args.command == 'kill':
+        if server.server_type == 'multinode':
+            print('nxserver: allocations already submitted to the '
+                  'scheduler are not cancelled and will be orphaned; '
+                  "use 'stop --abort' to cancel them", file=sys.stderr)
         server.kill()
 
 

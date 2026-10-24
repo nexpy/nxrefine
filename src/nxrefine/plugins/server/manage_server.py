@@ -37,8 +37,11 @@ class ServerDialog(NXDialog):
         self.server_type = self.server.server_type
         if self.server_type:
             self.server_status = self.label(self.server.status())
-            server_actions = self.action_buttons(('server',
-                                                  self.toggle_server))
+            server_actions = self.action_buttons(
+                                 ('server', self.toggle_server),
+                                 ('Resume Server', self.resume_server),
+                                 ('Abort Jobs', self.abort_jobs),
+                                 ('Kill Server', self.kill_server))
             server_layout = self.make_layout(self.server_status,
                                              server_actions)
             text_actions = self.action_buttons(
@@ -102,19 +105,50 @@ class ServerDialog(NXDialog):
         else:
             if confirm_action('Stop server?'):
                 subprocess.run('nxserver stop', shell=True)
+        self.update_server()
+
+    def update_server(self):
+        """Refresh the server status and the buttons that depend on it."""
         self.server_status.setText(self.server.status())
         if self.server.is_running():
             self.pushbutton['server'].setText('Stop Server')
         else:
             self.pushbutton['server'].setText('Start Server')
+        # A server on another login node is not running here, but its
+        # process is recorded, and it reads commands from the shared queue
+        active = self.server.get_process()[0] is not None
+        for button in ['Resume Server', 'Abort Jobs', 'Kill Server']:
+            self.pushbutton[button].setEnabled(active)
+
+    def resume_server(self):
+        """Cancel a stop that is still waiting for submitted tasks."""
+        subprocess.run('nxserver resume', shell=True)
+        self.update_server()
+
+    def abort_jobs(self):
+        if confirm_action(
+                'Cancel queued and running scheduler jobs and stop the '
+                'server?', 'Unfinished tasks are returned to the queue and '
+                'will run again when the server is restarted.'):
+            subprocess.run('nxserver stop --abort', shell=True)
+        self.update_server()
+
+    def kill_server(self):
+        if confirm_action(
+                'Kill the server process?', 'Any jobs already submitted to '
+                'the scheduler are not cancelled and will be orphaned. '
+                'Use Abort Jobs to cancel them.'):
+            process = subprocess.run('nxserver kill', shell=True,
+                                     stdout=subprocess.PIPE,
+                                     stderr=subprocess.PIPE)
+            if process.returncode:
+                report_error('Managing Servers',
+                             NeXusError(process.stderr.decode().strip()))
+        self.update_server()
 
     def update_text(self):
         if self.server_type:
-            self.server_status.setText(self.server.status())
-            if self.server.is_running():
-                self.pushbutton['server'].setText('Stop Server')
-            else:
-                self.pushbutton['server'].setText('Start Server')
+            self.update_server()
         if self.pushbutton['Server Log'].isChecked():
             self.show_log()
         elif self.server_type and self.pushbutton['Server Queue'].isChecked():
@@ -198,11 +232,12 @@ class ServerDialog(NXDialog):
                     'nxsum', 'nxtransform']
         qstat = self.server.directory / 'nxqstat.sh'
         if self.server_type == 'multinode':
-            if not qstat.exists():
-                self.text_box.setPlainText(
-                    f"Create {qstat} to list jobs on this server")
-                return
-            command = f'bash {qstat}'
+            if qstat.exists():
+                command = f'bash {qstat}'
+            else:
+                # Lists the blocks Parsl has submitted, including any left
+                # behind by a server that was killed
+                command = 'qstat -u $USER | grep -e Job -e parsl'
         else:
             command = f"ps auxww | grep -e {' -e '.join(patterns)}"
         process = subprocess.run(command, shell=True, stdout=subprocess.PIPE,
