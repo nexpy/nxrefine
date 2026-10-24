@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Server Management &#8212; NXRefine 0.1.0 documentation</title>
+    <title>Server Management &#8212; NXRefine 1.0.0b2 documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/sphinxdoc.css" />
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
@@ -30,7 +30,7 @@
         <li class="right" >
           <a href="parent_scans.html" title="Parent Files and the Scan Registry"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">NXRefine 0.1.0 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="index.html">NXRefine 1.0.0b2 documentation</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">Server Management</a></li> 
       </ul>
     </div>  
@@ -399,6 +399,62 @@ back to <em>NXRefine</em>, rather than maintaining them as private
 configuration files.</p>
 </div>
 </div>
+<div class="section" id="nxserver-command">
+<span id="nxserver"></span><h2>nxserver Command<a class="headerlink" href="#nxserver-command" title="Permalink to this headline">¶</a></h2>
+<p>The server can be started, stopped, and queried from the command line
+using <code class="docutils literal notranslate"><span class="pre">nxserver</span></code>. This is useful for scripts, for starting the server
+in an environment where <em>NeXpy</em> is not available, or for integrating
+server management into a larger automation workflow.</p>
+<p>The positional <code class="docutils literal notranslate"><span class="pre">command</span></code> argument accepts:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">start</span></code></dt><dd><p>Launch the server daemon and begin processing queued tasks.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">stop</span></code></dt><dd><p>Gracefully shut the server down. No new tasks are read from the
+queue, but the server waits for tasks it has already submitted to
+finish. With the <code class="docutils literal notranslate"><span class="pre">-a</span> <span class="pre">/</span> <span class="pre">--abort</span></code> option, the server instead cancels
+its scheduler allocations and returns unfinished tasks to the queue
+(see <a class="reference internal" href="#stopping-resuming-and-aborting"><span class="std std-ref">Stopping, Resuming, and Aborting</span></a>).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">resume</span></code></dt><dd><p>Cancel a <code class="docutils literal notranslate"><span class="pre">stop</span></code> that is still waiting for submitted tasks, so the
+server returns to normal operation.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">status</span></code></dt><dd><p>Print whether the server is running and how many tasks are queued.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">clear</span></code></dt><dd><p>Remove all pending tasks from the queue without running them.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">kill</span></code></dt><dd><p>Immediately terminate the server process. Jobs already submitted to
+a batch scheduler are not cancelled.</p>
+</dd>
+</dl>
+<p>The <code class="docutils literal notranslate"><span class="pre">-t</span> <span class="pre">/</span> <span class="pre">--type</span></code> option selects the execution backend, overriding
+the value in <code class="docutils literal notranslate"><span class="pre">settings.ini</span></code>: <code class="docutils literal notranslate"><span class="pre">direct</span></code> runs tasks in the calling
+process, <code class="docutils literal notranslate"><span class="pre">multicore</span></code> uses multiple local CPU cores, and <code class="docutils literal notranslate"><span class="pre">multinode</span></code>
+distributes tasks across compute nodes via Parsl (see
+<a class="reference internal" href="#parsl-configuration"><span class="std std-ref">Parsl Configuration</span></a>). The <code class="docutils literal notranslate"><span class="pre">-c</span> <span class="pre">/</span> <span class="pre">--cores</span></code> option sets the
+number of parallel workers, overriding the <code class="docutils literal notranslate"><span class="pre">cores</span></code> setting. The
+<code class="docutils literal notranslate"><span class="pre">-f</span> <span class="pre">/</span> <span class="pre">--foreground</span></code> option runs the server in the current terminal
+rather than as a daemon, which is useful for debugging; it can be
+stopped in the usual way from another terminal.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxserver</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">d</span> <span class="p">[</span><span class="n">DIRECTORY</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TYPE</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">c</span> <span class="n">CORES</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">f</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span><span class="p">]</span>
+                <span class="p">[</span><span class="n">command</span><span class="p">]</span>
+
+<span class="n">Launch</span> <span class="n">server</span> <span class="k">for</span> <span class="n">data</span> <span class="n">reduction</span> <span class="n">workflow</span>
+
+<span class="n">positional</span> <span class="n">arguments</span><span class="p">:</span>
+  <span class="n">command</span>               <span class="n">valid</span> <span class="n">commands</span> <span class="n">are</span><span class="p">:</span> <span class="n">status</span><span class="o">|</span><span class="n">start</span><span class="o">|</span><span class="n">stop</span><span class="o">|</span><span class="n">resume</span><span class="o">|</span><span class="n">clear</span><span class="o">|</span><span class="n">kill</span>
+
+<span class="n">options</span><span class="p">:</span>
+  <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
+  <span class="o">-</span><span class="n">d</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="p">[</span><span class="n">DIRECTORY</span><span class="p">]</span>
+                        <span class="n">Start</span> <span class="n">the</span> <span class="n">server</span> <span class="ow">in</span> <span class="n">this</span> <span class="n">directory</span>
+  <span class="o">-</span><span class="n">t</span><span class="p">,</span> <span class="o">--</span><span class="nb">type</span> <span class="n">TYPE</span>       <span class="n">Server</span> <span class="nb">type</span><span class="p">:</span> <span class="n">multicore</span><span class="o">|</span><span class="n">multinode</span><span class="o">|</span><span class="n">direct</span>
+  <span class="o">-</span><span class="n">c</span><span class="p">,</span> <span class="o">--</span><span class="n">cores</span> <span class="n">CORES</span>     <span class="n">Number</span> <span class="n">of</span> <span class="n">cores</span>
+  <span class="o">-</span><span class="n">f</span><span class="p">,</span> <span class="o">--</span><span class="n">foreground</span>      <span class="n">Run</span> <span class="n">the</span> <span class="n">server</span> <span class="ow">in</span> <span class="n">this</span> <span class="n">terminal</span><span class="p">,</span> <span class="ow">not</span> <span class="k">as</span> <span class="n">a</span> <span class="n">daemon</span>
+  <span class="o">-</span><span class="n">a</span><span class="p">,</span> <span class="o">--</span><span class="n">abort</span>           <span class="n">With</span> <span class="n">stop</span><span class="p">,</span> <span class="n">cancel</span> <span class="n">queued</span> <span class="n">allocations</span> <span class="ow">and</span> <span class="n">requeue</span>
+                        <span class="n">unfinished</span> <span class="n">tasks</span> <span class="n">instead</span> <span class="n">of</span> <span class="n">waiting</span>
+</pre></div>
+</div>
+</div>
 <div class="section" id="server-menu">
 <h2>Server Menu<a class="headerlink" href="#server-menu" title="Permalink to this headline">¶</a></h2>
 <p>The <em>NXRefine</em> plugin to <em>NeXpy</em> installs a top-level menu labelled
@@ -412,15 +468,82 @@ select a directory containing a set of NeXus scan files. This opens the
 “Manage Workflows” dialog, in which the status of every component of the
 <em>NXRefine</em> workflow is listed for all the scan files in the sample
 directory.</p>
+<div class="figure align-center">
+<a class="reference internal image-reference" href="_images/manage_workflows.png"><img alt="_images/manage_workflows.png" src="_images/manage_workflows.png" style="width: 90%;" /></a>
+</div>
 </div>
 <div class="section" id="manage-server">
 <h3>Manage Server<a class="headerlink" href="#manage-server" title="Permalink to this headline">¶</a></h3>
-<p>This dialog allows the status of the server to be monitored. “Server
-Log” lists the server’s own log, and every recently dispatched task, so
-that individual tasks’ output can be inspected without leaving <em>NeXpy</em>.
+<p>This dialog, titled “Manage Servers”, allows the status of the server to
+be monitored and controlled. “Server Log” lists the server’s own log,
+and every recently dispatched task, so that individual tasks’ output can
+be inspected without leaving <em>NeXpy</em>. “Server Queue” lists the tasks
+waiting to be dispatched, which can be discarded with “Clear Queue”.
 “Server Processes” lists currently running jobs, using <code class="docutils literal notranslate"><span class="pre">nxqstat.sh</span></code>
 (see <a class="reference internal" href="#server-directory"><span class="std std-ref">Server Directory</span></a>) on a <code class="docutils literal notranslate"><span class="pre">multinode</span></code> server, or a filtered
-process list on <code class="docutils literal notranslate"><span class="pre">direct</span></code> and <code class="docutils literal notranslate"><span class="pre">multicore</span></code> servers.</p>
+process list on <code class="docutils literal notranslate"><span class="pre">direct</span></code> and <code class="docutils literal notranslate"><span class="pre">multicore</span></code> servers. If <code class="docutils literal notranslate"><span class="pre">nxqstat.sh</span></code>
+does not exist, a <code class="docutils literal notranslate"><span class="pre">multinode</span></code> server lists the user’s scheduler jobs
+whose names contain “parsl”, which includes any left behind by a server
+that was killed. “Server Locks” and “Clear Locks” show and remove file
+locks.</p>
+<div class="figure align-center">
+<a class="reference internal image-reference" href="_images/manage_servers.png"><img alt="_images/manage_servers.png" src="_images/manage_servers.png" style="width: 90%;" /></a>
+</div>
+<p>The top row of the dialog shows the server status and the buttons that
+control it. “Start Server” and “Stop Server” share a single button,
+which shows whichever action is currently applicable. The other three
+buttons are enabled whenever a server process is recorded, even if it
+was started on a different login node, since all nodes share the same
+queue.</p>
+<div class="section" id="stopping-resuming-and-aborting">
+<span id="id2"></span><h4>Stopping, Resuming, and Aborting<a class="headerlink" href="#stopping-resuming-and-aborting" title="Permalink to this headline">¶</a></h4>
+<p>The four server control buttons correspond to increasingly forceful
+ways of ending a server, and to one way of reversing a stop. Each is
+also available from the command line (see <a class="reference internal" href="#nxserver"><span class="std std-ref">nxserver Command</span></a>).</p>
+<dl class="simple">
+<dt><strong>Stop Server</strong> (<code class="docutils literal notranslate"><span class="pre">nxserver</span> <span class="pre">stop</span></code>)</dt><dd><p>This is the normal way to shut a server down. The server reads no
+further tasks from the queue, waits for the tasks it has already
+submitted to finish, and then exits. On a <code class="docutils literal notranslate"><span class="pre">multinode</span></code> server, a
+submitted task may be waiting in the scheduler’s queue for an
+allocation, so a stop can take a long time, or never complete if the
+allocation is never granted. While it is waiting, the server still
+reads the queue, which is what allows the following three buttons to
+work.</p>
+</dd>
+<dt><strong>Resume Server</strong> (<code class="docutils literal notranslate"><span class="pre">nxserver</span> <span class="pre">resume</span></code>)</dt><dd><p>Use this to cancel a stop that is still waiting for submitted tasks,
+<em>e.g.</em>, if the stop was requested by mistake or more work has been
+queued that should not wait for a restart. The server goes back to
+dispatching tasks, and any allocations already requested from the
+scheduler are left in place. It has no effect on a server that is not
+stopping, and cannot revive one that has already exited; use “Start
+Server” in that case.</p>
+</dd>
+<dt><strong>Abort Jobs</strong> (<code class="docutils literal notranslate"><span class="pre">nxserver</span> <span class="pre">stop</span> <span class="pre">--abort</span></code>)</dt><dd><p>Use this when a stop is not completing, <em>e.g.</em>, because the scheduler
+has not started an allocation, or when running or queued jobs need to
+be cancelled immediately. The server cancels its scheduler
+allocations, returns all unfinished tasks to the queue, and then
+exits. Because a task that was running when it was cancelled is lost,
+it will be run again when the server is restarted; this is safe,
+since each step of the workflow skips whatever has already been
+processed. The dialog asks for confirmation first.</p>
+</dd>
+<dt><strong>Kill Server</strong> (<code class="docutils literal notranslate"><span class="pre">nxserver</span> <span class="pre">kill</span></code>)</dt><dd><p>Use this as a last resort, when the server process is unresponsive
+and does not respond to a stop or abort. It terminates the server
+process immediately and does not give it the chance to clean up.
+Jobs that have already been submitted to the scheduler are <strong>not</strong>
+cancelled, and are orphaned. They can be seen in “Server Processes”
+and removed with the scheduler’s own commands (<em>e.g.</em>, <code class="docutils literal notranslate"><span class="pre">qdel</span></code>), or
+it is better to use “Abort Jobs” first if the server is still
+responsive. The dialog asks for confirmation first.</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>A <code class="docutils literal notranslate"><span class="pre">direct</span></code> server has no daemon, so these buttons apply
+only to <code class="docutils literal notranslate"><span class="pre">multicore</span></code> and <code class="docutils literal notranslate"><span class="pre">multinode</span></code> servers. Closing the
+dialog stops a <code class="docutils literal notranslate"><span class="pre">direct</span></code> server.</p>
+</div>
+</div>
 </div>
 </div>
 </div>
@@ -448,9 +571,13 @@ process list on <code class="docutils literal notranslate"><span class="pre">dir
 <li><a class="reference internal" href="#adding-new-schedulers-or-sites">Adding New Schedulers or Sites</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#nxserver-command">nxserver Command</a></li>
 <li><a class="reference internal" href="#server-menu">Server Menu</a><ul>
 <li><a class="reference internal" href="#manage-workflows">Manage Workflows</a></li>
-<li><a class="reference internal" href="#manage-server">Manage Server</a></li>
+<li><a class="reference internal" href="#manage-server">Manage Server</a><ul>
+<li><a class="reference internal" href="#stopping-resuming-and-aborting">Stopping, Resuming, and Aborting</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -501,12 +628,12 @@ process list on <code class="docutils literal notranslate"><span class="pre">dir
         <li class="right" >
           <a href="parent_scans.html" title="Parent Files and the Scan Registry"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">NXRefine 0.1.0 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="index.html">NXRefine 1.0.0b2 documentation</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">Server Management</a></li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">
-        &#169; Copyright 2023, Ray Osborn.
+        &#169; Copyright 2026, Ray Osborn.
       Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
     </div>
   </body>

@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Data Reduction &#8212; NXRefine 0.1.0 documentation</title>
+    <title>Data Reduction &#8212; NXRefine 1.0.0b2 documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/sphinxdoc.css" />
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
@@ -30,7 +30,7 @@
         <li class="right" >
           <a href="refine.html" title="Scan Preparation"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">NXRefine 0.1.0 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="index.html">NXRefine 1.0.0b2 documentation</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">Data Reduction</a></li> 
       </ul>
     </div>  
@@ -92,7 +92,7 @@ processed.</p>
 already stored in the file.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">-q</span> <span class="pre">/</span> <span class="pre">--queue</span></code></dt><dd><p>Instead of running immediately, add the task to the server queue
-(see <a class="reference internal" href="#nxserver"><span class="std std-ref">nxserver</span></a>).</p>
+(see <a class="reference internal" href="server.html#nxserver"><span class="std std-ref">nxserver Command</span></a>).</p>
 </dd>
 </dl>
 </div>
@@ -210,12 +210,12 @@ angles computed from the refined detector geometry.</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">-t</span> <span class="pre">/</span> <span class="pre">--threshold</span></code> option sets the minimum intensity (in counts)
 a pixel must reach to be considered part of a peak. The
 <code class="docutils literal notranslate"><span class="pre">-f</span> <span class="pre">/</span> <span class="pre">--first</span></code> and <code class="docutils literal notranslate"><span class="pre">-l</span> <span class="pre">/</span> <span class="pre">--last</span></code> options restrict the frame range
-searched. The <code class="docutils literal notranslate"><span class="pre">-P</span> <span class="pre">/</span> <span class="pre">--pixels</span></code> option sets the minimum number of
+searched. The <code class="docutils literal notranslate"><span class="pre">-p</span> <span class="pre">/</span> <span class="pre">--pixels</span></code> option sets the minimum number of
 pixels by which two peaks must be separated; peaks that are closer than
 this distance are merged.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxfind</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span>
-              <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">THRESHOLD</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">f</span> <span class="n">FIRST</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">l</span> <span class="n">LAST</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">P</span> <span class="n">PIXELS</span><span class="p">]</span>
-              <span class="p">[</span><span class="o">-</span><span class="n">s</span> <span class="n">SUBENTRY</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">p</span> <span class="n">PARENT</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
+              <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">THRESHOLD</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">f</span> <span class="n">FIRST</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">l</span> <span class="n">LAST</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">p</span> <span class="n">PIXELS</span><span class="p">]</span>
+              <span class="p">[</span><span class="o">-</span><span class="n">s</span> <span class="n">SUBENTRY</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span>
 
 <span class="n">Find</span> <span class="n">peaks</span> <span class="n">within</span> <span class="n">the</span> <span class="n">NeXus</span> <span class="n">data</span>
 
@@ -229,11 +229,10 @@ this distance are merged.</p>
                         <span class="n">peak</span> <span class="n">threshold</span>
   <span class="o">-</span><span class="n">f</span><span class="p">,</span> <span class="o">--</span><span class="n">first</span> <span class="n">FIRST</span>     <span class="n">first</span> <span class="n">frame</span>
   <span class="o">-</span><span class="n">l</span><span class="p">,</span> <span class="o">--</span><span class="n">last</span> <span class="n">LAST</span>       <span class="n">last</span> <span class="n">frame</span>
-  <span class="o">-</span><span class="n">P</span><span class="p">,</span> <span class="o">--</span><span class="n">pixels</span> <span class="n">PIXELS</span>   <span class="n">minimum</span> <span class="n">pixels</span> <span class="n">between</span> <span class="n">peaks</span>
+  <span class="o">-</span><span class="n">p</span><span class="p">,</span> <span class="o">--</span><span class="n">pixels</span> <span class="n">PIXELS</span>   <span class="n">minimum</span> <span class="n">pixels</span> <span class="n">between</span> <span class="n">peaks</span>
   <span class="o">-</span><span class="n">s</span><span class="p">,</span> <span class="o">--</span><span class="n">subentry</span> <span class="n">SUBENTRY</span>
                         <span class="n">subentry</span> <span class="n">to</span> <span class="n">be</span> <span class="n">processed</span>
   <span class="o">-</span><span class="n">o</span><span class="p">,</span> <span class="o">--</span><span class="n">overwrite</span>       <span class="n">overwrite</span> <span class="n">existing</span> <span class="n">peaks</span>
-  <span class="o">-</span><span class="n">p</span><span class="p">,</span> <span class="o">--</span><span class="n">parent</span> <span class="n">PARENT</span>   <span class="n">The</span> <span class="n">parent</span> <span class="o">.</span><span class="n">nxs</span> <span class="n">file</span> <span class="n">to</span> <span class="n">use</span>
   <span class="o">-</span><span class="n">q</span><span class="p">,</span> <span class="o">--</span><span class="n">queue</span>           <span class="n">add</span> <span class="n">to</span> <span class="n">server</span> <span class="n">task</span> <span class="n">queue</span>
 </pre></div>
 </div>
@@ -444,78 +443,6 @@ the masked transform (or both).</p>
 </pre></div>
 </div>
 </div>
-<div class="section" id="nxsum">
-<h2>nxsum<a class="headerlink" href="#nxsum" title="Permalink to this headline">¶</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">nxsum</span></code> adds raw detector frames from two or more scan directories
-together pixel-by-pixel, accumulating their monitor counts as well.
-This is used when several separate acquisitions that cover the same
-rotation range need to be combined before the main reduction workflow
-— for example, to build up sufficient counting statistics from shorter
-individual scans. The summed data are written to a new scan directory
-that is subsequently processed with the standard workflow
-(<code class="docutils literal notranslate"><span class="pre">nxlink</span></code>, <code class="docutils literal notranslate"><span class="pre">nxmax</span></code>, <em>etc.</em>).</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">-c</span> <span class="pre">/</span> <span class="pre">--create</span></code> flag initializes the new scan directory and
-wrapper file; the <code class="docutils literal notranslate"><span class="pre">-s</span> <span class="pre">/</span> <span class="pre">--scans</span></code> option (required) lists the
-individual source scan directories. The <code class="docutils literal notranslate"><span class="pre">-u</span> <span class="pre">/</span> <span class="pre">--update</span></code> flag
-recalculates the monitor sums without re-copying the raw detector data,
-which is useful when only the metadata needs refreshing.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxsum</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">c</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span>
-             <span class="o">-</span><span class="n">s</span> <span class="n">SCANS</span> <span class="p">[</span><span class="n">SCANS</span> <span class="o">...</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">u</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span>
-
-<span class="n">Sum</span> <span class="n">raw</span> <span class="n">data</span> <span class="n">files</span>
-
-<span class="n">options</span><span class="p">:</span>
-  <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
-  <span class="o">-</span><span class="n">d</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
-                        <span class="n">directory</span> <span class="n">containing</span> <span class="n">summed</span> <span class="n">files</span>
-  <span class="o">-</span><span class="n">c</span><span class="p">,</span> <span class="o">--</span><span class="n">create</span>          <span class="n">create</span> <span class="n">the</span> <span class="nb">sum</span> <span class="n">file</span> <span class="ow">and</span> <span class="n">directory</span>
-  <span class="o">-</span><span class="n">e</span><span class="p">,</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
-                        <span class="n">names</span> <span class="n">of</span> <span class="n">entries</span> <span class="n">to</span> <span class="n">be</span> <span class="n">summed</span>
-  <span class="o">-</span><span class="n">s</span><span class="p">,</span> <span class="o">--</span><span class="n">scans</span> <span class="n">SCANS</span> <span class="p">[</span><span class="n">SCANS</span> <span class="o">...</span><span class="p">]</span>
-                        <span class="nb">list</span> <span class="n">of</span> <span class="n">scan</span> <span class="n">directories</span> <span class="n">to</span> <span class="n">be</span> <span class="n">summed</span>
-  <span class="o">-</span><span class="n">u</span><span class="p">,</span> <span class="o">--</span><span class="n">update</span>          <span class="n">update</span> <span class="n">links</span> <span class="n">to</span> <span class="n">existing</span> <span class="n">summed</span> <span class="n">files</span>
-  <span class="o">-</span><span class="n">o</span><span class="p">,</span> <span class="o">--</span><span class="n">overwrite</span>       <span class="n">overwrite</span> <span class="n">existing</span> <span class="n">summed</span> <span class="n">files</span>
-</pre></div>
-</div>
-</div>
-<div class="section" id="nxserver">
-<span id="id1"></span><h2>nxserver<a class="headerlink" href="#nxserver" title="Permalink to this headline">¶</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">nxserver</span></code> manages the asynchronous task server that executes
-workflow steps submitted with the <code class="docutils literal notranslate"><span class="pre">--queue</span></code> flag. Starting the server
-puts it into the background, where it continuously dequeues and runs
-tasks as they arrive. The positional <code class="docutils literal notranslate"><span class="pre">command</span></code> argument accepts:</p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">start</span></code></dt><dd><p>Launch the server process.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">stop</span></code></dt><dd><p>Gracefully shut down the server after finishing the current task.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">status</span></code></dt><dd><p>Print whether the server is running and how many tasks are queued.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">clear</span></code></dt><dd><p>Remove all pending tasks from the queue without running them.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">kill</span></code></dt><dd><p>Immediately terminate the server process.</p>
-</dd>
-</dl>
-<p>The <code class="docutils literal notranslate"><span class="pre">-t</span> <span class="pre">/</span> <span class="pre">--type</span></code> option selects the execution backend: <code class="docutils literal notranslate"><span class="pre">multicore</span></code>
-runs all tasks on the local machine using multiple CPU cores, while
-<code class="docutils literal notranslate"><span class="pre">multinode</span></code> distributes tasks across compute nodes using Parsl. The
-<code class="docutils literal notranslate"><span class="pre">-c</span> <span class="pre">/</span> <span class="pre">--cores</span></code> option controls the number of parallel workers.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxserver</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">d</span> <span class="p">[</span><span class="n">DIRECTORY</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TYPE</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">c</span> <span class="n">CORES</span><span class="p">]</span> <span class="p">[</span><span class="n">command</span><span class="p">]</span>
-
-<span class="n">Launch</span> <span class="n">server</span> <span class="k">for</span> <span class="n">data</span> <span class="n">reduction</span> <span class="n">workflow</span>
-
-<span class="n">positional</span> <span class="n">arguments</span><span class="p">:</span>
-  <span class="n">command</span>               <span class="n">valid</span> <span class="n">commands</span> <span class="n">are</span><span class="p">:</span> <span class="n">status</span><span class="o">|</span><span class="n">start</span><span class="o">|</span><span class="n">stop</span><span class="o">|</span><span class="n">clear</span><span class="o">|</span><span class="n">kill</span>
-
-<span class="n">options</span><span class="p">:</span>
-  <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
-  <span class="o">-</span><span class="n">d</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="p">[</span><span class="n">DIRECTORY</span><span class="p">]</span>
-                        <span class="n">Start</span> <span class="n">the</span> <span class="n">server</span> <span class="ow">in</span> <span class="n">this</span> <span class="n">directory</span>
-  <span class="o">-</span><span class="n">t</span><span class="p">,</span> <span class="o">--</span><span class="nb">type</span> <span class="n">TYPE</span>       <span class="n">Server</span> <span class="nb">type</span><span class="p">:</span> <span class="n">multicore</span><span class="o">|</span><span class="n">multinode</span><span class="o">|</span><span class="n">direct</span>
-  <span class="o">-</span><span class="n">c</span><span class="p">,</span> <span class="o">--</span><span class="n">cores</span> <span class="n">CORES</span>     <span class="n">Number</span> <span class="n">of</span> <span class="n">cores</span>
-</pre></div>
-</div>
-</div>
 <div class="section" id="nxreduce">
 <h2>nxreduce<a class="headerlink" href="#nxreduce" title="Permalink to this headline">¶</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">nxreduce</span></code> is a convenience wrapper that chains any combination of
@@ -553,6 +480,40 @@ selected steps are submitted to the server together.</p>
 </pre></div>
 </div>
 </div>
+<div class="section" id="nxsum">
+<h2>nxsum<a class="headerlink" href="#nxsum" title="Permalink to this headline">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">nxsum</span></code> adds raw detector frames from two or more scan directories
+together pixel-by-pixel, accumulating their monitor counts as well.
+This is used when several separate acquisitions that cover the same
+rotation range need to be combined before the main reduction workflow
+— for example, to build up sufficient counting statistics from shorter
+individual scans. The summed data are written to a new scan directory
+that is subsequently processed with the standard workflow
+(<code class="docutils literal notranslate"><span class="pre">nxlink</span></code>, <code class="docutils literal notranslate"><span class="pre">nxmax</span></code>, <em>etc.</em>).</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">-c</span> <span class="pre">/</span> <span class="pre">--create</span></code> flag initializes the new scan directory and
+wrapper file; the <code class="docutils literal notranslate"><span class="pre">-s</span> <span class="pre">/</span> <span class="pre">--scans</span></code> option (required) lists the
+individual source scan directories. The <code class="docutils literal notranslate"><span class="pre">-u</span> <span class="pre">/</span> <span class="pre">--update</span></code> flag
+recalculates the monitor sums without re-copying the raw detector data,
+which is useful when only the metadata needs refreshing.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">nxsum</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DIRECTORY</span> <span class="p">[</span><span class="o">-</span><span class="n">c</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">e</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]]</span>
+             <span class="o">-</span><span class="n">s</span> <span class="n">SCANS</span> <span class="p">[</span><span class="n">SCANS</span> <span class="o">...</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">u</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span><span class="p">]</span>
+
+<span class="n">Sum</span> <span class="n">raw</span> <span class="n">data</span> <span class="n">files</span>
+
+<span class="n">options</span><span class="p">:</span>
+  <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="o">--</span><span class="n">help</span>            <span class="n">show</span> <span class="n">this</span> <span class="n">help</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">exit</span>
+  <span class="o">-</span><span class="n">d</span><span class="p">,</span> <span class="o">--</span><span class="n">directory</span> <span class="n">DIRECTORY</span>
+                        <span class="n">directory</span> <span class="n">containing</span> <span class="n">summed</span> <span class="n">files</span>
+  <span class="o">-</span><span class="n">c</span><span class="p">,</span> <span class="o">--</span><span class="n">create</span>          <span class="n">create</span> <span class="n">the</span> <span class="nb">sum</span> <span class="n">file</span> <span class="ow">and</span> <span class="n">directory</span>
+  <span class="o">-</span><span class="n">e</span><span class="p">,</span> <span class="o">--</span><span class="n">entries</span> <span class="n">ENTRIES</span> <span class="p">[</span><span class="n">ENTRIES</span> <span class="o">...</span><span class="p">]</span>
+                        <span class="n">names</span> <span class="n">of</span> <span class="n">entries</span> <span class="n">to</span> <span class="n">be</span> <span class="n">summed</span>
+  <span class="o">-</span><span class="n">s</span><span class="p">,</span> <span class="o">--</span><span class="n">scans</span> <span class="n">SCANS</span> <span class="p">[</span><span class="n">SCANS</span> <span class="o">...</span><span class="p">]</span>
+                        <span class="nb">list</span> <span class="n">of</span> <span class="n">scan</span> <span class="n">directories</span> <span class="n">to</span> <span class="n">be</span> <span class="n">summed</span>
+  <span class="o">-</span><span class="n">u</span><span class="p">,</span> <span class="o">--</span><span class="n">update</span>          <span class="n">update</span> <span class="n">links</span> <span class="n">to</span> <span class="n">existing</span> <span class="n">summed</span> <span class="n">files</span>
+  <span class="o">-</span><span class="n">o</span><span class="p">,</span> <span class="o">--</span><span class="n">overwrite</span>       <span class="n">overwrite</span> <span class="n">existing</span> <span class="n">summed</span> <span class="n">files</span>
+</pre></div>
+</div>
+</div>
 </div>
 
 
@@ -575,9 +536,8 @@ selected steps are submitted to the server together.</p>
 <li><a class="reference internal" href="#nxtransform">nxtransform</a></li>
 <li><a class="reference internal" href="#nxcombine">nxcombine</a></li>
 <li><a class="reference internal" href="#nxpdf">nxpdf</a></li>
-<li><a class="reference internal" href="#nxsum">nxsum</a></li>
-<li><a class="reference internal" href="#nxserver">nxserver</a></li>
 <li><a class="reference internal" href="#nxreduce">nxreduce</a></li>
+<li><a class="reference internal" href="#nxsum">nxsum</a></li>
 </ul>
 </li>
 </ul>
@@ -626,12 +586,12 @@ selected steps are submitted to the server together.</p>
         <li class="right" >
           <a href="refine.html" title="Scan Preparation"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">NXRefine 0.1.0 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="index.html">NXRefine 1.0.0b2 documentation</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">Data Reduction</a></li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">
-        &#169; Copyright 2023, Ray Osborn.
+        &#169; Copyright 2026, Ray Osborn.
       Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
     </div>
   </body>

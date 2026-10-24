@@ -179,15 +179,15 @@ angles computed from the refined detector geometry.
 The ``-t / --threshold`` option sets the minimum intensity (in counts)
 a pixel must reach to be considered part of a peak. The
 ``-f / --first`` and ``-l / --last`` options restrict the frame range
-searched. The ``-P / --pixels`` option sets the minimum number of
+searched. The ``-p / --pixels`` option sets the minimum number of
 pixels by which two peaks must be separated; peaks that are closer than
 this distance are merged.
 
 .. code-block::
 
     usage: nxfind [-h] -d DIRECTORY [-e ENTRIES [ENTRIES ...]]
-                  [-t THRESHOLD] [-f FIRST] [-l LAST] [-P PIXELS]
-                  [-s SUBENTRY] [-o] [-p PARENT] [-q]
+                  [-t THRESHOLD] [-f FIRST] [-l LAST] [-p PIXELS]
+                  [-s SUBENTRY] [-o] [-q]
 
     Find peaks within the NeXus data
 
@@ -201,11 +201,10 @@ this distance are merged.
                             peak threshold
       -f, --first FIRST     first frame
       -l, --last LAST       last frame
-      -P, --pixels PIXELS   minimum pixels between peaks
+      -p, --pixels PIXELS   minimum pixels between peaks
       -s, --subentry SUBENTRY
                             subentry to be processed
       -o, --overwrite       overwrite existing peaks
-      -p, --parent PARENT   The parent .nxs file to use
       -q, --queue           add to server task queue
 
 nxrefine
@@ -427,83 +426,6 @@ the masked transform (or both).
       -o, --overwrite       overwrite existing transforms
       -q, --queue           add to server task queue
 
-nxsum
------
-``nxsum`` adds raw detector frames from two or more scan directories
-together pixel-by-pixel, accumulating their monitor counts as well.
-This is used when several separate acquisitions that cover the same
-rotation range need to be combined before the main reduction workflow
-— for example, to build up sufficient counting statistics from shorter
-individual scans. The summed data are written to a new scan directory
-that is subsequently processed with the standard workflow
-(``nxlink``, ``nxmax``, *etc.*).
-
-The ``-c / --create`` flag initializes the new scan directory and
-wrapper file; the ``-s / --scans`` option (required) lists the
-individual source scan directories. The ``-u / --update`` flag
-recalculates the monitor sums without re-copying the raw detector data,
-which is useful when only the metadata needs refreshing.
-
-.. code-block::
-
-    usage: nxsum [-h] -d DIRECTORY [-c] [-e ENTRIES [ENTRIES ...]]
-                 -s SCANS [SCANS ...] [-u] [-o]
-
-    Sum raw data files
-
-    options:
-      -h, --help            show this help message and exit
-      -d, --directory DIRECTORY
-                            directory containing summed files
-      -c, --create          create the sum file and directory
-      -e, --entries ENTRIES [ENTRIES ...]
-                            names of entries to be summed
-      -s, --scans SCANS [SCANS ...]
-                            list of scan directories to be summed
-      -u, --update          update links to existing summed files
-      -o, --overwrite       overwrite existing summed files
-
-.. _nxserver:
-
-nxserver
---------
-``nxserver`` manages the asynchronous task server that executes
-workflow steps submitted with the ``--queue`` flag. Starting the server
-puts it into the background, where it continuously dequeues and runs
-tasks as they arrive. The positional ``command`` argument accepts:
-
-``start``
-    Launch the server process.
-``stop``
-    Gracefully shut down the server after finishing the current task.
-``status``
-    Print whether the server is running and how many tasks are queued.
-``clear``
-    Remove all pending tasks from the queue without running them.
-``kill``
-    Immediately terminate the server process.
-
-The ``-t / --type`` option selects the execution backend: ``multicore``
-runs all tasks on the local machine using multiple CPU cores, while
-``multinode`` distributes tasks across compute nodes using Parsl. The
-``-c / --cores`` option controls the number of parallel workers.
-
-.. code-block::
-
-    usage: nxserver [-h] [-d [DIRECTORY]] [-t TYPE] [-c CORES] [command]
-
-    Launch server for data reduction workflow
-
-    positional arguments:
-      command               valid commands are: status|start|stop|clear|kill
-
-    options:
-      -h, --help            show this help message and exit
-      -d, --directory [DIRECTORY]
-                            Start the server in this directory
-      -t, --type TYPE       Server type: multicore|multinode|direct
-      -c, --cores CORES     Number of cores
-
 nxreduce
 --------
 ``nxreduce`` is a convenience wrapper that chains any combination of
@@ -541,3 +463,39 @@ selected steps are submitted to the server together.
       -M, --mask            perform CCTW transforms with 3D mask
       -o, --overwrite       overwrite existing maximum
       -q, --queue           add to server task queue
+
+nxsum
+-----
+``nxsum`` adds raw detector frames from two or more scan directories
+together pixel-by-pixel, accumulating their monitor counts as well.
+This is used when several separate acquisitions that cover the same
+rotation range need to be combined before the main reduction workflow
+— for example, to build up sufficient counting statistics from shorter
+individual scans. The summed data are written to a new scan directory
+that is subsequently processed with the standard workflow
+(``nxlink``, ``nxmax``, *etc.*).
+
+The ``-c / --create`` flag initializes the new scan directory and
+wrapper file; the ``-s / --scans`` option (required) lists the
+individual source scan directories. The ``-u / --update`` flag
+recalculates the monitor sums without re-copying the raw detector data,
+which is useful when only the metadata needs refreshing.
+
+.. code-block::
+
+    usage: nxsum [-h] -d DIRECTORY [-c] [-e ENTRIES [ENTRIES ...]]
+                 -s SCANS [SCANS ...] [-u] [-o]
+
+    Sum raw data files
+
+    options:
+      -h, --help            show this help message and exit
+      -d, --directory DIRECTORY
+                            directory containing summed files
+      -c, --create          create the sum file and directory
+      -e, --entries ENTRIES [ENTRIES ...]
+                            names of entries to be summed
+      -s, --scans SCANS [SCANS ...]
+                            list of scan directories to be summed
+      -u, --update          update links to existing summed files
+      -o, --overwrite       overwrite existing summed files
