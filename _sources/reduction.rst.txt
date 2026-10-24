@@ -30,7 +30,8 @@ implements the "punch-and-fill" method, described by `Weber and Simonov
 <https:dx.doi.org.10.1524/zkri.2012.1504>`_.
 
 Nearly all of the steps in the *NXRefine* data reduction workflow can
-either be performed from the command line or launched from a NeXpy GUI.
+either be performed from the command line or launched from a NeXpy GUI,
+using the :ref:`Manage Workflows <manage-workflows>` dialog.
 The exception is determining the crystal orientation, which must first
 be performed using the `Refine Lattice` dialog in NeXpy. Once the sample
 orientation has been determined from one of the measurements, *e.g.*, at

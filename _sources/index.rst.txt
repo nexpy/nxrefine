@@ -46,8 +46,8 @@ temperature, are complete.
    experiment
    refine
    reduction
-   parent_scans
    server
+   parent_scans
    glossary
 
 Indices and tables

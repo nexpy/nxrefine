@@ -15,8 +15,8 @@
     <link rel="shortcut icon" href="_static/favicon.ico"/>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Glossary of Terms" href="glossary.html" />
-    <link rel="prev" title="Parent Files and the Scan Registry" href="parent_scans.html" /> 
+    <link rel="next" title="Parent Files and the Scan Registry" href="parent_scans.html" />
+    <link rel="prev" title="Data Reduction" href="reduction.html" /> 
   </head><body>
     <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
@@ -25,10 +25,10 @@
           <a href="genindex.html" title="General Index"
              accesskey="I">index</a></li>
         <li class="right" >
-          <a href="glossary.html" title="Glossary of Terms"
+          <a href="parent_scans.html" title="Parent Files and the Scan Registry"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="parent_scans.html" title="Parent Files and the Scan Registry"
+          <a href="reduction.html" title="Data Reduction"
              accesskey="P">previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="index.html">NXRefine 1.0.0b2 documentation</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">Server Management</a></li> 
@@ -460,16 +460,115 @@ stopped in the usual way from another terminal.</p>
 <p>The <em>NXRefine</em> plugin to <em>NeXpy</em> installs a top-level menu labelled
 “Server”, which is used to launch and monitor data reduction operations performed as part of the workflow.</p>
 <div class="section" id="manage-workflows">
-<h3>Manage Workflows<a class="headerlink" href="#manage-workflows" title="Permalink to this headline">¶</a></h3>
+<span id="id2"></span><h3>Manage Workflows<a class="headerlink" href="#manage-workflows" title="Permalink to this headline">¶</a></h3>
 <p>This dialog shows the workflow status for all the scans stored in a
-particular sample directory. When the dialog is launched, click on
-“Choose Sample Directory” to launch the system file browser in order to
-select a directory containing a set of NeXus scan files. This opens the
-“Manage Workflows” dialog, in which the status of every component of the
-<em>NXRefine</em> workflow is listed for all the scan files in the sample
-directory.</p>
-<div class="figure align-center">
-<a class="reference internal image-reference" href="_images/manage_workflows.png"><img alt="_images/manage_workflows.png" src="_images/manage_workflows.png" style="width: 90%;" /></a>
+particular sample directory, and is the GUI counterpart of the
+command-line scripts described in <a class="reference internal" href="reduction.html"><span class="doc">Data Reduction</span></a>. When the dialog is
+launched, click on “Choose Scan File” to launch the system file browser
+in order to select one of the NeXus scan files in the sample directory.
+This opens the “Manage Workflows” dialog, in which the status of every
+component of the <em>NXRefine</em> workflow is listed for all the scan files in
+the sample directory. If the sample directory contains more than one
+analysis entry, the “Entry” selector chooses which one is displayed, and
+“Create New Subentry” adds another. “Select Scans” restricts the dialog
+to a subset of the scans, when one has been defined.</p>
+<p>Each row of the table is a scan, and each column is a step in the
+workflow. Selecting boxes in a row and clicking “Add to Queue” submits
+the corresponding commands to the server (see <a class="reference internal" href="#nxserver"><span class="std std-ref">nxserver Command</span></a>), which
+runs them just as if they had been typed at the command line. The tasks
+for all the entries of a scan are submitted together as a single
+<code class="docutils literal notranslate"><span class="pre">nxreduce</span></code> command. The checkbox in the “All” row at the bottom of
+each column selects or deselects that step for every scan. The other
+buttons are “Update Status”, which refreshes the table from the task
+database, “View Logs”, which shows the server, workflow and task logs
+for a selected scan, entry and step, and “Sync Database”, which is
+described below.</p>
+<div class="section" id="workflow-columns">
+<h4>Workflow Columns<a class="headerlink" href="#workflow-columns" title="Permalink to this headline">¶</a></h4>
+<p>The columns are listed in the order in which the steps are normally
+performed. Most correspond to a script described in <a class="reference internal" href="reduction.html"><span class="doc">Data Reduction</span></a>.</p>
+<dl class="simple">
+<dt><strong>load</strong></dt><dd><p>Retrieves or confirms the raw detector data (<code class="docutils literal notranslate"><span class="pre">nxload</span></code>).</p>
+</dd>
+<dt><strong>link</strong></dt><dd><p>Links the raw data and scan metadata to the wrapper file
+(<code class="docutils literal notranslate"><span class="pre">nxlink</span></code>).</p>
+</dd>
+<dt><strong>max</strong></dt><dd><p>Computes the maximum pixel values and frame-level normalization
+quantities (<code class="docutils literal notranslate"><span class="pre">nxmax</span></code>).</p>
+</dd>
+<dt><strong>find</strong></dt><dd><p>Searches for Bragg peaks in each entry (<code class="docutils literal notranslate"><span class="pre">nxfind</span></code>).</p>
+</dd>
+<dt><strong>refine</strong></dt><dd><p>Determines the orientation matrix from the peaks (<code class="docutils literal notranslate"><span class="pre">nxrefine</span></code>).</p>
+</dd>
+<dt><strong>prepare</strong></dt><dd><p>Builds the three-dimensional mask of Bragg-peak voxels, which is
+needed for the masked transforms (<code class="docutils literal notranslate"><span class="pre">nxprepare</span></code>).</p>
+</dd>
+<dt><strong>transform</strong></dt><dd><p>Transforms each entry into reciprocal space (<code class="docutils literal notranslate"><span class="pre">nxtransform</span></code>). The
+“regular” column is the unmasked transform, and the “masked” column
+is the transform that excludes the Bragg-peak voxels defined by
+<code class="docutils literal notranslate"><span class="pre">prepare</span></code>.</p>
+</dd>
+<dt><strong>combine</strong></dt><dd><p>Merges the transforms of the entries into a single reciprocal-space
+map (<code class="docutils literal notranslate"><span class="pre">nxcombine</span></code>), again in regular and masked columns.</p>
+</dd>
+<dt><strong>pdf</strong></dt><dd><p>Calculates the 3D-ΔPDF from the combined data (<code class="docutils literal notranslate"><span class="pre">nxpdf</span></code>), again in
+regular and masked columns.</p>
+</dd>
+</dl>
+<p>Steps depend on one another. Until a scan’s “load” step has been
+completed, the “link”, “max”, “find”, “prepare” and “transform” boxes are
+disabled. When a subentry is selected, the “load” and “link” columns are
+not shown, since they have been performed for the parent entry. The
+“combine” and “pdf” steps operate on all the entries of a scan at once.
+If only these columns are selected for a scan, a single combined command
+is submitted. Several steps selected for the same scan are run together
+by a single command, in workflow order.</p>
+<p>The last two columns do not correspond to workflow steps. “overwrite”
+enables every box in a row, including those for completed steps, so that
+they can be selected and run again, replacing the earlier results. “sync”
+selects the scan to be updated by “Sync Database”, which re-reads the
+scan file and resets the task database to match what the file actually
+contains. It is needed if a file has been modified outside the dialog,
+<em>e.g.</em>, by running scripts from the command line in an environment that
+does not update the database, or by deleting entries.</p>
+</div>
+<div class="section" id="checkbox-colors">
+<h4>Checkbox Colors<a class="headerlink" href="#checkbox-colors" title="Permalink to this headline">¶</a></h4>
+<p>Each checkbox shows the state of that step for that scan, as recorded in
+the task database. The state changes as a task moves through the queue,
+and is refreshed by “Update Status”, or whenever the dialog is opened.</p>
+<dl class="simple">
+<dt><strong>Unchecked</strong></dt><dd><p>The step has not been started. The box can be selected to include it
+the next time “Add to Queue” is clicked.</p>
+</dd>
+<dt><strong>Checked and greyed out</strong></dt><dd><p>The step is complete. The box is disabled, unless “overwrite” is
+selected for the scan, in which case it can be selected to run the step
+again.</p>
+</dd>
+<dt><strong>Partially checked, greyed out, no color</strong></dt><dd><p>The step has just been added to the queue from this dialog. The box is
+disabled to prevent it from being submitted twice, and the selections
+are cleared. Click “Update Status” to display its current state.</p>
+</dd>
+<dt><strong>Partially checked, blue</strong></dt><dd><p>The task is in the queue, waiting for the server to run it. Nothing
+further is needed, but if the server is not running, the task will
+wait until it is started (see <a class="reference internal" href="server-menu.html#manage-server"><span class="std std-ref">Manage Server</span></a>).</p>
+</dd>
+<dt><strong>Partially checked, green</strong></dt><dd><p>The task is in progress, <em>i.e.</em>, it has been started by the server
+or by a command-line script.</p>
+</dd>
+<dt><strong>Partially checked, red</strong></dt><dd><p>The task failed. The reason can be found with “View Logs”, after which
+the box can be selected again to resubmit it.</p>
+</dd>
+</dl>
+<p>A partially checked box with a color remains enabled, so a queued,
+running or failed step can be selected and resubmitted. Clicking it
+changes it to an ordinary checked box, which will be submitted by “Add to
+Queue”, and clicking it again restores the earlier color. A blue or green
+box that does not change for a long time usually means that the task was
+interrupted without being recorded as failed, <em>e.g.</em>, because the server
+was killed (see <a class="reference internal" href="#stopping-resuming-and-aborting"><span class="std std-ref">Stopping, Resuming, and Aborting</span></a>). In that case,
+use “Sync Database” to reset the status of the scan, and then
+resubmit the task.</p>
 </div>
 </div>
 <div class="section" id="manage-server">
@@ -496,7 +595,7 @@ buttons are enabled whenever a server process is recorded, even if it
 was started on a different login node, since all nodes share the same
 queue.</p>
 <div class="section" id="stopping-resuming-and-aborting">
-<span id="id2"></span><h4>Stopping, Resuming, and Aborting<a class="headerlink" href="#stopping-resuming-and-aborting" title="Permalink to this headline">¶</a></h4>
+<span id="id3"></span><h4>Stopping, Resuming, and Aborting<a class="headerlink" href="#stopping-resuming-and-aborting" title="Permalink to this headline">¶</a></h4>
 <p>The four server control buttons correspond to increasingly forceful
 ways of ending a server, and to one way of reversing a stop. Each is
 also available from the command line (see <a class="reference internal" href="#nxserver"><span class="std std-ref">nxserver Command</span></a>).</p>
@@ -573,7 +672,11 @@ dialog stops a <code class="docutils literal notranslate"><span class="pre">dire
 </li>
 <li><a class="reference internal" href="#nxserver-command">nxserver Command</a></li>
 <li><a class="reference internal" href="#server-menu">Server Menu</a><ul>
-<li><a class="reference internal" href="#manage-workflows">Manage Workflows</a></li>
+<li><a class="reference internal" href="#manage-workflows">Manage Workflows</a><ul>
+<li><a class="reference internal" href="#workflow-columns">Workflow Columns</a></li>
+<li><a class="reference internal" href="#checkbox-colors">Checkbox Colors</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#manage-server">Manage Server</a><ul>
 <li><a class="reference internal" href="#stopping-resuming-and-aborting">Stopping, Resuming, and Aborting</a></li>
 </ul>
@@ -587,13 +690,13 @@ dialog stops a <code class="docutils literal notranslate"><span class="pre">dire
   </div>
   <div>
     <h4>Previous topic</h4>
-    <p class="topless"><a href="parent_scans.html"
-                          title="previous chapter">Parent Files and the Scan Registry</a></p>
+    <p class="topless"><a href="reduction.html"
+                          title="previous chapter">Data Reduction</a></p>
   </div>
   <div>
     <h4>Next topic</h4>
-    <p class="topless"><a href="glossary.html"
-                          title="next chapter">Glossary of Terms</a></p>
+    <p class="topless"><a href="parent_scans.html"
+                          title="next chapter">Parent Files and the Scan Registry</a></p>
   </div>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -623,10 +726,10 @@ dialog stops a <code class="docutils literal notranslate"><span class="pre">dire
           <a href="genindex.html" title="General Index"
              >index</a></li>
         <li class="right" >
-          <a href="glossary.html" title="Glossary of Terms"
+          <a href="parent_scans.html" title="Parent Files and the Scan Registry"
              >next</a> |</li>
         <li class="right" >
-          <a href="parent_scans.html" title="Parent Files and the Scan Registry"
+          <a href="reduction.html" title="Data Reduction"
              >previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="index.html">NXRefine 1.0.0b2 documentation</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">Server Management</a></li> 
