@@ -15,6 +15,12 @@ against::
     config = nxrefine.parsl.polaris
     account = YourProject
     worker_init = polaris_setup.sh
+    walltime = 3:00:00
+
+`walltime` is shared by both executors below rather than set
+separately for each, since on a busy `capacity` queue a shorter
+walltime has been found to get jobs running sooner than a longer one,
+and the same applies on `prod`. It defaults to 3 hours when unset.
 
 `worker_init` names a shell script in the server directory, sourced in
 the batch job to recreate the environment that the compute nodes do not
@@ -145,7 +151,7 @@ def get_config(options, run_dir):
                 nodes=min(int(option(options, 'small_nodes', 2)), 4),
                 max_blocks=1,
                 queue=option(options, 'small_queue', 'capacity'),
-                walltime=str(option(options, 'small_walltime', '24:00:00'))),
+                walltime=str(option(options, 'walltime', '3:00:00'))),
             polaris_executor(
                 LARGE, options,
                 nodes=max(int(option(options, 'large_nodes', 10)), 10),
