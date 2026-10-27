@@ -859,7 +859,7 @@ class NXReduce(QtCore.QObject):
                 self.parent.create_scan_data(group.nxpath)
             except NeXusError as error:
                 self.log(f"Could not consolidate {group.nxpath}: {error}")
-            self.log(f"{self.title}: Consolidated {group.nxpath} "
+            self.log(f"Consolidated {group.nxpath} "
                      f"({timeit.default_timer()-tic:g} seconds)")
 
     @property
