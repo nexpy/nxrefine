@@ -1238,6 +1238,12 @@ class NXReduce(QtCore.QObject):
         """Number of CPUs to be used in concurrent tasks."""
         if self._process_count is None:
             try:
+                self._process_count = max(
+                    int(os.environ['NXREDUCE_PROCESSES']), 1)
+                return self._process_count
+            except (KeyError, ValueError):
+                pass
+            try:
                 pc = len(os.sched_getaffinity(0))
             except AttributeError:
                 pc = os.cpu_count()
