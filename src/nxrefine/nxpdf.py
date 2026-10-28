@@ -286,8 +286,9 @@ class NXPDF:
         symm_data = symm_root['entry/data/data']
 
         mask, mask_indices = self.hole_mask(symm_data)
-        idx = [Main.CartesianIndex(int(i[0]+1), int(i[1]+1), int(i[2]+1))
-               for i in mask_indices]
+        idx = np.ravel_multi_index(
+            np.array(mask_indices).T, mask.shape, order='F').astype(
+                np.int64) + 1
         ml = int((mask.shape[0]-1)/2)
         mk = int((mask.shape[1]-1)/2)
         mh = int((mask.shape[2]-1)/2)

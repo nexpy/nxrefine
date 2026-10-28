@@ -854,10 +854,13 @@ class NXReduce(QtCore.QObject):
         if not isinstance(groups, (list, tuple)):
             groups = [groups]
         for group in groups:
+            tic = timeit.default_timer()
             try:
                 self.parent.create_scan_data(group.nxpath)
             except NeXusError as error:
                 self.log(f"Could not consolidate {group.nxpath}: {error}")
+            self.log(f"Consolidated {group.nxpath} "
+                     f"({timeit.default_timer()-tic:g} seconds)")
 
     @property
     def first(self):
@@ -1234,7 +1237,16 @@ class NXReduce(QtCore.QObject):
     def process_count(self):
         """Number of CPUs to be used in concurrent tasks."""
         if self._process_count is None:
-            pc = os.cpu_count()
+            try:
+                self._process_count = max(
+                    int(os.environ['NXREDUCE_PROCESSES']), 1)
+                return self._process_count
+            except (KeyError, ValueError):
+                pass
+            try:
+                pc = len(os.sched_getaffinity(0))
+            except AttributeError:
+                pc = os.cpu_count()
             if pc > 8:
                 self._process_count = pc // 2
             else:
@@ -2957,7 +2969,9 @@ class NXMultiReduce(NXReduce):
         self.taper = self.fft_taper()
 
     def symmetrize_transform(self):
-        self.log(f"{self.title}: Transform being symmetrized")
+        self.log(f"{self.title}: Transform being symmetrized "
+                 f"(cpu_count={os.cpu_count()}, "
+                 f"process_count={self.process_count})")
         tic = timeit.default_timer()
         symm_root = nxopen(self.symm_file, 'w')
         symm_root['entry'] = NXentry()
@@ -2965,11 +2979,20 @@ class NXMultiReduce(NXReduce):
         transform = self.find_group(self.transform_path)
         symmetry = NXSymmetry(transform,
                               laue_group=self.refine.laue_group)
-        symm_root['entry/data/data'] = symmetry.symmetrize(entries=True)
+        symm_result = symmetry.symmetrize(entries=True)
+        self.log(f"{self.title}: Symmetry operations completed "
+                 f"({timeit.default_timer()-tic:g} seconds)")
+        symm_root['entry/data/data'] = symm_result
+        self.log(f"{self.title}: Symmetrized data written "
+                 f"({timeit.default_timer()-tic:g} seconds)")
         symm_root['entry/data'].nxsignal = symm_root['entry/data/data']
         symm_root['entry/data'].nxweights = 1.0 / self.taper
         symm_root['entry/data'].nxaxes = transform.nxaxes
+        self.log(f"{self.title}: Weights and axes written "
+                 f"({timeit.default_timer()-tic:g} seconds)")
         with self:
+            self.log(f"{self.title}: Scan file opened for writing "
+                     f"({timeit.default_timer()-tic:g} seconds)")
             write_target = self._get_reduce_target()
             if self.symm_data in write_target:
                 del write_target[self.symm_data]
@@ -2981,7 +3004,9 @@ class NXMultiReduce(NXReduce):
                 '/entry/data/data_weights', file=self.symm_file)
             write_target[self.symm_data].nxauxiliary_signals = ['data_weights']
             self.add_title(write_target[self.symm_data])
-            self.consolidate(write_target[self.symm_data])
+            self.log(f"{self.title}: Links created "
+                     f"({timeit.default_timer()-tic:g} seconds)")
+        self.consolidate(write_target[self.symm_data])
         self.log(f"'{self.symm_data}' added to entry")
         toc = timeit.default_timer()
         self.log(f"{self.title}: Symmetrization completed "
@@ -3050,17 +3075,25 @@ class NXMultiReduce(NXReduce):
         tic = timeit.default_timer()
         target = self.scan_entry or self.entry
         symm_data = target[self.symm_data].nxsignal.nxvalue
+        self.log(f"{self.title}: Symmetrized data read "
+                 f"({timeit.default_timer()-tic:g} seconds)")
         symm_data *= self.taper
         fft = np.real(scipy.fft.fftshift(
             scipy.fft.fftn(scipy.fft.fftshift(symm_data[:-1, :-1, :-1]),
                            workers=self.process_count)))
         fft *= (1.0 / np.prod(fft.shape))
+        self.log(f"{self.title}: FFT completed "
+                 f"({timeit.default_timer()-tic:g} seconds)")
 
         with nxopen(self.total_pdf_file, 'a') as root:
             root['entry'] = NXentry()
             root['entry/pdf'] = NXdata(NXfield(fft, name='pdf'))
+        self.log(f"{self.title}: PDF file written "
+                 f"({timeit.default_timer()-tic:g} seconds)")
 
         with self:
+            self.log(f"{self.title}: Scan file opened for writing "
+                     f"({timeit.default_timer()-tic:g} seconds)")
             write_target = self._get_reduce_target()
             if self.total_pdf_data in write_target:
                 del write_target[self.total_pdf_data]
@@ -3079,7 +3112,9 @@ class NXMultiReduce(NXReduce):
             write_target[self.total_pdf_data].attrs['angles'] = (
                 self.refine.lattice_parameters[3:])
             self.add_title(write_target[self.total_pdf_data])
-            self.consolidate(write_target[self.total_pdf_data])
+            self.log(f"{self.title}: Links created "
+                     f"({timeit.default_timer()-tic:g} seconds)")
+        self.consolidate(write_target[self.total_pdf_data])
 
         self.log(f"'{self.total_pdf_data}' added to entry")
         toc = timeit.default_timer()
@@ -3140,8 +3175,9 @@ class NXMultiReduce(NXReduce):
         symm_data = symm_root['entry/data/data']
 
         mask, mask_indices = self.hole_mask()
-        idx = [Main.CartesianIndex(int(i[0]+1), int(i[1]+1), int(i[2]+1))
-               for i in mask_indices]
+        idx = np.ravel_multi_index(
+            np.array(mask_indices).T, mask.shape, order='F').astype(
+                np.int64) + 1
         ml = int((mask.shape[0]-1)/2)
         mk = int((mask.shape[1]-1)/2)
         mh = int((mask.shape[2]-1)/2)
@@ -3210,12 +3246,16 @@ class NXMultiReduce(NXReduce):
         self.log(f"{self.title}: Symmetrizing punch-and-fill")
 
         fill_data = self.symmetrize(fill_data)
+        self.log(f"{self.title}: Punch-and-fill symmetrized "
+                 f"({timeit.default_timer()-tic:g} seconds)")
         changed_idx = np.where(fill_data > 0)
         buffer = symm_data.nxvalue
         buffer[changed_idx] = fill_data[changed_idx]
         if 'fill' in symm_root['entry/data']:
             del symm_root['entry/data/fill']
         symm_root['entry/data/fill'] = buffer
+        self.log(f"{self.title}: Filled data written "
+                 f"({timeit.default_timer()-tic:g} seconds)")
         with self:
             write_target = self._get_reduce_target()
             if 'filled_data' in write_target[self.symm_data]:
@@ -3235,7 +3275,7 @@ class NXMultiReduce(NXReduce):
                 '/entry/data/punch', file=self.symm_file)
             write_target[self.symm_data].nxauxiliary_signals = [
                 'data_weights', 'filled_data', 'punched_data']
-            self.consolidate(write_target[self.symm_data])
+        self.consolidate(write_target[self.symm_data])
 
         toc = timeit.default_timer()
         self.log(f"{self.title}: Punch-and-fill completed "

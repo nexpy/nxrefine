@@ -98,7 +98,7 @@ Interpolates a single punch
 ...
 
 """
-function matern_3d_grid(imgg, discard::Union{Vector{CartesianIndex{3}}, Vector{Int64}},
+function matern_3d_grid(imgg, discard::AbstractVector,
                 m::Int64 = 1,  eps::Float64 = 0.0, 
                 h = 1.0, k = 1.0, l = 1.0) 
     Nx, Ny, Nz = size(imgg)
