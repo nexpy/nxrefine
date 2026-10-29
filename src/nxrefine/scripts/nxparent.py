@@ -8,16 +8,22 @@
 # -----------------------------------------------------------------------------
 
 import argparse
+import os
 from pathlib import Path
 
-from nxrefine.nxparent import NXParent
-from nxrefine.nxsettings import NXSettings
+os.environ.setdefault('HDF5_USE_FILE_LOCKING', 'FALSE')
+
+from nexusformat.nexus import nxsetconfig  # noqa: E402
+
+from nxrefine.nxparent import NXParent  # noqa: E402
+from nxrefine.nxsettings import NXSettings  # noqa: E402
 
 
 def main():
 
     parser = argparse.ArgumentParser(
-        description="Create a new NXParent file for a sample")
+        description="Create a new NXParent file for a sample, or update an "
+                    "existing one")
     parser.add_argument('-d', '--directory', required=True,
                         help='experiment directory')
     parser.add_argument('-s', '--sample', required=True,
@@ -31,6 +37,19 @@ def main():
                              'info from')
     parser.add_argument('-f', '--file', default=None,
                         help='NeXus file to copy instrument/sample info from')
+    parser.add_argument('-m', '--merge', default=None,
+                        help='parent file whose scans, settings, transform '
+                             'grid, sample and instrument are added to the '
+                             'parent file, which is created if necessary; '
+                             'existing content and consolidated datasets are '
+                             'not changed')
+    parser.add_argument('-o', '--overwrite', action='store_true',
+                        help='with --merge, also replace content in the '
+                             'parent file that differs from the one being '
+                             'merged')
+    parser.add_argument('-u', '--update', action='store_true',
+                        help='rebuild the consolidated datasets in the '
+                             'parent file from the scan files')
 
     args = parser.parse_args()
 
@@ -43,6 +62,19 @@ def main():
     sample_directory = experiment_directory / args.sample / args.label
     parent_prefix = args.parent if args.parent else args.sample
     parent_file = sample_directory / f'{parent_prefix}_scans.nxs'
+
+    if args.merge or args.update:
+        nxsetconfig(lock=3600, lockexpiry=28800)
+        parent = NXParent(parent_file)
+        if args.merge:
+            for change in parent.merge_authored(
+                    args.merge, overwrite=args.overwrite):
+                print(change)
+        if args.update:
+            if not parent_file.is_file():
+                parser.error(f"'{parent_file}' does not exist")
+            parent.update_scan_data()
+        return
 
     source_file = None
     if args.file:
