@@ -126,6 +126,74 @@ class TestNXParentSettings:
         assert p2.get_setting('monitor') == 'monitor1'
 
 
+class TestNXParentWriteOnlyChanges:
+    """write_settings only opens the parent for writing if a value differs."""
+
+    @pytest.fixture
+    def modes(self, monkeypatch):
+        """Record the mode of every file opened by NXParent."""
+        from nxrefine import nxparent
+        opened = []
+        original = nxparent.nxopen
+
+        def spy(filename, mode='r', **kwargs):
+            opened.append(mode)
+            return original(filename, mode, **kwargs)
+
+        monkeypatch.setattr(nxparent, 'nxopen', spy)
+        return opened
+
+    def make_parent(self, tmp_path):
+        parent_file = tmp_path / "sample_scans.nxs"
+        make_parent_file(parent_file, settings={
+            'threshold': 50000, 'first_frame': 10, 'qmax': 0.5,
+            'monitor': 'monitor2'})
+        return parent_file
+
+    def test_unchanged_values_do_not_open_for_writing(self, tmp_path, modes):
+        p = NXParent(self.make_parent(tmp_path))
+        modes.clear()
+        p.write_settings(threshold=50000, first_frame=10, qmax=0.5,
+                         monitor='monitor2')
+        assert 'rw' not in modes
+
+    def test_equal_values_of_another_type_are_unchanged(self, tmp_path,
+                                                       modes):
+        p = NXParent(self.make_parent(tmp_path))
+        modes.clear()
+        p.write_settings(threshold=50000.0, first_frame=10.0)
+        assert 'rw' not in modes
+
+    def test_changed_value_is_written(self, tmp_path, modes):
+        parent_file = self.make_parent(tmp_path)
+        p = NXParent(parent_file)
+        modes.clear()
+        p.write_settings(threshold=60000, first_frame=10)
+        assert 'rw' in modes
+        p2 = NXParent(parent_file)
+        assert p2.get_setting('threshold') == 60000
+        assert p2.get_setting('first_frame') == 10
+
+    def test_changed_string_is_written(self, tmp_path):
+        parent_file = self.make_parent(tmp_path)
+        NXParent(parent_file).write_settings(monitor='monitor1')
+        assert NXParent(parent_file).get_setting('monitor') == 'monitor1'
+
+    def test_new_setting_is_written(self, tmp_path):
+        parent_file = self.make_parent(tmp_path)
+        NXParent(parent_file).write_settings(radius=0.2)
+        p = NXParent(parent_file)
+        assert p.get_setting('radius') == 0.2
+        assert p.get_setting('threshold') == 50000
+
+    def test_missing_settings_group_is_created(self, tmp_path):
+        parent_file = tmp_path / "sample_scans.nxs"
+        with nxopen(parent_file, 'w') as root:
+            root['entry'] = NXentry()
+        NXParent(parent_file).write_settings(threshold=123)
+        assert NXParent(parent_file).get_setting('threshold') == 123
+
+
 # ---------------------------------------------------------------------------
 # NXReduce integration tests
 # ---------------------------------------------------------------------------
@@ -178,6 +246,33 @@ class TestNXReduceSettings:
         r.write_parameters(first=20)
         p = NXParent(self.parent_file)
         assert p.get_setting('first_frame') == 20
+
+    # 3b. Values read from the parent and unchanged are not written back
+    def test_unchanged_value_does_not_revert_later_edit(self):
+        r = self._make_reduce(parent_settings={'threshold': 12345})
+        assert r.threshold == 12345
+        NXParent(self.parent_file).write_settings(threshold=70000)
+        r.write_parameters(threshold=r.threshold)
+        assert NXParent(self.parent_file).get_setting('threshold') == 70000
+
+    def test_changed_value_is_written_over_later_edit(self):
+        r = self._make_reduce(parent_settings={'threshold': 12345})
+        assert r.threshold == 12345
+        NXParent(self.parent_file).write_settings(threshold=70000)
+        r.write_parameters(threshold=80000)
+        assert NXParent(self.parent_file).get_setting('threshold') == 80000
+
+    def test_value_not_read_from_parent_is_written(self):
+        r = self._make_reduce()
+        r.write_parameters(radius=0.3)
+        assert NXParent(self.parent_file).get_setting('radius') == 0.3
+
+    def test_value_written_once_is_not_written_again(self):
+        r = self._make_reduce()
+        r.write_parameters(radius=0.3)
+        NXParent(self.parent_file).write_settings(radius=0.4)
+        r.write_parameters(radius=0.3)
+        assert NXParent(self.parent_file).get_setting('radius') == 0.4
 
     # 4. Backward compat: no parent → read from local /entry/nxreduce
     def test_get_parameter_fallback_to_local_nxreduce(self):

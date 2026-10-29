@@ -11,6 +11,7 @@ import os
 import shutil
 from pathlib import Path as Path
 
+import numpy as np
 from nexusformat.nexus import (NeXusError, NXcollection, NXdata, NXentry,
                                NXfield, NXgroup, NXlink, NXnote, NXparameters,
                                NXprocess, NXroot, NXsample, NXsubentry,
@@ -29,6 +30,14 @@ def format_scan_prefix(prefix, sample):
     """
     prefix = prefix.replace(sample, '').strip('_')
     return f'{prefix}_' if prefix else ''
+
+
+def settings_equal(stored, value):
+    """Return True if a stored setting is equal to a new value."""
+    try:
+        return bool(np.array_equal(stored, value))
+    except Exception:
+        return False
 
 
 def load_file(filename):
@@ -185,8 +194,34 @@ class NXParent:
             return self.settings[name].nxvalue
         return default
 
+    def _changed_settings(self, settings):
+        """Return the items in a dictionary that differ from the file.
+
+        The stored values are read from the file rather than from the
+        open root, which may be out of date. If they cannot be read, every
+        item is treated as changed.
+        """
+        try:
+            with nxopen(self.filename, 'r') as root:
+                stored = root[self.entry_path]['nxscans/settings']
+                return {name: value for name, value in settings.items()
+                        if name not in stored
+                        or not settings_equal(stored[name].nxvalue, value)}
+        except (NeXusError, OSError, KeyError):
+            return settings
+
     def write_settings(self, **kwargs):
-        """Write reduction settings to ``nxscans/settings``."""
+        """Write reduction settings to ``nxscans/settings``.
+
+        Only settings whose values differ from those already stored are
+        written, so the file is not opened for writing, and its lock is
+        not taken, if nothing has changed. Values of None are ignored.
+        """
+        changes = self._changed_settings(
+            {name: value for name, value in kwargs.items()
+             if value is not None})
+        if not changes:
+            return
         with nxopen(self.filename, 'rw') as root:
             entry = root[self.entry_path]
             if 'nxscans' not in entry:
@@ -194,9 +229,8 @@ class NXParent:
             if 'settings' not in entry['nxscans']:
                 entry['nxscans']['settings'] = NXparameters()
             settings = entry['nxscans']['settings']
-            for name, value in kwargs.items():
-                if value is not None:
-                    settings[name] = value
+            for name, value in changes.items():
+                settings[name] = value
 
     @property
     def transform(self):
@@ -210,6 +244,20 @@ class NXParent:
         if 'transform' in scan_info:
             del scan_info['transform']
         scan_info['transform'] = value
+
+    def has_transform_grid(self):
+        """True if the transform grid (Qh, Qk, Ql) has been defined."""
+        transform = self.transform
+        return (transform is not None
+                and all(axis in transform for axis in ('Qh', 'Qk', 'Ql')))
+
+    def has_orientation(self, entry_name):
+        """True if an orientation matrix is stored for the named entry."""
+        try:
+            return ('instrument/detector/orientation_matrix'
+                    in self.root[entry_name])
+        except (NeXusError, KeyError):
+            return False
 
     @property
     def sample(self):

@@ -9,6 +9,7 @@
 import logging
 import re
 import sys
+import time
 from datetime import datetime
 
 if sys.version_info < (3, 10):
@@ -172,6 +173,49 @@ class NXBeamLine:
             return self.reduce.raw_data_exists()
         else:
             return False
+
+    def log_files(self):
+        """Return the list of external log files read by ``get_logs``."""
+        return []
+
+    def logs_ready(self, frames=None, quiet_seconds=30):
+        """Check whether the external log files can be read by nxlink.
+
+        This does not modify any file. Every file in ``log_files`` must
+        exist, be non-empty and not have been modified for
+        ``quiet_seconds``, and ``get_logs`` must read them without error.
+
+        Parameters
+        ----------
+        frames : int, optional
+            Number of frames in the raw data, by default None. Subclasses
+            can use this to check that the logs cover every frame.
+        quiet_seconds : float, optional
+            Minimum time since the last modification of each file, by
+            default 30.
+
+        Returns
+        -------
+        tuple of (bool, list of str)
+            Whether the logs are ready and the reasons if they are not.
+        """
+        reasons = []
+        now = time.time()
+        for log_file in self.log_files():
+            if not log_file.exists():
+                reasons.append(f"{log_file.name} does not exist")
+            elif log_file.stat().st_size == 0:
+                reasons.append(f"{log_file.name} is empty")
+            elif now - log_file.stat().st_mtime < quiet_seconds:
+                reasons.append(f"{log_file.name} modified "
+                               f"{now - log_file.stat().st_mtime:.0f} s ago")
+        if reasons:
+            return False, reasons
+        try:
+            self.get_logs()
+        except Exception as error:
+            return False, [f"cannot read logs: {error}"]
+        return True, []
 
     def get_logs(self):
         """Return an NXcollection of raw beamline log values, or None."""
@@ -392,9 +436,24 @@ class Sector6Beamline(NXBeamLine):
                 parameters.append(f'{command} {temperature}')
         return parameters
 
+    def log_files(self):
+        name = self.entry.nxname
+        return [self.directory / f"{name}_head.txt",
+                self.directory / f"{name}_meta.txt"]
+
+    def logs_ready(self, frames=None, quiet_seconds=30):
+        ready, reasons = super().logs_ready(frames, quiet_seconds)
+        if ready and frames:
+            meta_file = self.log_files()[1]
+            with open(meta_file) as f:
+                rows = sum(1 for line in f if line.strip()) - 1
+            if rows < frames:
+                return False, [f"{meta_file.name} has {rows} rows "
+                               f"for {frames} frames"]
+        return ready, reasons
+
     def get_logs(self):
-        head_file = self.directory / f"{self.entry.nxname}_head.txt"
-        meta_file = self.directory / f"{self.entry.nxname}_meta.txt"
+        head_file, meta_file = self.log_files()
         if not (head_file.exists() and meta_file.exists()):
             if not head_file.exists():
                 self.reduce.log(
