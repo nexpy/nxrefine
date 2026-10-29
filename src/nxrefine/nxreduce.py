@@ -14,6 +14,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import time
 import timeit
 from pathlib import Path
 
@@ -1390,6 +1391,94 @@ class NXReduce(QtCore.QObject):
                 raise
         elif self.link:
             self.log("Data already linked")
+
+    def link_ready(self, quiet_seconds=30):
+        """Check whether this entry is ready for the workflow to start.
+
+        The scan is first registered with its parent if necessary, which
+        is the only change made to any file. The entry is ready if the
+        parent holds an orientation matrix for it and the transform grid,
+        the raw data file is complete and has not been modified recently,
+        and the beamline log files can be read by nxlink.
+
+        Parameters
+        ----------
+        quiet_seconds : float, optional
+            Minimum time since the last modification of the raw data and
+            log files, by default 30.
+
+        Returns
+        -------
+        tuple of (bool, list of tuple of (str, str))
+            Whether the entry is ready and, if it is not, the reasons as
+            (kind, message) pairs. The kind is 'data' if the entry is
+            waiting for raw data or log files, which will arrive without
+            intervention, and 'parent' if it is waiting for the parent
+            file to be set up.
+
+        Raises
+        ------
+        NeXusError
+            If the scan file is missing or unreadable, does not contain
+            the entry, or the entry is not linked to raw data. The scan
+            file is expected to be created before the raw data.
+        """
+        if not self.wrapper_file.is_file():
+            raise NeXusError(f"'{self.wrapper_file.name}' does not exist")
+        try:
+            if self.entry_name not in self.root:
+                raise NeXusError(f"'{self.entry_name}' not in "
+                                 f"'{self.wrapper_file.name}'")
+            raw_file = self.raw_file
+            raw_path = self.raw_path
+            frames = None
+            try:
+                frames = self.entry['data'].nxaxes[0].shape[0]
+            except Exception:
+                pass
+        except NeXusError:
+            raise
+        except Exception as error:
+            raise NeXusError(f"Cannot read entry '{self.entry_name}' in "
+                             f"'{self.wrapper_file.name}': {error}")
+        reasons = []
+        self.register_with_parent()
+        if self.parent is None:
+            reasons.append(('parent', "parent file not found"))
+        else:
+            if not self.parent.has_orientation(self.entry_name):
+                reasons.append(
+                    ('parent', f"no orientation matrix for "
+                               f"{self.entry_name} in {self.parent.name}"))
+            if not self.parent.has_transform_grid():
+                reasons.append(
+                    ('parent', f"no transform grid in {self.parent.name}"))
+        reasons.extend(
+            ('data', reason) for reason in
+            self._raw_reasons(raw_file, raw_path, frames, quiet_seconds))
+        logs_ready, log_reasons = self.beamline.logs_ready(
+            frames=frames, quiet_seconds=quiet_seconds)
+        if not logs_ready:
+            reasons.extend(('data', reason) for reason in log_reasons)
+        return not reasons, reasons
+
+    def _raw_reasons(self, raw_file, raw_path, frames, quiet_seconds):
+        """Return reasons why the raw data file is not ready, if any."""
+        if not raw_file.is_file():
+            return [f"{raw_file.name} not available"]
+        try:
+            with h5.File(raw_file, 'r') as f:
+                raw_frames = f[raw_path].shape[0]
+        except Exception as error:
+            return [f"cannot read {raw_file.name}: {error}"]
+        reasons = []
+        if frames is not None and raw_frames != frames:
+            reasons.append(f"{raw_file.name} has {raw_frames} frames "
+                           f"instead of {frames}")
+        age = time.time() - raw_file.stat().st_mtime
+        if age < quiet_seconds:
+            reasons.append(f"{raw_file.name} modified {age:.0f} s ago")
+        return reasons
 
     def link_data(self):
         """

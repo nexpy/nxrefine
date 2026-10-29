@@ -211,6 +211,20 @@ class NXParent:
             del scan_info['transform']
         scan_info['transform'] = value
 
+    def has_transform_grid(self):
+        """True if the transform grid (Qh, Qk, Ql) has been defined."""
+        transform = self.transform
+        return (transform is not None
+                and all(axis in transform for axis in ('Qh', 'Qk', 'Ql')))
+
+    def has_orientation(self, entry_name):
+        """True if an orientation matrix is stored for the named entry."""
+        try:
+            return ('instrument/detector/orientation_matrix'
+                    in self.root[entry_name])
+        except (NeXusError, KeyError):
+            return False
+
     @property
     def sample(self):
         return self.filename.parent.parent.name
