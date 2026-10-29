@@ -13,9 +13,9 @@ from pathlib import Path as Path
 
 import numpy as np
 from nexusformat.nexus import (NeXusError, NXcollection, NXdata, NXentry,
-                               NXfield, NXgroup, NXlink, NXnote, NXparameters,
-                               NXprocess, NXroot, NXsample, NXsubentry,
-                               nxconsolidate, nxopen)
+                               NXfield, NXgroup, NXlink, NXLock, NXnote,
+                               NXparameters, NXprocess, NXroot, NXsample,
+                               NXsubentry, nxconsolidate, nxopen)
 from nexusformat.nexus.tree import natural_sort, string_dtype
 
 
@@ -38,6 +38,35 @@ def settings_equal(stored, value):
         return bool(np.array_equal(stored, value))
     except Exception:
         return False
+
+
+def as_list(value):
+    """Return a stored scalar or array as a list."""
+    if isinstance(value, str) or not hasattr(value, '__iter__'):
+        return [value]
+    return list(value)
+
+
+def groups_equal(a, b):
+    """Return True if two groups or fields have the same content."""
+    if isinstance(a, NXgroup):
+        return (isinstance(b, NXgroup) and a.nxclass == b.nxclass
+                and set(a.entries) == set(b.entries)
+                and attrs_equal(a, b)
+                and all(groups_equal(a[name], b[name]) for name in a.entries))
+    return (isinstance(b, NXfield) and attrs_equal(a, b)
+            and settings_equal(a.nxvalue, b.nxvalue))
+
+
+def attrs_equal(a, b):
+    """Return True if two objects have the same attributes.
+
+    The 'target' attribute is ignored, since it is added to the target of
+    a link.
+    """
+    keys = set(a.attrs) - {'target'}
+    return (keys == set(b.attrs) - {'target'}
+            and all(settings_equal(a.attrs[k], b.attrs[k]) for k in keys))
 
 
 def load_file(filename):
@@ -643,6 +672,17 @@ class NXParent:
                 self.root['entry'][entry].makelink(
                     self.root['entry/sample'])
 
+    @property
+    def consolidation_lock(self):
+        """Lock that serializes the rebuilding of consolidated data.
+
+        This is separate from the file lock on the parent, which is only
+        held while the parent is being written, so no scan file is read
+        while the parent is locked.
+        """
+        return NXLock(self.filename.with_name(
+            f"{self.filename.stem}_consolidate{self.filename.suffix}"))
+
     def create_scan_data(self, data_path):
         """Create consolidated scan data.
 
@@ -651,65 +691,85 @@ class NXParent:
         work even when the parent does not yet contain ``frame_sums``.
         Opens a fresh file handle each call so it is safe to call from
         a background thread.
+
+        The list of scans is read from the parent after the consolidation
+        lock has been acquired, so scans registered or completed by other
+        processes since this instance was created are included, and a
+        consolidation that started earlier cannot overwrite a later one
+        with a shorter list of scans.
         """
-        scan_files = self.valid_scans(data_path)
-        if not scan_files:
-            return
-        scan_data = nxconsolidate(scan_files, data_path,
-                                  scan_path=self.scan_path)
-        parts = data_path.strip('/').split('/')
-        intermediate_types = []
-        if len(parts) > 1:
-            with nxopen(scan_files[0]) as src:
-                src_cursor = src
-                for name in parts[:-1]:
-                    src_cursor = src_cursor[name]
-                    intermediate_types.append((name, type(src_cursor)))
-        with nxopen(self.filename, 'rw') as root:
-            cursor = root
-            for name, cls in intermediate_types:
-                if name not in cursor:
-                    cursor[name] = cls()
-                cursor = cursor[name]
-            if data_path in root:
-                del root[data_path]
-            root[data_path] = scan_data
+        with self.consolidation_lock:
+            self.refresh()
+            scan_files = self.valid_scans(data_path)
+            if not scan_files:
+                return
+            scan_data = nxconsolidate(scan_files, data_path,
+                                      scan_path=self.scan_path)
+            parts = data_path.strip('/').split('/')
+            intermediate_types = []
+            if len(parts) > 1:
+                with nxopen(scan_files[0]) as src:
+                    src_cursor = src
+                    for name in parts[:-1]:
+                        src_cursor = src_cursor[name]
+                        intermediate_types.append((name, type(src_cursor)))
+            with nxopen(self.filename, 'rw') as root:
+                cursor = root
+                for name, cls in intermediate_types:
+                    if name not in cursor:
+                        cursor[name] = cls()
+                    cursor = cursor[name]
+                if data_path in root:
+                    del root[data_path]
+                root[data_path] = scan_data
+
+    def refresh(self):
+        """Reread the parent file if it has been changed by another process."""
+        try:
+            self.root.reload()
+        except NeXusError:
+            pass
 
     def _data_paths(self):
         """Yield NXdata paths at depth 1 and 2 under entry_path in scan files.
 
-        Opens the first selected scan file to discover what groups exist,
-        then yields only the paths that correspond to NXdata groups.
-        Groups named in _skip and NXentry/NXsubentry children are excluded
-        from recursion so that raw data and metadata are not consolidated.
-        The scan file is closed before any path is yielded so its lock is
-        not held across subsequent consolidation calls.
+        Opens each selected scan file to discover what groups exist, since
+        a scan that has not been completely processed may lack groups that
+        others have, then yields only the paths that correspond to NXdata
+        groups. Groups named in _skip and NXentry/NXsubentry children are
+        excluded from recursion so that raw data and metadata are not
+        consolidated. Each scan file is closed before any path is yielded
+        so its lock is not held across subsequent consolidation calls.
         """
-        if not self.selected_scans:
-            return
         _skip = frozenset(
-            {'data', 'nxscans', 'nxworkflow', 'nxreduce', 'instrument', 'sample'})
+            {'data', 'nxscans', 'nxworkflow', 'nxreduce', 'instrument',
+             'sample'})
         paths = []
-        try:
-            with nxopen(self.selected_scans[0]) as scan_root:
-                target = scan_root[self.entry_path]
-                for name, child in target.entries.items():
-                    if name in _skip:
-                        continue
-                    path1 = f'{self.entry_path}/{name}'
-                    if isinstance(child, NXdata):
-                        paths.append(path1)
-                    elif isinstance(child, NXgroup) and not isinstance(
-                            child, (NXentry, NXsubentry)):
-                        for name2, grandchild in child.entries.items():
-                            if isinstance(grandchild, NXdata):
-                                paths.append(f'{path1}/{name2}')
-        except (NeXusError, OSError, KeyError):
-            return
+        for scan_file in self.selected_scans:
+            try:
+                with nxopen(scan_file) as scan_root:
+                    target = scan_root[self.entry_path]
+                    for name, child in target.entries.items():
+                        if name in _skip:
+                            continue
+                        path1 = f'{self.entry_path}/{name}'
+                        if isinstance(child, NXdata):
+                            found = [path1]
+                        elif isinstance(child, NXgroup) and not isinstance(
+                                child, (NXentry, NXsubentry)):
+                            found = [f'{path1}/{name2}' for name2, grandchild
+                                     in child.entries.items()
+                                     if isinstance(grandchild, NXdata)]
+                        else:
+                            found = []
+                        paths.extend(p for p in found if p not in paths)
+            except (NeXusError, OSError, KeyError):
+                continue
         yield from paths
 
     def update_scan_data(self):
         """Consolidate scan data for all discovered NXdata groups."""
+        self.refresh()
         for data_path in self._data_paths():
             try:
                 self.create_scan_data(data_path)
@@ -764,6 +824,127 @@ class NXParent:
                 self.transform = NXdata(axes=(L, K, H))
         self._link_position_samples()
 
+    def merge_authored(self, source, overwrite=False):
+        """Merge the content authored by a person from another parent file.
+
+        This adds the scans, the reduction settings, the transform grid,
+        the sample, and the instrument of each position entry (which holds
+        the orientation matrix) that are missing from this file. By
+        default, nothing that is already stored is replaced. The consolidated
+        datasets, which are rebuilt from the scan files, are left
+        untouched, so this can be used on a parent that is being updated by
+        running jobs. The parent is created if it does not exist. The file
+        is only opened for writing if something has changed.
+
+        Parameters
+        ----------
+        source : str or Path
+            Parent file to be merged into this one.
+        overwrite : bool, optional
+            If True, content in the source also replaces differing content
+            in this file, including the selection of listed scans. If
+            False, only content that is missing from this file is added.
+            By default False.
+
+        Returns
+        -------
+        list of str
+            Descriptions of the changes made.
+        """
+        source = Path(source)
+        if not self.filename.is_file():
+            self.initialize()
+            self.root.save(self.filename, 'w')
+            self.root = nxopen(self.filename)
+        with nxopen(source) as src, nxopen(self.filename) as dest:
+            changes = self._authored_changes(src, dest, overwrite)
+        if not changes:
+            return []
+        with nxopen(source) as src, nxopen(self.filename, 'rw') as dest:
+            for description, apply_change, *args in changes:
+                apply_change(src, dest, *args)
+            self._link_entry_samples(dest)
+        self.refresh()
+        return [description for description, *_ in changes]
+
+    def _authored_changes(self, src, dest, overwrite):
+        """Return the changes needed to merge a source into a destination.
+
+        Each change is a tuple of a description, a method, and the
+        arguments, following the source and destination roots, to be
+        passed to the method.
+        """
+        changes = []
+        path = self.entry_path
+        src_info = src[path]['nxscans'] if 'nxscans' in src[path] else None
+        dest_info = dest[path]['nxscans'] if 'nxscans' in dest[path] else None
+
+        if src_info is not None and 'scans' in src_info:
+            scans = as_list(src_info['scans'].nxvalue)
+            selected = as_list(src_info['selected'].nxvalue)
+            if dest_info is not None and 'scans' in dest_info:
+                stored = as_list(dest_info['scans'].nxvalue)
+                flags = as_list(dest_info['selected'].nxvalue)
+                for scan, flag in zip(scans, selected):
+                    if scan not in stored:
+                        changes.append((f"add scan {scan}",
+                                        self._append_scan, scan, bool(flag)))
+                    elif overwrite and bool(flag) != bool(
+                            flags[stored.index(scan)]):
+                        changes.append((f"select scan {scan}",
+                                        self._select_scan, scan, bool(flag)))
+
+        if src_info is not None and 'settings' in src_info:
+            stored = (dest_info['settings'] if dest_info is not None
+                      and 'settings' in dest_info else None)
+            for name in src_info['settings'].entries:
+                value = src_info['settings'][name].nxvalue
+                if (stored is None or name not in stored
+                        or (overwrite and not settings_equal(
+                            stored[name].nxvalue, value))):
+                    changes.append((f"set {name}",
+                                    self._set_setting, name, value))
+
+        groups = [f'{path}/nxscans/transform', f'{path}/sample']
+        groups += [f'{name}/instrument' for name in src.entries
+                   if name != 'entry' and name[-1].isdigit()]
+        for group in groups:
+            if group in src and (
+                    group not in dest or (
+                        overwrite
+                        and not groups_equal(src[group], dest[group]))):
+                changes.append((f"copy {group}", self._copy_group, group))
+        return changes
+
+    def _append_scan(self, src, dest, scan, selected):
+        info = dest[self.entry_path]['nxscans']
+        count = info['scans'].shape[0]
+        info['scans'].resize((count + 1,))
+        info['scans'][count] = scan
+        info['selected'].resize((count + 1,))
+        info['selected'][count] = selected
+
+    def _select_scan(self, src, dest, scan, selected):
+        info = dest[self.entry_path]['nxscans']
+        index = as_list(info['scans'].nxvalue).index(scan)
+        info['selected'][index] = selected
+
+    def _set_setting(self, src, dest, name, value):
+        info = dest[self.entry_path]['nxscans']
+        if 'settings' not in info:
+            info['settings'] = NXparameters()
+        info['settings'][name] = value
+
+    @staticmethod
+    def _copy_group(src, dest, path):
+        parent_path, _, name = path.rpartition('/')
+        if parent_path and parent_path not in dest:
+            dest[parent_path] = NXentry()
+        parent = dest[parent_path] if parent_path else dest
+        if name in parent:
+            del parent[name]
+        parent[name] = src[path]
+
     def _link_position_samples(self):
         """Link /f{n}/sample to /entry/sample for every per-position entry.
 
@@ -771,13 +952,17 @@ class NXParent:
         this is safe to call from copy_file, add_scan, or any future
         initialization path.
         """
-        if 'entry' not in self.root or 'sample' not in self.root['entry']:
+        self._link_entry_samples(self.root)
+
+    @staticmethod
+    def _link_entry_samples(root):
+        if 'entry' not in root or 'sample' not in root['entry']:
             return
-        sample = self.root['entry/sample']
-        for name in list(self.root.entries):
+        sample = root['entry/sample']
+        for name in list(root.entries):
             if name == 'entry' or not name[-1].isdigit():
                 continue
-            entry = self.root[name]
+            entry = root[name]
             if 'sample' in entry:
                 continue
             entry.makelink(sample)
