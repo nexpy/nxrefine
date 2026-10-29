@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
-from nexusformat.nexus import nxopen, nxsetconfig
+from nexusformat.nexus import NXfield, nxopen, nxsetconfig
 
 from .nxutils import NXExecutor, as_completed
 
@@ -108,7 +108,8 @@ def symmetrize_entries(symm_function, data_type, data_file, data_path):
                     data += data_root[entry][data_path].nxweights.nxvalue
     result = symm_function(data)
     with nxopen(tempfile.mkstemp(suffix='.nxs')[1], mode='w') as root:
-        root['data'] = result
+        root['data'] = NXfield(
+            result, name='data', compression=None, shuffle=False)
     return data_type, root.nxfilename
 
 
@@ -125,7 +126,8 @@ def symmetrize_data(symm_function, data_type, data_file, data_path):
             data[np.where(signal > 0)] = 1
     result = symm_function(data)
     with nxopen(tempfile.mkstemp(suffix='.nxs')[1], mode='w') as root:
-        root['data'] = result
+        root['data'] = NXfield(
+            result, name='data', compression=None, shuffle=False)
     return data_type, root.nxfilename
 
 
