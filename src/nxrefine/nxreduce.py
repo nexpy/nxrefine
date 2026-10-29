@@ -31,7 +31,7 @@ from qtpy import QtCore
 from . import __version__
 from .nxbeamline import get_beamline
 from .nxdatabase import NXDatabase
-from .nxparent import NXParent
+from .nxparent import NXParent, settings_equal
 from .nxrefine import NXRefine
 from .nxserver import NXServer
 from .nxsettings import NXSettings
@@ -236,6 +236,7 @@ class NXReduce(QtCore.QObject):
         self._pixel_mask = None
         self._parent = parent
         self._parent_entry = None
+        self._parent_values = {}
         self._registered_with_parent = False
         self._entries = entries
         self._subentry = subentry
@@ -754,9 +755,11 @@ class NXReduce(QtCore.QObject):
             if (self.parent.settings is not None
                     and field_name in self.parent.settings):
                 parameter = self.parent.settings[field_name].nxvalue
+                self._parent_values[field_name] = parameter
             elif f'nxscans/settings/{field_name}' in self.parent.entry:
                 field = self.parent.entry[f'nxscans/settings/{field_name}']
                 parameter = field.nxvalue
+                self._parent_values[field_name] = parameter
         elif f'entry/nxscans/settings/{field_name}' in self.root:
             field = self.root[f'entry/nxscans/settings/{field_name}']
             parameter = field.nxvalue
@@ -774,7 +777,8 @@ class NXReduce(QtCore.QObject):
         """Store the specified data reduction parameters.
 
         Parameters are written to the parent file's '/entry/nxscans/settings'
-        group. If no parent exists, they are written to the wrapper file's
+        group, except those that have the value originally read from the
+        parent. If no parent exists, they are written to the wrapper file's
         own '/entry/nxscans/settings' group.
         """
         params = {}
@@ -824,7 +828,14 @@ class NXReduce(QtCore.QObject):
             self.mask_parameters['mask_h2'] = int(mask_h2)
             params['mask_h2'] = self.mask_parameters['mask_h2']
         if self.parent:
+            # Values read from the parent and not changed since are not
+            # written back, so that edits made to the parent while this
+            # task was running are not reverted.
+            params = {k: v for k, v in params.items()
+                      if k not in self._parent_values
+                      or not settings_equal(self._parent_values[k], v)}
             self.parent.write_settings(**params)
+            self._parent_values.update(params)
         elif params:
             with self:
                 entry = self.root['entry']
