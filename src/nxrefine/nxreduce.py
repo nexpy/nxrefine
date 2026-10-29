@@ -2982,11 +2982,14 @@ class NXMultiReduce(NXReduce):
         symm_result = symmetry.symmetrize(entries=True)
         self.log(f"{self.title}: Symmetry operations completed "
                  f"({timeit.default_timer()-tic:g} seconds)")
-        symm_root['entry/data/data'] = symm_result
+        symm_root['entry/data/data'] = NXfield(
+            symm_result, name='data', compression=None, shuffle=False)
         self.log(f"{self.title}: Symmetrized data written "
                  f"({timeit.default_timer()-tic:g} seconds)")
         symm_root['entry/data'].nxsignal = symm_root['entry/data/data']
-        symm_root['entry/data'].nxweights = 1.0 / self.taper
+        symm_root['entry/data'].nxweights = NXfield(
+            1.0 / self.taper, name='data_weights',
+            compression=None, shuffle=False)
         symm_root['entry/data'].nxaxes = transform.nxaxes
         self.log(f"{self.title}: Weights and axes written "
                  f"({timeit.default_timer()-tic:g} seconds)")
@@ -3087,7 +3090,8 @@ class NXMultiReduce(NXReduce):
 
         with nxopen(self.total_pdf_file, 'a') as root:
             root['entry'] = NXentry()
-            root['entry/pdf'] = NXdata(NXfield(fft, name='pdf'))
+            root['entry/pdf'] = NXdata(
+            NXfield(fft, name='pdf', compression=None, shuffle=False))
         self.log(f"{self.title}: PDF file written "
                  f"({timeit.default_timer()-tic:g} seconds)")
 
@@ -3151,7 +3155,8 @@ class NXMultiReduce(NXReduce):
         if self.refine.laue_group not in ['-3', '-3m', '6/m', '6/mmm']:
             import tempfile
             with nxopen(tempfile.mkstemp(suffix='.nxs')[1], mode='w') as root:
-                root['data'] = data
+                root['data'] = NXfield(
+                    data, name='data', compression=None, shuffle=False)
                 symmetry = NXSymmetry(root['data'],
                                       laue_group=self.refine.laue_group)
             result = symmetry.symmetrize()
@@ -3253,7 +3258,8 @@ class NXMultiReduce(NXReduce):
         buffer[changed_idx] = fill_data[changed_idx]
         if 'fill' in symm_root['entry/data']:
             del symm_root['entry/data/fill']
-        symm_root['entry/data/fill'] = buffer
+        symm_root['entry/data/fill'] = NXfield(
+            buffer, name='fill', compression=None, shuffle=False)
         self.log(f"{self.title}: Filled data written "
                  f"({timeit.default_timer()-tic:g} seconds)")
         with self:
@@ -3266,7 +3272,8 @@ class NXMultiReduce(NXReduce):
         buffer[changed_idx] *= 0
         if 'punch' in symm_root['entry/data']:
             del symm_root['entry/data/punch']
-        symm_root['entry/data/punch'] = buffer
+        symm_root['entry/data/punch'] = NXfield(
+            buffer, name='punch', compression=None, shuffle=False)
         with self:
             write_target = self._get_reduce_target()
             if 'punched_data' in write_target[self.symm_data]:
@@ -3301,7 +3308,8 @@ class NXMultiReduce(NXReduce):
 
         root = nxopen(self.pdf_file, 'a')
         root['entry'] = NXentry()
-        root['entry/pdf'] = NXdata(NXfield(fft, name='pdf'))
+        root['entry/pdf'] = NXdata(
+            NXfield(fft, name='pdf', compression=None, shuffle=False))
 
         with self:
             write_target = self._get_reduce_target()
