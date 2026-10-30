@@ -486,6 +486,12 @@ class NXRefine:
             self.Qh = self.read_parameter('transform/Qh')
             self.Qk = self.read_parameter('transform/Qk')
             self.Ql = self.read_parameter('transform/Ql')
+            if self.Qh is None or self.Qk is None or self.Ql is None:
+                # No transform has been performed, so use the grid defined
+                # in the scan file itself, e.g., for a scan with no parent
+                self.Qh = self.read_parameter('nxscans/transform/Qh')
+                self.Qk = self.read_parameter('nxscans/transform/Qk')
+                self.Ql = self.read_parameter('nxscans/transform/Ql')
             self.initialize_peaks()
 
     def initialize_peaks(self):
