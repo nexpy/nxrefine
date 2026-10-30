@@ -17,10 +17,12 @@ from nexpy.gui.utils import display_message, report_error
 from nexpy.gui.widgets import NXLabel, NXLineEdit, NXPushButton
 from nexusformat.nexus import NeXusError, NXdata, NXfield, nxopen
 from nxrefine.nxorient import UBMatrixFFT
+from nxrefine.nxparent import NXParent
 from nxrefine.nxreduce import NXReduce
 from nxrefine.nxrefine import NXRefine
 
 from ._dialog_helpers import add_parent_subentries, hide_combined_entry
+from .transform_data import TransformDialog
 
 
 def show_dialog():
@@ -1127,11 +1129,20 @@ class RefineLatticeDialog(NXDialog):
         self.peaks_box = None
 
     def accept(self):
-        if 'transform' not in self.entry:
+        scans_file = (self.reduce.parent.filename if self.reduce.parent
+                      else self.reduce.wrapper_file)
+        try:
+            has_grid = NXParent(
+                scans_file, subentry=self.subentry or None
+            ).has_transform_grid()
+        except Exception:
+            has_grid = True
+        if not has_grid:
             if self.confirm_action("Set up transforms?", answer="yes"):
                 self.treeview.select_node(self.entry)
-                from . import transform_data
-                transform_data.show_dialog()
+                self.transform_dialog = TransformDialog(
+                    scans_file, self.subentry or None)
+                self.transform_dialog.show()
         super().accept()
 
     def closeEvent(self, event):
