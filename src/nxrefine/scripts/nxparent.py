@@ -9,6 +9,7 @@
 
 import argparse
 import os
+import sys
 from pathlib import Path
 
 os.environ.setdefault('HDF5_USE_FILE_LOCKING', 'FALSE')
@@ -19,17 +20,26 @@ from nxrefine.nxparent import NXParent  # noqa: E402
 from nxrefine.nxsettings import NXSettings  # noqa: E402
 
 
+DONE = 0
+NOT_DONE = 1
+FAILED = 2
+
+
 def main():
 
     parser = argparse.ArgumentParser(
         description="Create a new NXParent file for a sample, or update an "
-                    "existing one")
-    parser.add_argument('-d', '--directory', required=True,
+                    "existing one. The exit code is 0 on success, 1 if "
+                    "--check finds the parent incomplete, and 2 on failure.")
+    parser.add_argument('-d', '--directory', default=None,
                         help='experiment directory')
-    parser.add_argument('-s', '--sample', required=True,
+    parser.add_argument('-s', '--sample', default=None,
                         help='sample name')
-    parser.add_argument('-l', '--label', required=True,
+    parser.add_argument('-l', '--label', default=None,
                         help='label (sublabel/scan set)')
+    parser.add_argument('-P', '--parent-file', default=None,
+                        help='path to the parent file, which replaces '
+                             '--directory, --sample, and --label')
     parser.add_argument('-p', '--parent', default=None,
                         help='parent prefix (default: sample name)')
     parser.add_argument('-c', '--configuration', default=None,
@@ -50,18 +60,36 @@ def main():
     parser.add_argument('-u', '--update', action='store_true',
                         help='rebuild the consolidated datasets in the '
                              'parent file from the scan files')
+    parser.add_argument('--check', action='store_true',
+                        help='list what the parent file lacks before it can '
+                             'be copied to another machine')
 
     args = parser.parse_args()
 
-    experiment_directory = Path(args.directory).resolve()
-    settings = NXSettings(experiment_directory / 'tasks').settings
-    analysis_path = settings['instrument'].get('analysis_path', '')
-    if analysis_path and experiment_directory.name != analysis_path:
-        experiment_directory = experiment_directory / analysis_path
+    if args.parent_file:
+        parent_file = Path(args.parent_file).resolve()
+        experiment_directory = None
+    elif args.directory and args.sample and args.label:
+        experiment_directory = Path(args.directory).resolve()
+        settings = NXSettings(experiment_directory / 'tasks').settings
+        analysis_path = settings['instrument'].get('analysis_path', '')
+        if analysis_path and experiment_directory.name != analysis_path:
+            experiment_directory = experiment_directory / analysis_path
+        sample_directory = experiment_directory / args.sample / args.label
+        parent_prefix = args.parent if args.parent else args.sample
+        parent_file = sample_directory / f'{parent_prefix}_scans.nxs'
+    else:
+        parser.error("either --parent-file or all of --directory, "
+                     "--sample, and --label are required")
 
-    sample_directory = experiment_directory / args.sample / args.label
-    parent_prefix = args.parent if args.parent else args.sample
-    parent_file = sample_directory / f'{parent_prefix}_scans.nxs'
+    if args.check:
+        if not parent_file.is_file():
+            parser.error(f"'{parent_file}' does not exist")
+        missing = NXParent(parent_file).missing_setup()
+        for item in missing:
+            print(item, file=sys.stderr)
+        print(not missing)
+        sys.exit(NOT_DONE if missing else DONE)
 
     if args.merge or args.update:
         nxsetconfig(lock=3600, lockexpiry=28800)
@@ -73,7 +101,11 @@ def main():
         if args.update:
             if not parent_file.is_file():
                 parser.error(f"'{parent_file}' does not exist")
-            parent.update_scan_data()
+            try:
+                parent.update_scan_data()
+            except Exception as error:
+                print(f"nxparent: {error}", file=sys.stderr)
+                sys.exit(FAILED)
         return
 
     source_file = None
@@ -81,7 +113,7 @@ def main():
         source_file = Path(args.file).resolve()
     elif args.configuration:
         source_file = Path(args.configuration).resolve()
-    else:
+    elif experiment_directory:
         config_dir = experiment_directory / 'configurations'
         configs = sorted(config_dir.glob('*.nxs')) if config_dir.exists() else []
         if configs:

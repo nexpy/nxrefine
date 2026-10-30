@@ -332,3 +332,56 @@ class TestNXParentScript:
         make_directory_structure(tmp_path)
         with pytest.raises(SystemExit):
             self.run(monkeypatch, tmp_path, '--update')
+
+
+def make_setup_parent(path, complete=True):
+    """Create a parent with a transform grid, limits, and an orientation."""
+    make_registry(path, [], settings={'qmin': 0.5, 'qmax': 5.0}
+                  if complete else None)
+    add_orientation(path, 'f1', np.eye(3))
+    if complete:
+        with nxopen(path, 'rw') as root:
+            root['entry/nxscans/transform'] = NXdata(axes=(
+                NXfield([0.0, 1.0], name='Ql'),
+                NXfield([0.0, 1.0], name='Qk'),
+                NXfield([0.0, 1.0], name='Qh')))
+
+
+class TestSetup:
+
+    def test_missing_setup(self, tmp_path):
+        path = tmp_path / 'sample_scans.nxs'
+        make_setup_parent(path, complete=False)
+        assert NXParent(path).missing_setup() == [
+            'transform grid', 'qmin', 'qmax']
+        complete = tmp_path / 'complete_scans.nxs'
+        make_setup_parent(complete)
+        assert NXParent(complete).missing_setup() == []
+
+    def test_missing_orientation(self, tmp_path):
+        path = tmp_path / 'sample_scans.nxs'
+        make_setup_parent(path)
+        with nxopen(path, 'rw') as root:
+            del root['f1/instrument/detector/orientation_matrix']
+        assert NXParent(path).missing_setup() == [
+            'orientation matrix for f1']
+
+    def test_registration_with_a_stale_root(self, tmp_path):
+        path = tmp_path / 'sample_scans.nxs'
+        make_scan(tmp_path / 'sample_a.nxs', 1.0)
+        make_scan(tmp_path / 'sample_b.nxs', 2.0)
+        make_registry(path, [])
+        first, second = NXParent(path), NXParent(path)
+        first.add_scan(tmp_path / 'sample_a.nxs')
+        second.add_scan(tmp_path / 'sample_b.nxs')
+        assert NXParent(path).scans == ['sample_a', 'sample_b']
+
+    def test_script_check_and_parent_file(self, tmp_path, monkeypatch, capsys):
+        path = tmp_path / 'sample_scans.nxs'
+        make_setup_parent(path, complete=False)
+        monkeypatch.setattr('sys.argv', ['nxparent', '-P', str(path),
+                                         '--check'])
+        with pytest.raises(SystemExit) as exit_info:
+            nxparent_script.main()
+        assert exit_info.value.code == 1
+        assert 'transform grid' in capsys.readouterr().err
