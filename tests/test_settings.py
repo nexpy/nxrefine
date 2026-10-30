@@ -10,6 +10,7 @@ from nexusformat.nexus.tree import string_dtype
 
 from nxrefine.nxparent import NXParent
 from nxrefine.nxreduce import NXReduce
+from nxrefine.nxrefine import NXRefine
 from nxrefine.nxsettings import NXSettings
 
 
@@ -417,6 +418,35 @@ class TestParentlessScans:
         r = NXReduce(directory=self.scan_dir, subentry='entry1')
         r.get_transform_grid()
         assert r.Qh is not None and list(r.Qh) == [-1.0, 0.0, 1.0]
+
+
+    def test_nxrefine_reads_grid_from_own_nxscans(self):
+        make_parentless_file(self.wrapper_file, transform=[-2.0, 0.0, 2.0])
+        with nxopen(self.wrapper_file, 'r') as root:
+            refine = NXRefine(root['entry'])
+            refine.read_parameters()
+            assert list(refine.Qh) == [-2.0, 0.0, 2.0]
+            assert list(refine.Qk) == [-2.0, 0.0, 2.0]
+            assert list(refine.Ql) == [-2.0, 0.0, 2.0]
+
+    def test_nxrefine_reads_grid_from_subentry(self):
+        make_parentless_file(self.wrapper_file, transform=[-1.0, 0.0, 1.0],
+                             subentry='entry1')
+        with nxopen(self.wrapper_file, 'r') as root:
+            refine = NXRefine(root['entry'], subentry='entry1')
+            refine.read_parameters()
+            assert list(refine.Qh) == [-1.0, 0.0, 1.0]
+
+    def test_nxrefine_prefers_transform_output(self):
+        make_parentless_file(self.wrapper_file, transform=[-2.0, 0.0, 2.0])
+        with nxopen(self.wrapper_file, 'rw') as root:
+            root['entry/transform'] = NXdata(axes=(
+                NXfield([-3.0, 0.0, 3.0], name='Ql'),
+                NXfield([-3.0, 0.0, 3.0], name='Qk'),
+                NXfield([-3.0, 0.0, 3.0], name='Qh')))
+            refine = NXRefine(root['entry'])
+            refine.read_parameters()
+            assert list(refine.Qh) == [-3.0, 0.0, 3.0]
 
 
 class TestNXParentTransform:
