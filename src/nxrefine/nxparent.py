@@ -288,6 +288,37 @@ class NXParent:
         except (NeXusError, KeyError):
             return False
 
+    def missing_setup(self):
+        """Return what is missing before this file can be copied elsewhere.
+
+        A parent that is copied to another machine, e.g., to process
+        streamed scans, is never updated from the original, so it must
+        already contain the transform grid, an orientation matrix for
+        every detector position, and the transmission limits (otherwise
+        they are derived from the first scan processed and stored only in
+        the copy).
+
+        Returns
+        -------
+        list of str
+            Descriptions of the missing items, which is empty if the
+            parent is complete.
+        """
+        missing = []
+        if not self.has_transform_grid():
+            missing.append("transform grid")
+        for name in ('qmin', 'qmax'):
+            if self.get_setting(name) in (None, ''):
+                missing.append(name)
+        entries = [name for name, group in self.root.entries.items()
+                   if isinstance(group, NXentry) and name != 'entry'
+                   and 'instrument/detector' in group]
+        if not entries:
+            missing.append("detector entries")
+        missing.extend(f"orientation matrix for {name}" for name in entries
+                       if not self.has_orientation(name))
+        return missing
+
     @property
     def sample(self):
         return self.filename.parent.parent.name
@@ -568,6 +599,9 @@ class NXParent:
         if not scan_file.is_file():
             raise ValueError(f"File '{scan_file}' does not exist.")
         with self.root:
+            # Reread the file under the lock, since another process may
+            # have registered a scan since it was opened.
+            self.refresh()
             scan_info = self.root[self.scan_info.nxpath]
             if scan_file.stem not in scan_info['scans']:
                 current_count = scan_info['scans'].shape[0]
@@ -779,8 +813,13 @@ class NXParent:
     def reload(self):
         try:
             from nexpy.gui.utils import get_mainwindow
+        except ImportError:
+            return  # Not running in a GUI
+        try:
             filenames = self.scan_files + [self.filename]
             mainwindow = get_mainwindow()
+            if mainwindow is None:
+                return
             for node in [mainwindow.tree.node_from_file(f) for f in filenames]:
                 if node:
                     mainwindow.tree[node].reload()
@@ -790,7 +829,12 @@ class NXParent:
     def reload_parent(self):
         try:
             from nexpy.gui.utils import get_mainwindow
+        except ImportError:
+            return  # Not running in a GUI
+        try:
             mainwindow = get_mainwindow()
+            if mainwindow is None:
+                return
             node = mainwindow.tree.node_from_file(self.filename)
             if node:
                 mainwindow.tree[node].reload()
