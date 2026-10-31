@@ -346,24 +346,56 @@ class TestNXReadyScript:
 
     def test_file_ready(self, scan, monkeypatch, capsys):
         code, out, err = self.run(monkeypatch, capsys, '-f', str(scan.raw))
-        assert (code, out, err) == (0, 'True', '')
+        assert (code, out, err) == (0, str(scan.wrapper), '')
 
     def test_directory_ready(self, scan, monkeypatch, capsys):
         code, out, err = self.run(monkeypatch, capsys,
                                   '-d', str(scan.directory), '-e', 'f1')
-        assert (code, out, err) == (0, 'True', '')
+        assert (code, out, err) == (0, str(scan.wrapper), '')
 
     def test_directory_defaults_to_all_entries(self, scan, monkeypatch,
                                                capsys):
         code, out, _ = self.run(monkeypatch, capsys,
                                 '-d', str(scan.directory))
-        assert (code, out) == (0, 'True')
+        assert (code, out) == (0, str(scan.wrapper))
+
+    def test_scan_file_ready(self, scan, monkeypatch, capsys):
+        code, out, err = self.run(monkeypatch, capsys,
+                                  '-f', str(scan.wrapper))
+        assert (code, out, err) == (0, str(scan.wrapper), '')
+
+    def test_scan_file_waiting_for_data(self, scan, monkeypatch, capsys):
+        self.beamline.ready = False
+        code, out, err = self.run(monkeypatch, capsys,
+                                  '-f', str(scan.wrapper))
+        assert code == 1
+        assert out == ''
+        assert err.strip() == "f1: logs not ready"
+
+    def test_scan_file_name_must_start_with_sample(self, scan, monkeypatch,
+                                                   capsys):
+        other = scan.wrapper.with_name('other.nxs')
+        scan.wrapper.rename(other)
+        code, out, err = self.run(monkeypatch, capsys, '-f', str(other))
+        assert code == 2
+        assert out == ''
+        assert err.strip() == ("nxready: 'other.nxs' is not a scan file of "
+                               "sample 'sample'")
+
+    def test_scan_file_without_scan_directory_is_an_error(self, scan,
+                                                          monkeypatch,
+                                                          capsys):
+        code, out, err = self.run(monkeypatch, capsys,
+                                  '-f', str(scan.parent))
+        assert code == 2
+        assert out == ''
+        assert 'is not a directory' in err
 
     def test_waiting_for_data(self, scan, monkeypatch, capsys):
         self.beamline.ready = False
         code, out, err = self.run(monkeypatch, capsys, '-f', str(scan.raw))
         assert code == 1
-        assert out == 'False'
+        assert out == ''
         assert err.strip() == "f1: logs not ready"
 
     def test_waiting_for_parent(self, scan, monkeypatch, capsys):
@@ -371,7 +403,7 @@ class TestNXReadyScript:
             del root['entry/nxscans/transform']
         code, out, err = self.run(monkeypatch, capsys, '-f', str(scan.raw))
         assert code == 3
-        assert out == 'False'
+        assert out == ''
         assert err.strip() == "f1: no transform grid in sample_scans.nxs"
 
     def test_data_takes_precedence_over_parent(self, scan, monkeypatch,
@@ -381,7 +413,7 @@ class TestNXReadyScript:
         self.beamline.ready = False
         code, out, err = self.run(monkeypatch, capsys, '-f', str(scan.raw))
         assert code == 1
-        assert out == 'False'
+        assert out == ''
         assert err.splitlines() == ["f1: no transform grid in "
                                     "sample_scans.nxs", "f1: logs not ready"]
 

@@ -26,13 +26,18 @@ WAITING_FOR_PARENT = 3
 def main():
 
     parser = argparse.ArgumentParser(
-        description="Print True if the entries of a scan are ready to be "
-                    "analyzed and False if not. The exit code is 0 if "
+        description="Print the full path of the scan file if the entries of "
+                    "a scan are ready to be analyzed, and nothing if not. "
+                    "If no entries are given, all the entries in the scan "
+                    "file must be ready. The exit code is 0 if "
                     "ready, 1 if waiting for raw data or log files, 3 if "
                     "waiting for the parent file to be set up (orientation "
                     "matrix or transform grid), and 2 if the check fails.")
     source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument('-f', '--file', help='raw data file, e.g., f1.h5')
+    source.add_argument('-f', '--file',
+                        help='raw data file, e.g., f1.h5, or scan file, '
+                             'e.g., sample_scan.nxs, whose scan directory '
+                             'is checked')
     source.add_argument('-d', '--directory', help='scan directory')
     parser.add_argument('-e', '--entries', nargs='+',
                         help='names of entries to be checked')
@@ -44,9 +49,17 @@ def main():
 
     try:
         if args.file:
-            raw_file = Path(args.file).resolve()
-            directory = raw_file.parent
-            entries = [raw_file.stem]
+            file = Path(args.file).resolve()
+            if file.suffix == '.nxs':
+                sample = file.parent.parent.name
+                if not file.stem.startswith(f"{sample}_"):
+                    raise ValueError(f"'{file.name}' is not a scan file "
+                                     f"of sample '{sample}'")
+                directory = file.parent / file.stem[len(sample)+1:]
+                entries = args.entries
+            else:
+                directory = file.parent
+                entries = [file.stem]
         else:
             directory = Path(args.directory).resolve()
             entries = args.entries
@@ -54,17 +67,21 @@ def main():
             raise ValueError(f"'{directory}' is not a directory")
         if not entries:
             entries = NXMultiReduce(directory=directory).entries
+        if not entries:
+            raise ValueError(f"no entries found in '{directory}'")
         reasons = []
         for entry in entries:
-            ready, entry_reasons = NXReduce(
-                entry, directory=directory).link_ready(args.quiet_seconds)
+            reduce = NXReduce(entry, directory=directory)
+            ready, entry_reasons = reduce.link_ready(args.quiet_seconds)
             reasons.extend((kind, f"{entry}: {message}")
                            for kind, message in entry_reasons)
+        scan_file = reduce.wrapper_file
     except Exception as error:
         print(f"nxready: {error}", file=sys.stderr)
         sys.exit(FAILED)
 
-    print(not reasons)
+    if not reasons:
+        print(scan_file)
     for kind, message in reasons:
         print(message, file=sys.stderr)
     if not reasons:
