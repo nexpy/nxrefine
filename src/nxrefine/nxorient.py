@@ -482,21 +482,24 @@ class UBMatrixFFT:
 
         return True
 
-    def check_UB(self) -> bool:
+    def check_UB(self, UB:np.ndarray=None) -> bool:
         """Geometry/Crystal/IndexingUtils::CheckUB - line 2130 to 2146
-        
+
         Check whether or not the specified matrix is reasonable for an orientation
         matrix.  In particular, check that it is a 3x3 matrix without any nan or
         infinite values and that its determinant is within a reasonable range, for
-        an orientation matrix.
+        an orientation matrix. If no matrix is given, the current UB is checked.
         """
-        if self._UB.shape != (3, 3):
+        if UB is None:
+            UB = self._UB
+
+        if UB.shape != (3, 3):
             return False
 
-        if not np.all(np.isfinite(self._UB)):
+        if not np.all(np.isfinite(UB)):
             return False
 
-        detm = det(self._UB)
+        detm = det(UB)
         return not (abs(detm) > 10 or abs(detm) < 1e-12)
 
     def optimize_UB(self, hkl_vectors:list[np.ndarray],
@@ -531,7 +534,7 @@ class UBMatrixFFT:
         if not found_UB:
             raise RuntimeError("optimize_UB(): Failed to find UB, invalid hkl or Q values")
 
-        if not self.check_UB():
+        if not self.check_UB(temp_UB):
             raise RuntimeError("optimize_UB(): the optimize UB is not valid")
 
         return sum_sq_error, temp_UB
