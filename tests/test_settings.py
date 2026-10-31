@@ -412,6 +412,24 @@ class TestParentlessScans:
         assert r.Qh is not None and list(r.Qh) == [-2.0, 0.0, 2.0]
         assert r.Qk is not None and r.Ql is not None
 
+    def test_transform_grid_read_for_per_scan_entry(self):
+        make_parentless_file(self.wrapper_file, transform=[-2.0, 0.0, 2.0])
+        with nxopen(self.wrapper_file, 'rw') as root:
+            root['f1'] = NXentry()
+        r = NXReduce('f1', directory=self.scan_dir)
+        r.get_transform_grid()
+        assert r.Qh is not None and list(r.Qh) == [-2.0, 0.0, 2.0]
+        assert r.Qk is not None and r.Ql is not None
+
+    def test_transform_grid_read_from_subentry_for_per_scan_entry(self):
+        make_parentless_file(self.wrapper_file, transform=[-1.0, 0.0, 1.0],
+                             subentry='entry1')
+        with nxopen(self.wrapper_file, 'rw') as root:
+            root['f1'] = NXentry()
+        r = NXReduce('f1', directory=self.scan_dir, subentry='entry1')
+        r.get_transform_grid()
+        assert r.Qh is not None and list(r.Qh) == [-1.0, 0.0, 1.0]
+
     def test_transform_grid_read_from_subentry(self):
         make_parentless_file(self.wrapper_file, transform=[-1.0, 0.0, 1.0],
                              subentry='entry1')

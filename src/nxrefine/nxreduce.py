@@ -2484,14 +2484,32 @@ class NXReduce(QtCore.QObject):
         elif self.transform:
             self.log(f"{task_name} already created")
 
+    def scan_file_transform(self):
+        """Return the transform grid stored in the scan file, or None.
+
+        A scan without a parent stores its grid at /entry/nxscans/transform,
+        or in the active subentry of /entry, whichever entry of the file is
+        being reduced.
+        """
+        for subentry in ([self.subentry_name, None] if self.subentry_name
+                         else [None]):
+            try:
+                transform = NXParent(self.wrapper_file,
+                                     subentry=subentry).transform
+            except Exception:
+                transform = None
+            if transform is not None:
+                return transform
+        return None
+
     def get_transform_grid(self, mask=False):
         """Set Qh/Qk/Ql from the transform grid defined for this scan.
 
         The grid comes from the parent's nxscans/transform when this scan
-        has a parent, and otherwise from the scan's own nxscans/transform,
-        which `find_group` resolves against the active subentry first.
-        Values supplied explicitly on the command line take precedence
-        over both.
+        has a parent, and otherwise from the scan file's own
+        nxscans/transform, using the active subentry first. Values
+        supplied explicitly on the command line take precedence over
+        both.
         """
         if self.Qh is not None and self.Qk is not None and self.Ql is not None:
             return
@@ -2499,7 +2517,7 @@ class NXReduce(QtCore.QObject):
         if self.parent is not None:
             transform = self.parent.transform
         if transform is None:
-            transform = self.find_group('nxscans/transform')
+            transform = self.scan_file_transform()
         if transform is None:
             return
         try:
