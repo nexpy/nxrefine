@@ -79,6 +79,7 @@ nxsample = "nxrefine.scripts.nxsample:main"
 nxserver = "nxrefine.scripts.nxserver:main"
 nxsettings = "nxrefine.scripts.nxsettings:main"
 nxsum = "nxrefine.scripts.nxsum:main"
+nxsync = "nxrefine.scripts.nxsync:main"
 nxtransform = "nxrefine.scripts.nxtransform:main"
 
 [project.entry-points."nexpy.plugins"]
