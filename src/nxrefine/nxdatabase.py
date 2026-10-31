@@ -209,6 +209,29 @@ class NXDatabase:
             .filter(File.filename == self.get_filename(filename)) \
             .one_or_none()
 
+    def unfinished_tasks(self, filename):
+        """Return the tasks of a file that are queued, running or failed.
+
+        These are the statuses that 'sync_file' recalculates from the
+        contents of the NeXus file, so they may change when it is synced.
+
+        Parameters
+        ----------
+        filename : str or Path
+            Path of wrapper file.
+
+        Returns
+        -------
+        dict
+            Status of each task that is queued, in progress or failed.
+        """
+        f = self.query(filename)
+        if f is None:
+            return {}
+        unfinished = (QUEUED, IN_PROGRESS, FAILED)
+        return {task: getattr(f, task) for task in self.task_names
+                if getattr(f, task) in unfinished}
+
     def _task_in_group(self, group, task_name):
         """True if a task NXprocess exists in a group or its nxworkflow child."""
         if 'nxworkflow' in group:

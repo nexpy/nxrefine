@@ -35,6 +35,16 @@ def show_dialog():
 
 class WorkflowDialog(NXDialog):
 
+    status_legend = (
+        "Checked: complete\n"
+        "Green: started, or complete for some entries\n"
+        "Blue: queued\n"
+        "Red: failed\n\n"
+        "These are the states recorded in the database. If the database was "
+        "copied from another machine, a blue, green or red box may refer to "
+        "work on that machine. Sync Database sets the states to match the "
+        "files on this machine.")
+
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -143,6 +153,7 @@ class WorkflowDialog(NXDialog):
         for col, column in enumerate(all_columns):
             header[column] = NXLabel(
                 column, bold=True, width=75, align='center')
+            header[column].setToolTip(self.status_legend)
             if column in ('transform', 'combine', 'pdf'):
                 self.header_grid.addWidget(header[column], 0, col, 1, 2,
                                            QtCore.Qt.AlignHCenter)
@@ -289,9 +300,22 @@ class WorkflowDialog(NXDialog):
             checkbox.setProperty('_saved_state', "color: red")
 
     def sync_db(self):
-        for scan in self.scans:
-            if self.sync_selected(scan):
-                self.db.update_file(self.get_scan_file(scan))
+        selected = [scan for scan in self.scans if self.sync_selected(scan)]
+        unfinished = {scan: self.db.unfinished_tasks(self.get_scan_file(scan))
+                      for scan in selected}
+        unfinished = {scan: tasks for scan, tasks in unfinished.items()
+                      if tasks}
+        if unfinished:
+            count = sum(len(tasks) for tasks in unfinished.values())
+            if not self.confirm_action(
+                    "Reset queued, running and failed tasks?",
+                    f"{count} task(s) on {len(unfinished)} scan(s) are "
+                    "queued, running, failed or partly complete in the "
+                    "database. If the database was transferred from "
+                    "another machine, sync all the scans."):
+                return
+        for scan in selected:
+            self.db.update_file(self.get_scan_file(scan))
         self.update()
 
     def new_checkbox(self, slot=None):
