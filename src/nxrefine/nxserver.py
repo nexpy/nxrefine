@@ -25,6 +25,7 @@ section.
 """
 
 import os
+import re
 import shutil
 import sqlite3
 import time
@@ -49,6 +50,30 @@ LOCK_TIMEOUT = 10
 LOCK_EXPIRY = 60
 STATUS_INTERVAL = 600
 CONTROL_COMMANDS = ('stop', 'resume', 'abort')
+
+
+def task_matches(name, sample, label, scan):
+    """Return True if a task log name belongs to a scan.
+
+    Task logs are named '<sample>_<label>_<scan>_<command>_<entries>' with
+    a timestamp. Older logs are named '<command>_<label>_<scan>_<entries>'
+    and do not contain the sample.
+
+    Parameters
+    ----------
+    name : str
+        Name of the task log, without its extension.
+    sample : str
+        Name of the sample.
+    label : str
+        Name of the sample label.
+    scan : str
+        Name of the scan directory.
+    """
+    if name.startswith(f"{sample}_{label}_{scan}_"):
+        return True
+    return bool(re.match(rf"nx[a-z]+_{re.escape(label)}_{re.escape(scan)}_",
+                         name))
 
 
 def get_servers():
@@ -287,6 +312,14 @@ class NXServer(NXDaemon):
         with open(home_settings_file, 'w') as f:
             home_settings.write(f)
 
+    def log_setting(self, option, default):
+        """Return a non-negative number from the server settings."""
+        try:
+            value = float(self.settings.get('server', option))
+        except Exception:
+            return default
+        return value if value >= 0 else default
+
     def initialize(self, directory, server_type):
         if directory is None:
             self.settings = NXSettings(directory=self.get_directory())
@@ -318,6 +351,8 @@ class NXServer(NXDaemon):
                 cpu_count = psutil.cpu_count()
             self.cpus = ['cpu'+str(cpu) for cpu in range(1, cpu_count+1)]
         self.concurrent = self.settings.get('server', 'concurrent')
+        self.log_limit = self.log_setting('log_limit', 50)
+        self.log_days = self.log_setting('log_days', 0)
         self.server_log = self.directory / 'nxserver.log'
         self.pid_file = self.directory / 'nxserver.pid'
         self.queue_directory = self.directory / 'task_list'
@@ -503,7 +538,7 @@ class NXServer(NXDaemon):
         except sqlite3.Error:
             return {}
 
-    def task_records(self, limit=50):
+    def task_records(self, limit=None, days=None, match=None):
         """Return a summary of recently dispatched tasks, newest first.
 
         The tasks are listed from their log files, which are written
@@ -513,8 +548,20 @@ class NXServer(NXDaemon):
         Parameters
         ----------
         limit : int, optional
-            Maximum number of tasks to list, by default 50.
+            Maximum number of tasks to list. By default, the 'log_limit'
+            server setting is used. A value of 0 means no limit.
+        days : float, optional
+            Only list tasks whose logs were written within this number of
+            days. By default, the 'log_days' server setting is used. A
+            value of 0 means no age limit.
+        match : callable, optional
+            Function that takes the name of a task and returns True if it
+            is to be listed, by default None.
         """
+        if limit is None:
+            limit = self.log_limit
+        if days is None:
+            days = self.log_days
         if not self.log_directory.exists():
             return []
         try:
@@ -523,18 +570,32 @@ class NXServer(NXDaemon):
             return []
         logs = sorted([f for f in entries if f.suffix == '.out'],
                       key=lambda f: f.stat().st_mtime, reverse=True)
+        if days:
+            cutoff = time.time() - days * 86400
+            logs = [f for f in logs if f.stat().st_mtime >= cutoff]
+        if match:
+            logs = [f for f in logs if match(f.stem)]
+        if limit:
+            logs = logs[:int(limit)]
         status = self.task_status()
         records = []
-        for log in logs[:limit]:
+        for log in logs:
             record = {'name': log.stem, 'stdout': log,
                       'stderr': log.with_suffix('.err')}
             record.update(status.get(str(log), {}))
             records.append(record)
         return records
 
-    def task_names(self):
-        """List the names of recently dispatched tasks, newest first."""
-        return [record['name'] for record in self.task_records()]
+    def task_names(self, match=None):
+        """List the names of recently dispatched tasks, newest first.
+
+        Parameters
+        ----------
+        match : callable, optional
+            Function that takes the name of a task and returns True if it
+            is to be listed, by default None.
+        """
+        return [record['name'] for record in self.task_records(match=match)]
 
     def task_output(self, name):
         """Return the output of a dispatched task.
@@ -544,7 +605,7 @@ class NXServer(NXDaemon):
         name : str
             Name of the task, as listed by `task_names`.
         """
-        record = next((record for record in self.task_records()
+        record = next((record for record in self.task_records(limit=0, days=0)
                        if record['name'] == name), None)
         if record is None:
             return f"No output for '{name}'"
