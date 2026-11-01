@@ -20,7 +20,7 @@ class NXSettings(ConfigParser):
         super().__init__(allow_no_value=True)
         self.defaults = {
             'server': {'type': 'multicore', 'cores': 4, 'concurrent': True,
-                       'cctw': 'cctw'},
+                       'cctw': 'cctw', 'log_limit': 50, 'log_days': 0},
             'parsl': {'config': None, 'account': None, 'walltime': '3:00:00',
                       'small_nodes': 2, 'large_nodes': 10, 'max_blocks': 10,
                       'batch_threshold': 4, 'cpus_per_node': 64,

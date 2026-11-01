@@ -19,7 +19,7 @@ from nexusformat.nexus import NeXusError, nxload
 from nxrefine.nxdatabase import NXDatabase
 from nxrefine.nxparent import NXParent
 from nxrefine.nxreduce import NXMultiReduce, NXReduce
-from nxrefine.nxserver import NXServer
+from nxrefine.nxserver import NXServer, task_matches
 from nxrefine.plugins.refine._dialog_helpers import select_parent
 from nxrefine.plugins.refine.new_subentry import SubentryDialog
 from nxrefine.plugins.refine.select_files import FilesDialog
@@ -559,7 +559,7 @@ class WorkflowDialog(NXDialog):
         self.output_box = NXPlainTextEdit(wrap=False)
         process_button = NXPushButton('View Processes', self.procview)
         task_log_button = NXPushButton('View Task Log', self.taskview)
-        self.log_combo = dialog.select_box(self.server.task_names(),
+        self.log_combo = dialog.select_box(self.current_log_names(),
                                            slot=self.taskview)
         close_layout = self.make_layout(process_button, task_log_button,
                                         self.log_combo, 'stretch',
@@ -592,6 +592,7 @@ class WorkflowDialog(NXDialog):
             self.entry_combo.select(current_entry)
         else:
             self.entry_combo.select(self.scans[scan]['entries'][0])
+        self.update_logs()
         self.refreshview()
 
     def dataview(self):
@@ -725,9 +726,16 @@ class WorkflowDialog(NXDialog):
             lines = [line[line.index('nx'):] for line in lines]
             self.output_box.setPlainText('\n'.join(set(lines)))
 
+    def current_log_names(self):
+        """List the task logs for the scan chosen in the logs dialog."""
+        scan = self.scan_combo.currentText()
+        return self.server.task_names(
+            match=lambda name: task_matches(name, self.sample, self.label,
+                                            scan))
+
     def update_logs(self):
         """Refresh the list of task logs, preserving the selection."""
-        names = self.server.task_names()
+        names = self.current_log_names()
         if names != self.log_combo.items():
             selected = self.log_combo.selected
             self.log_combo.clear()
