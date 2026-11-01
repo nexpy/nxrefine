@@ -577,7 +577,7 @@ class NXServer(NXDaemon):
             logs = [f for f in logs if match(f.stem)]
         if limit:
             logs = logs[:int(limit)]
-        status = self.task_status()
+        status = self.task_status() if logs else {}
         records = []
         for log in logs:
             record = {'name': log.stem, 'stdout': log,
