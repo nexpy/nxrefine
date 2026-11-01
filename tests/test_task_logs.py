@@ -92,3 +92,63 @@ def test_task_output_finds_logs_outside_the_limit(log_directory):
     server = LogServer(log_directory, log_limit=1, log_days=7)
     assert server.task_names() == ['new']
     assert 'old output' in server.task_output('old')
+
+
+@pytest.fixture
+def log_combo():
+    os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+    QtWidgets = pytest.importorskip('qtpy.QtWidgets')
+    pytest.importorskip('nexpy.gui.widgets')
+    from nexpy.gui.widgets import NXComboBox
+
+    from nxrefine.plugins.server.manage_workflows import (NO_LOGS,
+                                                          WorkflowDialog)
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    state = type('State', (), {})()
+    state.names = []
+    state.calls = []
+    state.output_box = QtWidgets.QPlainTextEdit()
+    state.server = type('Server', (), {
+        'task_output': lambda self, name: f'output of {name}'})()
+    state.current_log_names = lambda: state.names
+    state.update_logs = lambda: WorkflowDialog.update_logs(state)
+    state.log_combo = NXComboBox()
+    state.log_combo.add(NO_LOGS)
+    state.log_combo.setCurrentIndex(0)
+    state.log_combo.setEnabled(False)
+
+    def taskview():
+        state.calls.append(1)
+        WorkflowDialog.taskview(state)
+    state.log_combo.currentIndexChanged.connect(taskview)
+    state.NO_LOGS = NO_LOGS
+    state.update = lambda: WorkflowDialog.update_logs(state)
+    state.view = lambda: WorkflowDialog.taskview(state)
+    state.app = app
+    return state
+
+
+def test_log_list_changes_do_not_trigger_the_task_view(log_combo):
+    for names in (['a', 'b'], ['b', 'c'], [], ['x']):
+        log_combo.names = names
+        log_combo.update()
+        assert log_combo.log_combo.items() == (names or [log_combo.NO_LOGS])
+        assert log_combo.log_combo.isEnabled() is bool(names)
+    assert log_combo.calls == []
+
+
+def test_selection_is_kept_when_still_listed(log_combo):
+    log_combo.names = ['a', 'b', 'c']
+    log_combo.update()
+    log_combo.log_combo.select('b')
+    log_combo.names = ['b', 'c']
+    log_combo.update()
+    assert log_combo.log_combo.selected == 'b'
+
+
+def test_task_view_ignores_the_placeholder(log_combo):
+    log_combo.view()
+    assert log_combo.output_box.toPlainText() == 'No Logs'
+    log_combo.names = ['a']
+    log_combo.view()
+    assert log_combo.output_box.toPlainText() == 'output of a'
