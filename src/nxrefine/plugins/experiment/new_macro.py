@@ -1,17 +1,14 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2018-2025, Argonne National Laboratory.
+# Copyright (c) 2018-2026, Argonne National Laboratory.
 #
 # Distributed under the terms of an Open Source License.
 #
 # The full license is in the file LICENSE.pdf, distributed with this software.
 # -----------------------------------------------------------------------------
 
-from operator import attrgetter
-from pathlib import Path
-
-from nexpy.gui.pyqt import getSaveFileName
-from nexpy.gui.utils import display_message, natural_sort, report_error
-from nexpy.gui.widgets import GridParameters, NXDialog, NXScrollArea, NXWidget
+from nexpy.gui.dialogs import NXDialog
+from nexpy.gui.pyqt import QtCore, QtWidgets, getSaveFileName
+from nexpy.gui.utils import display_message, report_error
 from nexusformat.nexus import NeXusError
 
 from nxrefine.nxbeamline import get_beamline
@@ -32,102 +29,129 @@ class MacroDialog(NXDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
 
+        self.scan_list = None
+        self.macro_layouts = False
+
         self.set_layout(self.filebox('Choose Parent File'),
                         self.close_layout(close=True))
         self.set_title('Making Scan Macro')
 
     def choose_file(self):
-        self.scans = None
-        self.set_layout(
-            self.directorybox("Choose Sample Directory", self.choose_sample),
-            self.textboxes(('Scan Command', 'Pil2Mscan')),
-            self.action_buttons(
-                ('Select All', self.select_scans),
-                ('Reverse All', self.reverse_scans),
-                ('Clear All', self.clear_scans),
-                ('Make Scan Macro', self.create_macro)),
-            self.close_buttons(close=True))
-        self.set_title('Make Scans')
-        self.setMinimumWidth(500)
-
-    def choose_sample(self):
-        super().choose_directory()
-        self.scan_path = self.get_directory()
-        self.sample = self.scan_path.parent.name
-        self.task_directory = self.scan_path.parent.parent / 'tasks'
-        self.macro_directory = self.scan_path.parent.parent / 'macros'
-        instrument = NXSettings(
-            self.scan_path.parent.parent).settings['instrument']['instrument']
-        self.beamline = get_beamline(instrument)
-        if not self.beamline.create_macro_enabled:
-            display_message(
-                "Making Scans",
-                f"Making scan macros not implemented for {self.beamline.name}")
-            self.reject()
+        super().choose_file(filter="Parent Files (*_scans.nxs)")
+        self.parent_file = self.get_filename()
+        if self.parent_file is None:
+            return
+        try:
+            self.parent = NXParent(self.parent_file)
+            if not self.parent.scans_defined:
+                raise NeXusError(
+                    f"'{self.parent.name}' does not contain a list of scans")
+            instrument = NXSettings(
+                self.parent.experiment_directory).settings[
+                    'instrument']['instrument']
+            beamline = get_beamline(instrument)
+            if not beamline.create_macro_enabled:
+                raise NeXusError("Making scan macros not implemented for "
+                                 f"{beamline.name}")
+            self.beamline = beamline(directory=self.parent.directory)
+        except NeXusError as error:
+            report_error("Making Scan Macro", error)
+            return
+        self.macro_directory = self.parent.experiment_directory / 'macros'
         self.setup_scans()
 
     def setup_scans(self):
-        if self.scans:
-            self.scans.delete_grid()
-        self.scans = GridParameters()
-        filenames = sorted(self.scan_path.glob(self.sample+'_*.nxs'),
-                           key=natural_sort)
-        for i, f in enumerate(filenames):
-            scan = f'{f.name}'
-            self.scans.add(scan, i+1, f.name, True, self.update_scans)
-            self.scans[scan].checkbox.stateChanged.connect(self.update_scans)
-        scroll_widget = NXWidget()
-        scroll_widget.set_layout(self.scans.grid(header=False))
-        scroll_area = NXScrollArea(scroll_widget)
-        scroll_area.setMinimumHeight(min(scroll_widget.sizeHint().height(),
-                                         600))
-        scroll_area.setWidgetResizable(True)
-        self.insert_layout(2, scroll_area)
+        if self.scan_list is None:
+            self.scan_list = QtWidgets.QListWidget()
+            self.scan_list.setDragDropMode(
+                QtWidgets.QAbstractItemView.InternalMove)
+            self.scan_list.setDefaultDropAction(QtCore.Qt.MoveAction)
+            self.scan_list.setSelectionMode(
+                QtWidgets.QAbstractItemView.SingleSelection)
+            self.scan_list.setMinimumHeight(300)
+        self.scan_list.clear()
+        for scan, selected in zip(self.parent.scans, self.parent.selected):
+            item = QtWidgets.QListWidgetItem(
+                self.parent.scan_directory(scan))
+            item.setData(QtCore.Qt.UserRole, scan)
+            item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
+            item.setCheckState(
+                QtCore.Qt.Checked if selected else QtCore.Qt.Unchecked)
+            self.scan_list.addItem(item)
+        if not self.macro_layouts:
+            self.insert_layout(1, self.textboxes(('Scan Command',
+                                                  'Pil2Mscan')))
+            self.insert_layout(2, self.make_layout(self.scan_list))
+            self.insert_layout(3, self.action_buttons(
+                ('Move Up', self.move_up),
+                ('Move Down', self.move_down),
+                ('Select All', self.select_scans),
+                ('Reverse All', self.reverse_scans),
+                ('Clear All', self.clear_scans)))
+            self.insert_layout(4, self.action_buttons(
+                ('Make Scan Macro', self.create_macro)))
+            self.macro_layouts = True
+            self.setMinimumWidth(500)
 
     @property
-    def scan_list(self):
-        scan_list = []
-        for scan in self.scans.values():
-            if scan.checkbox.isChecked() and scan.value > 0:
-                scan_list.append(scan)
-            else:
-                scan.value = 0
-        return sorted(scan_list, key=attrgetter('value'))
+    def items(self):
+        return [self.scan_list.item(row)
+                for row in range(self.scan_list.count())]
 
-    def update_scans(self):
-        scan_list = self.scan_list
-        scan_number = 0
-        for scan in scan_list:
-            scan_number += 1
-            scan.value = scan_number
-        for scan in self.scans.values():
-            if scan.checkbox.isChecked() and scan.value == 0:
-                scan.value = scan_number + 1
-                scan_number += 1
+    @property
+    def checked_scans(self):
+        return [item.data(QtCore.Qt.UserRole) for item in self.items
+                if item.checkState() == QtCore.Qt.Checked]
+
+    def move_item(self, offset):
+        row = self.scan_list.currentRow()
+        new_row = row + offset
+        if row < 0 or new_row < 0 or new_row >= self.scan_list.count():
+            return
+        item = self.scan_list.takeItem(row)
+        self.scan_list.insertItem(new_row, item)
+        self.scan_list.setCurrentRow(new_row)
+
+    def move_up(self):
+        self.move_item(-1)
+
+    def move_down(self):
+        self.move_item(1)
 
     def select_scans(self):
-        for i, scan in enumerate(self.scans):
-            self.scans[scan].value = i+1
-            self.scans[scan].checkbox.setChecked(True)
+        for item in self.items:
+            item.setCheckState(QtCore.Qt.Checked)
 
     def reverse_scans(self):
-        for i, scan in enumerate(reversed(self.scan_list)):
-            scan.value = i+1
-            scan.checkbox.setChecked(True)
+        items = [self.scan_list.takeItem(0)
+                 for _ in range(self.scan_list.count())]
+        for item in reversed(items):
+            self.scan_list.addItem(item)
 
     def clear_scans(self):
-        for scan in self.scans:
-            self.scans[scan].value = 0
-            self.scans[scan].checkbox.setChecked(False)
+        for item in self.items:
+            item.setCheckState(QtCore.Qt.Unchecked)
 
     def create_macro(self):
-        scan_command = self.textbox['Scan Command'].text()
-        scan_files = [self.scan_path.joinpath(f.name) for f in self.scan_list]
-        scan_parameters = self.beamline.create_macro(scan_files, scan_command)
-        self.macro_directory.mkdir(exists_ok=True)
-        macro_filter = ';;'.join(("SPEC Macro (*.mac)", "Any Files (*.* *)"))
-        macro = getSaveFileName(self, 'Open Macro', self.macro_directory,
-                                macro_filter)
-        if macro:
-            with open(macro, 'w') as f:
-                f.write('\n'.join(scan_parameters))
+        scans = self.checked_scans
+        if not scans:
+            display_message("Making Scan Macro", "No scans selected")
+            return
+        try:
+            scan_command = self.textbox['Scan Command'].text()
+            scan_files = [self.parent.scan_file(scan) for scan in scans]
+            scan_parameters = self.beamline.create_macro(scan_files,
+                                                         scan_command)
+            self.macro_directory.mkdir(exist_ok=True)
+            macro_filter = ';;'.join(("SPEC Macro (*.mac)",
+                                      "Any Files (*.* *)"))
+            default_name = (self.macro_directory /
+                            f"{self.parent.sample}_{self.parent.label}.mac")
+            macro = getSaveFileName(self, 'Save Macro', str(default_name),
+                                    macro_filter)
+            if macro:
+                with open(macro, 'w') as f:
+                    f.write('\n'.join(scan_parameters) + '\n')
+                self.status_message.setText(f"Saved macro '{macro}'")
+        except Exception as error:
+            report_error("Making Scan Macro", error)
