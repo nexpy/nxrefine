@@ -31,8 +31,30 @@ logger = logging.getLogger(__name__)
 prefix_pattern = re.compile(r'^([^.]+)(?:(?<!\d)|(?=_))')
 file_index_pattern = re.compile(r'^(.*?)([0-9]*)[.](.*)$')
 directory_index_pattern = re.compile(r'^(.*?)([0-9]*)$')
+scan_temperature_pattern = re.compile(r'(m?\d+(?:p\d+)?)[A-Za-z]*$')
 
 _beamlines_imported = False
+
+
+def scan_temperature(scan_dir):
+    """Return the numeric part of a scan directory name.
+
+    The value has no decimal point, e.g., the scan directory '2p5K' gives
+    '2p5'. A negative value is marked by a leading 'm'. If the name does
+    not end in a number followed by units, the whole name is returned.
+
+    Parameters
+    ----------
+    scan_dir : str
+        Name of the scan directory.
+
+    Returns
+    -------
+    str
+        Numeric part of the scan directory name.
+    """
+    match = scan_temperature_pattern.search(scan_dir)
+    return match.group(1) if match else scan_dir
 
 
 def import_beamlines():
@@ -391,7 +413,7 @@ class Sector6Beamline(NXBeamLine):
     import_data_enabled = False
 
     def __init__(self, reduce=None, *args, **kwargs):
-        super().__init__(reduce)
+        super().__init__(reduce, *args, **kwargs)
 
     def create_macro(self, scan_files, command='Pil2Mscan'):
         parameters = ['#command path filename temperature detx dety '
@@ -422,18 +444,18 @@ class Sector6Beamline(NXBeamLine):
                     frame_rate = 1.0 / entry['instrument/detector/frame_time']
                 else:
                     frame_rate = 10.0
-                scan_file = entry.nxname
+                entry_name = entry.nxname
                 if command == 'Pil2Mscan':
                     parameters.append(
                         f'{command} '
                         f'{scan_file.parent.joinpath(scan_dir)} '
-                        f'{scan_file} {temperature:.6g} {dx:.6g} {dy:.6g} '
+                        f'{entry_name} {temperature:.6g} {dx:.6g} {dy:.6g} '
                         f'{phi_start:.6g} {phi_step:.6g} {phi_end:.6g} '
                         f'{chi:.6g} {omega:.6g} {frame_rate:.6g}')
             if command == 'Pil2Mstring':
                 parameters.append(f'Pil2Mstring("{scan_dir}")')
             elif command != 'Pil2Mscan':
-                parameters.append(f'{command} {temperature}')
+                parameters.append(f'{command}  {scan_temperature(scan_dir)}')
         return parameters
 
     def log_files(self):
