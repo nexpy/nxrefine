@@ -25,6 +25,9 @@ from nxrefine.plugins.refine.new_subentry import SubentryDialog
 from nxrefine.plugins.refine.select_files import FilesDialog
 
 
+NO_LOGS = 'No Logs'
+
+
 def show_dialog():
     try:
         dialog = WorkflowDialog()
@@ -559,8 +562,10 @@ class WorkflowDialog(NXDialog):
         self.output_box = NXPlainTextEdit(wrap=False)
         process_button = NXPushButton('View Processes', self.procview)
         task_log_button = NXPushButton('View Task Log', self.taskview)
-        self.log_combo = dialog.select_box(self.current_log_names(),
+        log_names = self.current_log_names()
+        self.log_combo = dialog.select_box(log_names or [NO_LOGS],
                                            slot=self.taskview)
+        self.log_combo.setEnabled(bool(log_names))
         close_layout = self.make_layout(process_button, task_log_button,
                                         self.log_combo, 'stretch',
                                         dialog.close_buttons(close=True),
@@ -736,16 +741,18 @@ class WorkflowDialog(NXDialog):
     def update_logs(self):
         """Refresh the list of task logs, preserving the selection."""
         names = self.current_log_names()
-        if names != self.log_combo.items():
+        items = names or [NO_LOGS]
+        if items != self.log_combo.items():
             selected = self.log_combo.selected
             self.log_combo.clear()
-            self.log_combo.add(*names)
-            if selected in names:
+            self.log_combo.add(*items)
+            if selected in items:
                 self.log_combo.select(selected)
+        self.log_combo.setEnabled(bool(names))
 
     def taskview(self):
         self.update_logs()
-        if self.log_combo.selected:
+        if self.log_combo.selected and self.log_combo.selected != NO_LOGS:
             self.output_box.setPlainText(
                 self.server.task_output(self.log_combo.selected))
             self.output_box.verticalScrollBar().setValue(
