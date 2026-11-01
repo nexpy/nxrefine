@@ -744,10 +744,14 @@ class WorkflowDialog(NXDialog):
         items = names or [NO_LOGS]
         if items != self.log_combo.items():
             selected = self.log_combo.selected
-            self.log_combo.clear()
-            self.log_combo.add(*items)
-            if selected in items:
-                self.log_combo.select(selected)
+            self.log_combo.blockSignals(True)
+            try:
+                self.log_combo.clear()
+                self.log_combo.add(*items)
+                if selected in items:
+                    self.log_combo.select(selected)
+            finally:
+                self.log_combo.blockSignals(False)
         self.log_combo.setEnabled(bool(names))
 
     def taskview(self):
