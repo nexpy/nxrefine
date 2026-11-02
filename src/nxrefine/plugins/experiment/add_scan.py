@@ -47,6 +47,7 @@ class AddScanDialog(NXDialog):
         self.scan_units = self.parent.scan_units
 
         self.scan_box = NXLineEdit('300', align='right', slot=self.update_scan)
+        self.scan_box.textChanged.connect(self.update_scan)
         self.scan_layout = self.make_layout(NXLabel(self.scan_label),
                                             self.scan_box,
                                             NXLabel(self.scan_units))
