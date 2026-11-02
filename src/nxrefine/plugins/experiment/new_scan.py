@@ -19,6 +19,49 @@ from nxrefine.nxreduce import auto_transmission_q
 from nxrefine.nxsettings import NXSettings
 
 
+def default_q(source):
+    """Return the default (qmin, qmax) for the geometry in a NeXus file.
+
+    A single pair of values is calculated for the whole scan set, using
+    the first entry (e.g., f1) of the file. The shape of the detector is
+    taken from the linked data if present, and otherwise from the
+    detector geometry, since configuration files contain no data.
+
+    Parameters
+    ----------
+    source : str or Path
+        Configuration or NeXus file defining the detector geometry.
+
+    Returns
+    -------
+    tuple of (float, float) or (None, None)
+        Values of qmin and qmax, or None if the geometry needed to
+        calculate them is incomplete.
+    """
+    try:
+        with nxopen(source) as root:
+            entries = [e for e in root if e[-1].isdigit()]
+            if not entries:
+                return None, None
+            entry = root[entries[0]]
+            refine = NXRefine(entry)
+            if 'data' in entry:
+                shape = tuple(ax.shape[0] for ax in entry['data'].nxaxes)
+            else:
+                ny, nx = (int(v) for v in refine.shape)
+                shape = (1, ny, nx)
+            return auto_transmission_q(refine, shape)
+    except Exception:
+        return None, None
+
+
+def format_q(value):
+    """Return a q value formatted for display, or '' if undefined."""
+    if value in (None, ''):
+        return ''
+    return f"{float(value):.1f}"
+
+
 def show_dialog():
     try:
         dialog = NewScanDialog()
@@ -104,6 +147,7 @@ class NewScanDialog(NXDialog):
         else:
             default = {default[field].nxname: default[field].nxvalue
                        for field in default}
+        auto_qmin, auto_qmax = default_q(self.config_source())
         param_map = {
             'threshold':     ('Peak Threshold', fallback['threshold']),
             'first_frame':   ('First Frame', fallback['first_frame']),
@@ -113,6 +157,9 @@ class NewScanDialog(NXDialog):
                               fallback['hkl_tolerance']),
             'monitor':       ('Normalization Monitor', fallback['monitor']),
             'norm':          ('Normalization Value', fallback['norm']),
+            'qmin':          ('Minimum Scattering Q (Å-1)',
+                              format_q(auto_qmin)),
+            'qmax':          ('Maximum Taper Q (Å-1)', format_q(auto_qmax)),
             'radius':        ('Punch Radius (Å)', fallback['radius']),
             'scan_path':     ('Scan Path', fallback['scan_path']),
             'scan_units':    ('Scan Units', fallback['scan_units'])}
@@ -122,6 +169,8 @@ class NewScanDialog(NXDialog):
                             slot=self.update_scan)
         for key, (label, fallback) in param_map.items():
             value = default.get(key, fallback)
+            if key in ('qmin', 'qmax'):
+                value = format_q(value)
             if value is None:
                 value = ''
             if key in ('scan_path', 'scan_units'):
@@ -147,7 +196,29 @@ class NewScanDialog(NXDialog):
         self.scandir_box = NXLineEdit('', align='right')
         self.scandir_layout = self.make_layout(NXLabel('Scan Directory'),
                                                self.scandir_box)
+        self.connect_live_updates()
         self.update_scan()
+
+    def connect_live_updates(self):
+        """Keep the scan directory in step with the text being typed.
+
+        The boxes only signal that editing has finished when they lose
+        focus, which does not happen when Save is clicked on macOS, so
+        the scan directory and scan file could still reflect the values
+        from before the last edit.
+        """
+        self.parameters['parent'].box.textChanged.connect(self.update_scan)
+        self.parameters['scan_path'].box.textChanged.connect(
+            self.update_scan_labels)
+        self.parameters['scan_units'].box.textChanged.connect(
+            self.update_scan_labels)
+        self.scan_box.textChanged.connect(self.update_scan)
+
+    def update_q(self):
+        """Reset qmin and qmax to the defaults for the chosen source."""
+        qmin, qmax = default_q(self.config_source())
+        self.parameters['qmin'].value = format_q(qmin)
+        self.parameters['qmax'].value = format_q(qmax)
 
     def choose_configuration(self):
         if self.layout.count() == 4:
@@ -157,6 +228,7 @@ class NewScanDialog(NXDialog):
                                self.scandir_layout)
         else:
             self.reset_prefix()
+            self.update_q()
 
     def choose_file(self):
         self.set_default_directory(self.sample_directory)
@@ -178,6 +250,7 @@ class NewScanDialog(NXDialog):
                                self.scandir_layout)
         else:
             self.reset_prefix()
+            self.update_q()
         self.status_message.setText("Values copied from NeXus file")
 
     @property
@@ -322,28 +395,6 @@ class NewScanDialog(NXDialog):
             if value == '' or value is None:
                 continue
             target.settings[p] = value
-        q_min, q_max = self._auto_q(target)
-        if q_min is not None:
-            target.settings['qmin'] = q_min
-        if q_max is not None:
-            target.settings['qmax'] = q_max
-
-    def _auto_q(self, target):
-        """Compute (qmin, qmax) from the target's copied geometry.
-
-        Returns ``(None, None)`` if the geometry needed for the
-        calculation is incomplete; the runtime will then fill in
-        qmin/qmax when nxmax first runs.
-        """
-        try:
-            refine = NXRefine(target.entry)
-            data = (target.entry['data']
-                    if 'data' in target.entry else None)
-            shape = (tuple(ax.shape[0] for ax in data.nxaxes)
-                     if data is not None else None)
-            return auto_transmission_q(refine, shape)
-        except Exception:
-            return None, None
 
     def config_source(self):
         return self.nexus_file if self.nexus_file else self.configuration_file
