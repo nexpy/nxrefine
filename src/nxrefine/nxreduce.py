@@ -36,11 +36,16 @@ from .nxrefine import NXRefine
 from .nxserver import NXServer
 from .nxsettings import NXSettings
 from .nxsymmetry import NXSymmetry
-from .nxutils import (find_maximum_chunk, init_julia, load_julia,
-                       mask_volume, peak_search)
+from .nxutils import (annulus_indices, capped_sum, find_maximum_chunk,
+                      init_julia, load_julia, mask_volume, peak_search,
+                      robust_baseline)
 
 QMIN_PIXEL_FRACTION = 0.3
 QMAX_PIXEL_FRACTION = 0.95
+PARTIAL_CAP = 2
+PARTIAL_METHOD = f'capped_sum_{PARTIAL_CAP}'
+BASELINE_KNOT_FRAMES = 120
+BASELINE_WEIGHT = 0.2
 
 
 def auto_transmission_q(refine, shape):
@@ -137,6 +142,11 @@ class NXReduce(QtCore.QObject):
             Maximum Q used in PDF taper function, by default None
         radius : float, optional
             Radius used in punching holes in inverse Angstroms, by default None
+        baseline_weight : float, optional
+            Relative weight of the frames above the fitted baseline in
+            calculating the transmission, by default None (read from the
+            parent settings, with a default of 0.2). A value of 1.0 gives
+            a symmetric fit.
         mask_parameters : dict, optional
             Thresholds and convolution sizes used to prepare 3D masks, by
             default None.
@@ -193,7 +203,7 @@ class NXReduce(QtCore.QObject):
             polar_max=None, hkl_tolerance=None, monitor=None, norm=None,
             sample_transmission=None,
             polarization=None, qmin=None, qmax=None,
-            radius=None, mask_parameters=None,
+            radius=None, baseline_weight=None, mask_parameters=None,
             Qh=None, Qk=None, Ql=None,
             load=False, link=False,
             maxcount=False, find=False, refine=False, prepare=False,
@@ -257,6 +267,7 @@ class NXReduce(QtCore.QObject):
         self._qmin = qmin
         self._qmax = qmax
         self._radius = radius
+        self._baseline_weight = baseline_weight
         self._mask_parameters = mask_parameters
 
         self._maximum = None
@@ -772,6 +783,7 @@ class NXReduce(QtCore.QObject):
                          polar_max=None, hkl_tolerance=None,
                          monitor=None, norm=None, sample_transmission=None,
                          qmin=None, qmax=None, radius=None,
+                         baseline_weight=None,
                          mask_t1=None, mask_h1=None,
                          mask_t2=None, mask_h2=None):
         """Store the specified data reduction parameters.
@@ -815,6 +827,9 @@ class NXReduce(QtCore.QObject):
         if radius is not None:
             self.radius = radius
             params['radius'] = self.radius
+        if baseline_weight is not None:
+            self.baseline_weight = baseline_weight
+            params['baseline_weight'] = self.baseline_weight
         if mask_t1 is not None:
             self.mask_parameters['mask_t1'] = float(mask_t1)
             params['mask_t1'] = self.mask_parameters['mask_t1']
@@ -973,6 +988,15 @@ class NXReduce(QtCore.QObject):
         self._monitor_signal = None
 
     @property
+    def use_monitor(self):
+        """Whether the monitor is used in normalizations.
+
+        The monitor is switched off by leaving the ``monitor`` setting
+        blank (or setting it to ``None``).
+        """
+        return (self.monitor or '').strip().lower() not in ('', 'none')
+
+    @property
     def norm(self):
         """Factor used to normalize the monitor counts."""
         if self._norm is None:
@@ -1067,6 +1091,27 @@ class NXReduce(QtCore.QObject):
     @radius.setter
     def radius(self, value):
         self._radius = value
+
+    @property
+    def baseline_weight(self):
+        """Relative weight of frames above the transmission baseline.
+
+        Bragg peaks only add counts to the background, so by default
+        (:data:`BASELINE_WEIGHT`) the frames above the fitted baseline
+        count for less than those below it. A value of 1.0 gives a
+        symmetric fit, which is appropriate when the background is
+        free of Bragg contamination and varies sharply with rotation.
+        """
+        if self._baseline_weight is None:
+            value = self.get_parameter('baseline_weight')
+            if value in (None, ''):
+                value = BASELINE_WEIGHT
+            self._baseline_weight = float(value)
+        return self._baseline_weight
+
+    @baseline_weight.setter
+    def baseline_weight(self, value):
+        self._baseline_weight = float(value)
 
     @property
     def mask_parameters(self):
@@ -1566,7 +1611,7 @@ class NXReduce(QtCore.QObject):
                     self.write_parameters(first=self.first, last=self.last)
                     self.record('nxmax', maximum=self.maximum,
                                 first_frame=self.first, last_frame=self.last,
-                                qmin=self.qmin)
+                                qmin=self.qmin, qmax=self.qmax)
                     self.record_end('nxmax')
             except Exception as error:
                 self.log(str(error))
@@ -1585,6 +1630,16 @@ class NXReduce(QtCore.QObject):
         is repeated until the maximum counts are found or the end of the
         file is reached. The maximum counts are then written to the
         'maximum' field of the 'data' group in the entry.
+
+        The per-frame background (`partial_frames`) is the sum of the
+        counts in a subsample of the pixels in the annulus between
+        `qmin` and `qmax`, with the counts in each pixel capped at
+        :data:`PARTIAL_CAP` and the sum rescaled to the full annulus.
+        Capping limits the contribution of Bragg peaks without a
+        threshold that would jump between integer counts, since most
+        background pixels have only 0-2 counts. The method, cap and Q
+        range that were used are stored as attributes of
+        `partial_frames`.
 
         If the gui flag is set, the result is emitted as a signal.
 
@@ -1610,26 +1665,15 @@ class NXReduce(QtCore.QObject):
             pixel_mask = pixel_mask | mask
 
         transmission_mask = self.transmission_coordinates()
-        # Subsampled flat indices of the annulus pixels used to
-        # estimate the per-frame transmission baseline as a
-        # trimmed sum -- np.partition drops the brightest
-        # PEAK_FRACTION of pixels (the Bragg peaks) and sums the
-        # rest, rescaling to the full annulus magnitude. A
-        # trimmed sum is used instead of a median because
-        # background pixels often carry only 0-2 Poisson counts;
-        # the median is then a discrete integer that jumps
-        # between adjacent values as the background drifts, but
-        # a sum over ~50k pixels averages those counts into a
-        # smooth real-valued curve.
-        annulus_flat = np.flatnonzero(
-            ~(pixel_mask | transmission_mask).ravel())
+        annulus_flat = annulus_indices(pixel_mask, transmission_mask)
         n_annulus = annulus_flat.size
+        if n_annulus == 0:
+            raise NeXusError("No pixels in the transmission annulus; "
+                             "check qmin and qmax")
         stride = max(1, n_annulus // 50000)
         sub_idx = annulus_flat[::stride]
-        n_sub = sub_idx.size
-        peak_fraction = 0.1
-        n_keep = max(1, int((1.0 - peak_fraction) * n_sub))
-        scale = n_annulus / n_keep
+        scale = n_annulus / sub_idx.size
+        cap = PARTIAL_CAP
 
         fsum = np.zeros(self.nframes, dtype=np.float64)
         psum = np.zeros(self.nframes, dtype=np.float64)
@@ -1653,7 +1697,7 @@ class NXReduce(QtCore.QObject):
                         self.field.nxfilename, self.field.nxfilepath,
                         i, i, k,
                         pixel_mask, transmission_mask,
-                        sub_idx, n_keep, scale))
+                        sub_idx, cap, scale))
                 for future in as_completed(futures):
                     chunk_i, lv, lf, lp, lmax = future.result()
                     vsum = lv if vsum is None else vsum + lv
@@ -1680,15 +1724,14 @@ class NXReduce(QtCore.QObject):
                             else vsum + v_raw.sum(0))
                     vflat = v_raw.reshape(v_raw.shape[0], -1)
                     sub_vals = vflat[:, sub_idx]
-                    trimmed = np.partition(sub_vals, n_keep, axis=1)[:,:n_keep]
-                    psum[i:i+chunk_size] = trimmed.sum(axis=1) * scale
+                    psum[i:i+chunk_size] = capped_sum(sub_vals, cap, scale)
                     v = np.ma.masked_array(v_raw)
                     v.mask = pixel_mask
                     fsum[i:i+chunk_size] = v.sum((1, 2))
                     v.mask = pixel_mask | transmission_mask
                     if maximum < v.max():
                         maximum = v.max()
-                    del v, v_raw, vflat, sub_vals, trimmed
+                    del v, v_raw, vflat, sub_vals
 
         self.pixel_mask = pixel_mask
         vsum = np.ma.masked_array(vsum, mask=pixel_mask)
@@ -1696,15 +1739,26 @@ class NXReduce(QtCore.QObject):
         self.summed_data = NXfield(vsum, name='summed_data')
         self.summed_frames = NXfield(fsum, name='summed_frames')
         self.partial_frames = NXfield(psum, name='partial_frames')
+        self.partial_frames.attrs['method'] = PARTIAL_METHOD
+        self.partial_frames.attrs['cap'] = cap
+        if self.qmin is not None:
+            self.partial_frames.attrs['qmin'] = float(self.qmin)
+        if self.qmax is not None:
+            self.partial_frames.attrs['qmax'] = float(self.qmax)
         toc = self.stop_progress()
         self.log(f"Maximum counts: {maximum} ({(toc-tic):g} seconds)")
         return NXcollection(NXfield(maximum, name='maximum'),
                             self.summed_data, self.summed_frames,
                             self.partial_frames)
 
-    def write_maximum(self):
+    def write_maximum(self, set_reference=None):
         """
         Write the maximum counts and the summed data to the file.
+
+        If the scan has a parent, the median of the first entry's
+        transmission may also be saved as the parent's reference for
+        normalizing the transmissions of different scans; see
+        :meth:`update_reference` for the meaning of `set_reference`.
 
         Outputs are grouped under a `frame_sums` NXcollection on the
         target group: `summed_data`, `summed_frames` (with the
@@ -1740,7 +1794,75 @@ class NXReduce(QtCore.QObject):
                           ('summed_data', 'summed_frames',
                            'radial_sum', 'transmission')
                           if name in frame_sums])
+        self.update_reference(transmission, set_reference)
         self.clear_parameters(['first', 'last'])
+
+    def update_reference(self, transmission, set_reference=None):
+        """Set or refresh the parent's reference for transmissions.
+
+        The reference level is the median stored with the first entry's
+        transmission, so only the first entry of a scan can define it.
+
+        Parameters
+        ----------
+        transmission : NXdata
+            Transmission calculated by :meth:`calculate_transmission`.
+        set_reference : bool, optional
+            If True, this scan replaces any existing reference. If None,
+            it becomes the reference only if there is none. If False, it
+            does not become the reference, but the level is still
+            refreshed if it already is.
+        """
+        if not self.parent or not self.is_first_entry():
+            return
+        signal = transmission.nxsignal
+        median = self._transmission_median(signal)
+        if median is None:
+            return
+        median_monitor = self._transmission_attr(signal, 'median_monitor')
+        scan = self.wrapper_file.stem
+        if set_reference is False:
+            reference = self.parent.reference
+            if reference is None or reference['reference_scan'] != scan:
+                return
+        if self.parent.claim_reference(
+                scan, median, self.reference_monitor, self.norm,
+                level_monitor=median_monitor, method=PARTIAL_METHOD,
+                force=bool(set_reference)):
+            self.log(f"Reference level for transmissions: {median:g}")
+
+    def write_transmission(self, set_reference=None):
+        """
+        Write the transmission calculated from the stored partial frames.
+
+        Only ``frame_sums/transmission`` is replaced. The summed data,
+        summed frames, partial frames and radial sum, and the maximum,
+        are left as they are, so this does not need the raw data to be
+        read again. It is used when a setting that only affects the
+        transmission, such as :attr:`baseline_weight`, has changed.
+
+        Parameters
+        ----------
+        set_reference : bool, optional
+            Whether this scan becomes the parent's reference; see
+            :meth:`update_reference`.
+
+        Raises
+        ------
+        NeXusError
+            If the partial frames have not been saved in the file.
+        """
+        transmission = self.calculate_transmission()
+        with self:
+            target = self._get_reduce_target()
+            if 'frame_sums' not in target:
+                target['frame_sums'] = NXcollection()
+            frame_sums = target['frame_sums']
+            if 'transmission' in frame_sums:
+                del frame_sums['transmission']
+            frame_sums['transmission'] = transmission
+        self.consolidate([frame_sums['transmission']])
+        self.update_reference(transmission, set_reference)
 
     def calculate_radial_sums(self):
         """
@@ -1798,76 +1920,195 @@ class NXReduce(QtCore.QObject):
             self.log(str(error))
             return None
 
-    def get_sample_transmission(self):
-        """Field containing the estimated sample transmission."""
-        def _read(group):
-            for path in ('frame_sums/transmission',
-                         'instrument/sample/transmission'):
-                if path in group:
-                    return group[path].nxsignal
+    @staticmethod
+    def _find_transmission(group):
+        """Return the per-frame transmission field in a group, or None.
+
+        Consolidated transmissions in a parent file have an additional
+        scan dimension, so only one-dimensional fields are accepted.
+        """
+        if group is None:
             return None
-        transmission = None
-        if self.parent:
-            transmission = _read(self.parent_entry)
-        if transmission is None:
-            transmission = _read(self.entry)
-        if transmission is None:
+        for path in ('frame_sums/transmission',
+                     'instrument/sample/transmission'):
+            if path in group:
+                signal = group[path].nxsignal
+                if signal is not None and len(signal.shape) == 1:
+                    return signal
+        return None
+
+    @staticmethod
+    def _transmission_attr(signal, name):
+        """Return an attribute stored with a transmission field, or None."""
+        if signal is None or name not in signal.attrs:
+            return None
+        value = signal.attrs[name]
+        return getattr(value, 'nxvalue', value)
+
+    @staticmethod
+    def _transmission_median(signal):
+        """Return the median stored with a transmission field, or None."""
+        median = NXReduce._transmission_attr(signal, 'median')
+        return None if median is None else float(median)
+
+    @property
+    def reference_monitor(self):
+        """Name of the monitor recorded with a reference ('none' if off)."""
+        return self.monitor.strip() if self.use_monitor else 'none'
+
+    def get_reference_level(self):
+        """Return the parent's reference level, if it can be applied.
+
+        The reference is the median of the first entry of the reference
+        scan's transmission baseline, which is set by :meth:`nxmax` or
+        the Find Maximum dialog. Two levels are stored, one for the
+        baseline and one for the baseline divided by the monitor, and
+        the one matching the use of the monitor is returned. The
+        reference is not used if there is no parent, no reference has
+        been set, the reference scan is no longer one of the parent's
+        scans, it was calculated with a different method, or, when the
+        monitor is used, with a different monitor or normalization.
+
+        Returns
+        -------
+        float or None
+            The reference level, or None if there is no valid reference.
+        """
+        if not self.parent:
+            return None
+        reference = self.parent.reference
+        if reference is None:
+            return None
+        if reference['reference_scan'] not in self.parent.scans:
+            self.log(f"Reference scan '{reference['reference_scan']}' "
+                     "is not in the parent; ignoring the reference")
+            return None
+        if reference.get('reference_method') != PARTIAL_METHOD:
+            self.log("Reference was calculated with a different method; "
+                     "rerun nxmax on the reference scan")
+            return None
+        if not self.use_monitor:
+            return reference['reference_level']
+        if (str(reference.get('reference_monitor', '')).lower()
+                != self.reference_monitor.lower()
+                or not np.isclose(reference.get('reference_norm', 0.0),
+                                  self.norm)
+                or 'reference_level_monitor' not in reference):
+            self.log("Reference was calculated with a different monitor "
+                     "normalization; ignoring the reference")
+            return None
+        return reference['reference_level_monitor']
+
+    def get_sample_transmission(self):
+        """Estimated sample transmission as a per-frame array.
+
+        The baseline stored in the transmission, in counts, is divided
+        by the monitor if the monitor is used. It is then divided by the
+        reference level of the parent if there is a valid one (see
+        :meth:`get_reference_level`), so that all entries of all scans
+        are on the same scale. Otherwise, the first entry of a scan has
+        a median of 1.0 and the other entries are scaled to the first
+        entry of the same scan.
+
+        A transmission without the ``method`` attribute of the current
+        method is returned with a median of 1.0 for the first entry and
+        scaled to it for the other entries.
+        """
+        signal = self._find_transmission(self.scan_entry)
+        if signal is None:
+            signal = self._find_transmission(self.entry)
+        if signal is None and self.parent:
+            signal = self._find_transmission(self.parent_entry)
+        if signal is None:
             return np.ones(shape=(self.nframes,), dtype=np.float32)
-        if self.is_first_entry():
-            return transmission
-        else:
-            first_reduce = NXReduce(self.first_entry)
-            first_transmission = first_reduce.get_sample_transmission()
-            if ('median' in transmission.attrs and
-                    'median' in first_transmission.attrs):
-                correction = (transmission.attrs['median'] /
-                              first_transmission.attrs['median'])
-                transmission *= correction
-            return transmission
+        values = np.array(signal.nxvalue, dtype=float)
+        median = self._transmission_median(signal)
+        if median is None:
+            return values
+        first_signal = None
+        if not self.is_first_entry():
+            first_signal = self._find_transmission(
+                self._get_entry_target(self.entries[0]))
+        if self._transmission_attr(signal, 'method') != PARTIAL_METHOD:
+            first_median = self._transmission_median(first_signal)
+            if first_median is not None:
+                values *= median / first_median
+            return values
+        counts = values * median
+        level_name = 'median'
+        if self.use_monitor:
+            counts = counts / self.read_monitor()
+            level_name = 'median_monitor'
+        level = float(np.median(counts))
+        divisor = self.get_reference_level()
+        if divisor is None and first_signal is not None:
+            divisor = self._transmission_attr(first_signal, level_name)
+        if divisor is None:
+            divisor = level
+        return counts / float(divisor)
 
     def calculate_transmission(self):
-        """Calculate sample transmission from per-frame baseline.
+        """Calculate the sample transmission baseline.
 
-        ``partial_frames`` is the robust per-frame transmission
-        baseline (trimmed sum of the annulus pixels, computed by
-        :meth:`find_maximum` after dropping the brightest fraction
-        as Bragg-peak contamination and rescaling to the full
-        annulus magnitude). This function normalises by the monitor
-        signal, holds the values outside ``[first, last)`` at the
-        edge values, applies a 31-frame median filter to suppress
-        outlier bursts up to ~15 frames wide that survived the spatial
-        trim, and rescales to a median of 1.0.
+        ``partial_frames`` is the per-frame background calculated by
+        :meth:`find_maximum`. Bragg peaks only add counts to it, so the
+        baseline is fitted with :func:`~nxrefine.nxutils.robust_baseline`,
+        a spline with knots every :data:`BASELINE_KNOT_FRAMES` frames
+        that is robust to positive outliers. The frames above the
+        baseline are weighted by :attr:`baseline_weight`. Only the
+        frames in ``[first, last)`` are fitted, and the values outside
+        are held at the edge values.
+
+        The fit does not use the monitor, so the result is independent
+        of the monitor settings. The monitor is applied when the
+        normalization is calculated (see
+        :meth:`get_sample_transmission`). The baseline is rescaled to a
+        median of 1.0, and the medians are stored as attributes of the
+        transmission signal: ``median`` for the baseline, and
+        ``median_monitor`` for the baseline divided by the monitor if
+        the monitor is used. The ``method`` attribute of
+        ``partial_frames`` is copied to the transmission signal.
 
         Returns
         -------
         NXdata
             Calculated transmission values with frame number as the
-            x-axis. The pre-normalisation median is preserved in the
-            ``median`` attribute of the transmission signal.
+            x-axis.
         """
-        from scipy.ndimage import median_filter
         if self.partial_frames is None:
             target = self.scan_entry or self.entry
             if ('frame_sums/summed_frames/partial_frames' in target):
-                y = target[
-                    'frame_sums/summed_frames/partial_frames'].nxvalue
+                partial = target['frame_sums/summed_frames/partial_frames']
             elif ('summed_frames' in target
                     and 'partial_frames' in target['summed_frames']):
-                y = target['summed_frames/partial_frames'].nxvalue
+                partial = target['summed_frames/partial_frames']
             else:
                 raise NeXusError('Partial frames not available')
         else:
-            y = self.partial_frames.nxvalue
-        y = (y / self.read_monitor()).astype(np.float64)
-        if self.first > 0:
-            y[:self.first] = y[self.first]
-        if self.last < self.nframes:
-            y[self.last:] = y[self.last - 1]
-        y = median_filter(y, size=31)
-        ymedian = float(np.median(y))
-        transmission = NXfield(y / ymedian, name='transmission',
+            partial = self.partial_frames
+        y = np.array(partial.nxvalue, dtype=np.float64)
+        first = max(self.first, 0)
+        last = min(self.last, self.nframes)
+        baseline = np.empty(self.nframes, dtype=np.float64)
+        baseline[first:last] = robust_baseline(
+            y[first:last], BASELINE_KNOT_FRAMES,
+            upper_weight=self.baseline_weight)
+        baseline[:first] = baseline[first]
+        baseline[last:] = baseline[last - 1]
+        median = float(np.median(baseline))
+        if median <= 0:
+            raise NeXusError('Unable to determine the transmission baseline')
+        transmission = NXfield(baseline / median, name='transmission',
                                long_name='Sample Transmission')
-        transmission.attrs['median'] = ymedian
+        transmission.attrs['median'] = median
+        transmission.attrs['baseline_weight'] = self.baseline_weight
+        if self.use_monitor:
+            transmission.attrs['median_monitor'] = float(
+                np.median(baseline / self.read_monitor()))
+        if 'method' in partial.attrs:
+            method = partial.attrs['method']
+            transmission.attrs['method'] = str(
+                getattr(method, 'nxvalue', method))
         frames = NXfield(np.arange(self.nframes), name='nframes',
                          long_title='Frame No.')
         return NXdata(transmission, frames, title='Sample Transmission')
@@ -1972,14 +2213,21 @@ class NXReduce(QtCore.QObject):
         and reused on subsequent calls; the cache is invalidated when
         the ``monitor`` or ``norm`` setter is invoked.
 
+        If the monitor has been switched off (see :attr:`use_monitor`),
+        an array of ones is returned without consulting the beamline.
+
         Returns
         -------
         ndarray
             The monitor signal as a numpy array, or an array of ones if
-            reading the monitor fails.
+            the monitor is switched off or reading it fails.
         """
 
         if self._monitor_signal is None:
+            if not self.use_monitor:
+                self._monitor_signal = np.ones(
+                    shape=(self.nframes,), dtype=float)
+                return self._monitor_signal
             try:
                 self._monitor_signal = self.beamline.read_monitor(self.monitor)
             except Exception:
@@ -2530,7 +2778,7 @@ class NXReduce(QtCore.QObject):
     def get_normalization(self):
         with self:
             try:
-                monitor_weight = self.read_monitor()
+                monitor_weight = np.array(self.read_monitor(), dtype=float)
                 inst = self.entry['instrument']
                 transmission = np.ones(self.nframes, dtype=np.float32)
                 try:
@@ -2561,7 +2809,10 @@ class NXReduce(QtCore.QObject):
         settings_file = self.scan_directory.joinpath(
             self.entry_name+'_transform.pars')
         self.get_transform_grid(mask=mask)
-        if self.norm:
+        if self.norm or not self.use_monitor:
+            if not self.use_monitor and not self.sample_transmission:
+                self.log("Monitor and sample transmission are both off; "
+                         "the data are not normalized for beam decay")
             self.get_normalization()
         if self.Qh is not None and self.Qk is not None and self.Ql is not None:
             with self:

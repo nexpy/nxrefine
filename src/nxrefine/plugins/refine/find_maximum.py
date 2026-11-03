@@ -40,7 +40,12 @@ class MaximumDialog(NXDialog):
         self.parameters.add('last', '', 'Last Frame')
         self.parameters.add('qmin', '', 'Minimum Scattering Q (Ang-1)')
         self.parameters.add('qmax', '', 'Maximum Scattering Q (Ang-1)')
+        self.parameters.add('baseline_weight', '', 'Baseline Weight')
         self.checkbox['over'] = NXCheckBox('Over?')
+        self.checkbox['reference'] = NXCheckBox('Use as Reference Scan')
+        self.reference_label = NXLabel('')
+        self.reference_layout = self.make_layout(self.checkbox['reference'],
+                                                 self.reference_label)
         self.maximum_layout = self.make_layout(
             self.action_buttons(('Find Maximum', self.find_maximum)),
             self.output)
@@ -79,6 +84,8 @@ class MaximumDialog(NXDialog):
             self.insert_layout(2, self.maximum_layout)
             self.insert_layout(3, self.plot_layout)
             self.insert_layout(4, self.transmission_layout)
+            self.insert_layout(5, self.reference_layout)
+        self.update_reference()
         if self.reduce.first:
             self.parameters['first'].value = self.reduce.first
         if self.reduce.last:
@@ -89,6 +96,7 @@ class MaximumDialog(NXDialog):
             self.parameters['qmin'].value = f"{float(qmin_val):.1f}"
         if qmax_val is not None:
             self.parameters['qmax'].value = f"{float(qmax_val):.1f}"
+        self.parameters['baseline_weight'].value = self.reduce.baseline_weight
         target = self.reduce.scan_entry or self.entry
         sums = target['frame_sums'] if 'frame_sums' in target else target
         if 'summed_frames' in sums:
@@ -105,6 +113,36 @@ class MaximumDialog(NXDialog):
         else:
             self.summed_data = None
         self.monitor = self.reduce.read_monitor()
+
+    def update_reference(self):
+        """Show the parent's reference scan and set the checkbox.
+
+        Only the first entry of a scan can define the reference. The box
+        is checked if there is no reference yet or this scan is it.
+        """
+        parent = self.reduce.parent
+        reference = parent.reference if parent else None
+        enabled = bool(parent) and self.reduce.is_first_entry()
+        scan = self.reduce.wrapper_file.stem
+        if not parent:
+            text = 'No parent file'
+        elif reference is None:
+            text = 'Reference: None'
+        else:
+            text = (f"Reference: {reference['reference_scan']} "
+                    f"({reference['reference_level']:g})")
+        self.reference_label.setText(text)
+        self.checkbox['reference'].setEnabled(enabled)
+        self.checkbox['reference'].setChecked(
+            enabled and (reference is None
+                         or reference['reference_scan'] == scan))
+
+    @property
+    def set_reference(self):
+        """True or False if the reference can be set, otherwise None."""
+        if self.checkbox['reference'].isEnabled():
+            return self.checkbox['reference'].isChecked()
+        return None
 
     @property
     def first(self):
@@ -143,6 +181,15 @@ class MaximumDialog(NXDialog):
             return None
 
     @property
+    def baseline_weight(self):
+        """Weight of the frames above the baseline, or None if invalid."""
+        try:
+            weight = float(self.parameters['baseline_weight'].value)
+        except Exception:
+            return None
+        return weight if 0.0 < weight <= 1.0 else None
+
+    @property
     def maximum(self):
         return float(self.output.text().split()[-1])
 
@@ -160,6 +207,7 @@ class MaximumDialog(NXDialog):
         self.start_thread()
         self.reduce = NXReduce(self.entry, first=self.first, last=self.last,
                                qmin=self.qmin, qmax=self.qmax,
+                               baseline_weight=self.baseline_weight,
                                subentry=self.subentry or None,
                                maxcount=True, overwrite=True, gui=True)
         self.reduce.moveToThread(self.thread)
@@ -268,23 +316,73 @@ class MaximumDialog(NXDialog):
         return self.reduce.calculate_transmission()
 
     def plot_transmission(self):
+        """Plot the baseline fitted to the partial frames.
+
+        If `Over?` is checked, the baseline is plotted in the units of
+        the partial frames (divided by the monitor, if it is used), so
+        that it can be compared with them. Otherwise, it is plotted as
+        used in normalizing the data, scaled to the parent's reference
+        level if there is one, or to a median of 1.0 if not.
+        """
         if self.partial_frames:
-            self.reduce.qmin = self.qmin
-            self.reduce.qmax = self.qmax
+            if self.baseline_weight is not None:
+                self.reduce.baseline_weight = self.baseline_weight
             transmission = self.calculate_transmission()
-            if 'median' in transmission.nxsignal.attrs:
-                transmission *= transmission.nxsignal.attrs['median']
+            signal = transmission.nxsignal
+            median = self.reduce._transmission_median(signal)
+            if median is not None:
+                values = signal.nxvalue * median / self.monitor
+                if not self.over:
+                    values = values / (self.reduce.get_reference_level()
+                                       or np.median(values))
+                transmission = NXdata(
+                    NXfield(values, name='transmission',
+                            long_name='Sample Transmission'),
+                    transmission.nxaxes, title='Sample Transmission')
             self.pv.plot(transmission, markersize=2, over=self.over)
         else:
             display_message('Partial frames not available')
 
+    def applied_q(self, name):
+        """Return the Q limit used in calculating the partial frames.
+
+        The limits are stored with the partial frames when they are
+        calculated, so they are not the values currently in the dialog
+        if those have been edited since.
+        """
+        return self.reduce._transmission_attr(self.partial_frames, name)
+
     def accept(self):
+        """Save the results and close the dialog.
+
+        If Find Maximum has been run, all the results are written. If
+        not, only the transmission is recalculated from the partial
+        frames saved in the file, using the current first and last
+        frames and baseline weight, and the other results are left as
+        they are.
+        """
         try:
-            self.reduce.write_maximum()
-            self.reduce.record('nxmax', maximum=self.maximum,
-                               first_frame=self.first, last_frame=self.last,
-                               qmin=self.qmin, qmax=self.qmax)
-            self.reduce.record_end('nxmax')
+            if self.baseline_weight is not None:
+                self.reduce.baseline_weight = self.baseline_weight
+            if self.reduce.summed_frames is None:
+                if self.first is not None:
+                    self.reduce.first = self.first
+                if self.last is not None:
+                    self.reduce.last = self.last
+                self.reduce.write_transmission(
+                    set_reference=self.set_reference)
+                self.reduce.write_parameters(
+                    baseline_weight=self.reduce.baseline_weight)
+            else:
+                self.reduce.write_maximum(set_reference=self.set_reference)
+                self.reduce.write_parameters(
+                    baseline_weight=self.reduce.baseline_weight)
+                self.reduce.record('nxmax', maximum=self.maximum,
+                                   first_frame=self.first,
+                                   last_frame=self.last,
+                                   qmin=self.applied_q('qmin'),
+                                   qmax=self.applied_q('qmax'))
+                self.reduce.record_end('nxmax')
             self.stop()
             super().accept()
         except Exception as error:

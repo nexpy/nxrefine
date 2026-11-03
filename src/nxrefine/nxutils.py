@@ -323,9 +323,124 @@ def mask_volume(data_file, data_path, mask_file, mask_path, i, j, k,
     return i
 
 
+def annulus_indices(pixel_mask, transmission_mask):
+    """Return the flat indices of the pixels used for the background.
+
+    Parameters
+    ----------
+    pixel_mask : ndarray
+        Detector pixel mask, which is nonzero for masked pixels. It may
+        be an integer array.
+    transmission_mask : ndarray
+        Mask that is True for pixels outside the annulus defined by
+        qmin and qmax.
+
+    Returns
+    -------
+    ndarray
+        Flat indices of the pixels that are in neither mask.
+    """
+    masked = (np.asarray(pixel_mask).astype(bool)
+              | np.asarray(transmission_mask).astype(bool))
+    return np.flatnonzero(~masked.ravel())
+
+
+def capped_sum(values, cap, scale=1.0):
+    """Return the per-frame sum of counts, each capped at `cap`.
+
+    Used to estimate the per-frame background from the annulus pixels.
+    A Bragg peak contributes at most `cap` counts per pixel, and the
+    sum is a smooth function of the background rate even when most
+    pixels have only 0, 1 or 2 counts.
+
+    Parameters
+    ----------
+    values : ndarray, shape (nframes, npixels)
+        Counts in the sampled annulus pixels of each frame.
+    cap : int
+        Maximum number of counts contributed by a single pixel.
+    scale : float, optional
+        Factor rescaling the sampled pixels to the full annulus.
+
+    Returns
+    -------
+    ndarray, shape (nframes,)
+        The capped sums as double-precision floats.
+    """
+    return np.clip(values, 0, cap).sum(axis=1, dtype=np.float64) * scale
+
+
+def robust_baseline(y, knot_spacing=120, upper_weight=0.2, cutoff=4.685,
+                    iterations=30):
+    """Fit a smooth baseline to data with one-sided outliers.
+
+    The data are fitted with a cubic B-spline using iteratively
+    reweighted least squares with Tukey biweight weights. The scale of
+    the noise is taken from the residuals below the fit only, since
+    positive outliers (e.g., Bragg peaks adding counts to a background)
+    inflate the upper half. Positive residuals are further
+    down-weighted by `upper_weight` so that a stretch of contaminated
+    frames wider than the knot spacing does not pull the baseline up.
+
+    Parameters
+    ----------
+    y : array_like
+        Data to be fitted, equally spaced.
+    knot_spacing : float, optional
+        Approximate spacing of the spline knots in samples, by default
+        120. This sets the shortest feature that can be followed.
+    upper_weight : float, optional
+        Relative weight of points above the fit, by default 0.2. Use 1.0
+        for a symmetric fit.
+    cutoff : float, optional
+        Biweight cutoff in units of the noise scale, by default 4.685.
+    iterations : int, optional
+        Maximum number of reweighting iterations, by default 30.
+
+    Returns
+    -------
+    ndarray
+        The fitted baseline, with the same length as `y`.
+    """
+    from scipy.interpolate import BSpline
+    y = np.asarray(y, dtype=np.float64)
+    n = y.size
+    degree = 3
+    if n <= degree + 1:
+        return np.full(n, np.median(y) if n else 0.0)
+    nknots = max(int(round((n - 1) / knot_spacing)), 1)
+    inner = np.linspace(0, n - 1, nknots + 1)[1:-1]
+    knots = np.r_[[0.0] * (degree + 1), inner, [n - 1.0] * (degree + 1)]
+    basis = BSpline.design_matrix(np.arange(n, dtype=np.float64), knots,
+                                  degree).toarray()
+    weights = np.ones(n)
+    fit = np.full(n, np.median(y))
+    for _ in range(iterations):
+        root = np.sqrt(weights)
+        coefficients = np.linalg.lstsq(basis * root[:, np.newaxis],
+                                       y * root, rcond=None)[0]
+        fit = basis @ coefficients
+        residual = y - fit
+        below = -residual[residual < 0]
+        scale = 1.4826 * np.median(below) if below.size else 0.0
+        if scale <= 0:
+            break
+        u = residual / (cutoff * scale)
+        new_weights = np.where(np.abs(u) < 1, (1 - u**2)**2, 0.0)
+        new_weights = np.where(residual > 0, upper_weight * new_weights,
+                               new_weights)
+        if new_weights.sum() < basis.shape[1]:
+            break
+        converged = np.max(np.abs(new_weights - weights)) < 1e-4
+        weights = new_weights
+        if converged:
+            break
+    return fit
+
+
 def find_maximum_chunk(data_file, data_path, i, j, k,
                        pixel_mask, transmission_mask,
-                       sub_idx, n_keep, scale):
+                       sub_idx, cap, scale):
     """Process a single chunk of frames for find_maximum.
 
     Parameters
@@ -346,11 +461,11 @@ def find_maximum_chunk(data_file, data_path, i, j, k,
     transmission_mask : ndarray, shape (ny, nx)
         Annulus mask derived from qmin/qmax.
     sub_idx : ndarray
-        Subsampled flat indices into the annulus for the trimmed sum.
-    n_keep : int
-        Number of annulus pixels to retain after trimming.
+        Subsampled flat indices into the annulus for the capped sum.
+    cap : int
+        Maximum counts contributed by a single pixel to the capped sum.
     scale : float
-        Rescaling factor for the trimmed sum.
+        Rescaling factor for the capped sum.
 
     Returns
     -------
@@ -362,14 +477,13 @@ def find_maximum_chunk(data_file, data_path, i, j, k,
     local_vsum = v_raw.sum(0, dtype=np.float64)
     vflat = v_raw.reshape(v_raw.shape[0], -1)
     sub_vals = vflat[:, sub_idx]
-    trimmed = np.partition(sub_vals, n_keep, axis=1)[:, :n_keep]
-    local_psum = trimmed.sum(axis=1) * scale
+    local_psum = capped_sum(sub_vals, cap, scale)
     v = np.ma.masked_array(v_raw)
     v.mask = pixel_mask
     local_fsum = v.sum((1, 2))
     v.mask = pixel_mask | transmission_mask
     local_maximum = float(v.max()) if v.count() > 0 else 0.0
-    del v, v_raw, vflat, sub_vals, trimmed
+    del v, v_raw, vflat, sub_vals
     return i, local_vsum, local_fsum, local_psum, local_maximum
 
 

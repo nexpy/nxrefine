@@ -223,6 +223,102 @@ class NXParent:
             return self.settings[name].nxvalue
         return default
 
+    @property
+    def reference(self):
+        """Reference used to scale sample transmissions between scans.
+
+        The reference is the first entry of one scan. It is stored in
+        ``nxscans/settings`` as ``reference_scan`` (the scan name),
+        ``reference_level`` (the median of that entry's transmission
+        baseline), ``reference_level_monitor`` (the median of the
+        baseline divided by the monitor, if the monitor was used),
+        ``reference_method`` (the method used to calculate the
+        baseline), and the ``reference_monitor`` and ``reference_norm``
+        used for the monitor level. The values are read from the file
+        so that a reference set by another process is seen.
+
+        Returns
+        -------
+        dict or None
+            Dictionary of the stored reference values, or None if no
+            reference has been set.
+        """
+        names = ('reference_scan', 'reference_level',
+                 'reference_level_monitor', 'reference_method',
+                 'reference_monitor', 'reference_norm')
+        try:
+            with nxopen(self.filename, 'r') as root:
+                settings = root[self.entry_path]['nxscans/settings']
+                values = {name: settings[name].nxvalue
+                          for name in names if name in settings}
+        except (NeXusError, OSError, KeyError):
+            values = {name: self.get_setting(name) for name in names
+                      if self.get_setting(name) is not None}
+        if not values.get('reference_scan') or 'reference_level' not in values:
+            return None
+        values['reference_scan'] = str(values['reference_scan'])
+        for name in ('reference_level', 'reference_level_monitor'):
+            if name in values:
+                values[name] = float(values[name])
+        return values
+
+    def claim_reference(self, scan, level, monitor, norm, level_monitor=None,
+                        method='', force=False):
+        """Set the reference scan and level unless one already exists.
+
+        The existing reference is checked and replaced within a single
+        write lock, so that scans finishing at the same time cannot
+        both claim it. The level of an existing reference is always
+        updated if it is the same scan.
+
+        Parameters
+        ----------
+        scan : str
+            Name of the scan, i.e., the stem of its wrapper file.
+        level : float
+            Median of the first entry's transmission baseline.
+        monitor : str
+            Monitor used in calculating `level_monitor` ('none' if off).
+        norm : float
+            Monitor normalization used in calculating `level_monitor`.
+        level_monitor : float, optional
+            Median of the first entry's transmission baseline divided
+            by the monitor, by default None if the monitor is not used.
+        method : str, optional
+            Method used to calculate the baseline.
+        force : bool, optional
+            Replace the reference even if it is a different scan.
+
+        Returns
+        -------
+        bool
+            True if this scan is now the reference.
+        """
+        with nxopen(self.filename, 'rw') as root:
+            entry = root[self.entry_path]
+            if 'nxscans' not in entry:
+                entry['nxscans'] = NXprocess()
+            if 'settings' not in entry['nxscans']:
+                entry['nxscans']['settings'] = NXparameters()
+            settings = entry['nxscans']['settings']
+            current = (str(settings['reference_scan'].nxvalue)
+                       if 'reference_scan' in settings else '')
+            if current and current != scan and not force:
+                return False
+            settings['reference_scan'] = scan
+            settings['reference_level'] = float(level)
+            if 'reference_level_monitor' in settings:
+                del settings['reference_level_monitor']
+            if level_monitor is not None:
+                settings['reference_level_monitor'] = float(level_monitor)
+            if method:
+                settings['reference_method'] = method
+            elif 'reference_method' in settings:
+                del settings['reference_method']
+            settings['reference_monitor'] = monitor
+            settings['reference_norm'] = float(norm)
+        return True
+
     def _changed_settings(self, settings):
         """Return the items in a dictionary that differ from the file.
 
