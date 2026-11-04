@@ -11,7 +11,8 @@ from nexpy.gui.utils import report_error
 from nexusformat.nexus import NeXusError, NXparameters
 
 from nxrefine.nxparent import NXParent
-from nxrefine.nxreduce import NXMultiReduce, NXReduce, auto_transmission_q
+from nxrefine.nxreduce import (BASELINE_WEIGHT, NXMultiReduce, NXReduce,
+                               auto_transmission_q)
 from nxrefine.nxrefine import NXRefine
 from nxrefine.nxsettings import NXSettings
 
@@ -46,6 +47,8 @@ class ParametersDialog(NXDialog):
         self.parameters.add('qmin', '', 'Minimum Scattering  Q (Å-1)')
         self.parameters.add('qmax', '', 'Maximum Taper Q (Å-1)')
         self.parameters.add('radius', default['radius'], 'Punch Radius (Å)')
+        self.parameters.add('baseline_weight', BASELINE_WEIGHT,
+                            'Transmission Baseline Weight')
         self.parameters.add('mask_t1', default['mask_t1'],
                             'Mask Threshold 1')
         self.parameters.add('mask_h1', default['mask_h1'],
@@ -96,7 +99,9 @@ class ParametersDialog(NXDialog):
                 self.parameters['hkl_tolerance'].value = (
                     reduce['hkl_tolerance'])
             if 'monitor' in reduce:
-                self.parameters['monitor'].value = reduce['monitor']
+                monitor = str(reduce['monitor']).strip()
+                self.parameters['monitor'].value = (
+                    '' if monitor.lower() == 'none' else monitor)
             if 'norm' in reduce:
                 self.parameters['norm'].value = reduce['norm']
             if 'sample_transmission' in reduce:
@@ -108,6 +113,9 @@ class ParametersDialog(NXDialog):
                 self.parameters['qmax'].value = f"{float(reduce['qmax']):.1f}"
             if 'radius' in reduce:
                 self.parameters['radius'].value = reduce['radius']
+            if 'baseline_weight' in reduce:
+                self.parameters['baseline_weight'].value = (
+                    reduce['baseline_weight'])
             if 'mask_t1' in reduce:
                 self.parameters['mask_t1'].value = reduce['mask_t1']
             if 'mask_h1' in reduce:
@@ -132,9 +140,9 @@ class ParametersDialog(NXDialog):
                 if reduce.hkl_tolerance:
                     self.parameters['hkl_tolerance'].value = (
                         reduce.hkl_tolerance)
-                if reduce.monitor:
-                    self.parameters['monitor'].value = reduce.monitor
-                if reduce.norm:
+                self.parameters['monitor'].value = (
+                    reduce.monitor if reduce.use_monitor else '')
+                if reduce.norm or not reduce.use_monitor:
                     self.parameters['norm'].value = reduce.norm
                 self.parameters['sample_transmission'].value = str(
                     reduce.sample_transmission)
@@ -146,6 +154,8 @@ class ParametersDialog(NXDialog):
                     self.parameters['qmax'].value = f"{float(qmax):.1f}"
                 if reduce.radius:
                     self.parameters['radius'].value = reduce.radius
+                self.parameters['baseline_weight'].value = (
+                    reduce.baseline_weight)
                 mp = reduce.mask_parameters
                 self.parameters['mask_t1'].value = mp['mask_t1']
                 self.parameters['mask_h1'].value = mp['mask_h1']
@@ -178,6 +188,7 @@ class ParametersDialog(NXDialog):
             elif 'qmax' in settings:
                 del settings['qmax']
             settings['radius'] = self.radius
+            settings['baseline_weight'] = self.baseline_weight
             settings['mask_t1'] = self.mask_t1
             settings['mask_h1'] = self.mask_h1
             settings['mask_t2'] = self.mask_t2
@@ -207,11 +218,14 @@ class ParametersDialog(NXDialog):
 
     @property
     def monitor(self):
-        return self.parameters['monitor'].value
+        """Monitor name, or 'none' if blank, which switches it off."""
+        return str(self.parameters['monitor'].value or '').strip() or 'none'
 
     @property
     def norm(self):
-        return float(self.parameters['norm'].value)
+        """Monitor normalization, which is 0 if blank (e.g., no monitor)."""
+        value = str(self.parameters['norm'].value or '').strip()
+        return float(value) if value else 0.0
 
     @property
     def sample_transmission(self):
@@ -237,6 +251,15 @@ class ParametersDialog(NXDialog):
     @property
     def radius(self):
         return float(self.parameters['radius'].value)
+
+    @property
+    def baseline_weight(self):
+        """Weight of frames above the baseline, between 0 and 1."""
+        value = float(self.parameters['baseline_weight'].value)
+        if not 0.0 < value <= 1.0:
+            raise NeXusError("The baseline weight must be greater than 0 "
+                             "and no more than 1")
+        return value
 
     @property
     def mask_t1(self):
