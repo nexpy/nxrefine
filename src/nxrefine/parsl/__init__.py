@@ -20,6 +20,13 @@ by the server. `get_config` declares one labelled executor for each way a
 batch might be run, and `select_executor` chooses between them for a
 batch of `ntasks` commands.
 
+A module may also define `large_executor(options, label)`. If
+`select_executor` returns a label that `get_config` did not declare,
+the server calls it to make that executor and adds it to Parsl. This is
+how a batch of 12 commands is run in one 12-node job, rather than in
+blocks of a fixed size: `large_nodes` is the smallest block, and
+`max_large_nodes` the largest, that is made for a batch.
+
 The defaults below cover the `direct` and `multicore` server types and
 provide a starting-point PBS Pro configuration for `multinode`. Sites
 whose scheduler is not PBS Pro, or whose cluster has requirements beyond
@@ -257,7 +264,77 @@ def get_config(options, run_dir):
     )
 
 
-def select_executor(options, ntasks):
+def node_range(options):
+    """Return the smallest and largest block size of the large executor.
+
+    The smallest is the `large_nodes` setting. The largest is the
+    `max_large_nodes` setting, which defaults to the smallest, so that
+    every block has `large_nodes` nodes unless a larger limit is set.
+
+    Parameters
+    ----------
+    options : dict
+        Settings from the `[parsl]` section.
+
+    Returns
+    -------
+    tuple of (int, int)
+        Smallest and largest number of nodes in a block.
+    """
+    minimum = int(option(options, 'large_nodes', 10))
+    maximum = int(option(options, 'max_large_nodes', minimum))
+    return minimum, max(maximum, minimum)
+
+
+def block_nodes(ntasks, minimum, maximum):
+    """Return the number of nodes in each block of a batch.
+
+    A worker runs on every node and a block runs one command on each,
+    so a batch needs `ntasks` nodes. A batch that does not fit in a
+    block of `maximum` nodes is divided evenly among the fewest blocks
+    that hold it, rather than leaving a few commands to wait in a second
+    job that has to queue on its own. A block is never smaller than
+    `minimum` nodes, and nodes that no command needs are only requested
+    to reach it.
+
+    Parameters
+    ----------
+    ntasks : int
+        Number of commands in the batch.
+    minimum : int
+        Smallest number of nodes in a block.
+    maximum : int
+        Largest number of nodes in a block.
+
+    Returns
+    -------
+    int
+        Number of nodes in each block.
+    """
+    blocks = max(-(-ntasks // maximum), 1)
+    return max(minimum, -(-ntasks // blocks))
+
+
+def large_label(nodes, minimum):
+    """Return the label of the large executor with blocks of `nodes` nodes.
+
+    The executor declared by `get_config` has blocks of `minimum` nodes
+    and keeps the label `LARGE`. Executors with larger blocks are added
+    to the server when a batch needs them (see `large_executor`) and
+    carry the number of nodes in their label.
+    """
+    return LARGE if nodes == minimum else f'{LARGE}-{nodes}'
+
+
+def label_nodes(label):
+    """Return the nodes per block in a label made by `large_label`, or None."""
+    prefix, _, nodes = str(label).rpartition('-')
+    if prefix == LARGE and nodes.isdigit():
+        return int(nodes)
+    return None
+
+
+def choose_executor(options, ntasks, nodes):
     """Return the label of the executor a batch should be run on.
 
     Parameters
@@ -266,11 +343,64 @@ def select_executor(options, ntasks):
         Settings from the `[parsl]` section.
     ntasks : int
         Number of commands in the batch.
+    nodes : tuple of (int, int)
+        Smallest and largest number of nodes in a block of the large
+        executor.
     """
     if option(options, 'server_type') != 'multinode':
         return LOCAL
     threshold = int(option(options, 'batch_threshold', 4))
-    return SMALL if ntasks <= threshold else LARGE
+    if ntasks <= threshold:
+        return SMALL
+    return large_label(block_nodes(ntasks, *nodes), nodes[0])
+
+
+def select_executor(options, ntasks):
+    """Return the label of the executor a batch should be run on.
+
+    A large batch is run in blocks sized to fit it, between `large_nodes`
+    and `max_large_nodes` nodes, so that it is not split across more
+    jobs than it needs. The executors for blocks that are larger than
+    `large_nodes` are made by `large_executor`.
+
+    Parameters
+    ----------
+    options : dict
+        Settings from the `[parsl]` section.
+    ntasks : int
+        Number of commands in the batch.
+    """
+    return choose_executor(options, ntasks, node_range(options))
+
+
+def large_executor(options, label):
+    """Return the large executor with the block size named by `label`.
+
+    This is called by the server when `select_executor` returns a label
+    that `get_config` did not declare. The executor has the same queue,
+    walltime and `max_blocks` as the large executor declared there.
+
+    Parameters
+    ----------
+    options : dict
+        Settings from the `[parsl]` section.
+    label : str
+        Executor label made by `large_label`.
+
+    Returns
+    -------
+    HighThroughputExecutor or None
+        The executor, or None if the label does not name a block size or
+        the server does not run on a PBS cluster.
+    """
+    nodes = label_nodes(label)
+    if nodes is None or option(options, 'server_type') != 'multinode':
+        return None
+    from .pbs import pbs_executor
+    return pbs_executor(label, options, nodes=nodes,
+                        max_blocks=int(option(options, 'max_blocks', 10)),
+                        queue=option(options, 'large_queue', 'prod'),
+                        walltime=str(option(options, 'walltime', '3:00:00')))
 
 
 def import_config(config, directory):
