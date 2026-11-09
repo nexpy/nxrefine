@@ -444,23 +444,58 @@ class NXServer(NXDaemon):
         if self._apps is not None:
             return
         import parsl
-        from parsl.app.app import bash_app
 
         self._module, self._config = self.build_config()
         parsl.load(self._config)
         self._apps = {}
         for label in [executor.label for executor in self._config.executors]:
-            @bash_app(executors=[label])
-            def run_command(command, stdout=None, stderr=None):
-                return command
-            self._apps[label] = run_command
+            self._apps[label] = self.define_app(label)
         self.log(f"Loaded Parsl with executors: {', '.join(self._apps)}")
+
+    @staticmethod
+    def define_app(label):
+        """Return a bash app that runs a command on the named executor."""
+        from parsl.app.app import bash_app
+
+        @bash_app(executors=[label])
+        def run_command(command, stdout=None, stderr=None):
+            return command
+        return run_command
+
+    def add_executor(self, label):
+        """Add an executor that the configuration did not declare.
+
+        The configuration module makes the executor with its optional
+        `large_executor` function, which is how a large batch is run in
+        blocks sized to fit it. Nothing is added if the module has no
+        such function or does not recognize the label.
+
+        Parameters
+        ----------
+        label : str
+            Label returned by the module's `select_executor`.
+        """
+        factory = getattr(self._module, 'large_executor', None)
+        if factory is None:
+            return
+        try:
+            executor = factory(self.parsl_options, label)
+            if executor is None:
+                return
+            import parsl
+            parsl.dfk().add_executors([executor])
+            self._apps[label] = self.define_app(label)
+            self.log(f"Added executor '{label}'")
+        except Exception as error:
+            self.log(f"Could not add executor '{label}': {error}")
 
     def dispatch(self, task):
         """Submit a task to the executor chosen for its batch."""
         self.load_parsl()
         label = self._module.select_executor(self.parsl_options,
                                              task.batch_size)
+        if label not in self._apps:
+            self.add_executor(label)
         if label not in self._apps:
             self.log(f"No executor '{label}'; using '{list(self._apps)[0]}'")
             label = list(self._apps)[0]

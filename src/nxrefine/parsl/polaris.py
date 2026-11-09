@@ -53,13 +53,24 @@ capacity        1-4     <= 168 h  1 running and 2 queued per user, 32 nodes
 
 Small batches go to `capacity`, which is capped at 4 nodes and allows
 one running job per user, hence `max_blocks=1`. Larger batches go to
-`prod`, whose 10-node minimum sets the block size.
+`prod`, whose 10-node minimum is the smallest block, set by
+`large_nodes`.
 
-One worker runs per node, so a block runs `large_nodes` commands at
-once and `max_blocks * large_nodes` is the number running across the
-whole executor. Size `max_blocks` to the batches actually submitted.
-Too low and the surplus waits for a free worker, which risks the 3 hour
-walltime of the 10-24 node tier; too high and one user's batch takes
+One worker runs per node, so a block runs one command on each of its
+nodes. A batch is run in a block with a node for every command, so that
+it is one job in the queue rather than several that each have to wait,
+and no node is requested that has no command to run, except to reach the
+10-node minimum. The block is no larger than `max_large_nodes`, which
+defaults to 24, the largest block in the 3 hour tier. A batch needing
+more is divided evenly among the fewest blocks that hold it: 12 commands
+run in one 12-node job and 30 in two 15-node jobs. The executors for
+blocks that are larger than `large_nodes` are added when a batch needs
+them, and all of them share `max_blocks`. Set `max_large_nodes` equal to
+`large_nodes` to run every batch in blocks of that size.
+
+`max_blocks` is the number of jobs the executor may run at once. Too low
+and the surplus commands wait for a free worker, which risks the 3 hour
+walltime of the 10-24 node tier; too high and one user's batches take
 all ten of the running jobs the whole project is allowed.
 
 Each node has 32 cores with 2 hardware threads each and 4 A100 GPUs.
@@ -75,13 +86,15 @@ OpenBLAS has to be held to one thread per process so that the worker
 processes a task starts do not exhaust the limit on tasks between them.
 """
 
-from . import (LARGE, SMALL, get_config as _default_config,  # noqa: F401
-               init_commands, monitoring_hub, option,  # noqa: F401
-               select_executor)  # noqa: F401
+from . import (LARGE, SMALL, choose_executor,  # noqa: F401
+               get_config as _default_config, init_commands, label_nodes,
+               monitoring_hub, option)
 from .pbs import MPIEXEC_OVERRIDES, pbs_executor  # noqa: F401
 
 TMPDIR = 'export TMPDIR=/tmp'
 OPENBLAS = 'export OPENBLAS_NUM_THREADS=1'
+PROD_MINIMUM = 10
+PROD_SMALL_MAXIMUM = 24
 
 
 def worker_commands(options):
@@ -123,6 +136,71 @@ def polaris_executor(label, options, nodes, max_blocks, queue, walltime):
         worker_init=worker_commands(options))
 
 
+def node_range(options):
+    """Return the smallest and largest block size of the large executor.
+
+    The smallest is the `large_nodes` setting, which cannot be below the
+    10-node minimum of the `prod` queue. The largest is the
+    `max_large_nodes` setting, by default the 24 nodes at which `prod`
+    changes to a longer walltime tier, and no smaller than the smallest.
+
+    Parameters
+    ----------
+    options : dict
+        Settings from the `[parsl]` section.
+    """
+    minimum = max(int(option(options, 'large_nodes', PROD_MINIMUM)),
+                  PROD_MINIMUM)
+    maximum = int(option(options, 'max_large_nodes', PROD_SMALL_MAXIMUM))
+    return minimum, max(maximum, minimum)
+
+
+def select_executor(options, ntasks):
+    """Return the label of the executor a batch should be run on.
+
+    A batch of more than `batch_threshold` commands goes to `prod` in
+    one block with a node for each command, at least 10 and at most
+    `max_large_nodes` nodes, or in the fewest blocks of that size that
+    hold it.
+
+    Parameters
+    ----------
+    options : dict
+        Settings from the `[parsl]` section.
+    ntasks : int
+        Number of commands in the batch.
+    """
+    return choose_executor(options, ntasks, node_range(options))
+
+
+def large_executor(options, label):
+    """Return the `prod` executor with the block size named by `label`.
+
+    The server calls this when `select_executor` returns the label of an
+    executor with larger blocks than the one declared by `get_config`.
+
+    Parameters
+    ----------
+    options : dict
+        Settings from the `[parsl]` section.
+    label : str
+        Executor label made by `nxrefine.parsl.large_label`.
+
+    Returns
+    -------
+    HighThroughputExecutor or None
+        The executor, or None if the label does not name a block size.
+    """
+    nodes = label_nodes(label)
+    if nodes is None:
+        return None
+    return polaris_executor(
+        label, options, nodes=nodes,
+        max_blocks=int(option(options, 'max_blocks', 10)),
+        queue=option(options, 'large_queue', 'prod'),
+        walltime=str(option(options, 'walltime', '3:00:00')))
+
+
 def get_config(options, run_dir):
     """Return the Parsl configuration for Polaris.
 
@@ -154,7 +232,7 @@ def get_config(options, run_dir):
                 walltime=str(option(options, 'walltime', '3:00:00'))),
             polaris_executor(
                 LARGE, options,
-                nodes=max(int(option(options, 'large_nodes', 10)), 10),
+                nodes=node_range(options)[0],
                 max_blocks=int(option(options, 'max_blocks', 10)),
                 queue=option(options, 'large_queue', 'prod'),
                 walltime=str(option(options, 'walltime', '3:00:00'))),
